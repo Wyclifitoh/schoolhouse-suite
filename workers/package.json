@@ -1,0 +1,36 @@
+{
+  "name": "chuo-workers",
+  "version": "1.0.0",
+  "description": "CHUO Background Job Workers (BullMQ)",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "worker:payments": "ts-node src/workers/payment.worker.ts",
+    "worker:notifications": "ts-node src/workers/notification.worker.ts",
+    "worker:reports": "ts-node src/workers/report.worker.ts",
+    "scheduler": "ts-node src/scheduler/index.ts"
+  },
+  "dependencies": {
+    "bullmq": "^5.1.0",
+    "ioredis": "^5.3.2",
+    "pg": "^8.11.3",
+    "date-fns": "^3.6.0",
+    "puppeteer": "^21.6.1",
+    "zod": "^3.22.4",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/pg": "^8.10.9",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

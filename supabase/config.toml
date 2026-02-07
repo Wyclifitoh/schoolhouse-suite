@@ -1,0 +1,16 @@
+project_id = "poahnojtbwmbupzispet"
+
+[functions.mpesa-callback]
+verify_jwt = false
+
+[functions.mpesa-stk-push]
+verify_jwt = false
+
+[functions.process-payment-allocation]
+verify_jwt = false
+
+[functions.send-payment-sms]
+verify_jwt = false
+
+[functions.manual-payment]
+verify_jwt = false
