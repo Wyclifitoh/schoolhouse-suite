@@ -14,3 +14,21 @@ verify_jwt = false
 
 [functions.manual-payment]
 verify_jwt = false
+
+[functions.fee-assignment]
+verify_jwt = false
+
+[functions.record-payment]
+verify_jwt = false
+
+[functions.student-balance]
+verify_jwt = false
+
+[functions.student-ledger]
+verify_jwt = false
+
+[functions.fee-templates]
+verify_jwt = false
+
+[functions.payment-history]
+verify_jwt = false
