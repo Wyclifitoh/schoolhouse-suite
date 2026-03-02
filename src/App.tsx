@@ -12,6 +12,7 @@ import Payments from "./pages/Payments";
 import Parents from "./pages/Parents";
 import Attendance from "./pages/Attendance";
 import Inventory from "./pages/Inventory";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/parents" element={<Parents />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
