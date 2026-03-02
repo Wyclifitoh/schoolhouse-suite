@@ -9,6 +9,9 @@ import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Finance from "./pages/Finance";
 import Payments from "./pages/Payments";
+import Parents from "./pages/Parents";
+import Attendance from "./pages/Attendance";
+import Inventory from "./pages/Inventory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +29,9 @@ const App = () => (
           <Route path="/students" element={<Students />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/parents" element={<Parents />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/inventory" element={<Inventory />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
