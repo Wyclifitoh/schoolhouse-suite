@@ -35,6 +35,39 @@ export const ledgerEntries = [
   { id: "l6", date: "2024-03-15", description: "Payment - M-Pesa SHQ...", type: "credit", amount: 15000, balance: 4500 },
 ];
 
+export const parents = [
+  { id: "pr1", full_name: "Mary Wanjiku", phone: "0712345678", email: "mary@email.com", id_number: "12345678", children: ["Amina Wanjiku"], children_count: 1, status: "active" },
+  { id: "pr2", full_name: "John Ochieng", phone: "0723456789", email: "john@email.com", id_number: "23456789", children: ["Brian Ochieng"], children_count: 1, status: "active" },
+  { id: "pr3", full_name: "Peter Muthoni", phone: "0734567890", email: "peter@email.com", id_number: "34567890", children: ["Catherine Muthoni"], children_count: 1, status: "active" },
+  { id: "pr4", full_name: "James Kipchoge", phone: "0745678901", email: "james@email.com", id_number: "45678901", children: ["David Kipchoge"], children_count: 1, status: "active" },
+  { id: "pr5", full_name: "Rose Akinyi", phone: "0756789012", email: "rose@email.com", id_number: "56789012", children: ["Esther Akinyi"], children_count: 1, status: "inactive" },
+  { id: "pr6", full_name: "Agnes Mutua", phone: "0767890123", email: "agnes@email.com", id_number: "67890123", children: ["Francis Mutua"], children_count: 1, status: "active" },
+  { id: "pr7", full_name: "Daniel Njeri", phone: "0778901234", email: "daniel@email.com", id_number: "78901234", children: ["Grace Njeri"], children_count: 1, status: "active" },
+  { id: "pr8", full_name: "Fatuma Mohamed", phone: "0789012345", email: "fatuma@email.com", id_number: "89012345", children: ["Hassan Mohamed"], children_count: 1, status: "active" },
+];
+
+export const attendanceRecords = [
+  { id: "a1", student_name: "Amina Wanjiku", admission_no: "ADM-2024-001", grade: "Grade 8", date: "2024-03-15", status: "present" as const },
+  { id: "a2", student_name: "Brian Ochieng", admission_no: "ADM-2024-002", grade: "Grade 7", date: "2024-03-15", status: "present" as const },
+  { id: "a3", student_name: "Catherine Muthoni", admission_no: "ADM-2024-003", grade: "Grade 8", date: "2024-03-15", status: "absent" as const },
+  { id: "a4", student_name: "David Kipchoge", admission_no: "ADM-2024-004", grade: "Grade 6", date: "2024-03-15", status: "present" as const },
+  { id: "a5", student_name: "Esther Akinyi", admission_no: "ADM-2024-005", grade: "Grade 7", date: "2024-03-15", status: "late" as const },
+  { id: "a6", student_name: "Francis Mutua", admission_no: "ADM-2024-006", grade: "Grade 8", date: "2024-03-15", status: "present" as const },
+  { id: "a7", student_name: "Grace Njeri", admission_no: "ADM-2024-007", grade: "Grade 6", date: "2024-03-15", status: "present" as const },
+  { id: "a8", student_name: "Hassan Mohamed", admission_no: "ADM-2024-008", grade: "Grade 7", date: "2024-03-15", status: "absent" as const },
+];
+
+export const inventoryItems = [
+  { id: "inv1", name: "Student Desks", category: "Furniture", quantity: 120, min_stock: 100, unit_cost: 4500, location: "Main Store", status: "in_stock" as const, last_restocked: "2024-02-10" },
+  { id: "inv2", name: "Exercise Books (48pg)", category: "Stationery", quantity: 2400, min_stock: 500, unit_cost: 45, location: "Stationery Store", status: "in_stock" as const, last_restocked: "2024-03-01" },
+  { id: "inv3", name: "Chalk Boxes", category: "Stationery", quantity: 35, min_stock: 50, unit_cost: 250, location: "Staff Room", status: "low_stock" as const, last_restocked: "2024-01-20" },
+  { id: "inv4", name: "Science Lab Kits", category: "Lab Equipment", quantity: 15, min_stock: 10, unit_cost: 12000, location: "Science Lab", status: "in_stock" as const, last_restocked: "2024-01-15" },
+  { id: "inv5", name: "Footballs", category: "Sports", quantity: 8, min_stock: 10, unit_cost: 1500, location: "Sports Store", status: "low_stock" as const, last_restocked: "2023-11-05" },
+  { id: "inv6", name: "Textbooks - Mathematics", category: "Books", quantity: 0, min_stock: 50, unit_cost: 850, location: "Library", status: "out_of_stock" as const, last_restocked: "2023-09-01" },
+  { id: "inv7", name: "Cleaning Supplies", category: "Maintenance", quantity: 60, min_stock: 20, unit_cost: 350, location: "Main Store", status: "in_stock" as const, last_restocked: "2024-03-10" },
+  { id: "inv8", name: "First Aid Kits", category: "Health", quantity: 5, min_stock: 5, unit_cost: 3500, location: "Sick Bay", status: "low_stock" as const, last_restocked: "2024-02-01" },
+];
+
 export const dashboardStats = {
   totalStudents: 342,
   activeStudents: 328,
