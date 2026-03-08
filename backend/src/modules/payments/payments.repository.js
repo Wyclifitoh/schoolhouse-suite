@@ -1,56 +1,46 @@
-const { query } = require('../../config/database');
+const { query, queryOne } = require('../../config/database');
+const { v4: uuidv4 } = require('uuid');
 
-const findAll = async (schoolId, { limit, offset }) => {
-  const result = await query(
-    `SELECT p.*, s.full_name as student_name, s.admission_number FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.school_id = $1 ORDER BY p.created_at DESC LIMIT $2 OFFSET $3`,
-    [schoolId, limit, offset]
-  );
-  const countResult = await query(
-    `SELECT COUNT(*) FROM payments WHERE school_id = $1`,
-    [schoolId]
-  );
-  return { rows: result.rows, total: parseInt(countResult.rows[0].count, 10) };
+const findAll = async (schoolId, { limit, offset, status, method }) => {
+  let sql = `SELECT p.*, s.full_name as student_name, s.admission_number 
+             FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.school_id = ?`;
+  const params = [schoolId];
+  if (status && status !== 'all') { sql += ' AND p.status = ?'; params.push(status); }
+  if (method && method !== 'all') { sql += ' AND p.payment_method = ?'; params.push(method); }
+  const countSql = sql.replace(/SELECT p\.\*.*?FROM/, 'SELECT COUNT(*) as count FROM');
+  sql += ' ORDER BY p.received_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  const [rows, countRows] = await Promise.all([query(sql, params), query(countSql, params.slice(0, -2))]);
+  return { rows, total: countRows[0]?.count || 0 };
 };
 
 const findById = async (id, schoolId) => {
-  const result = await query(
-    `SELECT p.*, s.full_name as student_name FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.id = $1 AND p.school_id = $2`,
+  return queryOne(
+    'SELECT p.*, s.full_name as student_name FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.id = ? AND p.school_id = ?',
     [id, schoolId]
   );
-  return result.rows[0] || null;
 };
 
 const create = async (data) => {
-  const result = await query(
-    `INSERT INTO payments (school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-    [data.school_id, data.student_id, data.amount, data.payment_method, data.reference_number, data.ledger_type || 'fees', data.status || 'pending', data.received_at || new Date().toISOString(), data.recorded_by, data.payer_phone, data.notes]
+  const id = uuidv4();
+  await query(
+    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.school_id, data.student_id, data.amount, data.payment_method, data.reference_number || null,
+     data.ledger_type || 'fees', data.status || 'pending', data.received_at || new Date(), data.recorded_by || null,
+     data.payer_phone || null, data.notes || null]
   );
-  return result.rows[0];
+  return queryOne('SELECT * FROM payments WHERE id = ?', [id]);
+};
+
+const voidPayment = async (id, schoolId, reason) => {
+  await query('UPDATE payments SET status = ?, notes = CONCAT(COALESCE(notes, ""), ?) WHERE id = ? AND school_id = ?',
+    ['reversed', `\n[VOIDED] ${reason}`, id, schoolId]);
+  return queryOne('SELECT * FROM payments WHERE id = ?', [id]);
 };
 
 const findMpesaByCheckoutId = async (checkoutRequestId) => {
-  const result = await query(
-    `SELECT * FROM mpesa_transactions WHERE checkout_request_id = $1`,
-    [checkoutRequestId]
-  );
-  return result.rows[0] || null;
+  return queryOne('SELECT * FROM mpesa_transactions WHERE checkout_request_id = ?', [checkoutRequestId]);
 };
 
-const updateMpesaTransaction = async (id, data) => {
-  const fields = [];
-  const values = [];
-  let idx = 1;
-  for (const [key, value] of Object.entries(data)) {
-    fields.push(`${key} = $${idx}`);
-    values.push(value);
-    idx++;
-  }
-  values.push(id);
-  const result = await query(
-    `UPDATE mpesa_transactions SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
-    values
-  );
-  return result.rows[0];
-};
-
-module.exports = { findAll, findById, create, findMpesaByCheckoutId, updateMpesaTransaction };
+module.exports = { findAll, findById, create, voidPayment, findMpesaByCheckoutId };

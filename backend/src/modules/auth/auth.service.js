@@ -17,6 +17,7 @@ const login = async (email, password) => {
   }
 
   const roles = await authRepository.getUserRoles(user.id);
+  const profile = await authRepository.getProfile(user.id);
 
   const token = jwt.sign(
     { id: user.id, email: user.email },
@@ -27,6 +28,7 @@ const login = async (email, password) => {
   return {
     token,
     user: { id: user.id, email: user.email, full_name: user.full_name },
+    profile: profile || null,
     roles,
   };
 };
@@ -44,7 +46,24 @@ const register = async ({ email, password, fullName, schoolId, role }) => {
     await authRepository.assignRole(user.id, schoolId, role);
   }
 
-  return user;
+  const roles = await authRepository.getUserRoles(user.id);
+  const profile = await authRepository.getProfile(user.id);
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+
+  return { token, user, profile, roles };
 };
 
-module.exports = { login, register };
+const me = async (userId) => {
+  const user = await authRepository.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+  const roles = await authRepository.getUserRoles(userId);
+  const profile = await authRepository.getProfile(userId);
+  return { user, profile, roles };
+};
+
+module.exports = { login, register, me };

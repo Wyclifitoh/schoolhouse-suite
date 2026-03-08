@@ -20,17 +20,26 @@ const register = async (req, res) => {
     if (!email || !password || !full_name) {
       return error(res, 'Email, password, and full_name are required', 400);
     }
-    const user = await authService.register({
+    const result = await authService.register({
       email,
       password,
       fullName: full_name,
       schoolId: school_id,
       role,
     });
-    return success(res, user, 201);
+    return success(res, result, 201);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
 };
 
-module.exports = { login, register };
+const me = async (req, res) => {
+  try {
+    const result = await authService.me(req.user.id);
+    return success(res, result);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+module.exports = { login, register, me };

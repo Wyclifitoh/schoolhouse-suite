@@ -1,72 +1,138 @@
-const { query } = require('../../config/database');
+const { query, queryOne } = require('../../config/database');
+const { v4: uuidv4 } = require('uuid');
 
+// ---- Fee Templates ----
 const findFeeTemplates = async (schoolId, { limit, offset }) => {
-  const result = await query(
-    `SELECT * FROM fee_templates WHERE school_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-    [schoolId, limit, offset]
-  );
-  const countResult = await query(
-    `SELECT COUNT(*) FROM fee_templates WHERE school_id = $1`,
-    [schoolId]
-  );
-  return { rows: result.rows, total: parseInt(countResult.rows[0].count, 10) };
+  const rows = await query('SELECT * FROM fee_templates WHERE school_id = ? AND is_active = TRUE ORDER BY priority ASC LIMIT ? OFFSET ?', [schoolId, limit, offset]);
+  const countRows = await query('SELECT COUNT(*) as count FROM fee_templates WHERE school_id = ? AND is_active = TRUE', [schoolId]);
+  return { rows, total: countRows[0]?.count || 0 };
 };
 
+// ---- Fee Categories ----
+const findFeeCategories = async (schoolId) => {
+  return query('SELECT * FROM fee_categories WHERE school_id = ? ORDER BY name', [schoolId]);
+};
+
+// ---- Fee Structures ----
+const findFeeStructures = async (schoolId) => {
+  return query(
+    `SELECT fs.*, fc.name as category_name, fc.type as category_type, g.name as grade_name
+     FROM fee_structures fs
+     LEFT JOIN fee_categories fc ON fc.id = fs.fee_category_id
+     LEFT JOIN grades g ON g.id = fs.grade_id
+     WHERE fs.school_id = ? ORDER BY fs.created_at DESC`,
+    [schoolId]
+  );
+};
+
+// ---- Fee Discounts ----
+const findFeeDiscounts = async (schoolId) => {
+  return query('SELECT * FROM fee_discounts WHERE school_id = ? AND is_active = TRUE ORDER BY priority', [schoolId]);
+};
+
+// ---- Student Fees ----
 const findStudentFees = async (studentId, schoolId) => {
-  const result = await query(
-    `SELECT sf.*, ft.name as fee_name, ft.fee_type FROM student_fees sf JOIN fee_templates ft ON ft.id = sf.fee_template_id WHERE sf.student_id = $1 AND sf.school_id = $2 ORDER BY sf.due_date ASC`,
+  return query(
+    `SELECT sf.*, ft.name as fee_name, ft.fee_type
+     FROM student_fees sf LEFT JOIN fee_templates ft ON ft.id = sf.fee_template_id
+     WHERE sf.student_id = ? AND sf.school_id = ? ORDER BY sf.due_date ASC`,
     [studentId, schoolId]
   );
-  return result.rows;
 };
 
 const findStudentFeeById = async (id, schoolId) => {
-  const result = await query(
-    `SELECT * FROM student_fees WHERE id = $1 AND school_id = $2`,
-    [id, schoolId]
-  );
-  return result.rows[0] || null;
+  return queryOne('SELECT * FROM student_fees WHERE id = ? AND school_id = ?', [id, schoolId]);
 };
 
 const createStudentFee = async (data) => {
-  const result = await query(
-    `INSERT INTO student_fees (school_id, student_id, fee_template_id, term_id, academic_year_id, ledger_type, amount_due, status, due_date, assigned_by, assignment_mode) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-    [data.school_id, data.student_id, data.fee_template_id, data.term_id, data.academic_year_id, data.ledger_type, data.amount_due, 'pending', data.due_date, data.assigned_by, data.assignment_mode || 'manual']
+  const id = uuidv4();
+  await query(
+    `INSERT INTO student_fees (id, school_id, student_id, fee_template_id, term_id, academic_year_id, ledger_type, amount_due, status, due_date, assigned_by, assignment_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
+    [id, data.school_id, data.student_id, data.fee_template_id, data.term_id, data.academic_year_id, data.ledger_type || 'fees', data.amount_due, data.due_date, data.assigned_by, data.assignment_mode || 'manual']
   );
-  return result.rows[0];
+  return queryOne('SELECT * FROM student_fees WHERE id = ?', [id]);
 };
 
 const updateStudentFee = async (id, schoolId, data) => {
   const fields = [];
   const values = [];
-  let idx = 1;
   for (const [key, value] of Object.entries(data)) {
-    fields.push(`${key} = $${idx}`);
+    fields.push(`${key} = ?`);
     values.push(value);
-    idx++;
   }
+  if (fields.length === 0) return findStudentFeeById(id, schoolId);
   values.push(id, schoolId);
-  const result = await query(
-    `UPDATE student_fees SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${idx} AND school_id = $${idx + 1} RETURNING *`,
-    values
-  );
-  return result.rows[0];
+  await query(`UPDATE student_fees SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, values);
+  return queryOne('SELECT * FROM student_fees WHERE id = ?', [id]);
 };
 
+// ---- Student Balance ----
 const getStudentBalance = async (studentId, schoolId) => {
-  const result = await query(
-    `SELECT ledger_type, COALESCE(SUM(amount_due), 0) as total_due, COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(amount_due - amount_paid), 0) as balance FROM student_fees WHERE student_id = $1 AND school_id = $2 AND status != 'cancelled' GROUP BY ledger_type`,
+  return query(
+    `SELECT ledger_type, COALESCE(SUM(amount_due), 0) as total_due, COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(amount_due - amount_paid), 0) as balance
+     FROM student_fees WHERE student_id = ? AND school_id = ? AND status NOT IN ('cancelled', 'waived') GROUP BY ledger_type`,
     [studentId, schoolId]
   );
-  return result.rows;
 };
 
-const getCarryForwards = async (studentId, schoolId) => {
-  const result = await query(
-    `SELECT * FROM fee_carry_forwards WHERE student_id = $1 AND school_id = $2 ORDER BY created_at DESC`,
-    [studentId, schoolId]
+// ---- Carry Forwards ----
+const getCarryForwards = async (schoolId) => {
+  return query(
+    `SELECT cf.*, s.full_name as student_name, t1.name as from_term_name, t2.name as to_term_name
+     FROM fee_carry_forwards cf
+     LEFT JOIN students s ON s.id = cf.student_id
+     LEFT JOIN terms t1 ON t1.id = cf.from_term_id
+     LEFT JOIN terms t2 ON t2.id = cf.to_term_id
+     WHERE cf.school_id = ? ORDER BY cf.created_at DESC`,
+    [schoolId]
   );
-  return result.rows;
 };
 
-module.exports = { findFeeTemplates, findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee, getStudentBalance, getCarryForwards };
+// ---- Student Fees List (aggregated) ----
+const getStudentFeesList = async (schoolId, { search, termId }) => {
+  let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, s.grade, s.stream,
+    COALESCE(SUM(sf.amount_due), 0) as total_fee,
+    COALESCE(SUM(sf.discount_amount), 0) as discount,
+    COALESCE(SUM(sf.fine_amount), 0) as fine,
+    COALESCE(SUM(sf.amount_paid), 0) as paid,
+    COALESCE(SUM(sf.amount_due - sf.amount_paid), 0) as balance
+    FROM students s
+    LEFT JOIN student_fees sf ON sf.student_id = s.id AND sf.school_id = s.school_id AND sf.status NOT IN ('cancelled','waived')`;
+
+  const params = [schoolId];
+  if (termId) {
+    sql += ' AND sf.term_id = ?';
+    params.push(termId);
+  }
+  sql += ' WHERE s.school_id = ? AND s.status = ?';
+  params.push(schoolId, 'active');
+
+  if (search) {
+    sql += ' AND (s.full_name LIKE ? OR s.admission_number LIKE ?)';
+    const s = `%${search}%`;
+    params.push(s, s);
+  }
+
+  sql += ' GROUP BY s.id ORDER BY s.full_name LIMIT 200';
+  return query(sql, params);
+};
+
+// ---- Expenses ----
+const findExpenses = async (schoolId) => {
+  return query(
+    `SELECT e.*, ec.name as category_name FROM expenses e LEFT JOIN expense_categories ec ON ec.id = e.category_id WHERE e.school_id = ? ORDER BY e.expense_date DESC`,
+    [schoolId]
+  );
+};
+
+const findExpenseCategories = async (schoolId) => {
+  return query('SELECT * FROM expense_categories WHERE school_id = ? ORDER BY name', [schoolId]);
+};
+
+module.exports = {
+  findFeeTemplates, findFeeCategories, findFeeStructures, findFeeDiscounts,
+  findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
+  getStudentBalance, getCarryForwards, getStudentFeesList,
+  findExpenses, findExpenseCategories,
+};
