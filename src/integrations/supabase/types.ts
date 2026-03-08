@@ -1240,6 +1240,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_carry_forwards_for_term: {
+        Args: {
+          p_from_term_id: string
+          p_school_id: string
+          p_to_term_id: string
+        }
+        Returns: {
+          applied_count: number
+          failed_count: number
+          total_arrears: number
+          total_credits: number
+        }[]
+      }
+      apply_fee_adjustment: {
+        Args: {
+          p_adjustment_type: string
+          p_amount: number
+          p_approved_by?: string
+          p_created_by: string
+          p_reason: string
+          p_school_id: string
+          p_student_fee_id: string
+        }
+        Returns: undefined
+      }
+      apply_fee_discount: {
+        Args: {
+          p_applied_by: string
+          p_discount_id: string
+          p_student_fee_id: string
+        }
+        Returns: number
+      }
+      calculate_brought_forward: {
+        Args: {
+          p_ledger_type: string
+          p_new_term_id: string
+          p_student_id: string
+        }
+        Returns: {
+          arrears: number
+          credit: number
+        }[]
+      }
       create_manual_payment: {
         Args: {
           p_amount: number
