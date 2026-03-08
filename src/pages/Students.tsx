@@ -416,11 +416,10 @@ const Students = () => {
                 </div>
                 <Select value={gradeFilter} onValueChange={setGradeFilter}>
                   <SelectTrigger className="w-36 h-9"><Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Grade" /></SelectTrigger>
-                  <SelectContent><SelectItem value="all">All Grades</SelectItem>{["Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Category" /></SelectTrigger>
-                  <SelectContent><SelectItem value="all">All Categories</SelectItem>{studentCategories.map(c => <SelectItem key={c.id} value={c.name.toLowerCase()}>{c.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {grades.map(g => <SelectItem key={g.id} value={g.name}>{g.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
 
