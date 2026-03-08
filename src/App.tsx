@@ -4,8 +4,17 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Index from "./pages/Index";
+import { SchoolProvider } from "@/contexts/SchoolContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+// Auth pages
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Unauthorized from "./pages/Unauthorized";
+
+// Dashboard pages
+import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Finance from "./pages/Finance";
@@ -27,41 +36,57 @@ import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/students" element={<Students />} />
-            <Route path="/finance" element={<Finance />} />
-            <Route path="/fee-assignment" element={<FeeAssignment />} />
-            <Route path="/student-fees/:studentId" element={<StudentFees />} />
-            <Route path="/payments" element={<Payments />} />
-            <Route path="/parents" element={<Parents />} />
-            <Route path="/attendance" element={<Attendance />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/examinations" element={<Examinations />} />
-            <Route path="/classes" element={<Classes />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/communication" element={<Communication />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/promotion" element={<Promotion />} />
-            <Route path="/parent-portal" element={<ParentPortal />} />
-            <Route path="/student-panel" element={<StudentPanel />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <SchoolProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
+
+              {/* Protected routes */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+              <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+              <Route path="/fee-assignment" element={<ProtectedRoute><FeeAssignment /></ProtectedRoute>} />
+              <Route path="/student-fees/:studentId" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
+              <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+              <Route path="/parents" element={<ProtectedRoute><Parents /></ProtectedRoute>} />
+              <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+              <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/examinations" element={<ProtectedRoute><Examinations /></ProtectedRoute>} />
+              <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+              <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
+              <Route path="/expenses" element={<ProtectedRoute><Expenses /></ProtectedRoute>} />
+              <Route path="/communication" element={<ProtectedRoute><Communication /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+              <Route path="/promotion" element={<ProtectedRoute><Promotion /></ProtectedRoute>} />
+              <Route path="/parent-portal" element={<ProtectedRoute><ParentPortal /></ProtectedRoute>} />
+              <Route path="/student-panel" element={<ProtectedRoute><StudentPanel /></ProtectedRoute>} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </SchoolProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

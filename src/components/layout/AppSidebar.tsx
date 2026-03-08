@@ -2,10 +2,11 @@ import {
   LayoutDashboard, GraduationCap, Users, Banknote, ClipboardList,
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
-  ChevronDown, ShoppingBag, Sparkles, ListChecks,
+  ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, ROLE_LABELS, UserRole } from "@/contexts/AuthContext";
+import { useSchool } from "@/contexts/SchoolContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -131,9 +132,18 @@ const NavSection = ({ sectionKey, isOpen, onToggle }: { sectionKey: SectionKey; 
 };
 
 export function AppSidebar() {
-  const { user, role, roleLabel, switchRole, logout } = useAuth();
+  const { user, profile, role, roleLabel, switchRole, logout, signOut } = useAuth();
+  const { currentSchool, schools, switchSchool } = useSchool();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Display helpers
+  const displayName = profile
+    ? `${profile.first_name} ${profile.last_name}`.trim() || user?.email || "User"
+    : user?.email || "Guest";
+  const displayInitials = profile
+    ? `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "?"
+    : "?";
 
   // Auto-open sections that contain the active route
   const getInitialOpen = (): Record<SectionKey, boolean> => {
@@ -141,7 +151,6 @@ export function AppSidebar() {
     for (const [key, section] of Object.entries(allNav)) {
       state[key] = section.items.some(i => location.pathname === i.url);
     }
-    // Default open first section if none active
     if (!Object.values(state).some(Boolean)) state.overview = true;
     return state as Record<SectionKey, boolean>;
   };
@@ -152,7 +161,11 @@ export function AppSidebar() {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleLogout = () => { logout(); navigate("/login"); };
+  const handleLogout = () => {
+    signOut();
+    logout();
+    navigate("/login");
+  };
 
   return (
     <Sidebar className="border-r-0">
@@ -169,10 +182,29 @@ export function AppSidebar() {
               CHUO
               <Sparkles className="h-3.5 w-3.5 text-sidebar-primary/80" />
             </h2>
-            <p className="text-[11px] text-sidebar-foreground/60">School Management</p>
+            <p className="text-[11px] text-sidebar-foreground/60">
+              {currentSchool?.name || "School Management"}
+            </p>
           </div>
         </div>
       </SidebarHeader>
+
+      {/* School Switcher */}
+      {schools.length > 1 && (
+        <div className="mx-4 mb-2 px-1">
+          <Select value={currentSchool?.id || ""} onValueChange={switchSchool}>
+            <SelectTrigger className="h-8 text-xs bg-sidebar-accent/50 border-sidebar-border/50 text-sidebar-accent-foreground rounded-lg">
+              <Building2 className="h-3 w-3 mr-1.5" />
+              <SelectValue placeholder="Select School" />
+            </SelectTrigger>
+            <SelectContent>
+              {schools.map(s => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="mx-4 mb-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
@@ -190,7 +222,7 @@ export function AppSidebar() {
       <SidebarFooter className="px-4 py-4 space-y-3">
         <div className="mx-1 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
-        {/* Role Switcher */}
+        {/* Role Switcher (dev mode) */}
         <div className="px-1">
           <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 mb-1.5">Switch Role</p>
           <Select value={role} onValueChange={(v) => { switchRole(v as UserRole); navigate("/dashboard"); }}>
@@ -198,7 +230,7 @@ export function AppSidebar() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(ROLE_LABELS) as UserRole[]).map(r => (
+              {(Object.keys(ROLE_LABELS) as string[]).filter(r => ["admin","accountant","teacher","librarian","parent","student"].includes(r)).map(r => (
                 <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
               ))}
             </SelectContent>
@@ -208,10 +240,10 @@ export function AppSidebar() {
         {/* User Profile */}
         <div className="flex items-center gap-3 px-1 py-2.5 rounded-xl bg-sidebar-accent/30 hover:bg-sidebar-accent/50 transition-colors cursor-default">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/60 text-sidebar-primary-foreground text-xs font-bold shadow-sm">
-            {user?.avatar ?? "?"}
+            {displayInitials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{user?.name ?? "Guest"}</p>
+            <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{displayName}</p>
             <p className="text-[11px] text-sidebar-foreground/60 truncate">{roleLabel}</p>
           </div>
           <button
