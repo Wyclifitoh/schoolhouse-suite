@@ -1015,8 +1015,6 @@ export type Database = {
       }
       next_receipt_number: { Args: { p_school_id: string }; Returns: string }
       release_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       try_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
     }
     Enums: {
