@@ -471,7 +471,7 @@ const Students = () => {
                               <DropdownMenuItem onClick={() => setViewStudent(s)}>
                                 <Eye className="h-4 w-4 mr-2" />View Profile
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate("/student-fees")}>
+                              <DropdownMenuItem onClick={() => navigate(`/student-fees/${s.id}`)}>
                                 <Wallet className="h-4 w-4 mr-2" />View Fees & Payments
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setPaymentStudent(s); setShowPaymentDialog(true); }}>
