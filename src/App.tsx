@@ -22,6 +22,8 @@ import Finance from "./pages/Finance";
 import FeeAssignment from "./pages/FeeAssignment";
 import StudentFees from "./pages/StudentFees";
 import Payments from "./pages/Payments";
+import ExcessPayments from "./pages/ExcessPayments";
+import FeeReminders from "./pages/FeeReminders";
 import Parents from "./pages/Parents";
 import Attendance from "./pages/Attendance";
 import Inventory from "./pages/Inventory";
