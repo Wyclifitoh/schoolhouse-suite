@@ -50,7 +50,7 @@ const Library = () => {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<typeof bookIssues[0] | null>(null);
 
-  const categories = [...new Set(libraryBooks.map(b => b.category))];
+  const categories: string[] = [...new Set(libraryBooks.map(b => b.category))];
 
   const filteredBooks = libraryBooks.filter(b => {
     const matchSearch = b.title.toLowerCase().includes(search.toLowerCase()) ||
