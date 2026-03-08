@@ -155,7 +155,7 @@ export default function StaffDirectory() {
   const updateField = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Staff Directory">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

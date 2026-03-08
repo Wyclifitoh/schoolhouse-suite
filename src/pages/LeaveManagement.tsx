@@ -104,7 +104,7 @@ export default function LeaveManagement() {
   const approvedCount = leaveApplications.filter((l: any) => l.status === "approved").length;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Leave Management">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

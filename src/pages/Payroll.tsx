@@ -96,7 +96,7 @@ export default function Payroll() {
   const paidCount = payrollRecords.filter((p: any) => p.payment_status === "paid").length;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Payroll">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

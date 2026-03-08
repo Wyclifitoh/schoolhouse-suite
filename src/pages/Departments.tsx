@@ -87,7 +87,7 @@ export default function Departments() {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Departments & Designations">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Departments & Designations</h1>
