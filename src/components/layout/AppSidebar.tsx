@@ -2,7 +2,7 @@ import {
   LayoutDashboard, GraduationCap, Users, Banknote, ClipboardList,
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
-  ChevronDown, ShoppingBag, Sparkles,
+  ChevronDown, ShoppingBag, Sparkles, ListChecks,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, ROLE_LABELS, UserRole } from "@/contexts/AuthContext";
