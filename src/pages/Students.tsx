@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { students, studentCategories, promotionRecords } from "@/data/mockData";
+import { students, studentCategories, promotionRecords, parents } from "@/data/mockData";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
