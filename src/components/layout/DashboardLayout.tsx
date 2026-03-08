@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search, Menu } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -11,7 +11,14 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
-  const { user, roleLabel } = useAuth();
+  const { profile, user, roleLabel } = useAuth();
+
+  const displayName = profile
+    ? `${profile.first_name} ${profile.last_name}`.trim() || user?.email || "Guest"
+    : user?.email || "Guest";
+  const displayInitials = profile
+    ? `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "?"
+    : "?";
 
   return (
     <SidebarProvider>
@@ -39,10 +46,10 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
               <div className="h-6 w-px bg-border/50 mx-1" />
               <div className="flex items-center gap-2.5 pl-1">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-xs font-bold shadow-sm">
-                  {user?.avatar ?? "?"}
+                  {displayInitials}
                 </div>
                 <div className="hidden lg:block">
-                  <p className="text-sm font-medium text-foreground leading-tight">{user?.name ?? "Guest"}</p>
+                  <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
                   <p className="text-[10px] text-muted-foreground">{roleLabel}</p>
                 </div>
               </div>
