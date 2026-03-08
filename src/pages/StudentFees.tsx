@@ -92,6 +92,19 @@ const StudentFees = () => {
   const [discountValue, setDiscountValue] = useState("");
   const [discountReason, setDiscountReason] = useState("");
 
+  const fees = student ? (studentFeeDetails[student.id] || []) : [];
+  const studentCF = student ? carryForwards.filter(cf => cf.student_name === student.full_name) : [];
+
+  const totals = useMemo(() => {
+    const totalAmount = fees.reduce((a, f) => a + f.amount, 0);
+    const totalBF = fees.reduce((a, f) => a + f.brought_forward, 0);
+    const totalDiscount = fees.reduce((a, f) => a + f.discount, 0);
+    const totalFine = fees.reduce((a, f) => a + f.fine, 0);
+    const totalPaid = fees.reduce((a, f) => a + f.paid, 0);
+    const totalBalance = fees.reduce((a, f) => a + f.balance, 0);
+    return { totalAmount, totalBF, totalDiscount, totalFine, totalPaid, totalBalance };
+  }, [fees]);
+
   if (!student) {
     return (
       <DashboardLayout title="Student Not Found" subtitle="">
@@ -105,20 +118,6 @@ const StudentFees = () => {
       </DashboardLayout>
     );
   }
-
-  const fees = studentFeeDetails[student.id] || [];
-  const studentCF = carryForwards.filter(cf => cf.student_name === student.full_name);
-
-  // Flatten fees into rows — each fee row, plus its payment sub-rows
-  const totals = useMemo(() => {
-    const totalAmount = fees.reduce((a, f) => a + f.amount, 0);
-    const totalBF = fees.reduce((a, f) => a + f.brought_forward, 0);
-    const totalDiscount = fees.reduce((a, f) => a + f.discount, 0);
-    const totalFine = fees.reduce((a, f) => a + f.fine, 0);
-    const totalPaid = fees.reduce((a, f) => a + f.paid, 0);
-    const totalBalance = fees.reduce((a, f) => a + f.balance, 0);
-    return { totalAmount, totalBF, totalDiscount, totalFine, totalPaid, totalBalance };
-  }, [fees]);
 
   const handleRecordPayment = () => {
     if (!paymentAmount || !paymentMethod) {
