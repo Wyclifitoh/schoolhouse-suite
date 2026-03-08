@@ -9,6 +9,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Finance from "./pages/Finance";
+import FeeAssignment from "./pages/FeeAssignment";
+import StudentFees from "./pages/StudentFees";
 import Payments from "./pages/Payments";
 import Parents from "./pages/Parents";
 import Attendance from "./pages/Attendance";
