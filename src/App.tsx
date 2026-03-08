@@ -37,6 +37,11 @@ import Reports from "./pages/Reports";
 import Promotion from "./pages/Promotion";
 import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
+import StaffDirectory from "./pages/StaffDirectory";
+import StaffAttendance from "./pages/StaffAttendance";
+import LeaveManagement from "./pages/LeaveManagement";
+import Payroll from "./pages/Payroll";
+import Departments from "./pages/Departments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
