@@ -58,7 +58,7 @@ const Attendance = () => {
           <CardContent className="flex items-center gap-4 p-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><ClipboardCheck className="h-5 w-5 text-primary" /></div>
             <div><p className="text-sm text-muted-foreground">Total</p>
-              {isLoading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold text-foreground">{students.length}</p>}</div>
+              {isLoading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold text-foreground">{filtered.length}</p>}</div>
           </CardContent>
         </Card>
         <Card>
