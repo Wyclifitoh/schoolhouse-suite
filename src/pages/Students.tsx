@@ -331,6 +331,7 @@ const Students = () => {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentRef, setPaymentRef] = useState("");
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const filtered = students.filter((s) => {
     const matchesSearch = s.full_name.toLowerCase().includes(search.toLowerCase()) ||
