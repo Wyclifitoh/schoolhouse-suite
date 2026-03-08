@@ -5,18 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth, ROLE_LABELS, UserRole } from "@/contexts/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>("admin");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
+      login(selectedRole);
       setLoading(false);
-      navigate("/dashboard");
+      if (selectedRole === "parent") navigate("/parent-portal");
+      else if (selectedRole === "student") navigate("/student-panel");
+      else navigate("/dashboard");
     }, 800);
   };
 
@@ -44,18 +51,9 @@ const Login = () => {
             Manage students, track fees, process payments, and run your school efficiently — all from one platform.
           </p>
           <div className="mt-12 grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-3xl font-bold">342</p>
-              <p className="text-sm text-primary-foreground/50">Students</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold">98%</p>
-              <p className="text-sm text-primary-foreground/50">Uptime</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold">4.2M</p>
-              <p className="text-sm text-primary-foreground/50">Collected</p>
-            </div>
+            <div><p className="text-3xl font-bold">342</p><p className="text-sm text-primary-foreground/50">Students</p></div>
+            <div><p className="text-3xl font-bold">98%</p><p className="text-sm text-primary-foreground/50">Uptime</p></div>
+            <div><p className="text-3xl font-bold">4.2M</p><p className="text-sm text-primary-foreground/50">Collected</p></div>
           </div>
         </div>
       </div>
@@ -79,36 +77,32 @@ const Login = () => {
             <CardContent className="p-0">
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
+                  <Label htmlFor="role" className="text-sm font-medium">Login As</Label>
+                  <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as UserRole)}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ROLE_LABELS) as UserRole[]).map(r => (
+                        <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@school.ac.ke"
-                    defaultValue="admin@school.ac.ke"
-                    className="h-11"
-                  />
+                  <Input id="email" type="email" placeholder="admin@school.ac.ke" defaultValue="admin@school.ac.ke" className="h-11" />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                    <button type="button" className="text-xs text-primary hover:underline">
-                      Forgot password?
-                    </button>
+                    <button type="button" className="text-xs text-primary hover:underline">Forgot password?</button>
                   </div>
                   <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      defaultValue="password123"
-                      className="h-11 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" defaultValue="password123" className="h-11 pr-10" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -121,7 +115,7 @@ const Login = () => {
                       Signing in...
                     </span>
                   ) : (
-                    "Sign In"
+                    `Sign In as ${ROLE_LABELS[selectedRole]}`
                   )}
                 </Button>
               </form>
