@@ -4,29 +4,21 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
 import { students, feeDiscounts, carryForwards } from "@/data/mockData";
 import {
-  ArrowLeft, Wallet, Download, CheckCircle, Percent, Phone, Mail,
-  Receipt, AlertTriangle, ArrowUpRight,
+  ArrowLeft, Wallet, Download, Percent, Phone, Receipt, AlertTriangle, ArrowUpRight, Scale,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
-// Mock fee data per student with fee group, fee code, and payment details
+// Mock fee data per student
 const studentFeeDetails: Record<string, Array<{
   id: string;
   fee_group: string;
@@ -82,15 +74,12 @@ const StudentFees = () => {
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentFeeId, setPaymentFeeId] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [paymentRef, setPaymentRef] = useState("");
-  const [paymentNote, setPaymentNote] = useState("");
-  const [showDiscountDialog, setShowDiscountDialog] = useState(false);
-  const [discountFeeId, setDiscountFeeId] = useState("");
-  const [discountType, setDiscountType] = useState("percentage");
-  const [discountValue, setDiscountValue] = useState("");
-  const [discountReason, setDiscountReason] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState<number | undefined>();
+
+  const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
+  const [adjustmentFee, setAdjustmentFee] = useState<{
+    id: string; name: string; currentAmount: number; amountPaid: number;
+  } | null>(null);
 
   const fees = student ? (studentFeeDetails[student.id] || []) : [];
   const studentCF = student ? carryForwards.filter(cf => cf.student_name === student.full_name) : [];
@@ -110,7 +99,7 @@ const StudentFees = () => {
       <DashboardLayout title="Student Not Found" subtitle="">
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <AlertTriangle className="h-12 w-12 text-warning" />
-          <p className="text-muted-foreground">Student not found. Please go back and select a student.</p>
+          <p className="text-muted-foreground">Student not found.</p>
           <Button variant="outline" onClick={() => navigate("/students")}>
             <ArrowLeft className="h-4 w-4 mr-2" />Back to Students
           </Button>
@@ -119,21 +108,15 @@ const StudentFees = () => {
     );
   }
 
-  const handleRecordPayment = () => {
-    if (!paymentAmount || !paymentMethod) {
-      toast.error("Please fill in amount and payment method");
-      return;
-    }
-    toast.success(`Payment of ${formatKES(Number(paymentAmount))} recorded for ${student.full_name}`);
+  const handleRecordPayment = (data: any) => {
+    toast.success(`Payment of ${formatKES(data.amount)} recorded for ${student.full_name}`);
     setShowPaymentDialog(false);
-    setPaymentAmount(""); setPaymentMethod(""); setPaymentRef(""); setPaymentNote(""); setPaymentFeeId("");
   };
 
-  const handleApplyDiscount = () => {
-    if (!discountValue) { toast.error("Please enter discount value"); return; }
-    toast.success("Discount applied successfully");
-    setShowDiscountDialog(false);
-    setDiscountValue(""); setDiscountReason(""); setDiscountFeeId("");
+  const handleAdjustment = (data: any) => {
+    toast.success(`Fee adjustment applied: ${data.adjustmentType} of ${formatKES(data.amount)}`);
+    setShowAdjustmentDialog(false);
+    setAdjustmentFee(null);
   };
 
   const statusColor = (s: string) => {
@@ -143,6 +126,10 @@ const StudentFees = () => {
     if (lower === "overdue") return "bg-destructive/10 text-destructive border-0";
     return "bg-muted text-muted-foreground border-0";
   };
+
+  const feeItems = fees.filter(f => f.balance > 0).map(f => ({
+    id: f.id, name: f.fee_name, dueAmount: f.amount, balance: f.balance,
+  }));
 
   return (
     <DashboardLayout title={`${student.full_name} — Fees & Payments`} subtitle={`${student.admission_no} · ${student.grade} ${student.stream}`}>
@@ -155,7 +142,7 @@ const StudentFees = () => {
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" size="sm"><Download className="h-3.5 w-3.5 mr-1" />Fee Statement</Button>
-            <Button size="sm" onClick={() => { setPaymentFeeId(""); setShowPaymentDialog(true); }}>
+            <Button size="sm" onClick={() => { setPaymentFeeId(""); setPaymentAmount(undefined); setShowPaymentDialog(true); }}>
               <Wallet className="h-3.5 w-3.5 mr-1" />Receive Payment
             </Button>
           </div>
@@ -260,7 +247,7 @@ const StudentFees = () => {
                     <TableHead className="font-semibold text-xs text-right">Fine (KES)</TableHead>
                     <TableHead className="font-semibold text-xs text-right">Paid (KES)</TableHead>
                     <TableHead className="font-semibold text-xs text-right">Balance (KES)</TableHead>
-                    <TableHead className="font-semibold text-xs w-20">Action</TableHead>
+                    <TableHead className="font-semibold text-xs w-24">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -287,17 +274,22 @@ const StudentFees = () => {
                             {f.balance > 0 && (
                               <Button size="sm" variant="outline" className="h-7 text-[11px] px-2" onClick={() => {
                                 setPaymentFeeId(f.id);
-                                setPaymentAmount(f.balance.toString());
+                                setPaymentAmount(f.balance);
                                 setShowPaymentDialog(true);
                               }}>
                                 <Wallet className="h-3 w-3 mr-0.5" />Pay
                               </Button>
                             )}
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => {
-                              setDiscountFeeId(f.id);
-                              setShowDiscountDialog(true);
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Adjust fee" onClick={() => {
+                              setAdjustmentFee({
+                                id: f.id,
+                                name: f.fee_name,
+                                currentAmount: f.amount,
+                                amountPaid: f.paid,
+                              });
+                              setShowAdjustmentDialog(true);
                             }}>
-                              <Percent className="h-3 w-3" />
+                              <Scale className="h-3 w-3" />
                             </Button>
                           </div>
                         </TableCell>
@@ -359,111 +351,25 @@ const StudentFees = () => {
         </Card>
       </motion.div>
 
-      {/* Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />Record Payment — {student.full_name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="rounded-lg bg-muted/50 p-3 text-sm flex justify-between">
-              <span className="text-muted-foreground">Outstanding Balance</span>
-              <span className="font-bold text-destructive">{formatKES(totals.totalBalance)}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Amount (KES)</Label>
-                <Input type="number" placeholder="Enter amount" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mpesa">M-Pesa</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank">Bank Transfer</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Reference / Receipt No.</Label>
-              <Input placeholder="Transaction reference" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Allocate to Fee (Optional)</Label>
-              <Select value={paymentFeeId} onValueChange={setPaymentFeeId}>
-                <SelectTrigger><SelectValue placeholder="Auto-allocate (FIFO)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Auto-allocate (FIFO)</SelectItem>
-                  {fees.filter(f => f.balance > 0).map(f => (
-                    <SelectItem key={f.id} value={f.id}>{f.fee_name} — Bal: {formatKES(f.balance)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Note (Optional)</Label>
-              <Textarea placeholder="Payment note" rows={2} value={paymentNote} onChange={e => setPaymentNote(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>Cancel</Button>
-            <Button onClick={handleRecordPayment}><CheckCircle className="h-4 w-4 mr-1.5" />Record Payment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Multi-step Record Payment Dialog */}
+      <RecordPaymentDialog
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        preselectedStudentId={student.id}
+        preselectedFeeId={paymentFeeId || undefined}
+        preselectedAmount={paymentAmount}
+        studentFees={feeItems}
+        onSubmit={handleRecordPayment}
+      />
 
-      {/* Discount Dialog */}
-      <Dialog open={showDiscountDialog} onOpenChange={setShowDiscountDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Percent className="h-5 w-5 text-success" />Apply Discount
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Discount Category</Label>
-              <Select>
-                <SelectTrigger><SelectValue placeholder="Select or custom" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="custom">Custom Discount</SelectItem>
-                  {feeDiscounts.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({d.type === "percentage" ? `${d.value}%` : formatKES(d.value)})</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={discountType} onValueChange={setDiscountType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="percentage">Percentage (%)</SelectItem>
-                    <SelectItem value="fixed">Fixed Amount (KES)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Value</Label>
-                <Input type="number" placeholder={discountType === "percentage" ? "e.g. 15" : "e.g. 3000"} value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Reason</Label>
-              <Textarea placeholder="Reason for discount" rows={2} value={discountReason} onChange={e => setDiscountReason(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDiscountDialog(false)}>Cancel</Button>
-            <Button onClick={handleApplyDiscount} className="bg-success hover:bg-success/90"><Percent className="h-4 w-4 mr-1.5" />Apply Discount</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Fee Adjustment Dialog */}
+      <FeeAdjustmentDialog
+        open={showAdjustmentDialog}
+        onOpenChange={setShowAdjustmentDialog}
+        fee={adjustmentFee}
+        studentName={student.full_name}
+        onSubmit={handleAdjustment}
+      />
     </DashboardLayout>
   );
 };
