@@ -32,6 +32,7 @@ const allNav = {
   ],
   admin: [
     { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin","accountant"] as UserRole[] },
+    { title: "Library", url: "/library", icon: Library, roles: ["admin","librarian","teacher"] as UserRole[] },
     { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin","librarian"] as UserRole[] },
     { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"] as UserRole[] },
   ],
