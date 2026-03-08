@@ -18,7 +18,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { students, studentCategories, promotionRecords, parents, studentFeeCollection } from "@/data/mockData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useStudents, useSoftDeleteStudent, type StudentRow } from "@/hooks/useStudents";
+import { useGrades } from "@/hooks/useGrades";
+import { students as mockStudents, studentCategories, promotionRecords, parents as mockParents } from "@/data/mockData";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
@@ -39,7 +42,7 @@ const formatKES = (amount: number) => {
 const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   const [step, setStep] = useState(1);
   const [guardianPhone, setGuardianPhone] = useState("");
-  const [matchedParent, setMatchedParent] = useState<typeof parents[0] | null>(null);
+  const [matchedParent, setMatchedParent] = useState<typeof mockParents[0] | null>(null);
   const [siblingPromptShown, setSiblingPromptShown] = useState(false);
   const [addAsSibling, setAddAsSibling] = useState(false);
   const totalSteps = 5;
@@ -49,7 +52,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
     setGuardianPhone(phone);
     const cleaned = phone.replace(/\s/g, "");
     if (cleaned.length >= 10) {
-      const found = parents.find(p => p.phone === cleaned);
+      const found = mockParents.find(p => p.phone === cleaned);
       if (found) {
         setMatchedParent(found);
         setSiblingPromptShown(true);
@@ -66,7 +69,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   };
 
   const siblingStudents = matchedParent
-    ? students.filter(s => s.parent_phone === matchedParent.phone)
+    ? mockStudents.filter(s => s.parent_phone === matchedParent.phone)
     : [];
 
   return (
@@ -323,34 +326,32 @@ const Students = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [admissionOpen, setAdmissionOpen] = useState(false);
   
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentStudent, setPaymentStudent] = useState<typeof students[0] | null>(null);
+  const [paymentStudent, setPaymentStudent] = useState<StudentRow | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentRef, setPaymentRef] = useState("");
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
-  const filtered = students.filter((s) => {
-    const matchesSearch = s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.admission_no.toLowerCase().includes(search.toLowerCase()) ||
-      s.parent_name.toLowerCase().includes(search.toLowerCase());
+  const { data: allStudents = [], isLoading } = useStudents({ search: search || undefined });
+  const { data: grades = [] } = useGrades();
+  const softDelete = useSoftDeleteStudent();
+
+  const filtered = allStudents.filter((s) => {
     const matchesGrade = gradeFilter === "all" || s.grade === gradeFilter;
-    const matchesCategory = categoryFilter === "all" || s.category === categoryFilter;
-    return matchesSearch && matchesGrade && matchesCategory;
+    return matchesGrade;
   });
 
-  const activeCount = students.filter((s) => s.status === "active").length;
-  const withBalance = students.filter((s) => s.balance < 0).length;
+  const activeCount = allStudents.filter((s) => s.status === "active").length;
 
   const handleRecordPayment = () => {
     if (!paymentAmount || !paymentMethod) {
       toast.error("Please fill in amount and payment method");
       return;
     }
-    toast.success(`Payment of KES ${Number(paymentAmount).toLocaleString()} recorded for ${paymentStudent?.full_name}`);
+    toast.success(`Payment of KES ${Number(paymentAmount).toLocaleString()} recorded for ${paymentStudent?.full_name || paymentStudent?.first_name}`);
     setShowPaymentDialog(false);
     setPaymentAmount("");
     setPaymentMethod("");
@@ -358,12 +359,10 @@ const Students = () => {
     setPaymentStudent(null);
   };
 
-  const getSiblings = (student: typeof students[0]) => {
-    return students.filter(s => s.id !== student.id && s.parent_phone === student.parent_phone);
-  };
-
-  const getStudentCollection = (sid: string) => {
-    return studentFeeCollection.find(c => c.student_id === sid);
+  const getDisplayName = (s: StudentRow) => s.full_name || `${s.first_name} ${s.last_name}`;
+  const getInitials = (s: StudentRow) => {
+    const name = getDisplayName(s);
+    return name.split(" ").map(n => n[0]).join("").slice(0, 2);
   };
 
   return (
@@ -379,7 +378,7 @@ const Students = () => {
           <div className="grid gap-4 sm:grid-cols-3 mb-0">
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><GraduationCap className="h-5 w-5 text-primary" /></div>
-              <div><p className="text-sm text-muted-foreground">Total Students</p><p className="text-2xl font-bold text-foreground">{students.length}</p></div>
+              <div><p className="text-sm text-muted-foreground">Total Students</p><p className="text-2xl font-bold text-foreground">{allStudents.length}</p></div>
             </CardContent></Card>
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"><Users className="h-5 w-5 text-success" /></div>
@@ -387,7 +386,7 @@ const Students = () => {
             </CardContent></Card>
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
-              <div><p className="text-sm text-muted-foreground">With Outstanding Fees</p><p className="text-2xl font-bold text-foreground">{withBalance}</p></div>
+              <div><p className="text-sm text-muted-foreground">Inactive</p><p className="text-2xl font-bold text-foreground">{allStudents.filter(s => s.status === "inactive").length}</p></div>
             </CardContent></Card>
           </div>
 
@@ -418,11 +417,10 @@ const Students = () => {
                 </div>
                 <Select value={gradeFilter} onValueChange={setGradeFilter}>
                   <SelectTrigger className="w-36 h-9"><Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Grade" /></SelectTrigger>
-                  <SelectContent><SelectItem value="all">All Grades</SelectItem>{["Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Category" /></SelectTrigger>
-                  <SelectContent><SelectItem value="all">All Categories</SelectItem>{studentCategories.map(c => <SelectItem key={c.id} value={c.name.toLowerCase()}>{c.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {grades.map(g => <SelectItem key={g.id} value={g.name}>{g.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
 
@@ -440,27 +438,41 @@ const Students = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((s) => (
+                    {isLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-8 w-48" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                          <TableCell />
+                        </TableRow>
+                      ))
+                    ) : filtered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          {search ? "No students match your search" : "No students found. Add your first student!"}
+                        </TableCell>
+                      </TableRow>
+                    ) : filtered.map((s) => (
                       <TableRow key={s.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                              {s.full_name.split(" ").map(n => n[0]).join("")}
+                              {getInitials(s)}
                             </div>
                             <div>
-                              <p className="font-medium text-foreground">{s.full_name}</p>
-                              <p className="text-xs text-muted-foreground">{s.gender} · {s.category === "rte" ? "RTE" : s.category}</p>
+                              <p className="font-medium text-foreground">{getDisplayName(s)}</p>
+                              <p className="text-xs text-muted-foreground">{s.gender || "—"}</p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground font-mono text-xs">{s.admission_no}</TableCell>
-                        <TableCell><Badge variant="secondary" className="font-normal">{s.grade} · {s.stream}</Badge></TableCell>
-                        <TableCell><p className="text-sm">{s.parent_name}</p><p className="text-xs text-muted-foreground">{s.parent_phone}</p></TableCell>
-                        <TableCell>
-                          <span className={`text-sm font-semibold ${s.balance < 0 ? "text-destructive" : s.balance > 0 ? "text-success" : "text-muted-foreground"}`}>
-                            {s.balance === 0 ? "Cleared" : formatKES(s.balance)}
-                          </span>
-                        </TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">{s.admission_number}</TableCell>
+                        <TableCell><Badge variant="secondary" className="font-normal">{s.grade || "—"}{s.stream ? ` · ${s.stream}` : ""}</Badge></TableCell>
+                        <TableCell><p className="text-sm">{s.parent_name || "—"}</p><p className="text-xs text-muted-foreground">{s.parent_phone || ""}</p></TableCell>
+                        <TableCell><span className="text-sm text-muted-foreground">—</span></TableCell>
                         <TableCell>
                           <Badge variant={s.status === "active" ? "default" : "secondary"}
                             className={s.status === "active" ? "bg-success/10 text-success border-0 hover:bg-success/20" : ""}>{s.status}</Badge>
@@ -484,16 +496,6 @@ const Students = () => {
                                 <CreditCard className="h-4 w-4 mr-2" />Collect Payment
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => {
-                                const siblings = getSiblings(s);
-                                if (siblings.length > 0) {
-                                  toast.info(`${s.full_name} has ${siblings.length} sibling(s): ${siblings.map(sb => sb.full_name).join(", ")}`);
-                                } else {
-                                  toast.info(`${s.full_name} has no siblings registered in this school.`);
-                                }
-                              }}>
-                                <Users className="h-4 w-4 mr-2" />Check Siblings
-                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => toast.success("ID card sent to print queue")}>
                                 <Printer className="h-4 w-4 mr-2" />Print ID Card
                               </DropdownMenuItem>
@@ -501,7 +503,7 @@ const Students = () => {
                                  <Download className="h-4 w-4 mr-2" />Download Statement
                                </DropdownMenuItem>
                                <DropdownMenuSeparator />
-                               <DropdownMenuItem className="text-destructive" onClick={() => toast.success(`${s.full_name} has been deactivated`)}>
+                               <DropdownMenuItem className="text-destructive" onClick={() => softDelete.mutate(s.id)}>
                                  <Trash2 className="h-4 w-4 mr-2" />Deactivate
                                </DropdownMenuItem>
                              </DropdownMenuContent>
@@ -513,7 +515,7 @@ const Students = () => {
                 </Table>
               </div>
               <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">Showing {filtered.length} of {students.length} students</p>
+                <p className="text-sm text-muted-foreground">Showing {filtered.length} of {allStudents.length} students</p>
                 <div className="flex gap-1"><Button variant="outline" size="sm" disabled>Previous</Button><Button variant="outline" size="sm" disabled>Next</Button></div>
               </div>
             </CardContent>
@@ -643,11 +645,8 @@ const Students = () => {
           <div className="space-y-4 py-2">
             {paymentStudent && (
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{paymentStudent.full_name}</span></div>
-                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Adm. No.</span><span className="font-mono text-xs">{paymentStudent.admission_no}</span></div>
-                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Outstanding</span>
-                  <span className={`font-bold ${paymentStudent.balance < 0 ? "text-destructive" : "text-success"}`}>KES {Math.abs(paymentStudent.balance).toLocaleString()}</span>
-                </div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{getDisplayName(paymentStudent)}</span></div>
+                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Adm. No.</span><span className="font-mono text-xs">{paymentStudent.admission_number}</span></div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
