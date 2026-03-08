@@ -141,7 +141,7 @@ const StudentFees = () => {
   const studentCF = selectedStudent ? carryForwards.filter(cf => cf.student_name === selectedStudent.full_name) : [];
 
   return (
-    <DashboardLayout title="Student Fees" subtitle="View assigned fees, payments, balances, and manage individual student accounts">
+    <DashboardLayout title="Student Fees & Payments" subtitle="View fees, collect payments, apply discounts, and manage student balances">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Student List */}
         <div className={`${selectedStudent ? "lg:col-span-4" : "lg:col-span-12"} space-y-4`}>
