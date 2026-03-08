@@ -185,6 +185,127 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          budget: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          budget?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          budget?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          approved_by: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          payment_method: string
+          recorded_by: string | null
+          reference: string | null
+          school_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          approved_by?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_method?: string
+          recorded_by?: string | null
+          reference?: string | null
+          school_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string | null
+          category_id?: string | null
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_method?: string
+          recorded_by?: string | null
+          reference?: string | null
+          school_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_adjustments: {
         Row: {
           adjustment_type: string
@@ -764,6 +885,155 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework: {
+        Row: {
+          assigned_by: string | null
+          assigned_date: string
+          attachment_url: string | null
+          class_name: string
+          created_at: string
+          description: string | null
+          due_date: string
+          id: string
+          max_marks: number | null
+          school_id: string
+          section: string | null
+          status: string
+          subject: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_date?: string
+          attachment_url?: string | null
+          class_name: string
+          created_at?: string
+          description?: string | null
+          due_date: string
+          id?: string
+          max_marks?: number | null
+          school_id: string
+          section?: string | null
+          status?: string
+          subject: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_date?: string
+          attachment_url?: string | null
+          class_name?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          id?: string
+          max_marks?: number | null
+          school_id?: string
+          section?: string | null
+          status?: string
+          subject?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework_submissions: {
+        Row: {
+          attachment_url: string | null
+          content: string | null
+          created_at: string
+          evaluated_at: string | null
+          evaluated_by: string | null
+          homework_id: string
+          id: string
+          marks: number | null
+          remarks: string | null
+          school_id: string
+          status: string
+          student_id: string
+          submission_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          content?: string | null
+          created_at?: string
+          evaluated_at?: string | null
+          evaluated_by?: string | null
+          homework_id: string
+          id?: string
+          marks?: number | null
+          remarks?: string | null
+          school_id: string
+          status?: string
+          student_id: string
+          submission_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attachment_url?: string | null
+          content?: string | null
+          created_at?: string
+          evaluated_at?: string | null
+          evaluated_by?: string | null
+          homework_id?: string
+          id?: string
+          marks?: number | null
+          remarks?: string | null
+          school_id?: string
+          status?: string
+          student_id?: string
+          submission_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_submissions_evaluated_by_fkey"
+            columns: ["evaluated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_submissions_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homework"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_submissions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
