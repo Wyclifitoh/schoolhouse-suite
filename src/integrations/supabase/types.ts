@@ -951,7 +951,73 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_manual_payment: {
+        Args: {
+          p_amount: number
+          p_fee_ids: string[]
+          p_notes?: string
+          p_payment_date: string
+          p_payment_method: string
+          p_receipt_number: string
+          p_recorded_by: string
+          p_reference_number: string
+          p_school_id: string
+          p_student_id: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          id: string
+          ledger_type: string
+          mpesa_transaction_id: string | null
+          notes: string | null
+          payer_phone: string | null
+          payment_method: string
+          receipt_url: string | null
+          received_at: string
+          recorded_by: string | null
+          reference_number: string | null
+          school_id: string
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fuzzy_match_admission: {
+        Args: { p_reference: string; p_school_id: string }
+        Returns: {
+          admission_number: string
+          full_name: string
+          id: string
+          similarity_score: number
+        }[]
+      }
+      generate_receipt: {
+        Args: { p_payment_id: string; p_school_id: string }
+        Returns: {
+          receipt_id: string
+          receipt_number: string
+        }[]
+      }
+      get_student_balance: {
+        Args: { p_ledger_type?: string; p_student_id: string }
+        Returns: number
+      }
+      increment_fee_payment: {
+        Args: { fee_id: string; payment_amount: number }
+        Returns: undefined
+      }
+      next_receipt_number: { Args: { p_school_id: string }; Returns: string }
+      release_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      try_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
