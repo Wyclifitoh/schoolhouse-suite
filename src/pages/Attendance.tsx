@@ -155,7 +155,7 @@ const Attendance = () => {
           </div>
 
           <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">Showing {students.length} students</p>
+            <p className="text-sm text-muted-foreground">Showing {filtered.length} students</p>
             <div className="flex gap-2 text-sm text-muted-foreground">
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />Present {presentCount}</span>
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />Absent {absentCount}</span>
