@@ -52,6 +52,56 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: unknown
+          new_values: Json | null
+          old_values: Json | null
+          school_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          school_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: unknown
+          new_values?: Json | null
+          old_values?: Json | null
+          school_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_adjustments: {
         Row: {
           adjustment_type: string
@@ -908,6 +958,119 @@ export type Database = {
             columns: ["term_id"]
             isOneToOne: false
             referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_templates: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string | null
+          event_type: string
+          id: string
+          is_active: boolean | null
+          name: string
+          school_id: string | null
+          subject: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          body: string
+          channel?: string
+          created_at?: string | null
+          event_type: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          school_id?: string | null
+          subject?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          school_id?: string | null
+          subject?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_templates_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string | null
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          recipient_contact: string
+          recipient_id: string
+          recipient_type: string
+          school_id: string
+          sent_at: string | null
+          status: string | null
+          subject: string | null
+          template_id: string | null
+        }
+        Insert: {
+          body: string
+          channel?: string
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          recipient_contact: string
+          recipient_id: string
+          recipient_type: string
+          school_id: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          recipient_contact?: string
+          recipient_id?: string
+          recipient_type?: string
+          school_id?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "notification_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -2786,6 +2949,10 @@ export type Database = {
       }
       next_receipt_number: { Args: { p_school_id: string }; Returns: string }
       release_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
+      reverse_payment: {
+        Args: { _payment_id: string; _reason: string }
+        Returns: Json
+      }
       try_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
     }
     Enums: {
