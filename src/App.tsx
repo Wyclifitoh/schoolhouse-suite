@@ -38,6 +38,13 @@ import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import Homework from "./pages/Homework";
 
+// Academic Module
+import ClassTimetable from "./pages/academics/ClassTimetable";
+import TeacherTimetable from "./pages/academics/TeacherTimetable";
+import AssignClassTeacher from "./pages/academics/AssignClassTeacher";
+import Subjects from "./pages/academics/Subjects";
+import Streams from "./pages/academics/Streams";
+
 // HR Module
 import StaffDirectory from "./pages/StaffDirectory";
 import StaffAttendance from "./pages/StaffAttendance";
@@ -88,25 +95,31 @@ const App = () => (
                 {/* Protected routes */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+                <Route path="/parents" element={<ProtectedRoute><Parents /></ProtectedRoute>} />
+                <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+
+                {/* Academic Module */}
+                <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+                <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />
+                <Route path="/subjects" element={<ProtectedRoute><Subjects /></ProtectedRoute>} />
+                <Route path="/class-timetable" element={<ProtectedRoute><ClassTimetable /></ProtectedRoute>} />
+                <Route path="/teacher-timetable" element={<ProtectedRoute><TeacherTimetable /></ProtectedRoute>} />
+                <Route path="/assign-class-teacher" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><AssignClassTeacher /></ProtectedRoute>} />
+                <Route path="/examinations" element={<ProtectedRoute><Examinations /></ProtectedRoute>} />
+                <Route path="/homework" element={<ProtectedRoute><Homework /></ProtectedRoute>} />
+                <Route path="/promotion" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Promotion /></ProtectedRoute>} />
+                <Route path="/communication" element={<ProtectedRoute><Communication /></ProtectedRoute>} />
+
+                {/* Finance Module */}
                 <Route path="/finance" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Finance /></ProtectedRoute>} />
                 <Route path="/fee-assignment" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><FeeAssignment /></ProtectedRoute>} />
                 <Route path="/student-fees/:studentId" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
                 <Route path="/payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "front_office"]}><Payments /></ProtectedRoute>} />
                 <Route path="/excess-payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><ExcessPayments /></ProtectedRoute>} />
                 <Route path="/fee-reminders" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><FeeReminders /></ProtectedRoute>} />
-                <Route path="/parents" element={<ProtectedRoute><Parents /></ProtectedRoute>} />
-                <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
-                <Route path="/inventory" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "store_manager", "pos_attendant"]}><Inventory /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Settings /></ProtectedRoute>} />
-                <Route path="/examinations" element={<ProtectedRoute><Examinations /></ProtectedRoute>} />
-                <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
-                <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
+
+                {/* Expenses Module */}
                 <Route path="/expenses" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Expenses /></ProtectedRoute>} />
-                <Route path="/communication" element={<ProtectedRoute><Communication /></ProtectedRoute>} />
-                <Route path="/promotion" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Promotion /></ProtectedRoute>} />
-                <Route path="/parent-portal" element={<ProtectedRoute roles={["parent"]}><ParentPortal /></ProtectedRoute>} />
-                <Route path="/student-panel" element={<ProtectedRoute roles={["student"]}><StudentPanel /></ProtectedRoute>} />
-                <Route path="/homework" element={<ProtectedRoute><Homework /></ProtectedRoute>} />
 
                 {/* HR Module */}
                 <Route path="/staff-directory" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><StaffDirectory /></ProtectedRoute>} />
@@ -114,6 +127,13 @@ const App = () => (
                 <Route path="/leave-management" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><LeaveManagement /></ProtectedRoute>} />
                 <Route path="/payroll" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Payroll /></ProtectedRoute>} />
                 <Route path="/departments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Departments /></ProtectedRoute>} />
+
+                {/* Admin */}
+                <Route path="/inventory" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "store_manager", "pos_attendant"]}><Inventory /></ProtectedRoute>} />
+                <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Settings /></ProtectedRoute>} />
+                <Route path="/parent-portal" element={<ProtectedRoute roles={["parent"]}><ParentPortal /></ProtectedRoute>} />
+                <Route path="/student-panel" element={<ProtectedRoute roles={["student"]}><StudentPanel /></ProtectedRoute>} />
 
                 {/* Reports */}
                 <Route path="/reports/finance" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "auditor"]}><FinanceReports /></ProtectedRoute>} />
