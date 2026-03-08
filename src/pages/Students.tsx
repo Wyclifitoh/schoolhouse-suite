@@ -22,8 +22,9 @@ import { students, studentCategories, promotionRecords, parents, studentFeeColle
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
-  Wallet, Phone, Mail, MapPin, Calendar, User, CreditCard, Printer, CheckCircle,
+  Wallet, Phone, Mail, MapPin, Calendar, User, CreditCard, Printer, CheckCircle, Edit, Trash2,
 } from "lucide-react";
+import { BulkImportDialog } from "@/components/students/BulkImportDialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
