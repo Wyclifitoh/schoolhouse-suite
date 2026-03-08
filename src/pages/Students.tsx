@@ -146,13 +146,50 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Father / Guardian Information</p>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5"><Label className="text-xs">Father's Name *</Label><Input placeholder="Full name" className="h-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Phone *</Label><Input placeholder="0712345678" className="h-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Occupation</Label><Input placeholder="Occupation" className="h-9" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Father's Name *</Label><Input placeholder="Full name" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.full_name : ""} /></div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Phone *</Label>
+              <Input placeholder="0712345678" className="h-9" value={guardianPhone} onChange={e => handlePhoneChange(e.target.value)} />
+            </div>
+            <div className="space-y-1.5"><Label className="text-xs">Occupation</Label><Input placeholder="Occupation" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.occupation : ""} /></div>
           </div>
+
+          {/* Sibling Detection Alert */}
+          {siblingPromptShown && matchedParent && (
+            <div className="rounded-lg border-2 border-info/40 bg-info/5 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-info mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">Existing Parent Found!</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    <span className="font-medium text-foreground">{matchedParent.full_name}</span> ({matchedParent.phone}) is already registered with {matchedParent.children_count} child{matchedParent.children_count > 1 ? "ren" : ""}:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {siblingStudents.map(s => (
+                      <Badge key={s.id} variant="secondary" className="text-xs">
+                        {s.full_name} · {s.grade} {s.stream}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 ml-8">
+                <Button size="sm" variant={addAsSibling ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAddAsSibling(true)}>
+                  <UserPlus className="h-3 w-3 mr-1" />Yes, Add as Sibling
+                </Button>
+                <Button size="sm" variant={!addAsSibling ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAddAsSibling(false)}>
+                  No, Different Parent
+                </Button>
+              </div>
+              {addAsSibling && (
+                <p className="text-xs text-success ml-8 font-medium">✓ This student will be linked as a sibling. Guardian details auto-filled.</p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5"><Label className="text-xs">Email</Label><Input type="email" placeholder="email@example.com" className="h-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">ID Number</Label><Input placeholder="National ID" className="h-9" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Email</Label><Input type="email" placeholder="email@example.com" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.email : ""} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">ID Number</Label><Input placeholder="National ID" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.id_number : ""} /></div>
             <div className="space-y-1.5"><Label className="text-xs">Annual Income</Label>
               <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent><SelectItem value="below_50k">Below KES 50,000</SelectItem><SelectItem value="50k_200k">KES 50,000 - 200,000</SelectItem><SelectItem value="200k_500k">KES 200,000 - 500,000</SelectItem><SelectItem value="above_500k">Above KES 500,000</SelectItem></SelectContent></Select>
