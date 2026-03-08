@@ -193,6 +193,53 @@ export type Database = {
           },
         ]
       }
+      fee_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          gl_code: string | null
+          id: string
+          is_optional: boolean | null
+          is_refundable: boolean | null
+          name: string
+          school_id: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          gl_code?: string | null
+          id?: string
+          is_optional?: boolean | null
+          is_refundable?: boolean | null
+          name: string
+          school_id: string
+          type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          gl_code?: string | null
+          id?: string
+          is_optional?: boolean | null
+          is_refundable?: boolean | null
+          name?: string
+          school_id?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_categories_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_discounts: {
         Row: {
           applicable_to: string | null
@@ -251,6 +298,93 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_structures: {
+        Row: {
+          academic_year_id: string
+          amount: number
+          applies_to_continuing: boolean | null
+          applies_to_new_students: boolean | null
+          created_at: string | null
+          due_date: string | null
+          fee_category_id: string
+          grade_id: string | null
+          id: string
+          is_mandatory: boolean | null
+          name: string
+          school_id: string
+          term_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          academic_year_id: string
+          amount?: number
+          applies_to_continuing?: boolean | null
+          applies_to_new_students?: boolean | null
+          created_at?: string | null
+          due_date?: string | null
+          fee_category_id: string
+          grade_id?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          name: string
+          school_id: string
+          term_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          academic_year_id?: string
+          amount?: number
+          applies_to_continuing?: boolean | null
+          applies_to_new_students?: boolean | null
+          created_at?: string | null
+          due_date?: string | null
+          fee_category_id?: string
+          grade_id?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          name?: string
+          school_id?: string
+          term_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_structures_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_fee_category_id_fkey"
+            columns: ["fee_category_id"]
+            isOneToOne: false
+            referencedRelation: "fee_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
             referencedColumns: ["id"]
           },
         ]
@@ -501,6 +635,171 @@ export type Database = {
           },
         ]
       }
+      inventory_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          school_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          school_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_categories_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          category_id: string | null
+          cost_price: number
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          quantity_in_stock: number | null
+          reorder_level: number | null
+          school_id: string
+          selling_price: number
+          sku: string
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          cost_price?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          quantity_in_stock?: number | null
+          reorder_level?: number | null
+          school_id: string
+          selling_price?: number
+          sku: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          cost_price?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          quantity_in_stock?: number | null
+          reorder_level?: number | null
+          school_id?: string
+          selling_price?: number
+          sku?: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_transactions: {
+        Row: {
+          created_at: string | null
+          id: string
+          item_id: string
+          notes: string | null
+          quantity: number
+          recorded_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          school_id: string
+          total_amount: number | null
+          type: string
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          item_id: string
+          notes?: string | null
+          quantity: number
+          recorded_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          school_id: string
+          total_amount?: number | null
+          type: string
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          item_id?: string
+          notes?: string | null
+          quantity?: number
+          recorded_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          school_id?: string
+          total_amount?: number | null
+          type?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mpesa_transactions: {
         Row: {
           account_reference: string
@@ -675,26 +974,42 @@ export type Database = {
       payment_allocations: {
         Row: {
           allocated_at: string
+          allocated_by: string | null
+          allocation_order: number | null
           amount: number
           id: string
+          is_auto_allocated: boolean | null
           payment_id: string
           student_fee_id: string
         }
         Insert: {
           allocated_at?: string
+          allocated_by?: string | null
+          allocation_order?: number | null
           amount: number
           id?: string
+          is_auto_allocated?: boolean | null
           payment_id: string
           student_fee_id: string
         }
         Update: {
           allocated_at?: string
+          allocated_by?: string | null
+          allocation_order?: number | null
           amount?: number
           id?: string
+          is_auto_allocated?: boolean | null
           payment_id?: string
           student_fee_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_allocations_allocated_by_fkey"
+            columns: ["allocated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_allocations_payment_id_fkey"
             columns: ["payment_id"]
@@ -714,59 +1029,109 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          bank_name: string | null
+          bank_reference: string | null
+          cheque_date: string | null
+          cheque_number: string | null
           created_at: string
           id: string
+          is_reconciled: boolean | null
           ledger_type: string
+          mpesa_phone: string | null
+          mpesa_receipt: string | null
           mpesa_transaction_id: string | null
           notes: string | null
+          parent_id: string | null
+          payer_name: string | null
           payer_phone: string | null
           payment_method: string
           receipt_url: string | null
           received_at: string
+          reconciled_at: string | null
+          reconciled_by: string | null
           recorded_by: string | null
           reference_number: string | null
           school_id: string
           status: string
           student_id: string
+          transaction_date: string | null
           updated_at: string
         }
         Insert: {
           amount: number
+          bank_name?: string | null
+          bank_reference?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
           created_at?: string
           id?: string
+          is_reconciled?: boolean | null
           ledger_type?: string
+          mpesa_phone?: string | null
+          mpesa_receipt?: string | null
           mpesa_transaction_id?: string | null
           notes?: string | null
+          parent_id?: string | null
+          payer_name?: string | null
           payer_phone?: string | null
           payment_method: string
           receipt_url?: string | null
           received_at?: string
+          reconciled_at?: string | null
+          reconciled_by?: string | null
           recorded_by?: string | null
           reference_number?: string | null
           school_id: string
           status?: string
           student_id: string
+          transaction_date?: string | null
           updated_at?: string
         }
         Update: {
           amount?: number
+          bank_name?: string | null
+          bank_reference?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
           created_at?: string
           id?: string
+          is_reconciled?: boolean | null
           ledger_type?: string
+          mpesa_phone?: string | null
+          mpesa_receipt?: string | null
           mpesa_transaction_id?: string | null
           notes?: string | null
+          parent_id?: string | null
+          payer_name?: string | null
           payer_phone?: string | null
           payment_method?: string
           receipt_url?: string | null
           received_at?: string
+          reconciled_at?: string | null
+          reconciled_by?: string | null
           recorded_by?: string | null
           reference_number?: string | null
           school_id?: string
           status?: string
           student_id?: string
+          transaction_date?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_reconciled_by_fkey"
+            columns: ["reconciled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_school_id_fkey"
             columns: ["school_id"]
@@ -809,6 +1174,137 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      pos_sale_items: {
+        Row: {
+          created_at: string | null
+          discount: number | null
+          id: string
+          item_id: string
+          line_total: number
+          quantity: number
+          sale_id: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          discount?: number | null
+          id?: string
+          item_id: string
+          line_total?: number
+          quantity: number
+          sale_id: string
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          discount?: number | null
+          id?: string
+          item_id?: string
+          line_total?: number
+          quantity?: number
+          sale_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sales: {
+        Row: {
+          created_at: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          discount_amount: number | null
+          id: string
+          notes: string | null
+          payment_id: string | null
+          payment_method: string
+          sale_date: string | null
+          sale_number: string
+          school_id: string
+          sold_by: string
+          student_id: string | null
+          subtotal: number
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_amount?: number | null
+          id?: string
+          notes?: string | null
+          payment_id?: string | null
+          payment_method?: string
+          sale_date?: string | null
+          sale_number: string
+          school_id: string
+          sold_by: string
+          student_id?: string | null
+          subtotal?: number
+          total_amount?: number
+        }
+        Update: {
+          created_at?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_amount?: number | null
+          id?: string
+          notes?: string | null
+          payment_id?: string | null
+          payment_method?: string
+          sale_date?: string | null
+          sale_number?: string
+          school_id?: string
+          sold_by?: string
+          student_id?: string | null
+          subtotal?: number
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sales_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_sold_by_fkey"
+            columns: ["sold_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1500,6 +1996,83 @@ export type Database = {
           },
         ]
       }
+      student_transport_assignments: {
+        Row: {
+          academic_year_id: string
+          billing_type: string | null
+          created_at: string | null
+          dropoff_stop: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          pickup_stop: string | null
+          route_id: string
+          school_id: string
+          start_date: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          academic_year_id: string
+          billing_type?: string | null
+          created_at?: string | null
+          dropoff_stop?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          pickup_stop?: string | null
+          route_id: string
+          school_id: string
+          start_date: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          academic_year_id?: string
+          billing_type?: string | null
+          created_at?: string | null
+          dropoff_stop?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          pickup_stop?: string | null
+          route_id?: string
+          school_id?: string
+          start_date?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_transport_assignments_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_transport_assignments_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "transport_routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_transport_assignments_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_transport_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           admission_date: string | null
@@ -1682,6 +2255,215 @@ export type Database = {
           },
         ]
       }
+      transport_fees: {
+        Row: {
+          academic_year_id: string
+          amount: number
+          amount_paid: number | null
+          assignment_id: string
+          balance: number | null
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string | null
+          due_date: string | null
+          id: string
+          school_id: string
+          status: string | null
+          student_id: string
+          term_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          academic_year_id: string
+          amount?: number
+          amount_paid?: number | null
+          assignment_id: string
+          balance?: number | null
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string | null
+          due_date?: string | null
+          id?: string
+          school_id: string
+          status?: string | null
+          student_id: string
+          term_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          academic_year_id?: string
+          amount?: number
+          amount_paid?: number | null
+          assignment_id?: string
+          balance?: number | null
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string | null
+          due_date?: string | null
+          id?: string
+          school_id?: string
+          status?: string | null
+          student_id?: string
+          term_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_fees_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_fees_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "student_transport_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_fees_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_fees_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_fees_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transport_payment_allocations: {
+        Row: {
+          allocated_at: string | null
+          amount: number
+          created_at: string | null
+          id: string
+          payment_id: string
+          transport_fee_id: string
+        }
+        Insert: {
+          allocated_at?: string | null
+          amount: number
+          created_at?: string | null
+          id?: string
+          payment_id: string
+          transport_fee_id: string
+        }
+        Update: {
+          allocated_at?: string | null
+          amount?: number
+          created_at?: string | null
+          id?: string
+          payment_id?: string
+          transport_fee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_payment_allocations_transport_fee_id_fkey"
+            columns: ["transport_fee_id"]
+            isOneToOne: false
+            referencedRelation: "transport_fees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transport_routes: {
+        Row: {
+          attendant_id: string | null
+          created_at: string | null
+          description: string | null
+          driver_id: string | null
+          id: string
+          is_active: boolean | null
+          monthly_fee: number
+          name: string
+          per_term_fee: number | null
+          school_id: string
+          stops: Json | null
+          updated_at: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          attendant_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          driver_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          monthly_fee?: number
+          name: string
+          per_term_fee?: number | null
+          school_id: string
+          stops?: Json | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          attendant_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          driver_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          monthly_fee?: number
+          name?: string
+          per_term_fee?: number | null
+          school_id?: string
+          stops?: Json | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_routes_attendant_id_fkey"
+            columns: ["attendant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_routes_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_routes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unmatched_payments: {
         Row: {
           account_reference: string | null
@@ -1802,6 +2584,59 @@ export type Database = {
           },
         ]
       }
+      vehicles: {
+        Row: {
+          capacity: number
+          created_at: string | null
+          id: string
+          inspection_expiry: string | null
+          insurance_expiry: string | null
+          is_active: boolean | null
+          make: string | null
+          model: string | null
+          registration_number: string
+          school_id: string
+          updated_at: string | null
+          year_of_manufacture: number | null
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string | null
+          id?: string
+          inspection_expiry?: string | null
+          insurance_expiry?: string | null
+          is_active?: boolean | null
+          make?: string | null
+          model?: string | null
+          registration_number: string
+          school_id: string
+          updated_at?: string | null
+          year_of_manufacture?: number | null
+        }
+        Update: {
+          capacity?: number
+          created_at?: string | null
+          id?: string
+          inspection_expiry?: string | null
+          insurance_expiry?: string | null
+          is_active?: boolean | null
+          make?: string | null
+          model?: string | null
+          registration_number?: string
+          school_id?: string
+          updated_at?: string | null
+          year_of_manufacture?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1866,20 +2701,32 @@ export type Database = {
         }
         Returns: {
           amount: number
+          bank_name: string | null
+          bank_reference: string | null
+          cheque_date: string | null
+          cheque_number: string | null
           created_at: string
           id: string
+          is_reconciled: boolean | null
           ledger_type: string
+          mpesa_phone: string | null
+          mpesa_receipt: string | null
           mpesa_transaction_id: string | null
           notes: string | null
+          parent_id: string | null
+          payer_name: string | null
           payer_phone: string | null
           payment_method: string
           receipt_url: string | null
           received_at: string
+          reconciled_at: string | null
+          reconciled_by: string | null
           recorded_by: string | null
           reference_number: string | null
           school_id: string
           status: string
           student_id: string
+          transaction_date: string | null
           updated_at: string
         }
         SetofOptions: {
