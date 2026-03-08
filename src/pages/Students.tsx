@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { students, studentCategories, promotionRecords } from "@/data/mockData";
+import { students, studentCategories, promotionRecords, parents } from "@/data/mockData";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
@@ -34,8 +34,38 @@ const formatKES = (amount: number) => {
 
 const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   const [step, setStep] = useState(1);
+  const [guardianPhone, setGuardianPhone] = useState("");
+  const [matchedParent, setMatchedParent] = useState<typeof parents[0] | null>(null);
+  const [siblingPromptShown, setSiblingPromptShown] = useState(false);
+  const [addAsSibling, setAddAsSibling] = useState(false);
   const totalSteps = 5;
   const steps = ["Personal Details", "Guardian Info", "Previous School", "Siblings & IDs", "Documents"];
+
+  // Auto-detect parent by phone number
+  const handlePhoneChange = (phone: string) => {
+    setGuardianPhone(phone);
+    const cleaned = phone.replace(/\s/g, "");
+    if (cleaned.length >= 10) {
+      const found = parents.find(p => p.phone === cleaned);
+      if (found) {
+        setMatchedParent(found);
+        setSiblingPromptShown(true);
+      } else {
+        setMatchedParent(null);
+        setSiblingPromptShown(false);
+        setAddAsSibling(false);
+      }
+    } else {
+      setMatchedParent(null);
+      setSiblingPromptShown(false);
+      setAddAsSibling(false);
+    }
+  };
+
+  // Find sibling students for matched parent
+  const siblingStudents = matchedParent
+    ? students.filter(s => s.parent_phone === matchedParent.phone)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -116,13 +146,50 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Father / Guardian Information</p>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5"><Label className="text-xs">Father's Name *</Label><Input placeholder="Full name" className="h-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Phone *</Label><Input placeholder="0712345678" className="h-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Occupation</Label><Input placeholder="Occupation" className="h-9" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Father's Name *</Label><Input placeholder="Full name" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.full_name : ""} /></div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Phone *</Label>
+              <Input placeholder="0712345678" className="h-9" value={guardianPhone} onChange={e => handlePhoneChange(e.target.value)} />
+            </div>
+            <div className="space-y-1.5"><Label className="text-xs">Occupation</Label><Input placeholder="Occupation" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.occupation : ""} /></div>
           </div>
+
+          {/* Sibling Detection Alert */}
+          {siblingPromptShown && matchedParent && (
+            <div className="rounded-lg border-2 border-info/40 bg-info/5 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-info mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">Existing Parent Found!</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    <span className="font-medium text-foreground">{matchedParent.full_name}</span> ({matchedParent.phone}) is already registered with {matchedParent.children_count} child{matchedParent.children_count > 1 ? "ren" : ""}:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {siblingStudents.map(s => (
+                      <Badge key={s.id} variant="secondary" className="text-xs">
+                        {s.full_name} · {s.grade} {s.stream}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 ml-8">
+                <Button size="sm" variant={addAsSibling ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAddAsSibling(true)}>
+                  <UserPlus className="h-3 w-3 mr-1" />Yes, Add as Sibling
+                </Button>
+                <Button size="sm" variant={!addAsSibling ? "default" : "outline"} className="h-7 text-xs" onClick={() => setAddAsSibling(false)}>
+                  No, Different Parent
+                </Button>
+              </div>
+              {addAsSibling && (
+                <p className="text-xs text-success ml-8 font-medium">✓ This student will be linked as a sibling. Guardian details auto-filled.</p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5"><Label className="text-xs">Email</Label><Input type="email" placeholder="email@example.com" className="h-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">ID Number</Label><Input placeholder="National ID" className="h-9" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Email</Label><Input type="email" placeholder="email@example.com" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.email : ""} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">ID Number</Label><Input placeholder="National ID" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.id_number : ""} /></div>
             <div className="space-y-1.5"><Label className="text-xs">Annual Income</Label>
               <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent><SelectItem value="below_50k">Below KES 50,000</SelectItem><SelectItem value="50k_200k">KES 50,000 - 200,000</SelectItem><SelectItem value="200k_500k">KES 200,000 - 500,000</SelectItem><SelectItem value="above_500k">Above KES 500,000</SelectItem></SelectContent></Select>
@@ -180,17 +247,47 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
           </div>
 
           <p className="text-sm font-semibold text-foreground mt-2">Siblings in this School</p>
-          <div className="rounded-md border p-3 space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">Sibling Name</Label><Input placeholder="Full name" className="h-9" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Admission No.</Label><Input placeholder="ADM-XXXX-XXX" className="h-9" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Class</Label>
-                <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
+
+          {/* Auto-detected siblings */}
+          {addAsSibling && siblingStudents.length > 0 && (
+            <div className="rounded-lg border-2 border-success/30 bg-success/5 p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-success" />
+                <p className="text-sm font-semibold text-success">Auto-detected Siblings</p>
               </div>
+              {siblingStudents.map(s => (
+                <div key={s.id} className="flex items-center justify-between p-2 rounded-md bg-background border">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                      {s.full_name.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{s.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.admission_no} · {s.grade} {s.stream}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-success/10 text-success border-0 text-xs">Linked</Badge>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground mt-1">These siblings were automatically detected from the guardian's phone number.</p>
             </div>
-            <Button variant="outline" size="sm" className="w-full"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Another Sibling</Button>
-          </div>
+          )}
+
+          {/* Manual sibling entry */}
+          {!addAsSibling && (
+            <div className="rounded-md border p-3 space-y-3">
+              <p className="text-xs text-muted-foreground">No siblings auto-detected. You can manually add siblings below.</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5"><Label className="text-xs">Sibling Name</Label><Input placeholder="Full name" className="h-9" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Admission No.</Label><Input placeholder="ADM-XXXX-XXX" className="h-9" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Class</Label>
+                  <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="w-full"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Another Sibling</Button>
+            </div>
+          )}
         </div>
       )}
 

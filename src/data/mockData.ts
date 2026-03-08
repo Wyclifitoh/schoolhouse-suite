@@ -323,6 +323,31 @@ export const dashboardStats = {
   ],
 };
 
+// ===== LIBRARY =====
+export const libraryBooks = [
+  { id: "lb1", title: "Mathematics for Primary Schools", author: "John K. Murimi", isbn: "978-9966-001-01", category: "Textbook", publisher: "Oxford Kenya", total_copies: 45, available_copies: 38, shelf_location: "A-01" },
+  { id: "lb2", title: "English Grammar & Composition", author: "Sarah Omondi", isbn: "978-9966-001-02", category: "Textbook", publisher: "Longhorn", total_copies: 40, available_copies: 32, shelf_location: "A-02" },
+  { id: "lb3", title: "Kiswahili Fasaha", author: "Ali Hassan", isbn: "978-9966-001-03", category: "Textbook", publisher: "Oxford Kenya", total_copies: 38, available_copies: 35, shelf_location: "A-03" },
+  { id: "lb4", title: "Science & Technology Gr.7", author: "KICD", isbn: "978-9966-001-04", category: "Textbook", publisher: "KICD", total_copies: 42, available_copies: 40, shelf_location: "A-04" },
+  { id: "lb5", title: "Things Fall Apart", author: "Chinua Achebe", isbn: "978-0385-474-54", category: "Fiction", publisher: "Penguin", total_copies: 12, available_copies: 5, shelf_location: "B-01" },
+  { id: "lb6", title: "The River Between", author: "Ngugi wa Thiong'o", isbn: "978-0435-905-48", category: "Fiction", publisher: "Heinemann", total_copies: 10, available_copies: 3, shelf_location: "B-02" },
+  { id: "lb7", title: "Encyclopaedia Britannica Vol.1", author: "Various", isbn: "978-1593-394-29", category: "Reference", publisher: "Britannica", total_copies: 2, available_copies: 2, shelf_location: "C-01" },
+  { id: "lb8", title: "Oxford Primary Dictionary", author: "Oxford", isbn: "978-0199-119-84", category: "Reference", publisher: "Oxford", total_copies: 15, available_copies: 12, shelf_location: "C-02" },
+  { id: "lb9", title: "Social Studies Atlas", author: "KICD", isbn: "978-9966-001-09", category: "Textbook", publisher: "KICD", total_copies: 30, available_copies: 28, shelf_location: "A-05" },
+  { id: "lb10", title: "The Boy Who Harnessed the Wind", author: "William Kamkwamba", isbn: "978-0061-730-33", category: "Non-Fiction", publisher: "HarperCollins", total_copies: 8, available_copies: 6, shelf_location: "B-03" },
+];
+
+export const bookIssues = [
+  { id: "bi1", student_name: "Amina Wanjiku", admission_no: "ADM-2024-001", class: "Grade 8 East", book_title: "Things Fall Apart", book_id: "lb5", issue_date: "2024-03-01", due_date: "2024-03-15", return_date: "", status: "overdue" as const, overdue_days: 8, fine_per_day: 20, fine_amount: 160, fine_paid: false },
+  { id: "bi2", student_name: "Brian Ochieng", admission_no: "ADM-2024-002", class: "Grade 7 West", book_title: "The River Between", book_id: "lb6", issue_date: "2024-03-05", due_date: "2024-03-19", return_date: "", status: "issued" as const, overdue_days: 0, fine_per_day: 20, fine_amount: 0, fine_paid: false },
+  { id: "bi3", student_name: "Catherine Muthoni", admission_no: "ADM-2024-003", class: "Grade 8 East", book_title: "Mathematics for Primary Schools", book_id: "lb1", issue_date: "2024-02-20", due_date: "2024-03-06", return_date: "2024-03-10", status: "returned" as const, overdue_days: 4, fine_per_day: 20, fine_amount: 80, fine_paid: true },
+  { id: "bi4", student_name: "David Kipchoge", admission_no: "ADM-2024-004", class: "Grade 6 North", book_title: "The Boy Who Harnessed the Wind", book_id: "lb10", issue_date: "2024-03-10", due_date: "2024-03-24", return_date: "", status: "issued" as const, overdue_days: 0, fine_per_day: 20, fine_amount: 0, fine_paid: false },
+  { id: "bi5", student_name: "Esther Akinyi", admission_no: "ADM-2024-005", class: "Grade 7 West", book_title: "English Grammar & Composition", book_id: "lb2", issue_date: "2024-02-15", due_date: "2024-03-01", return_date: "", status: "overdue" as const, overdue_days: 22, fine_per_day: 20, fine_amount: 440, fine_paid: false },
+  { id: "bi6", student_name: "Francis Mutua", admission_no: "ADM-2024-006", class: "Grade 8 East", book_title: "Things Fall Apart", book_id: "lb5", issue_date: "2024-03-08", due_date: "2024-03-22", return_date: "2024-03-20", status: "returned" as const, overdue_days: 0, fine_per_day: 20, fine_amount: 0, fine_paid: false },
+  { id: "bi7", student_name: "Hassan Mohamed", admission_no: "ADM-2024-008", class: "Grade 7 West", book_title: "Oxford Primary Dictionary", book_id: "lb8", issue_date: "2024-03-12", due_date: "2024-03-26", return_date: "", status: "issued" as const, overdue_days: 0, fine_per_day: 20, fine_amount: 0, fine_paid: false },
+  { id: "bi8", student_name: "Grace Njeri", admission_no: "ADM-2024-007", class: "Grade 6 North", book_title: "Kiswahili Fasaha", book_id: "lb3", issue_date: "2024-02-25", due_date: "2024-03-11", return_date: "2024-03-15", status: "returned" as const, overdue_days: 4, fine_per_day: 20, fine_amount: 80, fine_paid: false },
+];
+
 // ===== ACADEMIC SESSIONS =====
 export const academicSessions = [
   { id: "as1", name: "2024", start: "2024-01-08", end: "2024-11-29", status: "active" as const },

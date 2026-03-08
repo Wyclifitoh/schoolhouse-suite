@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, GraduationCap, Users, Banknote, ClipboardList,
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
-  MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle,
+  MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, ROLE_LABELS, UserRole } from "@/contexts/AuthContext";
@@ -32,6 +32,7 @@ const allNav = {
   ],
   admin: [
     { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin","accountant"] as UserRole[] },
+    { title: "Library", url: "/library", icon: Library, roles: ["admin","librarian","teacher"] as UserRole[] },
     { title: "Inventory", url: "/inventory", icon: Package, roles: ["admin","librarian"] as UserRole[] },
     { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"] as UserRole[] },
   ],

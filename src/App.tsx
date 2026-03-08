@@ -16,6 +16,7 @@ import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
 import Examinations from "./pages/Examinations";
 import Classes from "./pages/Classes";
+import Library from "./pages/Library";
 import Expenses from "./pages/Expenses";
 import Communication from "./pages/Communication";
 import Reports from "./pages/Reports";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/examinations" element={<Examinations />} />
             <Route path="/classes" element={<Classes />} />
+            <Route path="/library" element={<Library />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/communication" element={<Communication />} />
             <Route path="/reports" element={<Reports />} />
