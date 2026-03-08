@@ -325,34 +325,32 @@ const Students = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [admissionOpen, setAdmissionOpen] = useState(false);
   
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentStudent, setPaymentStudent] = useState<typeof students[0] | null>(null);
+  const [paymentStudent, setPaymentStudent] = useState<StudentRow | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentRef, setPaymentRef] = useState("");
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
-  const filtered = students.filter((s) => {
-    const matchesSearch = s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.admission_no.toLowerCase().includes(search.toLowerCase()) ||
-      s.parent_name.toLowerCase().includes(search.toLowerCase());
+  const { data: allStudents = [], isLoading } = useStudents({ search: search || undefined });
+  const { data: grades = [] } = useGrades();
+  const softDelete = useSoftDeleteStudent();
+
+  const filtered = allStudents.filter((s) => {
     const matchesGrade = gradeFilter === "all" || s.grade === gradeFilter;
-    const matchesCategory = categoryFilter === "all" || s.category === categoryFilter;
-    return matchesSearch && matchesGrade && matchesCategory;
+    return matchesGrade;
   });
 
-  const activeCount = students.filter((s) => s.status === "active").length;
-  const withBalance = students.filter((s) => s.balance < 0).length;
+  const activeCount = allStudents.filter((s) => s.status === "active").length;
 
   const handleRecordPayment = () => {
     if (!paymentAmount || !paymentMethod) {
       toast.error("Please fill in amount and payment method");
       return;
     }
-    toast.success(`Payment of KES ${Number(paymentAmount).toLocaleString()} recorded for ${paymentStudent?.full_name}`);
+    toast.success(`Payment of KES ${Number(paymentAmount).toLocaleString()} recorded for ${paymentStudent?.full_name || paymentStudent?.first_name}`);
     setShowPaymentDialog(false);
     setPaymentAmount("");
     setPaymentMethod("");
@@ -360,12 +358,10 @@ const Students = () => {
     setPaymentStudent(null);
   };
 
-  const getSiblings = (student: typeof students[0]) => {
-    return students.filter(s => s.id !== student.id && s.parent_phone === student.parent_phone);
-  };
-
-  const getStudentCollection = (sid: string) => {
-    return studentFeeCollection.find(c => c.student_id === sid);
+  const getDisplayName = (s: StudentRow) => s.full_name || `${s.first_name} ${s.last_name}`;
+  const getInitials = (s: StudentRow) => {
+    const name = getDisplayName(s);
+    return name.split(" ").map(n => n[0]).join("").slice(0, 2);
   };
 
   return (
