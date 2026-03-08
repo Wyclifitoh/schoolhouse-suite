@@ -437,27 +437,41 @@ const Students = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((s) => (
+                    {isLoading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-8 w-48" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                          <TableCell />
+                        </TableRow>
+                      ))
+                    ) : filtered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          {search ? "No students match your search" : "No students found. Add your first student!"}
+                        </TableCell>
+                      </TableRow>
+                    ) : filtered.map((s) => (
                       <TableRow key={s.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                              {s.full_name.split(" ").map(n => n[0]).join("")}
+                              {getInitials(s)}
                             </div>
                             <div>
-                              <p className="font-medium text-foreground">{s.full_name}</p>
-                              <p className="text-xs text-muted-foreground">{s.gender} · {s.category === "rte" ? "RTE" : s.category}</p>
+                              <p className="font-medium text-foreground">{getDisplayName(s)}</p>
+                              <p className="text-xs text-muted-foreground">{s.gender || "—"}</p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground font-mono text-xs">{s.admission_no}</TableCell>
-                        <TableCell><Badge variant="secondary" className="font-normal">{s.grade} · {s.stream}</Badge></TableCell>
-                        <TableCell><p className="text-sm">{s.parent_name}</p><p className="text-xs text-muted-foreground">{s.parent_phone}</p></TableCell>
-                        <TableCell>
-                          <span className={`text-sm font-semibold ${s.balance < 0 ? "text-destructive" : s.balance > 0 ? "text-success" : "text-muted-foreground"}`}>
-                            {s.balance === 0 ? "Cleared" : formatKES(s.balance)}
-                          </span>
-                        </TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">{s.admission_number}</TableCell>
+                        <TableCell><Badge variant="secondary" className="font-normal">{s.grade || "—"}{s.stream ? ` · ${s.stream}` : ""}</Badge></TableCell>
+                        <TableCell><p className="text-sm">{s.parent_name || "—"}</p><p className="text-xs text-muted-foreground">{s.parent_phone || ""}</p></TableCell>
+                        <TableCell><span className="text-sm text-muted-foreground">—</span></TableCell>
                         <TableCell>
                           <Badge variant={s.status === "active" ? "default" : "secondary"}
                             className={s.status === "active" ? "bg-success/10 text-success border-0 hover:bg-success/20" : ""}>{s.status}</Badge>
@@ -481,16 +495,6 @@ const Students = () => {
                                 <CreditCard className="h-4 w-4 mr-2" />Collect Payment
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => {
-                                const siblings = getSiblings(s);
-                                if (siblings.length > 0) {
-                                  toast.info(`${s.full_name} has ${siblings.length} sibling(s): ${siblings.map(sb => sb.full_name).join(", ")}`);
-                                } else {
-                                  toast.info(`${s.full_name} has no siblings registered in this school.`);
-                                }
-                              }}>
-                                <Users className="h-4 w-4 mr-2" />Check Siblings
-                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => toast.success("ID card sent to print queue")}>
                                 <Printer className="h-4 w-4 mr-2" />Print ID Card
                               </DropdownMenuItem>
@@ -498,7 +502,7 @@ const Students = () => {
                                  <Download className="h-4 w-4 mr-2" />Download Statement
                                </DropdownMenuItem>
                                <DropdownMenuSeparator />
-                               <DropdownMenuItem className="text-destructive" onClick={() => toast.success(`${s.full_name} has been deactivated`)}>
+                               <DropdownMenuItem className="text-destructive" onClick={() => softDelete.mutate(s.id)}>
                                  <Trash2 className="h-4 w-4 mr-2" />Deactivate
                                </DropdownMenuItem>
                              </DropdownMenuContent>
@@ -510,7 +514,7 @@ const Students = () => {
                 </Table>
               </div>
               <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">Showing {filtered.length} of {students.length} students</p>
+                <p className="text-sm text-muted-foreground">Showing {filtered.length} of {allStudents.length} students</p>
                 <div className="flex gap-1"><Button variant="outline" size="sm" disabled>Previous</Button><Button variant="outline" size="sm" disabled>Next</Button></div>
               </div>
             </CardContent>
