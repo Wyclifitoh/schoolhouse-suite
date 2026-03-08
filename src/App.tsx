@@ -33,15 +33,30 @@ import Classes from "./pages/Classes";
 import Library from "./pages/Library";
 import Expenses from "./pages/Expenses";
 import Communication from "./pages/Communication";
-import Reports from "./pages/Reports";
 import Promotion from "./pages/Promotion";
 import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
+import Homework from "./pages/Homework";
+
+// HR Module
 import StaffDirectory from "./pages/StaffDirectory";
 import StaffAttendance from "./pages/StaffAttendance";
 import LeaveManagement from "./pages/LeaveManagement";
 import Payroll from "./pages/Payroll";
 import Departments from "./pages/Departments";
+
+// Reports
+import FinanceReports from "./pages/reports/FinanceReports";
+import StudentReports from "./pages/reports/StudentReports";
+import AttendanceReports from "./pages/reports/AttendanceReports";
+import ExamReports from "./pages/reports/ExamReports";
+import HRReports from "./pages/reports/HRReports";
+import HomeworkReports from "./pages/reports/HomeworkReports";
+import LibraryReports from "./pages/reports/LibraryReports";
+import TransportReports from "./pages/reports/TransportReports";
+import UserLogs from "./pages/reports/UserLogs";
+import AuditTrail from "./pages/reports/AuditTrail";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -88,10 +103,10 @@ const App = () => (
                 <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
                 <Route path="/expenses" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Expenses /></ProtectedRoute>} />
                 <Route path="/communication" element={<ProtectedRoute><Communication /></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "auditor"]}><Reports /></ProtectedRoute>} />
                 <Route path="/promotion" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Promotion /></ProtectedRoute>} />
                 <Route path="/parent-portal" element={<ProtectedRoute roles={["parent"]}><ParentPortal /></ProtectedRoute>} />
                 <Route path="/student-panel" element={<ProtectedRoute roles={["student"]}><StudentPanel /></ProtectedRoute>} />
+                <Route path="/homework" element={<ProtectedRoute><Homework /></ProtectedRoute>} />
 
                 {/* HR Module */}
                 <Route path="/staff-directory" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><StaffDirectory /></ProtectedRoute>} />
@@ -99,6 +114,18 @@ const App = () => (
                 <Route path="/leave-management" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><LeaveManagement /></ProtectedRoute>} />
                 <Route path="/payroll" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Payroll /></ProtectedRoute>} />
                 <Route path="/departments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Departments /></ProtectedRoute>} />
+
+                {/* Reports */}
+                <Route path="/reports/finance" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "auditor"]}><FinanceReports /></ProtectedRoute>} />
+                <Route path="/reports/students" element={<ProtectedRoute><StudentReports /></ProtectedRoute>} />
+                <Route path="/reports/attendance" element={<ProtectedRoute><AttendanceReports /></ProtectedRoute>} />
+                <Route path="/reports/examinations" element={<ProtectedRoute><ExamReports /></ProtectedRoute>} />
+                <Route path="/reports/hr" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><HRReports /></ProtectedRoute>} />
+                <Route path="/reports/homework" element={<ProtectedRoute><HomeworkReports /></ProtectedRoute>} />
+                <Route path="/reports/library" element={<ProtectedRoute><LibraryReports /></ProtectedRoute>} />
+                <Route path="/reports/transport" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><TransportReports /></ProtectedRoute>} />
+                <Route path="/reports/user-logs" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><UserLogs /></ProtectedRoute>} />
+                <Route path="/reports/audit-trail" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "auditor"]}><AuditTrail /></ProtectedRoute>} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>

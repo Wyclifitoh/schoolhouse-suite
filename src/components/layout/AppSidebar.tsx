@@ -4,6 +4,7 @@ import {
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
   Shield, Truck, Bell, Briefcase, CalendarDays, DollarSign, Contact,
+  FileText, PenTool,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -43,6 +44,7 @@ const allNav = {
     icon: BookOpen,
     items: [
       { title: "Examinations", url: "/examinations", icon: BookOpen, roles: ACADEMIC_ROLES },
+      { title: "Homework", url: "/homework", icon: PenTool, roles: ACADEMIC_ROLES },
       { title: "Communication", url: "/communication", icon: MessageSquare, roles: [...ADMIN_ROLES, "teacher", "front_office"] as AppRole[] },
     ],
   },
@@ -69,11 +71,26 @@ const allNav = {
       { title: "Departments", url: "/departments", icon: Building2, roles: ADMIN_ROLES },
     ],
   },
+  reports: {
+    label: "Reports",
+    icon: BarChart3,
+    items: [
+      { title: "Finance Reports", url: "/reports/finance", icon: Banknote, roles: [...FINANCE_ROLES, "auditor"] as AppRole[] },
+      { title: "Student Reports", url: "/reports/students", icon: GraduationCap, roles: [...ADMIN_ROLES, "teacher"] as AppRole[] },
+      { title: "Attendance Reports", url: "/reports/attendance", icon: ClipboardList, roles: ACADEMIC_ROLES },
+      { title: "Exam Reports", url: "/reports/examinations", icon: BookOpen, roles: ACADEMIC_ROLES },
+      { title: "HR Reports", url: "/reports/hr", icon: Briefcase, roles: ADMIN_ROLES },
+      { title: "Homework Reports", url: "/reports/homework", icon: PenTool, roles: ACADEMIC_ROLES },
+      { title: "Library Reports", url: "/reports/library", icon: Library, roles: [...ADMIN_ROLES, "teacher"] as AppRole[] },
+      { title: "Transport Reports", url: "/reports/transport", icon: Truck, roles: ADMIN_ROLES },
+      { title: "User Logs", url: "/reports/user-logs", icon: Users, roles: ADMIN_ROLES },
+      { title: "Audit Trail", url: "/reports/audit-trail", icon: Shield, roles: [...ADMIN_ROLES, "auditor"] as AppRole[] },
+    ],
+  },
   admin: {
     label: "Admin",
     icon: Settings,
     items: [
-      { title: "Reports", url: "/reports", icon: BarChart3, roles: [...FINANCE_ROLES, "auditor"] as AppRole[] },
       { title: "Library", url: "/library", icon: Library, roles: [...ADMIN_ROLES, "teacher"] as AppRole[] },
       { title: "School Store", url: "/inventory", icon: ShoppingBag, roles: [...ADMIN_ROLES, "store_manager", "pos_attendant"] as AppRole[] },
       { title: "Settings", url: "/settings", icon: Settings, roles: ADMIN_ROLES },
@@ -96,11 +113,10 @@ const NavSection = ({ sectionKey, isOpen, onToggle }: { sectionKey: SectionKey; 
   const location = useLocation();
   const section = allNav[sectionKey];
 
-  // Filter items based on user's actual roles
   const visible = section.items.filter(i => hasAnyRole(i.roles));
   if (visible.length === 0) return null;
 
-  const hasActiveChild = visible.some(i => location.pathname === i.url);
+  const hasActiveChild = visible.some(i => location.pathname === i.url || location.pathname.startsWith(i.url + "/"));
   const SectionIcon = section.icon;
 
   return (
@@ -171,7 +187,7 @@ export function AppSidebar() {
   const getInitialOpen = (): Record<SectionKey, boolean> => {
     const state: Record<string, boolean> = {};
     for (const [key, section] of Object.entries(allNav)) {
-      state[key] = section.items.some(i => location.pathname === i.url);
+      state[key] = section.items.some(i => location.pathname === i.url || location.pathname.startsWith(i.url + "/"));
     }
     if (!Object.values(state).some(Boolean)) state.overview = true;
     return state as Record<SectionKey, boolean>;
@@ -210,7 +226,6 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      {/* School Switcher */}
       {schools.length > 1 && (
         <div className="mx-4 mb-2 px-1">
           <Select value={currentSchool?.id || ""} onValueChange={switchSchool}>
@@ -243,7 +258,6 @@ export function AppSidebar() {
       <SidebarFooter className="px-4 py-4 space-y-3">
         <div className="mx-1 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
-        {/* User Profile */}
         <div className="flex items-center gap-3 px-1 py-2.5 rounded-xl bg-sidebar-accent/30 hover:bg-sidebar-accent/50 transition-colors cursor-default">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/60 text-sidebar-primary-foreground text-xs font-bold shadow-sm">
             {displayInitials}
