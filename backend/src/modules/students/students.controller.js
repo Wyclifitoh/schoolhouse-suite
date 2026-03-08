@@ -1,44 +1,58 @@
 const studentsService = require('./students.service');
-const { success, error, paginated } = require('../../utils/response');
-const { parsePagination } = require('../../utils/pagination');
+const { success, error } = require('../../utils/response');
 
 const list = async (req, res) => {
   try {
-    const pagination = parsePagination(req.query);
-    const { rows, total } = await studentsService.listStudents(req.schoolId, pagination);
-    return paginated(res, rows, total, pagination.page, pagination.limit);
+    const result = await studentsService.list(req.schoolId, req.query);
+    return success(res, result);
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.statusCode || 500);
   }
 };
 
 const getById = async (req, res) => {
   try {
-    const student = await studentsService.getStudent(req.params.id, req.schoolId);
-    if (!student) return error(res, 'Student not found', 404);
+    const student = await studentsService.getById(req.params.id, req.schoolId);
     return success(res, student);
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.statusCode || 500);
   }
 };
 
 const create = async (req, res) => {
   try {
-    const student = await studentsService.createStudent({ ...req.body, school_id: req.schoolId });
+    const student = await studentsService.create(req.schoolId, req.body);
     return success(res, student, 201);
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.statusCode || 500);
   }
 };
 
 const update = async (req, res) => {
   try {
-    const student = await studentsService.updateStudent(req.params.id, req.schoolId, req.body);
-    if (!student) return error(res, 'Student not found', 404);
+    const student = await studentsService.update(req.params.id, req.schoolId, req.body);
     return success(res, student);
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.statusCode || 500);
   }
 };
 
-module.exports = { list, getById, create, update };
+const deactivate = async (req, res) => {
+  try {
+    const student = await studentsService.deactivate(req.params.id, req.schoolId);
+    return success(res, student);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+const getSiblings = async (req, res) => {
+  try {
+    const siblings = await studentsService.getSiblings(req.schoolId, req.query.parent_phone, req.query.exclude_id);
+    return success(res, siblings);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+module.exports = { list, getById, create, update, deactivate, getSiblings };

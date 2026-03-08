@@ -1,9 +1,9 @@
 const router = require('express').Router();
-const paymentsController = require('./payments.controller');
+const c = require('./payments.controller');
 
-// Protected routes (applied via parent router)
-router.get('/', paymentsController.list);
-router.get('/:id', paymentsController.getById);
-router.post('/', paymentsController.create);
+router.get('/', c.list);
+router.get('/:id', c.getById);
+router.post('/', c.create);
+router.patch('/:id/void', c.voidPayment);
 
 module.exports = router;

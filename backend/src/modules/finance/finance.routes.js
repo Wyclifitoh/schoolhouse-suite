@@ -1,11 +1,16 @@
 const router = require('express').Router();
-const financeController = require('./finance.controller');
+const c = require('./finance.controller');
 
-router.get('/fee-templates', financeController.listFeeTemplates);
-router.get('/students/:studentId/fees', financeController.getStudentFees);
-router.post('/fees/assign', financeController.assignFee);
-router.get('/students/:studentId/balance', financeController.getStudentBalance);
-router.post('/payments', financeController.recordPayment);
-router.post('/carry-forward', financeController.processCarryForward);
+router.get('/fee-templates', c.getFeeTemplates);
+router.get('/fee-categories', c.getFeeCategories);
+router.get('/fee-structures', c.getFeeStructures);
+router.get('/fee-discounts', c.getFeeDiscounts);
+router.get('/carry-forwards', c.getCarryForwards);
+router.get('/student-fees-list', c.getStudentFeesList);
+router.get('/student-fees/:studentId', c.getStudentFees);
+router.get('/student-balance/:studentId', c.getStudentBalance);
+router.post('/student-fees', c.createStudentFee);
+router.get('/expenses', c.getExpenses);
+router.get('/expense-categories', c.getExpenseCategories);
 
 module.exports = router;

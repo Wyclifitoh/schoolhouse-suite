@@ -1,26 +1,26 @@
 const paymentsRepository = require('./payments.repository');
-const AppError = require('../../utils/AppError');
+const { paginate } = require('../../utils/pagination');
 
-const listPayments = async (schoolId, pagination) => {
-  return paymentsRepository.findAll(schoolId, pagination);
+const list = async (schoolId, queryParams) => {
+  const { limit, offset, page } = paginate(queryParams);
+  const { rows, total } = await paymentsRepository.findAll(schoolId, {
+    limit, offset, status: queryParams.status, method: queryParams.method,
+  });
+  return { data: rows, total, page, limit };
 };
 
-const getPayment = async (id, schoolId) => {
-  return paymentsRepository.findById(id, schoolId);
+const getById = async (id, schoolId) => {
+  const payment = await paymentsRepository.findById(id, schoolId);
+  if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+  return payment;
 };
 
-const createPayment = async (data) => {
-  return paymentsRepository.create(data);
+const create = async (schoolId, data, userId) => {
+  return paymentsRepository.create({ ...data, school_id: schoolId, recorded_by: userId });
 };
 
-// PLACEHOLDER - M-Pesa callback processing
-const processMpesaCallback = async (callbackData) => {
-  // TODO: Idempotency check - verify transaction not already processed
-  // TODO: Update mpesa_transactions status
-  // TODO: Create payment record
-  // TODO: Trigger FIFO allocation
-  // TODO: Send SMS confirmation
-  throw new AppError('M-Pesa callback processing not yet implemented', 501, 'NOT_IMPLEMENTED');
+const voidPayment = async (id, schoolId, reason) => {
+  return paymentsRepository.voidPayment(id, schoolId, reason);
 };
 
-module.exports = { listPayments, getPayment, createPayment, processMpesaCallback };
+module.exports = { list, getById, create, voidPayment };
