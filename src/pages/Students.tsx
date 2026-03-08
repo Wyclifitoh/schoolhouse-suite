@@ -644,11 +644,8 @@ const Students = () => {
           <div className="space-y-4 py-2">
             {paymentStudent && (
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{paymentStudent.full_name}</span></div>
-                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Adm. No.</span><span className="font-mono text-xs">{paymentStudent.admission_no}</span></div>
-                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Outstanding</span>
-                  <span className={`font-bold ${paymentStudent.balance < 0 ? "text-destructive" : "text-success"}`}>KES {Math.abs(paymentStudent.balance).toLocaleString()}</span>
-                </div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{getDisplayName(paymentStudent)}</span></div>
+                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Adm. No.</span><span className="font-mono text-xs">{paymentStudent.admission_number}</span></div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
