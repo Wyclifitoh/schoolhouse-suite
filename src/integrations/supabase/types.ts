@@ -52,6 +52,66 @@ export type Database = {
           },
         ]
       }
+      fee_adjustments: {
+        Row: {
+          adjustment_type: string
+          approval_status: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          new_amount: number
+          previous_amount: number
+          reason: string
+          requires_approval: boolean
+          school_id: string
+          student_fee_id: string
+        }
+        Insert: {
+          adjustment_type: string
+          approval_status?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          new_amount: number
+          previous_amount: number
+          reason: string
+          requires_approval?: boolean
+          school_id: string
+          student_fee_id: string
+        }
+        Update: {
+          adjustment_type?: string
+          approval_status?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          new_amount?: number
+          previous_amount?: number
+          reason?: string
+          requires_approval?: boolean
+          school_id?: string
+          student_fee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_adjustments_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_adjustments_student_fee_id_fkey"
+            columns: ["student_fee_id"]
+            isOneToOne: false
+            referencedRelation: "student_fees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_carry_forwards: {
         Row: {
           amount: number
@@ -133,49 +193,129 @@ export type Database = {
           },
         ]
       }
+      fee_discounts: {
+        Row: {
+          applicable_to: string | null
+          code: string | null
+          condition_params: Json | null
+          condition_type: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          priority: number
+          school_id: string
+          stackable: boolean
+          type: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          applicable_to?: string | null
+          code?: string | null
+          condition_params?: Json | null
+          condition_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          priority?: number
+          school_id: string
+          stackable?: boolean
+          type?: string
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          applicable_to?: string | null
+          code?: string | null
+          condition_params?: Json | null
+          condition_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          priority?: number
+          school_id?: string
+          stackable?: boolean
+          type?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_discounts_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_templates: {
         Row: {
           amount: number
+          applicable_grades: string[] | null
           code: string | null
           created_at: string
+          created_by: string | null
+          description: string | null
           fee_type: string
           fine_amount: number | null
           fine_frequency: string | null
           fine_type: string | null
           id: string
+          is_active: boolean
+          is_mandatory: boolean
           is_recurring: boolean
           ledger_type: string
           name: string
+          priority: number | null
           school_id: string
           updated_at: string
         }
         Insert: {
           amount?: number
+          applicable_grades?: string[] | null
           code?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
           fee_type?: string
           fine_amount?: number | null
           fine_frequency?: string | null
           fine_type?: string | null
           id?: string
+          is_active?: boolean
+          is_mandatory?: boolean
           is_recurring?: boolean
           ledger_type?: string
           name: string
+          priority?: number | null
           school_id: string
           updated_at?: string
         }
         Update: {
           amount?: number
+          applicable_grades?: string[] | null
           code?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
           fee_type?: string
           fine_amount?: number | null
           fine_frequency?: string | null
           fine_type?: string | null
           id?: string
+          is_active?: boolean
+          is_mandatory?: boolean
           is_recurring?: boolean
           ledger_type?: string
           name?: string
+          priority?: number | null
           school_id?: string
           updated_at?: string
         }
@@ -239,6 +379,86 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_automation_config: {
+        Row: {
+          allow_fee_adjustments: boolean
+          allow_manual_allocation: boolean
+          allow_manual_discounts: boolean
+          auto_allocate_payments: boolean
+          auto_apply_advance_credits: boolean
+          auto_apply_eligible_discounts: boolean
+          auto_assign_fees_on_enrollment: boolean
+          auto_assign_fees_on_term_start: boolean
+          auto_carry_forward_arrears: boolean
+          default_allocation_strategy: string
+          max_adjustment_without_approval: number | null
+          max_discount_percent_without_approval: number | null
+          reminder_days_before_due: number[] | null
+          require_approval_for_adjustments: boolean
+          require_approval_for_bulk_assignment: boolean
+          require_approval_for_carry_forward: boolean
+          require_approval_for_discounts: boolean
+          school_id: string
+          send_balance_reminder_sms: boolean
+          send_payment_confirmation_sms: boolean
+          updated_at: string
+        }
+        Insert: {
+          allow_fee_adjustments?: boolean
+          allow_manual_allocation?: boolean
+          allow_manual_discounts?: boolean
+          auto_allocate_payments?: boolean
+          auto_apply_advance_credits?: boolean
+          auto_apply_eligible_discounts?: boolean
+          auto_assign_fees_on_enrollment?: boolean
+          auto_assign_fees_on_term_start?: boolean
+          auto_carry_forward_arrears?: boolean
+          default_allocation_strategy?: string
+          max_adjustment_without_approval?: number | null
+          max_discount_percent_without_approval?: number | null
+          reminder_days_before_due?: number[] | null
+          require_approval_for_adjustments?: boolean
+          require_approval_for_bulk_assignment?: boolean
+          require_approval_for_carry_forward?: boolean
+          require_approval_for_discounts?: boolean
+          school_id: string
+          send_balance_reminder_sms?: boolean
+          send_payment_confirmation_sms?: boolean
+          updated_at?: string
+        }
+        Update: {
+          allow_fee_adjustments?: boolean
+          allow_manual_allocation?: boolean
+          allow_manual_discounts?: boolean
+          auto_allocate_payments?: boolean
+          auto_apply_advance_credits?: boolean
+          auto_apply_eligible_discounts?: boolean
+          auto_assign_fees_on_enrollment?: boolean
+          auto_assign_fees_on_term_start?: boolean
+          auto_carry_forward_arrears?: boolean
+          default_allocation_strategy?: string
+          max_adjustment_without_approval?: number | null
+          max_discount_percent_without_approval?: number | null
+          reminder_days_before_due?: number[] | null
+          require_approval_for_adjustments?: boolean
+          require_approval_for_bulk_assignment?: boolean
+          require_approval_for_carry_forward?: boolean
+          require_approval_for_discounts?: boolean
+          school_id?: string
+          send_balance_reminder_sms?: boolean
+          send_payment_confirmation_sms?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_automation_config_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools"
             referencedColumns: ["id"]
           },
         ]
@@ -645,9 +865,68 @@ export type Database = {
           },
         ]
       }
+      student_fee_discounts: {
+        Row: {
+          applied_at: string
+          applied_by: string | null
+          calculated_amount: number
+          created_at: string
+          discount_name: string
+          discount_type: string
+          fee_discount_id: string | null
+          id: string
+          original_value: number
+          reason: string | null
+          student_fee_id: string
+        }
+        Insert: {
+          applied_at?: string
+          applied_by?: string | null
+          calculated_amount?: number
+          created_at?: string
+          discount_name: string
+          discount_type: string
+          fee_discount_id?: string | null
+          id?: string
+          original_value?: number
+          reason?: string | null
+          student_fee_id: string
+        }
+        Update: {
+          applied_at?: string
+          applied_by?: string | null
+          calculated_amount?: number
+          created_at?: string
+          discount_name?: string
+          discount_type?: string
+          fee_discount_id?: string | null
+          id?: string
+          original_value?: number
+          reason?: string | null
+          student_fee_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_fee_discounts_fee_discount_id_fkey"
+            columns: ["fee_discount_id"]
+            isOneToOne: false
+            referencedRelation: "fee_discounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_fee_discounts_student_fee_id_fkey"
+            columns: ["student_fee_id"]
+            isOneToOne: false
+            referencedRelation: "student_fees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_fees: {
         Row: {
           academic_year_id: string | null
+          adjusted_at: string | null
+          adjusted_by: string | null
           amount_due: number
           amount_paid: number
           assigned_at: string
@@ -657,8 +936,10 @@ export type Database = {
           brought_forward_amount: number
           brought_forward_credit: number
           created_at: string
+          discount_amount: number
           due_date: string | null
           fee_template_id: string
+          fine_amount: number
           id: string
           last_payment_at: string | null
           ledger_type: string
@@ -670,6 +951,8 @@ export type Database = {
         }
         Insert: {
           academic_year_id?: string | null
+          adjusted_at?: string | null
+          adjusted_by?: string | null
           amount_due?: number
           amount_paid?: number
           assigned_at?: string
@@ -679,8 +962,10 @@ export type Database = {
           brought_forward_amount?: number
           brought_forward_credit?: number
           created_at?: string
+          discount_amount?: number
           due_date?: string | null
           fee_template_id: string
+          fine_amount?: number
           id?: string
           last_payment_at?: string | null
           ledger_type?: string
@@ -692,6 +977,8 @@ export type Database = {
         }
         Update: {
           academic_year_id?: string | null
+          adjusted_at?: string | null
+          adjusted_by?: string | null
           amount_due?: number
           amount_paid?: number
           assigned_at?: string
@@ -701,8 +988,10 @@ export type Database = {
           brought_forward_amount?: number
           brought_forward_credit?: number
           created_at?: string
+          discount_amount?: number
           due_date?: string | null
           fee_template_id?: string
+          fine_amount?: number
           id?: string
           last_payment_at?: string | null
           ledger_type?: string
@@ -951,6 +1240,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_carry_forwards_for_term: {
+        Args: {
+          p_from_term_id: string
+          p_school_id: string
+          p_to_term_id: string
+        }
+        Returns: {
+          applied_count: number
+          failed_count: number
+          total_arrears: number
+          total_credits: number
+        }[]
+      }
+      apply_fee_adjustment: {
+        Args: {
+          p_adjustment_type: string
+          p_amount: number
+          p_approved_by?: string
+          p_created_by: string
+          p_reason: string
+          p_school_id: string
+          p_student_fee_id: string
+        }
+        Returns: undefined
+      }
+      apply_fee_discount: {
+        Args: {
+          p_applied_by: string
+          p_discount_id: string
+          p_student_fee_id: string
+        }
+        Returns: number
+      }
+      calculate_brought_forward: {
+        Args: {
+          p_ledger_type: string
+          p_new_term_id: string
+          p_student_id: string
+        }
+        Returns: {
+          arrears: number
+          credit: number
+        }[]
+      }
       create_manual_payment: {
         Args: {
           p_amount: number
