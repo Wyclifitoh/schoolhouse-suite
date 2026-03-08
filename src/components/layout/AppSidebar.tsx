@@ -3,7 +3,7 @@ import {
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
-  Shield, Truck, Bell,
+  Shield, Truck, Bell, Briefcase, CalendarDays, DollarSign, Contact,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -56,6 +56,17 @@ const allNav = {
       { title: "Excess Payments", url: "/excess-payments", icon: Wallet, roles: FINANCE_ROLES },
       { title: "Fee Reminders", url: "/fee-reminders", icon: Bell, roles: FINANCE_ROLES },
       { title: "Expenses", url: "/expenses", icon: Wallet, roles: FINANCE_ROLES },
+    ],
+  },
+  hr: {
+    label: "Human Resources",
+    icon: Briefcase,
+    items: [
+      { title: "Staff Directory", url: "/staff-directory", icon: Contact, roles: ADMIN_ROLES },
+      { title: "Staff Attendance", url: "/staff-attendance", icon: CalendarDays, roles: ADMIN_ROLES },
+      { title: "Leave Management", url: "/leave-management", icon: Calendar, roles: ADMIN_ROLES },
+      { title: "Payroll", url: "/payroll", icon: DollarSign, roles: [...ADMIN_ROLES, "finance_officer"] as AppRole[] },
+      { title: "Departments", url: "/departments", icon: Building2, roles: ADMIN_ROLES },
     ],
   },
   admin: {

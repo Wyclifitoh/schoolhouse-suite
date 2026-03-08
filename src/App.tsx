@@ -37,6 +37,11 @@ import Reports from "./pages/Reports";
 import Promotion from "./pages/Promotion";
 import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
+import StaffDirectory from "./pages/StaffDirectory";
+import StaffAttendance from "./pages/StaffAttendance";
+import LeaveManagement from "./pages/LeaveManagement";
+import Payroll from "./pages/Payroll";
+import Departments from "./pages/Departments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -87,6 +92,13 @@ const App = () => (
                 <Route path="/promotion" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Promotion /></ProtectedRoute>} />
                 <Route path="/parent-portal" element={<ProtectedRoute roles={["parent"]}><ParentPortal /></ProtectedRoute>} />
                 <Route path="/student-panel" element={<ProtectedRoute roles={["student"]}><StudentPanel /></ProtectedRoute>} />
+
+                {/* HR Module */}
+                <Route path="/staff-directory" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><StaffDirectory /></ProtectedRoute>} />
+                <Route path="/staff-attendance" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><StaffAttendance /></ProtectedRoute>} />
+                <Route path="/leave-management" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><LeaveManagement /></ProtectedRoute>} />
+                <Route path="/payroll" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Payroll /></ProtectedRoute>} />
+                <Route path="/departments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Departments /></ProtectedRoute>} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
