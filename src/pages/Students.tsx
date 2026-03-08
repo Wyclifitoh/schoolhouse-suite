@@ -247,17 +247,47 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
           </div>
 
           <p className="text-sm font-semibold text-foreground mt-2">Siblings in this School</p>
-          <div className="rounded-md border p-3 space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">Sibling Name</Label><Input placeholder="Full name" className="h-9" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Admission No.</Label><Input placeholder="ADM-XXXX-XXX" className="h-9" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Class</Label>
-                <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
+
+          {/* Auto-detected siblings */}
+          {addAsSibling && siblingStudents.length > 0 && (
+            <div className="rounded-lg border-2 border-success/30 bg-success/5 p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4 text-success" />
+                <p className="text-sm font-semibold text-success">Auto-detected Siblings</p>
               </div>
+              {siblingStudents.map(s => (
+                <div key={s.id} className="flex items-center justify-between p-2 rounded-md bg-background border">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                      {s.full_name.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{s.full_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.admission_no} · {s.grade} {s.stream}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-success/10 text-success border-0 text-xs">Linked</Badge>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground mt-1">These siblings were automatically detected from the guardian's phone number.</p>
             </div>
-            <Button variant="outline" size="sm" className="w-full"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Another Sibling</Button>
-          </div>
+          )}
+
+          {/* Manual sibling entry */}
+          {!addAsSibling && (
+            <div className="rounded-md border p-3 space-y-3">
+              <p className="text-xs text-muted-foreground">No siblings auto-detected. You can manually add siblings below.</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5"><Label className="text-xs">Sibling Name</Label><Input placeholder="Full name" className="h-9" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Admission No.</Label><Input placeholder="ADM-XXXX-XXX" className="h-9" /></div>
+                <div className="space-y-1.5"><Label className="text-xs">Class</Label>
+                  <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="w-full"><Plus className="h-3.5 w-3.5 mr-1.5" />Add Another Sibling</Button>
+            </div>
+          )}
         </div>
       )}
 
