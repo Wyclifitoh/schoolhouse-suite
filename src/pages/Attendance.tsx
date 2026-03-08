@@ -28,26 +28,27 @@ const Attendance = () => {
   const [gradeFilter, setGradeFilter] = useState("all");
   const today = format(new Date(), "yyyy-MM-dd");
 
-  const { data: students = [], isLoading: studentsLoading } = useStudents({ status: "active", gradeId: gradeFilter !== "all" ? gradeFilter : undefined, search });
+  const { data: attendanceRecords = [], isLoading } = useStudentAttendance(today, gradeFilter);
   const { data: grades = [] } = useGrades();
-  const { data: todayAttendance = [], isLoading: attendanceLoading } = useAttendance(today);
   const markAttendance = useMarkAttendance();
 
-  // Build attendance map
-  const attendanceMap = new Map<string, string>();
-  todayAttendance.forEach((a: any) => attendanceMap.set(a.student_id, a.status));
+  const filtered = attendanceRecords.filter((r: any) => {
+    if (!search) return true;
+    return r.student_name?.toLowerCase().includes(search.toLowerCase()) || r.admission_number?.toLowerCase().includes(search.toLowerCase());
+  });
 
-  const isLoading = studentsLoading || attendanceLoading;
+  // Local status tracking
+  const [localStatus, setLocalStatus] = useState<Record<string, string>>({});
+  const getStatus = (id: string, defaultStatus: string) => localStatus[id] || defaultStatus;
 
-  const presentCount = students.filter(s => attendanceMap.get(s.id) === "present").length;
-  const absentCount = students.filter(s => attendanceMap.get(s.id) === "absent").length;
-  const lateCount = students.filter(s => attendanceMap.get(s.id) === "late").length;
+  const presentCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "present").length;
+  const absentCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "absent").length;
+  const lateCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "late").length;
 
-  const toggleStatus = (studentId: string) => {
-    const current = attendanceMap.get(studentId) || "present";
+  const toggleStatus = (studentId: string, currentStatus: string) => {
     const cycle = ["present", "absent", "late"];
-    const next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
-    markAttendance.mutate({ studentId, date: today, status: next });
+    const next = cycle[(cycle.indexOf(currentStatus) + 1) % cycle.length];
+    setLocalStatus(prev => ({ ...prev, [studentId]: next }));
   };
 
   return (
