@@ -157,8 +157,10 @@ const App = () => (
             </BrowserRouter>
           </ErrorBoundary>
         </TooltipProvider>
+        </TermProvider>
       </SchoolProvider>
     </AuthProvider>
+  </QueryClientProvider>
   </QueryClientProvider>
 );
 
