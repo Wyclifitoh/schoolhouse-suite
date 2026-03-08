@@ -471,9 +471,12 @@ const Students = () => {
                               <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem onClick={() => setViewStudent(s)}>
-                                <Eye className="h-4 w-4 mr-2" />View Profile
-                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/students/${s.id}`)}>
+                                 <Eye className="h-4 w-4 mr-2" />View Profile
+                               </DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => navigate(`/students/${s.id}?edit=true`)}>
+                                 <Edit className="h-4 w-4 mr-2" />Edit Student
+                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate(`/student-fees/${s.id}`)}>
                                 <Wallet className="h-4 w-4 mr-2" />View Fees & Payments
                               </DropdownMenuItem>
