@@ -11,9 +11,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
-import { useAttendance, useMarkAttendance } from "@/hooks/useAttendance";
+import { useStudentAttendance, useMarkAttendance } from "@/hooks/useAttendance";
 import { Search, Download, ClipboardCheck, UserCheck, UserX, Clock, Filter, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
