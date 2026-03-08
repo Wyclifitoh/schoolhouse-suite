@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useGrades } from "@/hooks/useGrades";
-import { useStudentAttendance, useMarkAttendance } from "@/hooks/useAttendance";
+import { useStudentAttendance } from "@/hooks/useAttendance";
 import { Search, Download, ClipboardCheck, UserCheck, UserX, Clock, Filter, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -27,58 +27,46 @@ const Attendance = () => {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const today = format(new Date(), "yyyy-MM-dd");
+  const [localStatus, setLocalStatus] = useState<Record<string, string>>({});
 
-  const { data: attendanceRecords = [], isLoading } = useStudentAttendance(today, gradeFilter);
+  const { data: records = [], isLoading } = useStudentAttendance(today, gradeFilter);
   const { data: grades = [] } = useGrades();
-  const markAttendance = useMarkAttendance();
 
-  const filtered = attendanceRecords.filter((r: any) => {
+  const filtered = records.filter((r: any) => {
     if (!search) return true;
     return r.student_name?.toLowerCase().includes(search.toLowerCase()) || r.admission_number?.toLowerCase().includes(search.toLowerCase());
   });
 
-  // Local status tracking
-  const [localStatus, setLocalStatus] = useState<Record<string, string>>({});
-  const getStatus = (id: string, defaultStatus: string) => localStatus[id] || defaultStatus;
-
+  const getStatus = (id: string, def: string) => localStatus[id] || def;
   const presentCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "present").length;
   const absentCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "absent").length;
   const lateCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "late").length;
 
-  const toggleStatus = (studentId: string, currentStatus: string) => {
+  const toggleStatus = (id: string, current: string) => {
     const cycle = ["present", "absent", "late"];
-    const next = cycle[(cycle.indexOf(currentStatus) + 1) % cycle.length];
-    setLocalStatus(prev => ({ ...prev, [studentId]: next }));
+    setLocalStatus(prev => ({ ...prev, [id]: cycle[(cycle.indexOf(current) + 1) % cycle.length] }));
   };
 
   return (
     <DashboardLayout title="Attendance" subtitle="Track daily student attendance">
       <div className="grid gap-4 sm:grid-cols-4 mb-6">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><ClipboardCheck className="h-5 w-5 text-primary" /></div>
-            <div><p className="text-sm text-muted-foreground">Total</p>
-              {isLoading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold text-foreground">{filtered.length}</p>}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"><UserCheck className="h-5 w-5 text-success" /></div>
-            <div><p className="text-sm text-muted-foreground">Present</p><p className="text-2xl font-bold text-foreground">{presentCount}</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10"><UserX className="h-5 w-5 text-destructive" /></div>
-            <div><p className="text-sm text-muted-foreground">Absent</p><p className="text-2xl font-bold text-foreground">{absentCount}</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10"><Clock className="h-5 w-5 text-warning" /></div>
-            <div><p className="text-sm text-muted-foreground">Late</p><p className="text-2xl font-bold text-foreground">{lateCount}</p></div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="flex items-center gap-4 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><ClipboardCheck className="h-5 w-5 text-primary" /></div>
+          <div><p className="text-sm text-muted-foreground">Total</p>
+            {isLoading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold text-foreground">{filtered.length}</p>}</div>
+        </CardContent></Card>
+        <Card><CardContent className="flex items-center gap-4 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"><UserCheck className="h-5 w-5 text-success" /></div>
+          <div><p className="text-sm text-muted-foreground">Present</p><p className="text-2xl font-bold text-foreground">{presentCount}</p></div>
+        </CardContent></Card>
+        <Card><CardContent className="flex items-center gap-4 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10"><UserX className="h-5 w-5 text-destructive" /></div>
+          <div><p className="text-sm text-muted-foreground">Absent</p><p className="text-2xl font-bold text-foreground">{absentCount}</p></div>
+        </CardContent></Card>
+        <Card><CardContent className="flex items-center gap-4 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10"><Clock className="h-5 w-5 text-warning" /></div>
+          <div><p className="text-sm text-muted-foreground">Late</p><p className="text-2xl font-bold text-foreground">{lateCount}</p></div>
+        </CardContent></Card>
       </div>
 
       <Card>
@@ -123,28 +111,27 @@ const Attendance = () => {
               <TableBody>
                 {isLoading ? (
                   [1,2,3,4].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>)
-                ) : students.length === 0 ? (
+                ) : filtered.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No students found</TableCell></TableRow>
                 ) : (
-                  students.map(s => {
-                    const status = attendanceMap.get(s.id) || "present";
-                    const cfg = statusConfig[status] || statusConfig.present;
-                    const fullName = s.full_name || `${s.first_name} ${s.last_name}`;
+                  filtered.map((s: any) => {
+                    const st = getStatus(s.id, s.status);
+                    const cfg = statusConfig[st] || statusConfig.present;
                     return (
                       <TableRow key={s.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                              {fullName.split(" ").map(n => n[0]).join("").substring(0, 2)}
+                              {s.student_name?.split(" ").map((n: string) => n[0]).join("").substring(0, 2)}
                             </div>
-                            <p className="font-medium text-foreground">{fullName}</p>
+                            <p className="font-medium text-foreground">{s.student_name}</p>
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">{s.admission_number}</TableCell>
                         <TableCell><Badge variant="secondary" className="font-normal">{s.grade || "N/A"}</Badge></TableCell>
                         <TableCell><Badge variant="default" className={cfg.className}>{cfg.label}</Badge></TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(s.id)}>Toggle</Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(s.id, st)}>Toggle</Button>
                         </TableCell>
                       </TableRow>
                     );
