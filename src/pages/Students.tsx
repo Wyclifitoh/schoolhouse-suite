@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,17 +15,19 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { students, studentCategories, promotionRecords, parents } from "@/data/mockData";
+import { students, studentCategories, promotionRecords, parents, studentFeeCollection } from "@/data/mockData";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
+  Wallet, Phone, Mail, MapPin, Calendar, User, CreditCard, Printer, CheckCircle,
 } from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 const formatKES = (amount: number) => {
   const abs = Math.abs(amount);
@@ -41,7 +44,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   const totalSteps = 5;
   const steps = ["Personal Details", "Guardian Info", "Previous School", "Siblings & IDs", "Documents"];
 
-  // Auto-detect parent by phone number
   const handlePhoneChange = (phone: string) => {
     setGuardianPhone(phone);
     const cleaned = phone.replace(/\s/g, "");
@@ -62,14 +64,12 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  // Find sibling students for matched parent
   const siblingStudents = matchedParent
     ? students.filter(s => s.parent_phone === matchedParent.phone)
     : [];
 
   return (
     <div className="space-y-6">
-      {/* Step indicator */}
       <div className="flex items-center justify-between px-2">
         {steps.map((s, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -84,7 +84,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         ))}
       </div>
 
-      {/* Step 1: Personal Details */}
       {step === 1 && (
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Personal Information</p>
@@ -141,7 +140,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         </div>
       )}
 
-      {/* Step 2: Guardian Info */}
       {step === 2 && (
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Father / Guardian Information</p>
@@ -154,7 +152,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
             <div className="space-y-1.5"><Label className="text-xs">Occupation</Label><Input placeholder="Occupation" className="h-9" defaultValue={addAsSibling && matchedParent ? matchedParent.occupation : ""} /></div>
           </div>
 
-          {/* Sibling Detection Alert */}
           {siblingPromptShown && matchedParent && (
             <div className="rounded-lg border-2 border-info/40 bg-info/5 p-4 space-y-3">
               <div className="flex items-start gap-3">
@@ -210,7 +207,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         </div>
       )}
 
-      {/* Step 3: Previous School */}
       {step === 3 && (
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Previous School Details</p>
@@ -219,7 +215,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
             <div className="space-y-1.5"><Label className="text-xs">Previous Class</Label><Input placeholder="e.g. Grade 7" className="h-9" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label className="text-xs">TC / Transfer Certificate No.</Label><Input placeholder="TC number" className="h-9" /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Transfer Certificate No.</Label><Input placeholder="TC number" className="h-9" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Year of Leaving</Label><Input type="number" placeholder="2023" className="h-9" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -233,7 +229,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         </div>
       )}
 
-      {/* Step 4: Siblings & IDs */}
       {step === 4 && (
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Identity Documents</p>
@@ -248,7 +243,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
 
           <p className="text-sm font-semibold text-foreground mt-2">Siblings in this School</p>
 
-          {/* Auto-detected siblings */}
           {addAsSibling && siblingStudents.length > 0 && (
             <div className="rounded-lg border-2 border-success/30 bg-success/5 p-4 space-y-2">
               <div className="flex items-center gap-2 mb-2">
@@ -273,7 +267,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
             </div>
           )}
 
-          {/* Manual sibling entry */}
           {!addAsSibling && (
             <div className="rounded-md border p-3 space-y-3">
               <p className="text-xs text-muted-foreground">No siblings auto-detected. You can manually add siblings below.</p>
@@ -291,7 +284,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         </div>
       )}
 
-      {/* Step 5: Documents */}
       {step === 5 && (
         <div className="grid gap-4">
           <p className="text-sm font-semibold text-foreground">Upload Documents</p>
@@ -308,7 +300,6 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
         </div>
       )}
 
-      {/* Navigation */}
       <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={() => step > 1 ? setStep(step - 1) : onClose()} size="sm">
           <ChevronLeft className="h-4 w-4 mr-1" />{step === 1 ? "Cancel" : "Previous"}
@@ -317,7 +308,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
           {step < totalSteps ? (
             <Button onClick={() => setStep(step + 1)} size="sm">Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
           ) : (
-            <Button size="sm" className="bg-success hover:bg-success/90">
+            <Button size="sm" className="bg-success hover:bg-success/90" onClick={() => { toast.success("Student admitted successfully!"); onClose(); }}>
               <UserPlus className="h-4 w-4 mr-1.5" />Complete Admission
             </Button>
           )}
@@ -328,10 +319,17 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
 };
 
 const Students = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [admissionOpen, setAdmissionOpen] = useState(false);
+  const [viewStudent, setViewStudent] = useState<typeof students[0] | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentStudent, setPaymentStudent] = useState<typeof students[0] | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentRef, setPaymentRef] = useState("");
 
   const filtered = students.filter((s) => {
     const matchesSearch = s.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -345,16 +343,36 @@ const Students = () => {
   const activeCount = students.filter((s) => s.status === "active").length;
   const withBalance = students.filter((s) => s.balance < 0).length;
 
+  const handleRecordPayment = () => {
+    if (!paymentAmount || !paymentMethod) {
+      toast.error("Please fill in amount and payment method");
+      return;
+    }
+    toast.success(`Payment of KES ${Number(paymentAmount).toLocaleString()} recorded for ${paymentStudent?.full_name}`);
+    setShowPaymentDialog(false);
+    setPaymentAmount("");
+    setPaymentMethod("");
+    setPaymentRef("");
+    setPaymentStudent(null);
+  };
+
+  const getSiblings = (student: typeof students[0]) => {
+    return students.filter(s => s.id !== student.id && s.parent_phone === student.parent_phone);
+  };
+
+  const getStudentCollection = (sid: string) => {
+    return studentFeeCollection.find(c => c.student_id === sid);
+  };
+
   return (
     <DashboardLayout title="Students" subtitle="Manage student records, admissions, and promotions">
       <Tabs defaultValue="registry" className="space-y-6">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="registry" className="gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Student Registry</TabsTrigger>
+          <TabsTrigger value="registry" className="gap-1.5"><GraduationCap className="h-3.5 w-3.5" />All Students</TabsTrigger>
           <TabsTrigger value="categories" className="gap-1.5"><Users className="h-3.5 w-3.5" />Categories</TabsTrigger>
           <TabsTrigger value="promotion" className="gap-1.5"><ArrowUpDown className="h-3.5 w-3.5" />Promotion</TabsTrigger>
         </TabsList>
 
-        {/* Registry Tab */}
         <TabsContent value="registry" className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3 mb-0">
             <Card><CardContent className="flex items-center gap-4 p-5">
@@ -367,7 +385,7 @@ const Students = () => {
             </CardContent></Card>
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
-              <div><p className="text-sm text-muted-foreground">With Balances</p><p className="text-2xl font-bold text-foreground">{withBalance}</p></div>
+              <div><p className="text-sm text-muted-foreground">With Outstanding Fees</p><p className="text-2xl font-bold text-foreground">{withBalance}</p></div>
             </CardContent></Card>
           </div>
 
@@ -393,7 +411,7 @@ const Students = () => {
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
                 <div className="relative flex-1 w-full sm:max-w-xs">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search name, admission no, father name..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <Input placeholder="Search by name, admission no, parent..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </div>
                 <Select value={gradeFilter} onValueChange={setGradeFilter}>
                   <SelectTrigger className="w-36 h-9"><Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Grade" /></SelectTrigger>
@@ -410,10 +428,10 @@ const Students = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">Student</TableHead>
-                      <TableHead className="font-semibold">Admission No.</TableHead>
+                      <TableHead className="font-semibold">Adm. No.</TableHead>
                       <TableHead className="font-semibold">Grade</TableHead>
-                      <TableHead className="font-semibold">Parent</TableHead>
-                      <TableHead className="font-semibold">Balance</TableHead>
+                      <TableHead className="font-semibold">Parent / Guardian</TableHead>
+                      <TableHead className="font-semibold">Fee Balance</TableHead>
                       <TableHead className="font-semibold">Status</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
@@ -437,7 +455,7 @@ const Students = () => {
                         <TableCell><p className="text-sm">{s.parent_name}</p><p className="text-xs text-muted-foreground">{s.parent_phone}</p></TableCell>
                         <TableCell>
                           <span className={`text-sm font-semibold ${s.balance < 0 ? "text-destructive" : s.balance > 0 ? "text-success" : "text-muted-foreground"}`}>
-                            {formatKES(s.balance)}
+                            {s.balance === 0 ? "Cleared" : formatKES(s.balance)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -449,13 +467,33 @@ const Students = () => {
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem><Eye className="h-4 w-4 mr-2" />View Profile</DropdownMenuItem>
-                              <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                              <DropdownMenuItem>View Ledger</DropdownMenuItem>
-                              <DropdownMenuItem>View Siblings</DropdownMenuItem>
-                              <DropdownMenuItem>Record Payment</DropdownMenuItem>
-                              <DropdownMenuItem>Print ID Card</DropdownMenuItem>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => setViewStudent(s)}>
+                                <Eye className="h-4 w-4 mr-2" />View Profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate("/student-fees")}>
+                                <Wallet className="h-4 w-4 mr-2" />View Fees & Payments
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setPaymentStudent(s); setShowPaymentDialog(true); }}>
+                                <CreditCard className="h-4 w-4 mr-2" />Collect Payment
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => {
+                                const siblings = getSiblings(s);
+                                if (siblings.length > 0) {
+                                  toast.info(`${s.full_name} has ${siblings.length} sibling(s): ${siblings.map(sb => sb.full_name).join(", ")}`);
+                                } else {
+                                  toast.info(`${s.full_name} has no siblings registered in this school.`);
+                                }
+                              }}>
+                                <Users className="h-4 w-4 mr-2" />Check Siblings
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toast.success("ID card sent to print queue")}>
+                                <Printer className="h-4 w-4 mr-2" />Print ID Card
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => toast.success("Fee statement downloaded")}>
+                                <Download className="h-4 w-4 mr-2" />Download Statement
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -472,7 +510,6 @@ const Students = () => {
           </Card>
         </TabsContent>
 
-        {/* Categories Tab */}
         <TabsContent value="categories" className="space-y-6">
           <Card>
             <CardHeader className="pb-4">
@@ -485,7 +522,7 @@ const Students = () => {
                     <div className="grid gap-4 py-4">
                       <div className="space-y-2"><Label>Category Name</Label><Input placeholder="e.g. Scholarship" /></div>
                       <div className="space-y-2"><Label>Description</Label><Textarea placeholder="Description of this category" /></div>
-                      <Button className="w-full mt-2">Create Category</Button>
+                      <Button className="w-full mt-2" onClick={() => toast.success("Category created!")}>Create Category</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -509,14 +546,13 @@ const Students = () => {
           </Card>
         </TabsContent>
 
-        {/* Promotion Tab */}
         <TabsContent value="promotion" className="space-y-6">
           <Card>
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-base font-semibold">Student Promotion</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Promote students to the next academic session</p>
+                  <p className="text-sm text-muted-foreground mt-1">Move students to the next grade for the new academic year</p>
                 </div>
                 <Dialog>
                   <DialogTrigger asChild><Button size="sm"><ArrowUpDown className="h-4 w-4 mr-1.5" />Promote Students</Button></DialogTrigger>
@@ -524,30 +560,30 @@ const Students = () => {
                     <DialogHeader><DialogTitle>Promote Students</DialogTitle></DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>From Session</Label>
+                        <div className="space-y-2"><Label>From Year</Label>
                           <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                           <SelectContent><SelectItem value="2023">2023</SelectItem><SelectItem value="2024">2024</SelectItem></SelectContent></Select>
                         </div>
-                        <div className="space-y-2"><Label>To Session</Label>
+                        <div className="space-y-2"><Label>To Year</Label>
                           <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                           <SelectContent><SelectItem value="2024">2024</SelectItem><SelectItem value="2025">2025</SelectItem></SelectContent></Select>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>From Class</Label>
+                        <div className="space-y-2"><Label>From Grade</Label>
                           <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                           <SelectContent>{["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
                         </div>
-                        <div className="space-y-2"><Label>To Class</Label>
+                        <div className="space-y-2"><Label>To Grade</Label>
                           <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                           <SelectContent>{["Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
                         </div>
                       </div>
-                      <div className="space-y-2"><Label>Promotion Criteria</Label>
+                      <div className="space-y-2"><Label>Promotion Rule</Label>
                         <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Promote All</SelectItem><SelectItem value="pass">Pass Only</SelectItem><SelectItem value="manual">Manual Selection</SelectItem></SelectContent></Select>
+                        <SelectContent><SelectItem value="all">Promote All</SelectItem><SelectItem value="pass">Only Passed Students</SelectItem><SelectItem value="manual">Select Manually</SelectItem></SelectContent></Select>
                       </div>
-                      <Button className="w-full mt-2">Promote Students</Button>
+                      <Button className="w-full mt-2" onClick={() => toast.success("Students promoted successfully!")}>Promote Students</Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -559,9 +595,9 @@ const Students = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">Student</TableHead>
-                      <TableHead className="font-semibold">From</TableHead>
-                      <TableHead className="font-semibold">To</TableHead>
-                      <TableHead className="font-semibold">Session</TableHead>
+                      <TableHead className="font-semibold">From Grade</TableHead>
+                      <TableHead className="font-semibold">To Grade</TableHead>
+                      <TableHead className="font-semibold">Year</TableHead>
                       <TableHead className="font-semibold">Result</TableHead>
                       <TableHead className="font-semibold">Action</TableHead>
                     </TableRow>
@@ -584,6 +620,153 @@ const Students = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* View Student Profile Dialog */}
+      <Dialog open={!!viewStudent} onOpenChange={() => setViewStudent(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" />Student Profile</DialogTitle>
+          </DialogHeader>
+          {viewStudent && (
+            <div className="space-y-6 py-2">
+              <div className="flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-bold text-xl shadow-lg">
+                  {viewStudent.full_name.split(" ").map(n => n[0]).join("")}
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg text-foreground">{viewStudent.full_name}</h2>
+                  <p className="text-sm text-muted-foreground">{viewStudent.admission_no} · {viewStudent.grade} {viewStudent.stream}</p>
+                  <Badge className={viewStudent.status === "active" ? "bg-success/10 text-success border-0 mt-1" : "mt-1"}>{viewStudent.status}</Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">Personal Details</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Gender</span><span className="font-medium">{viewStudent.gender}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Date of Birth</span><span className="font-medium">{viewStudent.dob}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Religion</span><span className="font-medium">{viewStudent.religion}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Blood Group</span><span className="font-medium">{viewStudent.blood_group}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Nationality</span><span className="font-medium">{viewStudent.nationality}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Mother Tongue</span><span className="font-medium">{viewStudent.mother_tongue}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Category</span><Badge variant="secondary" className="text-xs capitalize">{viewStudent.category}</Badge></div>
+                    {viewStudent.rte && <div className="flex justify-between"><span className="text-muted-foreground">RTE</span><Badge className="bg-info/10 text-info border-0 text-xs">Yes</Badge></div>}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground">Parent / Guardian</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{viewStudent.parent_name}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium">{viewStudent.parent_phone}</span></div>
+                  </div>
+                  <h4 className="text-sm font-semibold text-foreground mt-4">Documents</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Birth Cert. No.</span><span className="font-medium font-mono text-xs">{viewStudent.birth_cert_no}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">NEMIS No.</span><span className="font-medium font-mono text-xs">{viewStudent.nemis_no}</span></div>
+                  </div>
+                  {viewStudent.previous_school && (
+                    <>
+                      <h4 className="text-sm font-semibold text-foreground mt-4">Previous School</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between"><span className="text-muted-foreground">School</span><span className="font-medium">{viewStudent.previous_school}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Class</span><span className="font-medium">{viewStudent.previous_class}</span></div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Fee Summary */}
+              {(() => {
+                const collection = getStudentCollection(viewStudent.id);
+                return collection ? (
+                  <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground">Fee Summary</h4>
+                    <div className="grid grid-cols-4 gap-4 text-sm">
+                      <div><p className="text-muted-foreground text-xs">Total Fees</p><p className="font-bold">KES {collection.total_fee.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground text-xs">Paid</p><p className="font-bold text-success">KES {collection.paid.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground text-xs">Discount</p><p className="font-bold text-primary">KES {collection.discount.toLocaleString()}</p></div>
+                      <div><p className="text-muted-foreground text-xs">Balance</p><p className={`font-bold ${collection.balance > 0 ? "text-destructive" : "text-success"}`}>KES {collection.balance.toLocaleString()}</p></div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Siblings */}
+              {(() => {
+                const siblings = getSiblings(viewStudent);
+                return siblings.length > 0 ? (
+                  <div className="rounded-lg border p-4 space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2"><Users className="h-4 w-4 text-info" />Siblings ({siblings.length})</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {siblings.map(sb => (
+                        <Badge key={sb.id} variant="secondary" className="text-xs py-1 px-2">{sb.full_name} · {sb.grade} {sb.stream}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setViewStudent(null); navigate("/student-fees"); }}>
+                  <Wallet className="h-3.5 w-3.5 mr-1.5" />View Fees & Payments
+                </Button>
+                <Button size="sm" onClick={() => { setPaymentStudent(viewStudent); setShowPaymentDialog(true); setViewStudent(null); }}>
+                  <CreditCard className="h-3.5 w-3.5 mr-1.5" />Collect Payment
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" />Collect Payment {paymentStudent && `- ${paymentStudent.full_name}`}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {paymentStudent && (
+              <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{paymentStudent.full_name}</span></div>
+                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Adm. No.</span><span className="font-mono text-xs">{paymentStudent.admission_no}</span></div>
+                <div className="flex justify-between mt-1"><span className="text-muted-foreground">Outstanding</span>
+                  <span className={`font-bold ${paymentStudent.balance < 0 ? "text-destructive" : "text-success"}`}>KES {Math.abs(paymentStudent.balance).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Amount (KES) *</Label>
+                <Input type="number" placeholder="Enter amount" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method *</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mpesa">M-Pesa</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="bank">Bank Transfer</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Receipt / Reference No.</Label>
+              <Input placeholder="Transaction reference" value={paymentRef} onChange={e => setPaymentRef(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">Payment will be auto-allocated to the oldest outstanding fee first (FIFO). For specific fee allocation, use the Fees & Payments page.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>Cancel</Button>
+            <Button onClick={handleRecordPayment}><CheckCircle className="h-4 w-4 mr-1.5" />Record Payment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
