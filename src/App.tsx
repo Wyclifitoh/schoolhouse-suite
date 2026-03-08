@@ -8,7 +8,6 @@ import { SchoolProvider } from "@/contexts/SchoolContext";
 import { TermProvider } from "@/contexts/TermContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Auth pages
 import Login from "./pages/Login";
