@@ -377,7 +377,7 @@ const Students = () => {
           <div className="grid gap-4 sm:grid-cols-3 mb-0">
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><GraduationCap className="h-5 w-5 text-primary" /></div>
-              <div><p className="text-sm text-muted-foreground">Total Students</p><p className="text-2xl font-bold text-foreground">{students.length}</p></div>
+              <div><p className="text-sm text-muted-foreground">Total Students</p><p className="text-2xl font-bold text-foreground">{allStudents.length}</p></div>
             </CardContent></Card>
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"><Users className="h-5 w-5 text-success" /></div>
@@ -385,7 +385,7 @@ const Students = () => {
             </CardContent></Card>
             <Card><CardContent className="flex items-center gap-4 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10"><AlertTriangle className="h-5 w-5 text-warning" /></div>
-              <div><p className="text-sm text-muted-foreground">With Outstanding Fees</p><p className="text-2xl font-bold text-foreground">{withBalance}</p></div>
+              <div><p className="text-sm text-muted-foreground">Inactive</p><p className="text-2xl font-bold text-foreground">{allStudents.filter(s => s.status === "inactive").length}</p></div>
             </CardContent></Card>
           </div>
 
