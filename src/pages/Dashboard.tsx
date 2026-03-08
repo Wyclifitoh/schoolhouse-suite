@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { dashboardStats, recentPayments, expenseCategories, attendanceRecords, students } from "@/data/mockData";
 import {
   Users, Banknote, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight,
