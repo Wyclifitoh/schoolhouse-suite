@@ -69,7 +69,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   };
 
   const siblingStudents = matchedParent
-    ? students.filter(s => s.parent_phone === matchedParent.phone)
+    ? mockStudents.filter(s => s.parent_phone === matchedParent.phone)
     : [];
 
   return (
