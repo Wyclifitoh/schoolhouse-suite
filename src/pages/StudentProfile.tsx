@@ -38,6 +38,10 @@ const StudentProfile = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const student = students.find(s => s.id === studentId);
+  const collection = student ? studentFeeCollection.find(c => c.student_id === student.id) : null;
+  const siblings = student ? students.filter(s => s.id !== student.id && s.parent_phone === student.parent_phone) : [];
+  const [editData, setEditData] = useState(student ? { ...student } : {} as typeof students[0]);
+
   if (!student) {
     return (
       <DashboardLayout title="Student Not Found">
@@ -51,12 +55,6 @@ const StudentProfile = () => {
       </DashboardLayout>
     );
   }
-
-  const collection = studentFeeCollection.find(c => c.student_id === student.id);
-  const siblings = students.filter(s => s.id !== student.id && s.parent_phone === student.parent_phone);
-
-  // Editable state
-  const [editData, setEditData] = useState({ ...student });
 
   const handleSave = () => {
     toast.success("Student profile updated successfully!");

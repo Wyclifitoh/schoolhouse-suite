@@ -497,10 +497,14 @@ const Students = () => {
                               <DropdownMenuItem onClick={() => toast.success("ID card sent to print queue")}>
                                 <Printer className="h-4 w-4 mr-2" />Print ID Card
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toast.success("Fee statement downloaded")}>
-                                <Download className="h-4 w-4 mr-2" />Download Statement
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
+                               <DropdownMenuItem onClick={() => toast.success("Fee statement downloaded")}>
+                                 <Download className="h-4 w-4 mr-2" />Download Statement
+                               </DropdownMenuItem>
+                               <DropdownMenuSeparator />
+                               <DropdownMenuItem className="text-destructive" onClick={() => toast.success(`${s.full_name} has been deactivated`)}>
+                                 <Trash2 className="h-4 w-4 mr-2" />Deactivate
+                               </DropdownMenuItem>
+                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
