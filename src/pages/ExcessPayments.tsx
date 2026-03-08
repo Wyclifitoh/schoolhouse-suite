@@ -102,7 +102,7 @@ const ExcessPayments = () => {
         ...d,
         student_name: studentsMap[d.student_id]?.full_name || "Unknown",
         admission_number: studentsMap[d.student_id]?.admission_number || "",
-        grade: studentsMap[d.student_id]?.grade_id || "",
+        grade: studentsMap[d.student_id]?.current_grade_id || "",
       }));
 
       setExcessRecords(enriched);

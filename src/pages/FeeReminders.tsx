@@ -109,25 +109,12 @@ const FeeReminders = () => {
         return;
       }
 
-      // Get student details with parent info
+      // Get student details — students table has parent_name/parent_phone directly
       const { data: studentData } = await supabase
         .from("students")
-        .select("id, full_name, admission_number, grade_id, parent_id")
+        .select("id, full_name, admission_number, current_grade_id, parent_name, parent_phone")
         .in("id", studentIds)
         .eq("status", "active");
-
-      // Get parent details
-      const parentIds = [...new Set((studentData || []).map(s => s.parent_id).filter(Boolean))];
-      let parentMap: Record<string, { name: string; phone: string }> = {};
-      if (parentIds.length > 0) {
-        const { data: parents } = await supabase
-          .from("parents")
-          .select("id, first_name, last_name, phone")
-          .in("id", parentIds);
-        parents?.forEach(p => {
-          parentMap[p.id] = { name: `${p.first_name} ${p.last_name}`, phone: p.phone };
-        });
-      }
 
       // Get grade names
       const gradeMap: Record<string, string> = {};
@@ -135,11 +122,11 @@ const FeeReminders = () => {
 
       const enriched: StudentWithBalance[] = (studentData || []).map(s => ({
         id: s.id,
-        full_name: s.full_name,
+        full_name: s.full_name || `${s.id}`,
         admission_number: s.admission_number,
-        parent_phone: s.parent_id ? parentMap[s.parent_id]?.phone || "N/A" : "N/A",
-        parent_name: s.parent_id ? parentMap[s.parent_id]?.name || "N/A" : "N/A",
-        grade_name: gradeMap[s.grade_id] || "—",
+        parent_phone: s.parent_phone || "N/A",
+        parent_name: s.parent_name || "N/A",
+        grade_name: s.current_grade_id ? gradeMap[s.current_grade_id] || "—" : "—",
         total_balance: studentFeeMap[s.id]?.total || 0,
         fee_count: studentFeeMap[s.id]?.count || 0,
         overdue_count: studentFeeMap[s.id]?.overdue || 0,
