@@ -7,6 +7,7 @@ import {
   FileText, PenTool, Clock, Layers, UserCheck, FolderOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -248,6 +249,8 @@ export function AppSidebar() {
           </Select>
         </div>
       )}
+
+      <TermSwitcher />
 
       <div className="mx-4 mb-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 

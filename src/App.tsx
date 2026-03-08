@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SchoolProvider } from "@/contexts/SchoolContext";
+import { TermProvider } from "@/contexts/TermContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -37,6 +38,7 @@ import Promotion from "./pages/Promotion";
 import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import Homework from "./pages/Homework";
+import StudentProfile from "./pages/StudentProfile";
 
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
@@ -79,6 +81,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <SchoolProvider>
+        <TermProvider>
         <TooltipProvider>
           <ErrorBoundary>
             <Toaster />
@@ -95,6 +98,7 @@ const App = () => (
                 {/* Protected routes */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+                <Route path="/students/:studentId" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />
                 <Route path="/parents" element={<ProtectedRoute><Parents /></ProtectedRoute>} />
                 <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
 
@@ -152,6 +156,7 @@ const App = () => (
             </BrowserRouter>
           </ErrorBoundary>
         </TooltipProvider>
+        </TermProvider>
       </SchoolProvider>
     </AuthProvider>
   </QueryClientProvider>
