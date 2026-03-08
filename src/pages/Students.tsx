@@ -18,7 +18,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { students, studentCategories, promotionRecords, parents, studentFeeCollection } from "@/data/mockData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useStudents, useSoftDeleteStudent, type StudentRow } from "@/hooks/useStudents";
+import { useGrades } from "@/hooks/useGrades";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
