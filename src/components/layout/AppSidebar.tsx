@@ -249,6 +249,8 @@ export function AppSidebar() {
         </div>
       )}
 
+      <TermSwitcher />
+
       <div className="mx-4 mb-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
       <SidebarContent className="px-3 py-1 scrollbar-thin">

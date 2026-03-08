@@ -161,7 +161,6 @@ const App = () => (
       </SchoolProvider>
     </AuthProvider>
   </QueryClientProvider>
-  </QueryClientProvider>
 );
 
 export default App;
