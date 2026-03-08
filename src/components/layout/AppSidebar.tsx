@@ -2,7 +2,7 @@ import {
   LayoutDashboard, GraduationCap, Users, Banknote, ClipboardList,
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
-  ChevronDown, ShoppingBag, Sparkles,
+  ChevronDown, ShoppingBag, Sparkles, ListChecks,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, ROLE_LABELS, UserRole } from "@/contexts/AuthContext";
@@ -41,6 +41,8 @@ const allNav = {
     icon: Banknote,
     items: [
       { title: "Finance", url: "/finance", icon: Banknote, roles: ["admin","accountant"] as UserRole[] },
+      { title: "Fee Assignment", url: "/fee-assignment", icon: ListChecks, roles: ["admin","accountant"] as UserRole[] },
+      { title: "Student Fees", url: "/student-fees", icon: UserCircle, roles: ["admin","accountant"] as UserRole[] },
       { title: "Payments", url: "/payments", icon: Receipt, roles: ["admin","accountant"] as UserRole[] },
       { title: "Expenses", url: "/expenses", icon: Wallet, roles: ["admin","accountant"] as UserRole[] },
     ],
