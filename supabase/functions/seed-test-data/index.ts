@@ -47,20 +47,26 @@ Deno.serve(async (req) => {
 
     console.log("Created users:", createdUsers);
 
-    // 2. Create school
-    const { data: school, error: schoolErr } = await supabase.from("schools").insert({
-      name: "Chuo Academy",
-      code: "CHUO-001",
-      email: "info@chuoacademy.ac.ke",
-      phone: "+254700100200",
-      address: "123 Education Lane, Nairobi",
-      county: "Nairobi",
-      sub_county: "Westlands",
-      curriculum_type: "CBC",
-      paybill_number: "174379",
-    }).select().single();
-
-    if (!school) throw new Error("Failed to create school: " + JSON.stringify(schoolErr));
+    // 2. Create or get school
+    let school: any;
+    const { data: existingSchool } = await supabase.from("schools").select().eq("code", "CHUO-001").single();
+    if (existingSchool) {
+      school = existingSchool;
+    } else {
+      const { data: newSchool, error: schoolErr } = await supabase.from("schools").insert({
+        name: "Chuo Academy",
+        code: "CHUO-001",
+        email: "info@chuoacademy.ac.ke",
+        phone: "+254700100200",
+        address: "123 Education Lane, Nairobi",
+        county: "Nairobi",
+        sub_county: "Westlands",
+        curriculum_type: "CBC",
+        paybill_number: "174379",
+      }).select().single();
+      if (!newSchool) throw new Error("Failed to create school: " + JSON.stringify(schoolErr));
+      school = newSchool;
+    }
     const schoolId = school.id;
 
     // 3. Update profiles with school_id
