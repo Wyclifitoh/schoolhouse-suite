@@ -463,6 +463,44 @@ export type Database = {
           },
         ]
       }
+      grades: {
+        Row: {
+          created_at: string | null
+          curriculum_type: string
+          id: string
+          level: Database["public"]["Enums"]["education_level"]
+          name: string
+          order_index: number
+          school_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          curriculum_type?: string
+          id?: string
+          level: Database["public"]["Enums"]["education_level"]
+          name: string
+          order_index?: number
+          school_id: string
+        }
+        Update: {
+          created_at?: string | null
+          curriculum_type?: string
+          id?: string
+          level?: Database["public"]["Enums"]["education_level"]
+          name?: string
+          order_index?: number
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mpesa_transactions: {
         Row: {
           account_reference: string
@@ -571,6 +609,65 @@ export type Database = {
             columns: ["term_id"]
             isOneToOne: false
             referencedRelation: "terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parents: {
+        Row: {
+          address: string | null
+          alt_phone: string | null
+          created_at: string | null
+          email: string | null
+          employer: string | null
+          first_name: string
+          id: string
+          id_number: string | null
+          last_name: string
+          occupation: string | null
+          phone: string
+          school_id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          alt_phone?: string | null
+          created_at?: string | null
+          email?: string | null
+          employer?: string | null
+          first_name: string
+          id?: string
+          id_number?: string | null
+          last_name: string
+          occupation?: string | null
+          phone: string
+          school_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          alt_phone?: string | null
+          created_at?: string | null
+          email?: string | null
+          employer?: string | null
+          first_name?: string
+          id?: string
+          id_number?: string | null
+          last_name?: string
+          occupation?: string | null
+          phone?: string
+          school_id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parents_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
             referencedColumns: ["id"]
           },
         ]
@@ -1037,6 +1134,153 @@ export type Database = {
           },
         ]
       }
+      streams: {
+        Row: {
+          academic_year_id: string
+          capacity: number | null
+          class_teacher_id: string | null
+          created_at: string | null
+          grade_id: string
+          id: string
+          name: string
+          school_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          academic_year_id: string
+          capacity?: number | null
+          class_teacher_id?: string | null
+          created_at?: string | null
+          grade_id: string
+          id?: string
+          name: string
+          school_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          academic_year_id?: string
+          capacity?: number | null
+          class_teacher_id?: string | null
+          created_at?: string | null
+          grade_id?: string
+          id?: string
+          name?: string
+          school_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streams_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "streams_class_teacher_id_fkey"
+            columns: ["class_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "streams_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "streams_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_enrollments: {
+        Row: {
+          academic_year_id: string
+          created_at: string | null
+          enrolled_at: string | null
+          grade_id: string
+          id: string
+          promoted_from_id: string | null
+          promotion_status: string | null
+          school_id: string
+          stream_id: string | null
+          student_id: string
+        }
+        Insert: {
+          academic_year_id: string
+          created_at?: string | null
+          enrolled_at?: string | null
+          grade_id: string
+          id?: string
+          promoted_from_id?: string | null
+          promotion_status?: string | null
+          school_id: string
+          stream_id?: string | null
+          student_id: string
+        }
+        Update: {
+          academic_year_id?: string
+          created_at?: string | null
+          enrolled_at?: string | null
+          grade_id?: string
+          id?: string
+          promoted_from_id?: string | null
+          promotion_status?: string | null
+          school_id?: string
+          stream_id?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_enrollments_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_enrollments_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_enrollments_promoted_from_id_fkey"
+            columns: ["promoted_from_id"]
+            isOneToOne: false
+            referencedRelation: "student_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_enrollments_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_enrollments_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_fee_discounts: {
         Row: {
           applied_at: string
@@ -1211,62 +1455,163 @@ export type Database = {
           },
         ]
       }
+      student_parents: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_fee_payer: boolean | null
+          is_primary_contact: boolean | null
+          parent_id: string
+          relationship: Database["public"]["Enums"]["relationship_type"]
+          student_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_fee_payer?: boolean | null
+          is_primary_contact?: boolean | null
+          parent_id: string
+          relationship: Database["public"]["Enums"]["relationship_type"]
+          student_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_fee_payer?: boolean | null
+          is_primary_contact?: boolean | null
+          parent_id?: string
+          relationship?: Database["public"]["Enums"]["relationship_type"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_parents_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_parents_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
+          admission_date: string | null
           admission_number: string
+          cbc_pathway: string | null
           created_at: string
+          current_grade_id: string | null
+          current_stream_id: string | null
           current_term_id: string | null
           date_of_birth: string | null
           first_name: string
           full_name: string | null
           gender: string | null
           grade: string | null
+          graduation_date: string | null
           id: string
           last_name: string
+          medical_info: Json | null
+          middle_name: string | null
+          nationality: string | null
           parent_name: string | null
           parent_phone: string | null
+          photo_url: string | null
+          previous_school: string | null
+          religion: string | null
           school_id: string
+          special_needs: string | null
           status: string
           stream: string | null
           updated_at: string
+          upi: string | null
+          user_id: string | null
         }
         Insert: {
+          admission_date?: string | null
           admission_number: string
+          cbc_pathway?: string | null
           created_at?: string
+          current_grade_id?: string | null
+          current_stream_id?: string | null
           current_term_id?: string | null
           date_of_birth?: string | null
           first_name: string
           full_name?: string | null
           gender?: string | null
           grade?: string | null
+          graduation_date?: string | null
           id?: string
           last_name: string
+          medical_info?: Json | null
+          middle_name?: string | null
+          nationality?: string | null
           parent_name?: string | null
           parent_phone?: string | null
+          photo_url?: string | null
+          previous_school?: string | null
+          religion?: string | null
           school_id: string
+          special_needs?: string | null
           status?: string
           stream?: string | null
           updated_at?: string
+          upi?: string | null
+          user_id?: string | null
         }
         Update: {
+          admission_date?: string | null
           admission_number?: string
+          cbc_pathway?: string | null
           created_at?: string
+          current_grade_id?: string | null
+          current_stream_id?: string | null
           current_term_id?: string | null
           date_of_birth?: string | null
           first_name?: string
           full_name?: string | null
           gender?: string | null
           grade?: string | null
+          graduation_date?: string | null
           id?: string
           last_name?: string
+          medical_info?: Json | null
+          middle_name?: string | null
+          nationality?: string | null
           parent_name?: string | null
           parent_phone?: string | null
+          photo_url?: string | null
+          previous_school?: string | null
+          religion?: string | null
           school_id?: string
+          special_needs?: string | null
           status?: string
           stream?: string | null
           updated_at?: string
+          upi?: string | null
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "students_current_grade_id_fkey"
+            columns: ["current_grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_current_stream_id_fkey"
+            columns: ["current_stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "students_current_term_id_fkey"
             columns: ["current_term_id"]
@@ -1293,6 +1638,8 @@ export type Database = {
           name: string
           school_id: string
           start_date: string
+          status: string | null
+          term_number: number | null
         }
         Insert: {
           academic_year_id: string
@@ -1303,6 +1650,8 @@ export type Database = {
           name: string
           school_id: string
           start_date: string
+          status?: string | null
+          term_number?: number | null
         }
         Update: {
           academic_year_id?: string
@@ -1313,6 +1662,8 @@ export type Database = {
           name?: string
           school_id?: string
           start_date?: string
+          status?: string | null
+          term_number?: number | null
         }
         Relationships: [
           {
@@ -1604,6 +1955,14 @@ export type Database = {
         | "student"
         | "parent"
         | "auditor"
+      education_level:
+        | "pre_primary"
+        | "lower_primary"
+        | "upper_primary"
+        | "junior_secondary"
+        | "senior_secondary"
+        | "primary_844"
+        | "secondary_844"
       permission_category:
         | "students"
         | "academics"
@@ -1614,6 +1973,22 @@ export type Database = {
         | "reports"
         | "settings"
         | "users"
+      relationship_type:
+        | "father"
+        | "mother"
+        | "guardian"
+        | "sponsor"
+        | "grandparent"
+        | "sibling"
+        | "other"
+      student_status:
+        | "applicant"
+        | "admitted"
+        | "active"
+        | "suspended"
+        | "transferred"
+        | "graduated"
+        | "alumni"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1755,6 +2130,15 @@ export const Constants = {
         "parent",
         "auditor",
       ],
+      education_level: [
+        "pre_primary",
+        "lower_primary",
+        "upper_primary",
+        "junior_secondary",
+        "senior_secondary",
+        "primary_844",
+        "secondary_844",
+      ],
       permission_category: [
         "students",
         "academics",
@@ -1765,6 +2149,24 @@ export const Constants = {
         "reports",
         "settings",
         "users",
+      ],
+      relationship_type: [
+        "father",
+        "mother",
+        "guardian",
+        "sponsor",
+        "grandparent",
+        "sibling",
+        "other",
+      ],
+      student_status: [
+        "applicant",
+        "admitted",
+        "active",
+        "suspended",
+        "transferred",
+        "graduated",
+        "alumni",
       ],
     },
   },
