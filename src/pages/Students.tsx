@@ -396,8 +396,9 @@ const Students = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <CardTitle className="text-base font-semibold">Student List</CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
-                  <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
+                   <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)}><Upload className="h-4 w-4 mr-1.5" />Bulk Import</Button>
+                   <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+                   <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm"><UserPlus className="h-4 w-4 mr-1.5" />New Admission</Button>
                     </DialogTrigger>
