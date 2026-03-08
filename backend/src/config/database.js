@@ -1,18 +1,37 @@
-const { Pool } = require('pg');
+const mysql = require('mysql2/promise');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+const pool = mysql.createPool({
+  uri: process.env.DATABASE_URL,
+  waitForConnections: true,
+  connectionLimit: 20,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
+  charset: 'utf8mb4',
 });
 
-pool.on('error', (err) => {
-  console.error('Unexpected database pool error:', err);
+pool.on && pool.getConnection().then(conn => {
+  console.log('MySQL connected');
+  conn.release();
+}).catch(err => {
+  console.error('MySQL connection error:', err.message);
 });
 
-const query = (text, params) => pool.query(text, params);
+const query = async (sql, params) => {
+  const [rows] = await pool.execute(sql, params || []);
+  return rows;
+};
 
-const getClient = () => pool.connect();
+const queryOne = async (sql, params) => {
+  const rows = await query(sql, params);
+  return rows[0] || null;
+};
 
-module.exports = { pool, query, getClient };
+const queryCount = async (sql, params) => {
+  const rows = await query(sql, params);
+  return parseInt(rows[0]?.count || rows[0]?.['COUNT(*)'] || 0, 10);
+};
+
+const getClient = () => pool.getConnection();
+
+module.exports = { pool, query, queryOne, queryCount, getClient };
