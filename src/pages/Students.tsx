@@ -34,8 +34,38 @@ const formatKES = (amount: number) => {
 
 const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   const [step, setStep] = useState(1);
+  const [guardianPhone, setGuardianPhone] = useState("");
+  const [matchedParent, setMatchedParent] = useState<typeof parents[0] | null>(null);
+  const [siblingPromptShown, setSiblingPromptShown] = useState(false);
+  const [addAsSibling, setAddAsSibling] = useState(false);
   const totalSteps = 5;
   const steps = ["Personal Details", "Guardian Info", "Previous School", "Siblings & IDs", "Documents"];
+
+  // Auto-detect parent by phone number
+  const handlePhoneChange = (phone: string) => {
+    setGuardianPhone(phone);
+    const cleaned = phone.replace(/\s/g, "");
+    if (cleaned.length >= 10) {
+      const found = parents.find(p => p.phone === cleaned);
+      if (found) {
+        setMatchedParent(found);
+        setSiblingPromptShown(true);
+      } else {
+        setMatchedParent(null);
+        setSiblingPromptShown(false);
+        setAddAsSibling(false);
+      }
+    } else {
+      setMatchedParent(null);
+      setSiblingPromptShown(false);
+      setAddAsSibling(false);
+    }
+  };
+
+  // Find sibling students for matched parent
+  const siblingStudents = matchedParent
+    ? students.filter(s => s.parent_phone === matchedParent.phone)
+    : [];
 
   return (
     <div className="space-y-6">
