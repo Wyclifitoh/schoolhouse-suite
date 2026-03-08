@@ -93,6 +93,13 @@ const App = () => (
                 <Route path="/parent-portal" element={<ProtectedRoute roles={["parent"]}><ParentPortal /></ProtectedRoute>} />
                 <Route path="/student-panel" element={<ProtectedRoute roles={["student"]}><StudentPanel /></ProtectedRoute>} />
 
+                {/* HR Module */}
+                <Route path="/staff-directory" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><StaffDirectory /></ProtectedRoute>} />
+                <Route path="/staff-attendance" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><StaffAttendance /></ProtectedRoute>} />
+                <Route path="/leave-management" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><LeaveManagement /></ProtectedRoute>} />
+                <Route path="/payroll" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Payroll /></ProtectedRoute>} />
+                <Route path="/departments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin"]}><Departments /></ProtectedRoute>} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

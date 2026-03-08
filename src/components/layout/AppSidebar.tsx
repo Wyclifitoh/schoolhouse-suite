@@ -58,6 +58,17 @@ const allNav = {
       { title: "Expenses", url: "/expenses", icon: Wallet, roles: FINANCE_ROLES },
     ],
   },
+  hr: {
+    label: "Human Resources",
+    icon: Briefcase,
+    items: [
+      { title: "Staff Directory", url: "/staff-directory", icon: Contact, roles: ADMIN_ROLES },
+      { title: "Staff Attendance", url: "/staff-attendance", icon: CalendarDays, roles: ADMIN_ROLES },
+      { title: "Leave Management", url: "/leave-management", icon: Calendar, roles: ADMIN_ROLES },
+      { title: "Payroll", url: "/payroll", icon: DollarSign, roles: [...ADMIN_ROLES, "finance_officer"] as AppRole[] },
+      { title: "Departments", url: "/departments", icon: Building2, roles: ADMIN_ROLES },
+    ],
+  },
   admin: {
     label: "Admin",
     icon: Settings,
