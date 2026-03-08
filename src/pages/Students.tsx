@@ -325,7 +325,7 @@ const Students = () => {
   const [gradeFilter, setGradeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [admissionOpen, setAdmissionOpen] = useState(false);
-  const [viewStudent, setViewStudent] = useState<typeof students[0] | null>(null);
+  
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentStudent, setPaymentStudent] = useState<typeof students[0] | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
