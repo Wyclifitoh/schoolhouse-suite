@@ -1,8 +1,6 @@
 const router = require('express').Router();
 const { authenticate } = require('../middlewares/auth.middleware');
 const { requireSchool } = require('../middlewares/tenant.middleware');
-const { authorize } = require('../middlewares/role.middleware');
-const { ROLES } = require('../config/constants');
 
 const paymentsController = require('../modules/payments/payments.controller');
 
@@ -13,10 +11,17 @@ router.use('/auth', authRoutes);
 // M-Pesa webhook (no auth)
 router.post('/webhooks/mpesa/callback', paymentsController.mpesaCallback);
 
-// Protected routes - require auth + tenant
+// Protected routes - require auth
 router.use(authenticate);
+
+// Schools route (no school header needed)
+const schoolsController = require('../modules/schools/schools.controller');
+router.get('/schools/my-schools', schoolsController.getMySchools);
+
+// Protected routes that need school context
 router.use(requireSchool);
 
+router.use('/schools', require('../modules/schools/schools.routes'));
 router.use('/users', require('../modules/users/users.routes'));
 router.use('/students', require('../modules/students/students.routes'));
 router.use('/parents', require('../modules/parents/parents.routes'));

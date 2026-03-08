@@ -1,34 +1,32 @@
 const parentsService = require('./parents.service');
-const { success, error, paginated } = require('../../utils/response');
-const { parsePagination } = require('../../utils/pagination');
+const { success, error } = require('../../utils/response');
 
 const list = async (req, res) => {
   try {
-    const pagination = parsePagination(req.query);
-    const { rows, total } = await parentsService.listParents(req.schoolId, pagination);
-    return paginated(res, rows, total, pagination.page, pagination.limit);
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
+    const result = await parentsService.list(req.schoolId, req.query);
+    return success(res, result);
+  } catch (err) { return error(res, err.message, err.statusCode || 500); }
 };
 
 const getById = async (req, res) => {
   try {
-    const parent = await parentsService.getParent(req.params.id, req.schoolId);
-    if (!parent) return error(res, 'Parent not found', 404);
+    const parent = await parentsService.getById(req.params.id, req.schoolId);
     return success(res, parent);
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
+  } catch (err) { return error(res, err.message, err.statusCode || 500); }
 };
 
 const create = async (req, res) => {
   try {
-    const parent = await parentsService.createParent({ ...req.body, school_id: req.schoolId });
+    const parent = await parentsService.create(req.schoolId, req.body);
     return success(res, parent, 201);
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
+  } catch (err) { return error(res, err.message, err.statusCode || 500); }
 };
 
-module.exports = { list, getById, create };
+const update = async (req, res) => {
+  try {
+    const parent = await parentsService.update(req.params.id, req.schoolId, req.body);
+    return success(res, parent);
+  } catch (err) { return error(res, err.message, err.statusCode || 500); }
+};
+
+module.exports = { list, getById, create, update };
