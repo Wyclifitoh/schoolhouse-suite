@@ -3,7 +3,7 @@ import {
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
-  Shield, Truck,
+  Shield, Truck, Bell,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -53,6 +53,8 @@ const allNav = {
       { title: "Finance", url: "/finance", icon: Banknote, roles: FINANCE_ROLES },
       { title: "Fee Assignment", url: "/fee-assignment", icon: ListChecks, roles: FINANCE_ROLES },
       { title: "Payments", url: "/payments", icon: Receipt, roles: [...FINANCE_ROLES, "front_office"] as AppRole[] },
+      { title: "Excess Payments", url: "/excess-payments", icon: Wallet, roles: FINANCE_ROLES },
+      { title: "Fee Reminders", url: "/fee-reminders", icon: Bell, roles: FINANCE_ROLES },
       { title: "Expenses", url: "/expenses", icon: Wallet, roles: FINANCE_ROLES },
     ],
   },

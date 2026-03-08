@@ -181,6 +181,38 @@ serve(async (req) => {
 
       await supabase.from('finance_audit_logs').insert(auditLogs);
 
+      // Auto-apply pending excess credits to newly assigned fees per student
+      const uniqueStudents = [...new Set(inserted!.map(f => f.student_id))];
+      const feeIdsByStudent: Record<string, string[]> = {};
+      inserted!.forEach(f => {
+        if (!feeIdsByStudent[f.student_id]) feeIdsByStudent[f.student_id] = [];
+        feeIdsByStudent[f.student_id].push(f.id);
+      });
+
+      for (const studentId of uniqueStudents) {
+        try {
+          const res = await fetch(`${supabaseUrl}/functions/v1/apply-excess-to-fee`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              student_id: studentId,
+              school_id: schoolId,
+              student_fee_ids: feeIdsByStudent[studentId],
+              ledger_type: ledgerType,
+            }),
+          });
+          const result = await res.json();
+          if (result.applied > 0) {
+            console.log(`[fee-assignment] Auto-applied ${result.applied} excess to student ${studentId}`);
+          }
+        } catch (err) {
+          console.error(`[fee-assignment] Failed to auto-apply excess for student ${studentId}:`, err);
+        }
+      }
+
       console.log(`[fee-assignment] Assigned ${inserted!.length} fees for school ${schoolId}`);
 
       return new Response(JSON.stringify({
