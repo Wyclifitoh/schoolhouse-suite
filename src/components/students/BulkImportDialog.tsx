@@ -1,0 +1,181 @@
+import { useState, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Upload, Download, FileText, CheckCircle, AlertTriangle, X } from "lucide-react";
+import { toast } from "sonner";
+
+interface BulkImportDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  type: "students" | "staff";
+}
+
+const STUDENT_CSV_HEADERS = "full_name,admission_no,gender,dob,grade,stream,parent_name,parent_phone,parent_email,category";
+const STAFF_CSV_HEADERS = "full_name,employee_id,email,phone,department,designation,date_of_joining";
+
+export function BulkImportDialog({ open, onOpenChange, type }: BulkImportDialogProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<string[][]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [grade, setGrade] = useState("");
+  const [stream, setStream] = useState("");
+
+  const headers = type === "students" ? STUDENT_CSV_HEADERS : STAFF_CSV_HEADERS;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    if (!selected.name.endsWith(".csv")) {
+      toast.error("Please upload a CSV file");
+      return;
+    }
+    setFile(selected);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+      const rows = lines.slice(1).map(l => l.split(",").map(c => c.trim()));
+      setPreviewData(rows.slice(0, 10));
+
+      const errs: string[] = [];
+      rows.forEach((row, i) => {
+        if (!row[0]) errs.push(`Row ${i + 2}: Missing name`);
+        if (type === "students" && !row[1]) errs.push(`Row ${i + 2}: Missing admission number`);
+      });
+      setErrors(errs);
+    };
+    reader.readAsText(selected);
+  };
+
+  const handleDownloadTemplate = () => {
+    const blob = new Blob([headers + "\n"], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${type}-import-template.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Template downloaded");
+  };
+
+  const handleImport = () => {
+    if (!file) { toast.error("Please select a file"); return; }
+    if (type === "students" && (!grade || !stream)) { toast.error("Please select grade and stream"); return; }
+    if (errors.length > 0) { toast.error("Please fix errors before importing"); return; }
+
+    toast.success(`${previewData.length} ${type} imported successfully!`);
+    onOpenChange(false);
+    setFile(null);
+    setPreviewData([]);
+    setErrors([]);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5 text-primary" />
+            Bulk Import {type === "students" ? "Students" : "Staff"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {type === "students" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Grade *</Label>
+                <Select value={grade} onValueChange={setGrade}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select Grade" /></SelectTrigger>
+                  <SelectContent>{["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Stream *</Label>
+                <Select value={stream} onValueChange={setStream}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Select Stream" /></SelectTrigger>
+                  <SelectContent>{["East","West","North","South","A","B","C"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+              <Download className="h-4 w-4 mr-1.5" />Download Template
+            </Button>
+            <div className="text-xs text-muted-foreground">Download and fill the CSV template, then upload below</div>
+          </div>
+
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+          >
+            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileSelect} />
+            {file ? (
+              <div className="flex items-center justify-center gap-3">
+                <FileText className="h-8 w-8 text-primary" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-foreground">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">{previewData.length} records found</p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setFile(null); setPreviewData([]); setErrors([]); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Click to upload CSV file</p>
+                <p className="text-xs text-muted-foreground mt-1">Maximum 500 records per upload</p>
+              </>
+            )}
+          </div>
+
+          {errors.length > 0 && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+              <p className="text-xs font-semibold text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" />{errors.length} error(s) found</p>
+              {errors.slice(0, 5).map((err, i) => <p key={i} className="text-xs text-destructive/80">{err}</p>)}
+              {errors.length > 5 && <p className="text-xs text-destructive/60">...and {errors.length - 5} more</p>}
+            </div>
+          )}
+
+          {previewData.length > 0 && errors.length === 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-foreground">Preview (first 10 rows)</p>
+              <div className="rounded-md border overflow-auto max-h-48">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      {headers.split(",").map(h => <TableHead key={h} className="text-xs whitespace-nowrap">{h}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewData.map((row, i) => (
+                      <TableRow key={i}>
+                        {row.map((cell, j) => <TableCell key={j} className="text-xs py-1.5">{cell}</TableCell>)}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleImport} disabled={!file || errors.length > 0}>
+            <CheckCircle className="h-4 w-4 mr-1.5" />Import {previewData.length} {type}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
