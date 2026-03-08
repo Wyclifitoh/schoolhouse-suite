@@ -4,7 +4,7 @@ import {
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
   Shield, Truck, Bell, Briefcase, CalendarDays, DollarSign, Contact,
-  FileText, PenTool,
+  FileText, PenTool, Clock, Layers, UserCheck, FolderOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -18,10 +18,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-// ============================================
-// NAVIGATION - AppRole-based visibility
-// ============================================
-
 const ADMIN_ROLES: AppRole[] = ["super_admin", "school_admin", "deputy_admin"];
 const FINANCE_ROLES: AppRole[] = [...ADMIN_ROLES, "finance_officer"];
 const ACADEMIC_ROLES: AppRole[] = [...ADMIN_ROLES, "teacher"];
@@ -34,17 +30,22 @@ const allNav = {
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: [...ADMIN_ROLES, "finance_officer", "teacher", "front_office"] as AppRole[] },
       { title: "Students", url: "/students", icon: GraduationCap, roles: [...ADMIN_ROLES, "teacher", "front_office"] as AppRole[] },
       { title: "Parents", url: "/parents", icon: Users, roles: [...ADMIN_ROLES, "front_office"] as AppRole[] },
-      { title: "Classes", url: "/classes", icon: School, roles: ACADEMIC_ROLES },
       { title: "Attendance", url: "/attendance", icon: ClipboardList, roles: ACADEMIC_ROLES },
-      { title: "Promotion", url: "/promotion", icon: ArrowUpRight, roles: ADMIN_ROLES },
     ],
   },
   academic: {
-    label: "Academic",
+    label: "Academics",
     icon: BookOpen,
     items: [
-      { title: "Examinations", url: "/examinations", icon: BookOpen, roles: ACADEMIC_ROLES },
+      { title: "Classes", url: "/classes", icon: School, roles: ACADEMIC_ROLES },
+      { title: "Streams", url: "/streams", icon: Layers, roles: ACADEMIC_ROLES },
+      { title: "Subjects", url: "/subjects", icon: BookOpen, roles: ACADEMIC_ROLES },
+      { title: "Class Timetable", url: "/class-timetable", icon: Calendar, roles: ACADEMIC_ROLES },
+      { title: "Teacher Timetable", url: "/teacher-timetable", icon: Clock, roles: ACADEMIC_ROLES },
+      { title: "Assign Class Teacher", url: "/assign-class-teacher", icon: UserCheck, roles: ADMIN_ROLES },
+      { title: "Examinations", url: "/examinations", icon: FileText, roles: ACADEMIC_ROLES },
       { title: "Homework", url: "/homework", icon: PenTool, roles: ACADEMIC_ROLES },
+      { title: "Promotion", url: "/promotion", icon: ArrowUpRight, roles: ADMIN_ROLES },
       { title: "Communication", url: "/communication", icon: MessageSquare, roles: [...ADMIN_ROLES, "teacher", "front_office"] as AppRole[] },
     ],
   },
@@ -57,6 +58,12 @@ const allNav = {
       { title: "Payments", url: "/payments", icon: Receipt, roles: [...FINANCE_ROLES, "front_office"] as AppRole[] },
       { title: "Excess Payments", url: "/excess-payments", icon: Wallet, roles: FINANCE_ROLES },
       { title: "Fee Reminders", url: "/fee-reminders", icon: Bell, roles: FINANCE_ROLES },
+    ],
+  },
+  expenses: {
+    label: "Expenses",
+    icon: Wallet,
+    items: [
       { title: "Expenses", url: "/expenses", icon: Wallet, roles: FINANCE_ROLES },
     ],
   },
@@ -109,7 +116,7 @@ const allNav = {
 type SectionKey = keyof typeof allNav;
 
 const NavSection = ({ sectionKey, isOpen, onToggle }: { sectionKey: SectionKey; isOpen: boolean; onToggle: () => void }) => {
-  const { primaryRole, hasAnyRole } = useAuth();
+  const { hasAnyRole } = useAuth();
   const location = useLocation();
   const section = allNav[sectionKey];
 
@@ -171,7 +178,7 @@ const NavSection = ({ sectionKey, isOpen, onToggle }: { sectionKey: SectionKey; 
 };
 
 export function AppSidebar() {
-  const { user, profile, primaryRole, getRoleLabel, signOut, roles } = useAuth();
+  const { user, profile, primaryRole, getRoleLabel, signOut } = useAuth();
   const { currentSchool, schools, switchSchool } = useSchool();
   const navigate = useNavigate();
   const location = useLocation();
@@ -257,7 +264,6 @@ export function AppSidebar() {
 
       <SidebarFooter className="px-4 py-4 space-y-3">
         <div className="mx-1 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
-
         <div className="flex items-center gap-3 px-1 py-2.5 rounded-xl bg-sidebar-accent/30 hover:bg-sidebar-accent/50 transition-colors cursor-default">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/60 text-sidebar-primary-foreground text-xs font-bold shadow-sm">
             {displayInitials}
