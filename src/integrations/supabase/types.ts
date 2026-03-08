@@ -686,6 +686,89 @@ export type Database = {
           },
         ]
       }
+      permissions: {
+        Row: {
+          category: Database["public"]["Enums"]["permission_category"]
+          code: string
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["permission_category"]
+          code: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["permission_category"]
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string
+          first_name: string
+          id: string
+          is_active: boolean | null
+          last_login_at: string | null
+          last_name: string
+          mfa_enabled: boolean | null
+          password_changed_at: string | null
+          phone: string | null
+          school_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          first_name?: string
+          id: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          last_name?: string
+          mfa_enabled?: boolean | null
+          password_changed_at?: string | null
+          phone?: string | null
+          school_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          last_name?: string
+          mfa_enabled?: boolean | null
+          password_changed_at?: string | null
+          phone?: string | null
+          school_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipt_sequences: {
         Row: {
           current_number: number
@@ -763,41 +846,130 @@ export type Database = {
           },
         ]
       }
+      role_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          permission_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      school_role_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_granted: boolean
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_granted: boolean
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_granted?: boolean
+          permission_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_role_permissions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schools: {
         Row: {
           address: string | null
+          code: string | null
+          county: string | null
           created_at: string
+          curriculum_type: string | null
           email: string | null
           id: string
           logo_url: string | null
           name: string
           paybill_number: string | null
           phone: string | null
+          settings: Json | null
           sms_sender_id: string | null
+          sub_county: string | null
+          subscription_status: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          code?: string | null
+          county?: string | null
           created_at?: string
+          curriculum_type?: string | null
           email?: string | null
           id?: string
           logo_url?: string | null
           name: string
           paybill_number?: string | null
           phone?: string | null
+          settings?: Json | null
           sms_sender_id?: string | null
+          sub_county?: string | null
+          subscription_status?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          code?: string | null
+          county?: string | null
           created_at?: string
+          curriculum_type?: string | null
           email?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           paybill_number?: string | null
           phone?: string | null
+          settings?: Json | null
           sms_sender_id?: string | null
+          sub_county?: string | null
+          subscription_status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1235,6 +1407,50 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          is_active: boolean | null
+          role: Database["public"]["Enums"]["app_role"]
+          school_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          role: Database["public"]["Enums"]["app_role"]
+          school_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          role?: Database["public"]["Enums"]["app_role"]
+          school_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1338,9 +1554,33 @@ export type Database = {
           receipt_number: string
         }[]
       }
+      get_accessible_schools: { Args: { _user_id: string }; Returns: string[] }
       get_student_balance: {
         Args: { p_ledger_type?: string; p_student_id: string }
         Returns: number
+      }
+      get_user_roles: {
+        Args: { _school_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
+      has_permission: {
+        Args: { _permission_code: string; _school_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role_in_school: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _school_id: string
+          _user_id: string
+        }
+        Returns: boolean
       }
       increment_fee_payment: {
         Args: { fee_id: string; payment_amount: number }
@@ -1351,7 +1591,29 @@ export type Database = {
       try_advisory_lock: { Args: { lock_key: number }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "super_admin"
+        | "school_admin"
+        | "deputy_admin"
+        | "teacher"
+        | "finance_officer"
+        | "front_office"
+        | "transport_officer"
+        | "store_manager"
+        | "pos_attendant"
+        | "student"
+        | "parent"
+        | "auditor"
+      permission_category:
+        | "students"
+        | "academics"
+        | "finance"
+        | "transport"
+        | "inventory"
+        | "pos"
+        | "reports"
+        | "settings"
+        | "users"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1478,6 +1740,32 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "super_admin",
+        "school_admin",
+        "deputy_admin",
+        "teacher",
+        "finance_officer",
+        "front_office",
+        "transport_officer",
+        "store_manager",
+        "pos_attendant",
+        "student",
+        "parent",
+        "auditor",
+      ],
+      permission_category: [
+        "students",
+        "academics",
+        "finance",
+        "transport",
+        "inventory",
+        "pos",
+        "reports",
+        "settings",
+        "users",
+      ],
+    },
   },
 } as const
