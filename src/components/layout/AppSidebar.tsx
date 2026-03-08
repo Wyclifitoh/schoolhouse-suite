@@ -3,7 +3,7 @@ import {
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
-  Shield, Truck, Bell,
+  Shield, Truck, Bell, Briefcase, CalendarDays, DollarSign, Contact,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
