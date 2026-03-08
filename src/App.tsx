@@ -99,6 +99,7 @@ const App = () => (
                 {/* Protected routes */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+                <Route path="/students/:studentId" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />
                 <Route path="/parents" element={<ProtectedRoute><Parents /></ProtectedRoute>} />
                 <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
 
