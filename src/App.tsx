@@ -39,6 +39,7 @@ import Promotion from "./pages/Promotion";
 import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import Homework from "./pages/Homework";
+import StudentProfile from "./pages/StudentProfile";
 
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
