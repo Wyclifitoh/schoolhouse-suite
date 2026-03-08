@@ -3,9 +3,10 @@ import {
   Package, Settings, LogOut, School, BookOpen, Calendar, Receipt,
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
+  Shield, Truck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useAuth, ROLE_LABELS, UserRole } from "@/contexts/AuthContext";
+import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
@@ -16,54 +17,61 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+// ============================================
+// NAVIGATION - AppRole-based visibility
+// ============================================
+
+const ADMIN_ROLES: AppRole[] = ["super_admin", "school_admin", "deputy_admin"];
+const FINANCE_ROLES: AppRole[] = [...ADMIN_ROLES, "finance_officer"];
+const ACADEMIC_ROLES: AppRole[] = [...ADMIN_ROLES, "teacher"];
+
 const allNav = {
   overview: {
     label: "Overview",
     icon: LayoutDashboard,
     items: [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin","accountant","teacher","librarian"] as UserRole[] },
-      { title: "Students", url: "/students", icon: GraduationCap, roles: ["admin","teacher"] as UserRole[] },
-      { title: "Parents", url: "/parents", icon: Users, roles: ["admin"] as UserRole[] },
-      { title: "Classes", url: "/classes", icon: School, roles: ["admin","teacher"] as UserRole[] },
-      { title: "Attendance", url: "/attendance", icon: ClipboardList, roles: ["admin","teacher"] as UserRole[] },
-      { title: "Promotion", url: "/promotion", icon: ArrowUpRight, roles: ["admin"] as UserRole[] },
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: [...ADMIN_ROLES, "finance_officer", "teacher", "front_office"] as AppRole[] },
+      { title: "Students", url: "/students", icon: GraduationCap, roles: [...ADMIN_ROLES, "teacher", "front_office"] as AppRole[] },
+      { title: "Parents", url: "/parents", icon: Users, roles: [...ADMIN_ROLES, "front_office"] as AppRole[] },
+      { title: "Classes", url: "/classes", icon: School, roles: ACADEMIC_ROLES },
+      { title: "Attendance", url: "/attendance", icon: ClipboardList, roles: ACADEMIC_ROLES },
+      { title: "Promotion", url: "/promotion", icon: ArrowUpRight, roles: ADMIN_ROLES },
     ],
   },
   academic: {
     label: "Academic",
     icon: BookOpen,
     items: [
-      { title: "Examinations", url: "/examinations", icon: BookOpen, roles: ["admin","teacher"] as UserRole[] },
-      { title: "Communication", url: "/communication", icon: MessageSquare, roles: ["admin","teacher","librarian"] as UserRole[] },
+      { title: "Examinations", url: "/examinations", icon: BookOpen, roles: ACADEMIC_ROLES },
+      { title: "Communication", url: "/communication", icon: MessageSquare, roles: [...ADMIN_ROLES, "teacher", "front_office"] as AppRole[] },
     ],
   },
   finance: {
     label: "Finance",
     icon: Banknote,
     items: [
-      { title: "Finance", url: "/finance", icon: Banknote, roles: ["admin","accountant"] as UserRole[] },
-      { title: "Fee Assignment", url: "/fee-assignment", icon: ListChecks, roles: ["admin","accountant"] as UserRole[] },
-      { title: "Student Fees", url: "/student-fees", icon: UserCircle, roles: ["admin","accountant"] as UserRole[] },
-      { title: "Payments", url: "/payments", icon: Receipt, roles: ["admin","accountant"] as UserRole[] },
-      { title: "Expenses", url: "/expenses", icon: Wallet, roles: ["admin","accountant"] as UserRole[] },
+      { title: "Finance", url: "/finance", icon: Banknote, roles: FINANCE_ROLES },
+      { title: "Fee Assignment", url: "/fee-assignment", icon: ListChecks, roles: FINANCE_ROLES },
+      { title: "Payments", url: "/payments", icon: Receipt, roles: [...FINANCE_ROLES, "front_office"] as AppRole[] },
+      { title: "Expenses", url: "/expenses", icon: Wallet, roles: FINANCE_ROLES },
     ],
   },
   admin: {
     label: "Admin",
     icon: Settings,
     items: [
-      { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin","accountant"] as UserRole[] },
-      { title: "Library", url: "/library", icon: Library, roles: ["admin","librarian","teacher"] as UserRole[] },
-      { title: "School Store", url: "/inventory", icon: ShoppingBag, roles: ["admin","accountant"] as UserRole[] },
-      { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"] as UserRole[] },
+      { title: "Reports", url: "/reports", icon: BarChart3, roles: [...FINANCE_ROLES, "auditor"] as AppRole[] },
+      { title: "Library", url: "/library", icon: Library, roles: [...ADMIN_ROLES, "teacher"] as AppRole[] },
+      { title: "School Store", url: "/inventory", icon: ShoppingBag, roles: [...ADMIN_ROLES, "store_manager", "pos_attendant"] as AppRole[] },
+      { title: "Settings", url: "/settings", icon: Settings, roles: ADMIN_ROLES },
     ],
   },
   portal: {
     label: "My Portal",
     icon: UserCircle,
     items: [
-      { title: "Parent Portal", url: "/parent-portal", icon: Users, roles: ["parent"] as UserRole[] },
-      { title: "Student Panel", url: "/student-panel", icon: UserCircle, roles: ["student"] as UserRole[] },
+      { title: "Parent Portal", url: "/parent-portal", icon: Users, roles: ["parent"] as AppRole[] },
+      { title: "Student Panel", url: "/student-panel", icon: UserCircle, roles: ["student"] as AppRole[] },
     ],
   },
 };
@@ -71,10 +79,12 @@ const allNav = {
 type SectionKey = keyof typeof allNav;
 
 const NavSection = ({ sectionKey, isOpen, onToggle }: { sectionKey: SectionKey; isOpen: boolean; onToggle: () => void }) => {
-  const { role } = useAuth();
+  const { primaryRole, hasAnyRole } = useAuth();
   const location = useLocation();
   const section = allNav[sectionKey];
-  const visible = section.items.filter(i => i.roles.includes(role));
+
+  // Filter items based on user's actual roles
+  const visible = section.items.filter(i => hasAnyRole(i.roles));
   if (visible.length === 0) return null;
 
   const hasActiveChild = visible.some(i => location.pathname === i.url);
@@ -132,20 +142,19 @@ const NavSection = ({ sectionKey, isOpen, onToggle }: { sectionKey: SectionKey; 
 };
 
 export function AppSidebar() {
-  const { user, profile, role, roleLabel, switchRole, logout, signOut } = useAuth();
+  const { user, profile, primaryRole, getRoleLabel, signOut, roles } = useAuth();
   const { currentSchool, schools, switchSchool } = useSchool();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Display helpers
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim() || user?.email || "User"
     : user?.email || "Guest";
   const displayInitials = profile
     ? `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "?"
     : "?";
+  const displayRole = primaryRole ? getRoleLabel(primaryRole) : "User";
 
-  // Auto-open sections that contain the active route
   const getInitialOpen = (): Record<SectionKey, boolean> => {
     const state: Record<string, boolean> = {};
     for (const [key, section] of Object.entries(allNav)) {
@@ -161,9 +170,8 @@ export function AppSidebar() {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleLogout = () => {
-    signOut();
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate("/login");
   };
 
@@ -222,21 +230,6 @@ export function AppSidebar() {
       <SidebarFooter className="px-4 py-4 space-y-3">
         <div className="mx-1 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
-        {/* Role Switcher (dev mode) */}
-        <div className="px-1">
-          <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 mb-1.5">Switch Role</p>
-          <Select value={role} onValueChange={(v) => { switchRole(v as UserRole); navigate("/dashboard"); }}>
-            <SelectTrigger className="h-8 text-xs bg-sidebar-accent/50 border-sidebar-border/50 text-sidebar-accent-foreground rounded-lg hover:bg-sidebar-accent transition-colors">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(ROLE_LABELS) as string[]).filter(r => ["admin","accountant","teacher","librarian","parent","student"].includes(r)).map(r => (
-                <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* User Profile */}
         <div className="flex items-center gap-3 px-1 py-2.5 rounded-xl bg-sidebar-accent/30 hover:bg-sidebar-accent/50 transition-colors cursor-default">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-sidebar-primary/60 text-sidebar-primary-foreground text-xs font-bold shadow-sm">
@@ -244,7 +237,7 @@ export function AppSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-accent-foreground truncate">{displayName}</p>
-            <p className="text-[11px] text-sidebar-foreground/60 truncate">{roleLabel}</p>
+            <p className="text-[11px] text-sidebar-foreground/60 truncate">{displayRole}</p>
           </div>
           <button
             onClick={handleLogout}

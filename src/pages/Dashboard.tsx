@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { dashboardStats, recentPayments, expenseCategories, attendanceRecords, students } from "@/data/mockData";
 import {
   Users, Banknote, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight,
@@ -284,28 +284,34 @@ const LibrarianDashboard = () => (
 );
 
 // ============== PARENT / STUDENT ==============
-const PortalDashboard = ({ role }: { role: UserRole }) => (
+const PortalDashboard = ({ primaryRole }: { primaryRole: string }) => (
   <div className="text-center py-16">
     <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 mx-auto mb-6">
       <GraduationCap className="h-10 w-10 text-primary" />
     </div>
     <h2 className="text-2xl font-extrabold text-foreground mb-2">Welcome back!</h2>
     <p className="text-muted-foreground max-w-md mx-auto">
-      Use the sidebar to navigate to your {role === "parent" ? "Parent Portal" : "Student Panel"} for detailed information.
+      Use the sidebar to navigate to your {primaryRole === "parent" ? "Parent Portal" : "Student Panel"} for detailed information.
     </p>
   </div>
 );
 
 // ============== MAIN ==============
 const Dashboard = () => {
-  const { role } = useAuth();
+  const { primaryRole, hasAnyRole, getRoleLabel } = useAuth();
+  const roleLabel = primaryRole ? getRoleLabel(primaryRole) : "User";
+
+  const isAdmin = hasAnyRole(["super_admin", "school_admin", "deputy_admin"]);
+  const isFinance = hasAnyRole(["finance_officer"]);
+  const isTeacher = hasAnyRole(["teacher"]);
+
   return (
-    <DashboardLayout title="Dashboard" subtitle={`Welcome to your ${role} dashboard`}>
-      {role === "admin" && <AdminDashboard />}
-      {role === "accountant" && <AccountantDashboard />}
-      {role === "teacher" && <TeacherDashboard />}
-      {role === "librarian" && <LibrarianDashboard />}
-      {(role === "parent" || role === "student") && <PortalDashboard role={role} />}
+    <DashboardLayout title="Dashboard" subtitle={`Welcome to your ${roleLabel} dashboard`}>
+      {isAdmin && <AdminDashboard />}
+      {!isAdmin && isFinance && <AccountantDashboard />}
+      {!isAdmin && !isFinance && isTeacher && <TeacherDashboard />}
+      {primaryRole === "parent" || primaryRole === "student" ? <PortalDashboard primaryRole={primaryRole || ""} /> : null}
+      {!isAdmin && !isFinance && !isTeacher && primaryRole !== "parent" && primaryRole !== "student" && <AdminDashboard />}
     </DashboardLayout>
   );
 };

@@ -16,7 +16,7 @@ export function ProtectedRoute({
   roles,
   redirectTo = "/login",
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, hasAnyRole, role } = useAuth();
+  const { isAuthenticated, isLoading, hasAnyRole } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -30,18 +30,12 @@ export function ProtectedRoute({
     );
   }
 
-  // For now, allow both legacy mock auth and real Supabase auth
-  // Real auth: check isAuthenticated
-  // Legacy: check if role is set (always true with mock)
-  const isLegacyAuth = !!role;
-  const isAuthed = isAuthenticated || isLegacyAuth;
-
-  if (!isAuthed) {
+  if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Role check (if roles specified and using real auth)
-  if (roles && isAuthenticated && !hasAnyRole(roles)) {
+  // Role check
+  if (roles && !hasAnyRole(roles)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
