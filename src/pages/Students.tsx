@@ -42,7 +42,7 @@ const formatKES = (amount: number) => {
 const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   const [step, setStep] = useState(1);
   const [guardianPhone, setGuardianPhone] = useState("");
-  const [matchedParent, setMatchedParent] = useState<typeof parents[0] | null>(null);
+  const [matchedParent, setMatchedParent] = useState<typeof mockParents[0] | null>(null);
   const [siblingPromptShown, setSiblingPromptShown] = useState(false);
   const [addAsSibling, setAddAsSibling] = useState(false);
   const totalSteps = 5;
