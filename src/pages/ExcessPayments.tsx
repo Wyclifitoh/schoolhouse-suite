@@ -89,11 +89,11 @@ const ExcessPayments = () => {
 
       // Fetch student names
       const studentIds = [...new Set((data || []).map(d => d.student_id))];
-      let studentsMap: Record<string, { full_name: string; admission_number: string; grade_id: string }> = {};
+      let studentsMap: Record<string, { full_name: string | null; admission_number: string; current_grade_id: string | null }> = {};
       if (studentIds.length > 0) {
         const { data: students } = await supabase
           .from("students")
-          .select("id, full_name, admission_number, grade_id")
+          .select("id, full_name, admission_number, current_grade_id")
           .in("id", studentIds);
         students?.forEach(s => { studentsMap[s.id] = s; });
       }
