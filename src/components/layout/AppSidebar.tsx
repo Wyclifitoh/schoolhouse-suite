@@ -41,6 +41,8 @@ const allNav = {
     icon: Banknote,
     items: [
       { title: "Finance", url: "/finance", icon: Banknote, roles: ["admin","accountant"] as UserRole[] },
+      { title: "Fee Assignment", url: "/fee-assignment", icon: ListChecks, roles: ["admin","accountant"] as UserRole[] },
+      { title: "Student Fees", url: "/student-fees", icon: UserCircle, roles: ["admin","accountant"] as UserRole[] },
       { title: "Payments", url: "/payments", icon: Receipt, roles: ["admin","accountant"] as UserRole[] },
       { title: "Expenses", url: "/expenses", icon: Wallet, roles: ["admin","accountant"] as UserRole[] },
     ],
