@@ -603,16 +603,7 @@ const Students = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {promotionRecords.map(p => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.student}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.from_class}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.to_class}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.session}</TableCell>
-                        <TableCell><Badge className="bg-success/10 text-success border-0">{p.result}</Badge></TableCell>
-                        <TableCell><Badge variant="secondary" className="capitalize">{p.action}</Badge></TableCell>
-                      </TableRow>
-                    ))}
+                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Promotion records will load from the backend.</TableCell></TableRow>
                   </TableBody>
                 </Table>
               </div>
