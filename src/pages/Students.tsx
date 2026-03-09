@@ -118,7 +118,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
             <div className="space-y-1.5"><Label className="text-xs">Admission Date *</Label><Input type="date" className="h-9" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Category</Label>
               <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{studentCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+               <SelectContent><SelectItem value="general">General</SelectItem><SelectItem value="scholarship">Scholarship</SelectItem><SelectItem value="staff_child">Staff Child</SelectItem></SelectContent></Select>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
