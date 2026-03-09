@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStudents, useSoftDeleteStudent, type StudentRow } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
-import { students as mockStudents, studentCategories, promotionRecords, parents as mockParents } from "@/data/mockData";
+import { useParents } from "@/hooks/useParents";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
