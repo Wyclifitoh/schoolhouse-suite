@@ -3,66 +3,56 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUpRight, ArrowRightLeft, LogOut as LeaveIcon, Users, CheckCircle2, AlertTriangle } from "lucide-react";
-import { students, marksRegister, academicSessions, classes } from "@/data/mockData";
+import { useStudents } from "@/hooks/useStudents";
+import { useClasses } from "@/hooks/useClasses";
+import { useAcademicSessions } from "@/hooks/usePromotion";
 import { toast } from "sonner";
 
 type PromotionAction = "promote" | "retain" | "leaving";
 
 interface PromotionEntry {
-  studentId: string;
-  name: string;
-  admNo: string;
-  currentClass: string;
-  percentage: number;
-  result: "pass" | "fail";
-  action: PromotionAction;
-  selected: boolean;
+  studentId: string; name: string; admNo: string; currentClass: string;
+  percentage: number; result: "pass" | "fail"; action: PromotionAction; selected: boolean;
 }
 
 const Promotion = () => {
-  const [fromSession, setFromSession] = useState("2024");
-  const [toSession, setToSession] = useState("2025");
+  const [fromSession, setFromSession] = useState("");
+  const [toSession, setToSession] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [entries, setEntries] = useState<PromotionEntry[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  const { data: classes = [] } = useClasses();
+  const { data: sessions = [] } = useAcademicSessions();
+  const { data: allStudents = [] } = useStudents({ gradeId: undefined });
+
   const handleGenerate = () => {
-    const classStudents = students.filter(s => s.grade === selectedClass && s.status === "active");
-    const generated: PromotionEntry[] = classStudents.map(s => {
-      const mark = marksRegister.find(m => m.admission_no === s.admission_no);
-      const pct = mark?.percentage ?? Math.floor(Math.random() * 60 + 30);
+    const classStudents = allStudents.filter((s: any) => s.grade === selectedClass && s.status === "active");
+    const generated: PromotionEntry[] = classStudents.map((s: any) => {
+      const pct = Math.floor(Math.random() * 60 + 30);
       const pass = pct >= 40;
       return {
-        studentId: s.id, name: s.full_name, admNo: s.admission_no,
-        currentClass: `${s.grade} ${s.stream}`, percentage: pct,
-        result: pass ? "pass" : "fail",
-        action: pass ? "promote" : "retain",
-        selected: true,
+        studentId: s.id, name: s.full_name || `${s.first_name} ${s.last_name}`,
+        admNo: s.admission_number, currentClass: `${s.grade} ${s.stream || ""}`.trim(),
+        percentage: pct, result: pass ? "pass" as const : "fail" as const,
+        action: pass ? "promote" as const : "retain" as const, selected: true,
       };
     });
     setEntries(generated.sort((a, b) => b.percentage - a.percentage));
   };
 
-  const toggleSelect = (idx: number) => {
-    setEntries(prev => prev.map((e, i) => i === idx ? { ...e, selected: !e.selected } : e));
-  };
-
-  const toggleAll = (checked: boolean) => {
-    setEntries(prev => prev.map(e => ({ ...e, selected: checked })));
-  };
-
-  const setAction = (idx: number, action: PromotionAction) => {
-    setEntries(prev => prev.map((e, i) => i === idx ? { ...e, action } : e));
-  };
-
+  const toggleSelect = (idx: number) => setEntries(prev => prev.map((e, i) => i === idx ? { ...e, selected: !e.selected } : e));
+  const toggleAll = (checked: boolean) => setEntries(prev => prev.map(e => ({ ...e, selected: checked })));
+  const setAction = (idx: number, action: PromotionAction) => setEntries(prev => prev.map((e, i) => i === idx ? { ...e, action } : e));
   const handlePromote = () => {
     const selected = entries.filter(e => e.selected);
-    toast.success(`${selected.length} students processed for promotion from ${fromSession} to ${toSession}`);
+    toast.success(`${selected.length} students processed for promotion`);
     setShowConfirm(false);
   };
 
@@ -72,35 +62,28 @@ const Promotion = () => {
 
   return (
     <DashboardLayout title="Student Promotion" subtitle="Promote students to next academic session">
-      {/* Filters */}
       <Card className="mb-6">
         <CardContent className="p-5">
           <div className="grid gap-4 sm:grid-cols-4 items-end">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">From Session</label>
               <Select value={fromSession} onValueChange={setFromSession}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {academicSessions.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                </SelectContent>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">To Session</label>
               <Select value={toSession} onValueChange={setToSession}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {academicSessions.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                </SelectContent>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Class / Grade</label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
                 <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>
-                  {classes.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{classes.map((c: any) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <Button onClick={handleGenerate} disabled={!selectedClass}>Generate List</Button>
@@ -108,7 +91,6 @@ const Promotion = () => {
         </CardContent>
       </Card>
 
-      {/* Summary */}
       {entries.length > 0 && (
         <>
           <div className="grid gap-4 sm:grid-cols-4 mb-6">
@@ -130,7 +112,6 @@ const Promotion = () => {
             </CardContent></Card>
           </div>
 
-          {/* Table */}
           <Card>
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base font-semibold">Promotion List — {selectedClass}</CardTitle>
@@ -151,7 +132,7 @@ const Promotion = () => {
                     </div>
                     <div className="flex items-start gap-2 rounded-md bg-warning/10 p-3">
                       <AlertTriangle className="h-4 w-4 text-warning mt-0.5" />
-                      <p className="text-xs text-muted-foreground">This action will update student records for session {toSession}. This cannot be easily undone.</p>
+                      <p className="text-xs text-muted-foreground">This action will update student records. This cannot be easily undone.</p>
                     </div>
                   </div>
                   <DialogFooter>
@@ -163,43 +144,33 @@ const Promotion = () => {
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10"><Checkbox checked={entries.every(e => e.selected)} onCheckedChange={(c) => toggleAll(!!c)} /></TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Adm No</TableHead>
-                    <TableHead>Current Class</TableHead>
-                    <TableHead className="text-center">Score %</TableHead>
-                    <TableHead className="text-center">Result</TableHead>
-                    <TableHead>Action</TableHead>
+                <TableHeader><TableRow>
+                  <TableHead className="w-10"><Checkbox checked={entries.every(e => e.selected)} onCheckedChange={(c) => toggleAll(!!c)} /></TableHead>
+                  <TableHead>Student</TableHead><TableHead>Adm No</TableHead><TableHead>Current Class</TableHead>
+                  <TableHead className="text-center">Score %</TableHead><TableHead className="text-center">Result</TableHead><TableHead>Action</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>{entries.map((e, i) => (
+                  <TableRow key={e.studentId}>
+                    <TableCell><Checkbox checked={e.selected} onCheckedChange={() => toggleSelect(i)} /></TableCell>
+                    <TableCell className="font-medium text-foreground">{e.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{e.admNo}</TableCell>
+                    <TableCell className="text-muted-foreground">{e.currentClass}</TableCell>
+                    <TableCell className="text-center font-semibold text-foreground">{e.percentage.toFixed(1)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={e.result === "pass" ? "default" : "destructive"} className={e.result === "pass" ? "bg-success/10 text-success border-0" : ""}>{e.result === "pass" ? "Pass" : "Fail"}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Select value={e.action} onValueChange={(v) => setAction(i, v as PromotionAction)}>
+                        <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="promote">Promote</SelectItem>
+                          <SelectItem value="retain">Retain</SelectItem>
+                          <SelectItem value="leaving">Leaving</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map((e, i) => (
-                    <TableRow key={e.studentId}>
-                      <TableCell><Checkbox checked={e.selected} onCheckedChange={() => toggleSelect(i)} /></TableCell>
-                      <TableCell className="font-medium text-foreground">{e.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{e.admNo}</TableCell>
-                      <TableCell className="text-muted-foreground">{e.currentClass}</TableCell>
-                      <TableCell className="text-center font-semibold text-foreground">{e.percentage.toFixed(1)}%</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={e.result === "pass" ? "default" : "destructive"} className={e.result === "pass" ? "bg-success/10 text-success border-0" : ""}>
-                          {e.result === "pass" ? "Pass" : "Fail"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select value={e.action} onValueChange={(v) => setAction(i, v as PromotionAction)}>
-                          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="promote">Promote</SelectItem>
-                            <SelectItem value="retain">Retain</SelectItem>
-                            <SelectItem value="leaving">Leaving</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+                ))}</TableBody>
               </Table>
             </CardContent>
           </Card>

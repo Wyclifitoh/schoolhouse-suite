@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStudents, useSoftDeleteStudent, type StudentRow } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
-import { students as mockStudents, studentCategories, promotionRecords, parents as mockParents } from "@/data/mockData";
+import { useParents } from "@/hooks/useParents";
 import {
   Search, Plus, Download, Filter, Eye, MoreHorizontal, GraduationCap, Users,
   AlertTriangle, UserPlus, ArrowUpDown, FileText, Upload, X, ChevronRight, ChevronLeft,
@@ -42,7 +42,7 @@ const formatKES = (amount: number) => {
 const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
   const [step, setStep] = useState(1);
   const [guardianPhone, setGuardianPhone] = useState("");
-  const [matchedParent, setMatchedParent] = useState<typeof mockParents[0] | null>(null);
+  const [matchedParent, setMatchedParent] = useState<any>(null);
   const [siblingPromptShown, setSiblingPromptShown] = useState(false);
   const [addAsSibling, setAddAsSibling] = useState(false);
   const totalSteps = 5;
@@ -52,7 +52,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
     setGuardianPhone(phone);
     const cleaned = phone.replace(/\s/g, "");
     if (cleaned.length >= 10) {
-      const found = mockParents.find(p => p.phone === cleaned);
+      const found = null; // TODO: API lookup by phone
       if (found) {
         setMatchedParent(found);
         setSiblingPromptShown(true);
@@ -68,9 +68,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const siblingStudents = matchedParent
-    ? mockStudents.filter(s => s.parent_phone === matchedParent.phone)
-    : [];
+  const siblingStudents: any[] = [];
 
   return (
     <div className="space-y-6">
@@ -120,7 +118,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
             <div className="space-y-1.5"><Label className="text-xs">Admission Date *</Label><Input type="date" className="h-9" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Category</Label>
               <Select><SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{studentCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
+               <SelectContent><SelectItem value="general">General</SelectItem><SelectItem value="scholarship">Scholarship</SelectItem><SelectItem value="staff_child">Staff Child</SelectItem></SelectContent></Select>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -542,17 +540,7 @@ const Students = () => {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-3">
-                {studentCategories.map(c => (
-                  <Card key={c.id} className="border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant="secondary" className="text-xs">{c.count} students</Badge>
-                      </div>
-                      <h3 className="font-semibold text-foreground">{c.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+                <p className="text-center text-sm text-muted-foreground py-8">Categories will be loaded from the backend.</p>
               </div>
             </CardContent>
           </Card>
@@ -615,16 +603,7 @@ const Students = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {promotionRecords.map(p => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.student}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.from_class}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.to_class}</TableCell>
-                        <TableCell className="text-muted-foreground">{p.session}</TableCell>
-                        <TableCell><Badge className="bg-success/10 text-success border-0">{p.result}</Badge></TableCell>
-                        <TableCell><Badge variant="secondary" className="capitalize">{p.action}</Badge></TableCell>
-                      </TableRow>
-                    ))}
+                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Promotion records will load from the backend.</TableCell></TableRow>
                   </TableBody>
                 </Table>
               </div>

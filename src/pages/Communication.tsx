@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -16,13 +16,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { notices, downloads } from "@/data/mockData";
+import { useNotices, useDownloads } from "@/hooks/useCommunication";
 import {
-  MessageSquare, Plus, Bell, Download, Upload, FileText, File,
-  AlertCircle, Search,
+  Plus, Bell, Download, Upload, FileText, AlertCircle,
 } from "lucide-react";
 
 const Communication = () => {
+  const { data: notices = [], isLoading: noticesLoading } = useNotices();
+  const { data: downloads = [], isLoading: downloadsLoading } = useDownloads();
+
   return (
     <DashboardLayout title="Communication" subtitle="Notice board, messaging & download center">
       <Tabs defaultValue="notices" className="space-y-6">
@@ -31,7 +33,6 @@ const Communication = () => {
           <TabsTrigger value="downloads" className="gap-1.5"><Download className="h-3.5 w-3.5" />Download Center</TabsTrigger>
         </TabsList>
 
-        {/* Notice Board */}
         <TabsContent value="notices" className="space-y-6">
           <Card>
             <CardHeader className="pb-4">
@@ -59,31 +60,36 @@ const Communication = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {notices.map(n => (
-                  <div key={n.id} className="p-4 rounded-lg border hover:shadow-sm transition-shadow">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          {n.priority === "high" && <AlertCircle className="h-4 w-4 text-destructive" />}
-                          <h3 className="font-semibold text-foreground">{n.title}</h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">{n.message}</p>
-                        <div className="flex items-center gap-3">
-                          <Badge variant="secondary" className="text-xs">{n.audience}</Badge>
-                          <Badge className={n.priority === "high" ? "bg-destructive/10 text-destructive border-0" : "bg-info/10 text-info border-0"}>{n.priority}</Badge>
-                          <span className="text-xs text-muted-foreground">by {n.author} · {n.date}</span>
+              {noticesLoading ? (
+                <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-24 w-full" />)}</div>
+              ) : notices.length === 0 ? (
+                <p className="text-center py-8 text-sm text-muted-foreground">No notices posted yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {notices.map((n: any) => (
+                    <div key={n.id} className="p-4 rounded-lg border hover:shadow-sm transition-shadow">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {n.priority === "high" && <AlertCircle className="h-4 w-4 text-destructive" />}
+                            <h3 className="font-semibold text-foreground">{n.title}</h3>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-3">{n.message}</p>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="text-xs">{n.audience}</Badge>
+                            <Badge className={n.priority === "high" ? "bg-destructive/10 text-destructive border-0" : "bg-info/10 text-info border-0"}>{n.priority}</Badge>
+                            <span className="text-xs text-muted-foreground">by {n.author} · {n.date}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Download Center */}
         <TabsContent value="downloads" className="space-y-6">
           <Card>
             <CardHeader className="pb-4">
@@ -100,7 +106,7 @@ const Communication = () => {
                         </div>
                         <div className="space-y-2"><Label>Audience</Label>
                           <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="grade_8">Grade 8</SelectItem><SelectItem value="grade_7">Grade 7</SelectItem><SelectItem value="grade_6">Grade 6</SelectItem><SelectItem value="teachers">Teachers</SelectItem></SelectContent></Select>
+                          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="students">Students</SelectItem><SelectItem value="teachers">Teachers</SelectItem></SelectContent></Select>
                         </div>
                       </div>
                       <div className="flex items-center justify-center p-6 border-2 border-dashed rounded-lg border-muted-foreground/30 hover:border-primary/50 transition-colors cursor-pointer">
@@ -113,21 +119,27 @@ const Communication = () => {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table><TableHeader><TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">Title</TableHead><TableHead className="font-semibold">Category</TableHead><TableHead className="font-semibold">Type</TableHead>
-                <TableHead className="font-semibold">Size</TableHead><TableHead className="font-semibold">Audience</TableHead><TableHead className="font-semibold">Date</TableHead><TableHead className="w-24" />
-              </TableRow></TableHeader>
-              <TableBody>{downloads.map(d => (
-                <TableRow key={d.id}>
-                  <TableCell><div className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /><span className="font-medium">{d.title}</span></div></TableCell>
-                  <TableCell><Badge variant="secondary">{d.category}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground">{d.file_type}</TableCell>
-                  <TableCell className="text-muted-foreground">{d.size}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs">{d.audience}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground">{d.date}</TableCell>
-                  <TableCell><Button variant="outline" size="sm"><Download className="h-3.5 w-3.5 mr-1" />Download</Button></TableCell>
-                </TableRow>
-              ))}</TableBody></Table>
+              {downloadsLoading ? (
+                <div className="p-6 space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+              ) : downloads.length === 0 ? (
+                <p className="text-center py-8 text-sm text-muted-foreground">No downloads available.</p>
+              ) : (
+                <Table><TableHeader><TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">Title</TableHead><TableHead className="font-semibold">Category</TableHead><TableHead className="font-semibold">Type</TableHead>
+                  <TableHead className="font-semibold">Size</TableHead><TableHead className="font-semibold">Audience</TableHead><TableHead className="font-semibold">Date</TableHead><TableHead className="w-24" />
+                </TableRow></TableHeader>
+                <TableBody>{downloads.map((d: any) => (
+                  <TableRow key={d.id}>
+                    <TableCell><div className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /><span className="font-medium">{d.title}</span></div></TableCell>
+                    <TableCell><Badge variant="secondary">{d.category}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">{d.file_type}</TableCell>
+                    <TableCell className="text-muted-foreground">{d.size}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{d.audience}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">{d.date}</TableCell>
+                    <TableCell><Button variant="outline" size="sm"><Download className="h-3.5 w-3.5 mr-1" />Download</Button></TableCell>
+                  </TableRow>
+                ))}</TableBody></Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

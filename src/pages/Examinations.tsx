@@ -16,7 +16,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { exams, examSchedules, marksRegister, gradingSystem, classes } from "@/data/mockData";
+import { useExams, useExamSchedules, useMarksRegister } from "@/hooks/useExams";
+import { useClasses } from "@/hooks/useClasses";
 import {
   ClipboardCheck, Plus, Calendar, Award, BookOpen, FileText, Download,
   TrendingUp, Users, BarChart3, Medal, Layers, GraduationCap, Target,
