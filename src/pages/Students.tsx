@@ -52,7 +52,7 @@ const AdmissionForm = ({ onClose }: { onClose: () => void }) => {
     setGuardianPhone(phone);
     const cleaned = phone.replace(/\s/g, "");
     if (cleaned.length >= 10) {
-      const found = mockParents.find(p => p.phone === cleaned);
+      const found = null; // TODO: API lookup by phone
       if (found) {
         setMatchedParent(found);
         setSiblingPromptShown(true);
