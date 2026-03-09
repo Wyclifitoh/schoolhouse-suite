@@ -16,7 +16,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { students } from "@/data/mockData";
+import { useStudents } from "@/hooks/useStudents";
 
 const formatKES = (n: number) => `KES ${n.toLocaleString()}`;
 
