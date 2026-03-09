@@ -86,15 +86,14 @@ export function RecordPaymentDialog({
     onOpenChange(v);
   };
 
-  const selectedStudent = students.find(s => s.id === selectedStudentId);
+  const { data: studentsData = [] } = useStudents({ search: studentSearch || undefined });
+  const allStudents = (studentsData as any[]).map((s: any) => ({
+    id: s.id, full_name: s.full_name || `${s.first_name} ${s.last_name}`,
+    admission_no: s.admission_number, grade: s.grade || "", stream: s.stream || "", balance: 0,
+  }));
 
-  const filteredStudents = useMemo(() => {
-    if (!studentSearch.trim()) return students.slice(0, 8);
-    const q = studentSearch.toLowerCase();
-    return students.filter(
-      s => s.full_name.toLowerCase().includes(q) || s.admission_no.toLowerCase().includes(q)
-    ).slice(0, 8);
-  }, [studentSearch]);
+  const selectedStudent = allStudents.find(s => s.id === selectedStudentId);
+  const filteredStudents = allStudents.slice(0, 8);
 
   // Mock fees for non-preselected student
   const fees: FeeItem[] = studentFees || [

@@ -540,17 +540,7 @@ const Students = () => {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-3">
-                {studentCategories.map(c => (
-                  <Card key={c.id} className="border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant="secondary" className="text-xs">{c.count} students</Badge>
-                      </div>
-                      <h3 className="font-semibold text-foreground">{c.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">{c.description}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+                <p className="text-center text-sm text-muted-foreground py-8">Categories will be loaded from the backend.</p>
               </div>
             </CardContent>
           </Card>
