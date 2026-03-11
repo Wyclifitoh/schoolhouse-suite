@@ -126,3 +126,36 @@ export function useDesignations() {
     },
   });
 }
+
+// Stub hooks for pages that reference them - these return empty arrays until backend endpoints exist
+export interface SubjectAssignment {
+  id: string; subject: string; teacher: string; class: string; section: string;
+}
+
+export interface TimetableEntry {
+  id: string; day: string; period: number; start: string; end: string;
+  subject: string; teacher: string; class: string; section: string; room: string;
+}
+
+export function useSubjectAssignments() {
+  return useQuery({
+    queryKey: ["subject-assignments"],
+    queryFn: async () => [] as SubjectAssignment[],
+  });
+}
+
+export function useTimetable(className?: string, section?: string) {
+  return useQuery({
+    queryKey: ["timetable", className, section],
+    queryFn: async () => [] as TimetableEntry[],
+    enabled: !!className,
+  });
+}
+
+export function useTeacherTimetable(teacher?: string) {
+  return useQuery({
+    queryKey: ["teacher-timetable", teacher],
+    queryFn: async () => [] as TimetableEntry[],
+    enabled: !!teacher,
+  });
+}
