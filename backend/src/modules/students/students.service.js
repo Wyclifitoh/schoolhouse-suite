@@ -1,8 +1,9 @@
 const studentsRepository = require('./students.repository');
-const { paginate } = require('../../utils/pagination');
+const parentsRepository = require('../parents/parents.repository');
+const { parsePagination } = require('../../utils/pagination');
 
 const list = async (schoolId, queryParams) => {
-  const { limit, offset, page } = paginate(queryParams);
+  const { limit, offset, page } = parsePagination(queryParams);
   const { rows, total } = await studentsRepository.findAll(schoolId, {
     limit, offset,
     search: queryParams.search,
@@ -19,6 +20,31 @@ const getById = async (id, schoolId) => {
 };
 
 const create = async (schoolId, data) => {
+  // Auto-create parent record if parent info provided
+  if (data.parent_name && data.parent_phone) {
+    try {
+      const nameParts = data.parent_name.trim().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
+      
+      // Check if parent with this phone already exists
+      const existingParent = await parentsRepository.findByPhone(schoolId, data.parent_phone);
+      
+      if (!existingParent) {
+        await parentsRepository.create({
+          school_id: schoolId,
+          first_name: firstName,
+          last_name: lastName,
+          phone: data.parent_phone,
+          email: data.parent_email || null,
+        });
+      }
+    } catch (err) {
+      console.error('Auto-create parent failed:', err.message);
+      // Don't block student creation if parent creation fails
+    }
+  }
+  
   return studentsRepository.create({ ...data, school_id: schoolId });
 };
 
