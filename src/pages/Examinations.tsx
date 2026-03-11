@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -16,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useExams, useExamSchedules, useMarksRegister } from "@/hooks/useExams";
+import { useExams, useExamSchedules, useMarksRegister, type ExamRow } from "@/hooks/useExams";
 import { useClasses } from "@/hooks/useClasses";
 import {
   ClipboardCheck, Plus, Calendar, Award, BookOpen, FileText, Download,
@@ -33,7 +32,7 @@ const cbcLevels = [
   { id: "senior", name: "Senior Secondary", grades: ["Grade 10", "Grade 11", "Grade 12"], years: "15-18 yrs", color: "bg-warning/10 text-warning" },
 ];
 
-const cbcLearningAreas = {
+const cbcLearningAreas: Record<string, Array<{ id: string; name: string; icon: any; strands: string[]; assessment: string }>> = {
   "Pre-Primary": [
     { id: "la1", name: "Language Activities", icon: BookOpen, strands: ["Listening & Speaking", "Reading", "Writing", "Book & Print Awareness"], assessment: "Rubric" },
     { id: "la2", name: "Mathematical Activities", icon: Calculator, strands: ["Number Concepts", "Geometry", "Measurement", "Patterns"], assessment: "Rubric" },
@@ -101,11 +100,17 @@ const gradingSystem844 = [
 ];
 
 const Examinations = () => {
-  const [selectedExam, setSelectedExam] = useState(exams[0]);
+  const { data: examsList = [] } = useExams();
+  const { data: gradesList = [] } = useClasses();
+  const [selectedExamId, setSelectedExamId] = useState<string | undefined>(undefined);
   const [selectedLevel, setSelectedLevel] = useState("Upper Primary");
   const [curriculumType, setCurriculumType] = useState<"cbc" | "844">("cbc");
 
-  const currentAreas = cbcLearningAreas[selectedLevel as keyof typeof cbcLearningAreas] || [];
+  const selectedExam = examsList.find(e => e.id === selectedExamId) || examsList[0];
+  const { data: schedulesList = [] } = useExamSchedules(selectedExam?.id);
+  const { data: marksList = [] } = useMarksRegister(selectedExam?.id);
+
+  const currentAreas = cbcLearningAreas[selectedLevel] || [];
 
   return (
     <DashboardLayout title="Examinations & Curriculum" subtitle="Kenyan CBC & 8-4-4 curriculum, exam management, marks & reports">
@@ -131,7 +136,6 @@ const Examinations = () => {
             Kenya's CBC replaces the 8-4-4 system with a 2-6-3-3-3 structure emphasizing competency-based learning,
             formative assessment, and learner-centered pedagogy aligned with KICD standards.
           </p>
-
           <div className="space-y-4">
             {cbcLevels.map(level => (
               <Card key={level.id} className="glass-card-hover">
@@ -152,11 +156,11 @@ const Examinations = () => {
                       ))}
                     </div>
                   </div>
-                  {(cbcLearningAreas[level.name as keyof typeof cbcLearningAreas] || []).length > 0 && (
+                  {(cbcLearningAreas[level.name] || []).length > 0 && (
                     <div className="mt-4 pt-4 border-t border-border/50">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Learning Areas</p>
                       <div className="flex flex-wrap gap-2">
-                        {(cbcLearningAreas[level.name as keyof typeof cbcLearningAreas] || []).map(la => (
+                        {(cbcLearningAreas[level.name] || []).map(la => (
                           <Badge key={la.id} variant="secondary" className="rounded-lg font-normal text-xs gap-1.5 py-1">
                             <la.icon className="h-3 w-3" />{la.name}
                           </Badge>
@@ -181,7 +185,6 @@ const Examinations = () => {
               </SelectContent>
             </Select>
           </div>
-
           <div className="grid gap-4 md:grid-cols-2">
             {currentAreas.map(area => (
               <Card key={area.id} className="glass-card-hover">
@@ -283,10 +286,10 @@ const Examinations = () => {
         <TabsContent value="exams" className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-4">
             {[
-              { title: "Total Exams", value: exams.length, icon: ClipboardCheck, color: "bg-primary/10 text-primary" },
-              { title: "Completed", value: exams.filter(e => e.status === "completed").length, icon: ClipboardCheck, color: "bg-success/10 text-success" },
-              { title: "Upcoming", value: exams.filter(e => e.status === "upcoming").length, icon: Calendar, color: "bg-info/10 text-info" },
-              { title: "Avg Pass Rate", value: "82%", icon: TrendingUp, color: "bg-warning/10 text-warning" },
+              { title: "Total Exams", value: examsList.length, icon: ClipboardCheck, color: "bg-primary/10 text-primary" },
+              { title: "Completed", value: examsList.filter(e => e.status === "completed").length, icon: ClipboardCheck, color: "bg-success/10 text-success" },
+              { title: "Upcoming", value: examsList.filter(e => e.status === "upcoming").length, icon: Calendar, color: "bg-info/10 text-info" },
+              { title: "Avg Pass Rate", value: "—", icon: TrendingUp, color: "bg-warning/10 text-warning" },
             ].map(s => (
               <Card key={s.title} className="stat-card"><CardContent className="flex items-center gap-4 p-5 relative">
                 <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${s.color}`}><s.icon className="h-5 w-5" /></div>
@@ -309,14 +312,14 @@ const Examinations = () => {
                             <SelectContent><SelectItem value="cat">CAT</SelectItem><SelectItem value="mid_term">Mid-Term</SelectItem><SelectItem value="end_term">End-Term</SelectItem><SelectItem value="mock">Mock</SelectItem></SelectContent></Select></div>
                         <div className="space-y-2"><Label>Term</Label>
                           <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent><SelectItem value="t1">Term 1 2024</SelectItem><SelectItem value="t2">Term 2 2024</SelectItem><SelectItem value="t3">Term 3 2024</SelectItem></SelectContent></Select></div>
+                            <SelectContent><SelectItem value="t1">Term 1</SelectItem><SelectItem value="t2">Term 2</SelectItem><SelectItem value="t3">Term 3</SelectItem></SelectContent></Select></div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2"><Label>Start Date</Label><Input type="date" /></div>
                         <div className="space-y-2"><Label>End Date</Label><Input type="date" /></div>
                       </div>
                       <div className="space-y-2"><Label>Classes</Label>
-                        <div className="grid grid-cols-3 gap-2">{classes.map(c => (
+                        <div className="grid grid-cols-3 gap-2">{gradesList.map(c => (
                           <label key={c.id} className="flex items-center gap-2 text-sm p-2 rounded-lg border cursor-pointer hover:bg-muted/50"><input type="checkbox" className="rounded" />{c.name}</label>
                         ))}</div></div>
                       <Button className="w-full mt-2 rounded-lg">Create Examination</Button>
@@ -326,27 +329,30 @@ const Examinations = () => {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="table-modern mx-6 mb-6">
-                <Table><TableHeader><TableRow className="bg-muted/40">
-                  <TableHead className="font-semibold">Exam Name</TableHead><TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Term</TableHead><TableHead className="font-semibold">Dates</TableHead>
-                  <TableHead className="font-semibold">Classes</TableHead><TableHead className="font-semibold">Status</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>{exams.map(e => (
-                  <TableRow key={e.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-semibold">{e.name}</TableCell>
-                    <TableCell><Badge variant="secondary" className="capitalize rounded-lg">{e.type.replace("_"," ")}</Badge></TableCell>
-                    <TableCell className="text-muted-foreground">{e.term}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{e.start_date} → {e.end_date}</TableCell>
-                    <TableCell><div className="flex gap-1 flex-wrap">{e.classes.map(c => <Badge key={c} variant="secondary" className="text-xs rounded-md">{c}</Badge>)}</div></TableCell>
-                    <TableCell><Badge className={
-                      e.status === "completed" ? "bg-success/10 text-success border-0 rounded-lg" :
-                      e.status === "upcoming" ? "bg-info/10 text-info border-0 rounded-lg" :
-                      "bg-warning/10 text-warning border-0 rounded-lg"
-                    }>{e.status}</Badge></TableCell>
-                  </TableRow>
-                ))}</TableBody></Table>
-              </div>
+              {examsList.length === 0 ? (
+                <p className="text-center text-muted-foreground py-12">No exams created yet. Create your first exam to get started.</p>
+              ) : (
+                <div className="table-modern mx-6 mb-6">
+                  <Table><TableHeader><TableRow className="bg-muted/40">
+                    <TableHead className="font-semibold">Exam Name</TableHead><TableHead className="font-semibold">Type</TableHead>
+                    <TableHead className="font-semibold">Term</TableHead><TableHead className="font-semibold">Dates</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>{examsList.map(e => (
+                    <TableRow key={e.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-semibold">{e.name}</TableCell>
+                      <TableCell><Badge variant="secondary" className="capitalize rounded-lg">{e.type?.replace("_"," ") || "—"}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground">{e.term || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{e.start_date} → {e.end_date}</TableCell>
+                      <TableCell><Badge className={
+                        e.status === "completed" ? "bg-success/10 text-success border-0 rounded-lg" :
+                        e.status === "upcoming" ? "bg-info/10 text-info border-0 rounded-lg" :
+                        "bg-warning/10 text-warning border-0 rounded-lg"
+                      }>{e.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}</TableBody></Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -357,32 +363,36 @@ const Examinations = () => {
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <CardTitle className="text-base font-bold">Exam Schedule</CardTitle>
-                <div className="flex items-center gap-3">
-                  <Select value={selectedExam.id} onValueChange={v => setSelectedExam(exams.find(e => e.id === v) || exams[0])}>
+                {examsList.length > 0 && (
+                  <Select value={selectedExam?.id} onValueChange={v => setSelectedExamId(v)}>
                     <SelectTrigger className="w-56 h-9 rounded-lg"><SelectValue /></SelectTrigger>
-                    <SelectContent>{exams.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{examsList.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
                   </Select>
-                </div>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="table-modern">
-                <Table><TableHeader><TableRow className="bg-muted/40">
-                  <TableHead className="font-semibold">Subject</TableHead><TableHead className="font-semibold">Date</TableHead>
-                  <TableHead className="font-semibold">Time</TableHead><TableHead className="font-semibold">Room</TableHead>
-                  <TableHead className="font-semibold">Full Marks</TableHead><TableHead className="font-semibold">Pass Marks</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>{examSchedules.map(s => (
-                  <TableRow key={s.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-semibold">{s.subject}</TableCell>
-                    <TableCell className="text-muted-foreground">{s.date}</TableCell>
-                    <TableCell className="text-muted-foreground">{s.start_time} - {s.end_time}</TableCell>
-                    <TableCell><Badge variant="secondary" className="rounded-lg">{s.room}</Badge></TableCell>
-                    <TableCell className="font-bold">{s.full_marks}</TableCell>
-                    <TableCell className="text-muted-foreground">{s.pass_marks}</TableCell>
-                  </TableRow>
-                ))}</TableBody></Table>
-              </div>
+              {schedulesList.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No schedule entries found for this exam.</p>
+              ) : (
+                <div className="table-modern">
+                  <Table><TableHeader><TableRow className="bg-muted/40">
+                    <TableHead className="font-semibold">Subject</TableHead><TableHead className="font-semibold">Date</TableHead>
+                    <TableHead className="font-semibold">Time</TableHead><TableHead className="font-semibold">Room</TableHead>
+                    <TableHead className="font-semibold">Full Marks</TableHead><TableHead className="font-semibold">Pass Marks</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>{schedulesList.map(s => (
+                    <TableRow key={s.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-semibold">{s.subject}</TableCell>
+                      <TableCell className="text-muted-foreground">{s.date}</TableCell>
+                      <TableCell className="text-muted-foreground">{s.start_time} - {s.end_time}</TableCell>
+                      <TableCell><Badge variant="secondary" className="rounded-lg">{s.room}</Badge></TableCell>
+                      <TableCell className="font-bold">{s.full_marks}</TableCell>
+                      <TableCell className="text-muted-foreground">{s.pass_marks}</TableCell>
+                    </TableRow>
+                  ))}</TableBody></Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -392,7 +402,7 @@ const Examinations = () => {
           <Card className="glass-card-hover">
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <CardTitle className="text-base font-bold">Marks Register — Mid-Term 1 (Grade 8 East)</CardTitle>
+                <CardTitle className="text-base font-bold">Marks Register</CardTitle>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="rounded-lg"><Download className="h-4 w-4 mr-1.5" />Export</Button>
                   <Button size="sm" className="rounded-lg"><Plus className="h-4 w-4 mr-1.5" />Enter Marks</Button>
@@ -400,37 +410,41 @@ const Examinations = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="table-modern overflow-x-auto">
-                <Table><TableHeader><TableRow className="bg-muted/40">
-                  <TableHead className="font-semibold">Rank</TableHead><TableHead className="font-semibold">Student</TableHead><TableHead className="font-semibold">Adm No.</TableHead>
-                  <TableHead className="font-semibold text-center">Math</TableHead><TableHead className="font-semibold text-center">Eng</TableHead>
-                  <TableHead className="font-semibold text-center">Kis</TableHead><TableHead className="font-semibold text-center">Sci</TableHead>
-                  <TableHead className="font-semibold text-center">SST</TableHead><TableHead className="font-semibold text-center">CRE</TableHead>
-                  <TableHead className="font-semibold text-center">Total</TableHead><TableHead className="font-semibold text-center">%</TableHead>
-                  <TableHead className="font-semibold text-center">Grade</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>{marksRegister.sort((a, b) => a.rank - b.rank).map(m => (
-                  <TableRow key={m.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell><div className="flex items-center gap-1">
-                      {m.rank <= 3 && <Medal className={`h-4 w-4 ${m.rank === 1 ? "text-yellow-500" : m.rank === 2 ? "text-gray-400" : "text-orange-400"}`} />}
-                      <span className="font-bold">{m.rank}</span>
-                    </div></TableCell>
-                    <TableCell className="font-semibold">{m.student}</TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-xs">{m.admission_no}</TableCell>
-                    {[m.math, m.english, m.kiswahili, m.science, m.social_studies, m.cre].map((mark, i) => (
-                      <TableCell key={i} className={`text-center font-medium ${mark < 40 ? "text-destructive" : mark >= 80 ? "text-success font-bold" : ""}`}>{mark}</TableCell>
-                    ))}
-                    <TableCell className="text-center font-bold">{m.total}/600</TableCell>
-                    <TableCell className="text-center font-bold">{m.percentage}%</TableCell>
-                    <TableCell className="text-center"><Badge className={
-                      m.grade.startsWith("A") ? "bg-success/10 text-success border-0 rounded-lg" :
-                      m.grade.startsWith("B") ? "bg-info/10 text-info border-0 rounded-lg" :
-                      m.grade.startsWith("C") ? "bg-warning/10 text-warning border-0 rounded-lg" :
-                      "bg-destructive/10 text-destructive border-0 rounded-lg"
-                    }>{m.grade}</Badge></TableCell>
-                  </TableRow>
-                ))}</TableBody></Table>
-              </div>
+              {marksList.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No marks recorded yet for this exam.</p>
+              ) : (
+                <div className="table-modern overflow-x-auto">
+                  <Table><TableHeader><TableRow className="bg-muted/40">
+                    <TableHead className="font-semibold">Rank</TableHead><TableHead className="font-semibold">Student</TableHead><TableHead className="font-semibold">Adm No.</TableHead>
+                    <TableHead className="font-semibold text-center">Math</TableHead><TableHead className="font-semibold text-center">Eng</TableHead>
+                    <TableHead className="font-semibold text-center">Kis</TableHead><TableHead className="font-semibold text-center">Sci</TableHead>
+                    <TableHead className="font-semibold text-center">SST</TableHead><TableHead className="font-semibold text-center">CRE</TableHead>
+                    <TableHead className="font-semibold text-center">Total</TableHead><TableHead className="font-semibold text-center">%</TableHead>
+                    <TableHead className="font-semibold text-center">Grade</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>{[...marksList].sort((a, b) => a.rank - b.rank).map(m => (
+                    <TableRow key={m.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell><div className="flex items-center gap-1">
+                        {m.rank <= 3 && <Medal className={`h-4 w-4 ${m.rank === 1 ? "text-yellow-500" : m.rank === 2 ? "text-gray-400" : "text-orange-400"}`} />}
+                        <span className="font-bold">{m.rank}</span>
+                      </div></TableCell>
+                      <TableCell className="font-semibold">{m.student}</TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-xs">{m.admission_no}</TableCell>
+                      {[m.math, m.english, m.kiswahili, m.science, m.social_studies, m.cre].map((mark, i) => (
+                        <TableCell key={i} className={`text-center font-medium ${mark < 40 ? "text-destructive" : mark >= 80 ? "text-success font-bold" : ""}`}>{mark}</TableCell>
+                      ))}
+                      <TableCell className="text-center font-bold">{m.total}/600</TableCell>
+                      <TableCell className="text-center font-bold">{m.percentage}%</TableCell>
+                      <TableCell className="text-center"><Badge className={
+                        m.grade.startsWith("A") ? "bg-success/10 text-success border-0 rounded-lg" :
+                        m.grade.startsWith("B") ? "bg-info/10 text-info border-0 rounded-lg" :
+                        m.grade.startsWith("C") ? "bg-warning/10 text-warning border-0 rounded-lg" :
+                        "bg-destructive/10 text-destructive border-0 rounded-lg"
+                      }>{m.grade}</Badge></TableCell>
+                    </TableRow>
+                  ))}</TableBody></Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -501,62 +515,14 @@ const Examinations = () => {
                 <CardTitle className="text-base font-bold">Student Progress Report Card</CardTitle>
                 <div className="flex gap-2">
                   <Select><SelectTrigger className="w-44 h-9 rounded-lg"><SelectValue placeholder="Select Student" /></SelectTrigger>
-                    <SelectContent>{marksRegister.map(m => <SelectItem key={m.id} value={m.id}>{m.student}</SelectItem>)}</SelectContent>
+                    <SelectContent>{marksList.map(m => <SelectItem key={m.id} value={m.id}>{m.student}</SelectItem>)}</SelectContent>
                   </Select>
                   <Button variant="outline" size="sm" className="rounded-lg"><Download className="h-4 w-4 mr-1.5" />Print</Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="border border-border/50 rounded-xl p-8 space-y-6 max-w-2xl mx-auto premium-shadow">
-                <div className="text-center space-y-1 border-b border-border/50 pb-5">
-                  <h2 className="text-xl font-extrabold text-foreground tracking-tight">CHUO ACADEMY</h2>
-                  <p className="text-sm text-muted-foreground">P.O. Box 12345, Nairobi | Tel: 020-1234567</p>
-                  <p className="text-sm font-bold text-primary mt-2 tracking-wide">STUDENT PROGRESS REPORT</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><span className="text-muted-foreground">Student: </span><span className="font-bold">Catherine Muthoni</span></div>
-                  <div><span className="text-muted-foreground">Adm No: </span><span className="font-bold font-mono">ADM-2024-003</span></div>
-                  <div><span className="text-muted-foreground">Class: </span><span className="font-bold">Grade 8 East</span></div>
-                  <div><span className="text-muted-foreground">Exam: </span><span className="font-bold">Mid-Term 1 2024</span></div>
-                </div>
-                <div className="table-modern">
-                  <Table><TableHeader><TableRow className="bg-muted/40">
-                    <TableHead className="font-semibold">Subject</TableHead><TableHead className="font-semibold text-center">Marks</TableHead>
-                    <TableHead className="font-semibold text-center">Grade</TableHead><TableHead className="font-semibold">Remark</TableHead>
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {[
-                      { subject: "Mathematics", marks: 92, grade: "A", remark: "Excellent" },
-                      { subject: "English", marks: 88, grade: "A", remark: "Excellent" },
-                      { subject: "Kiswahili", marks: 85, grade: "A", remark: "Excellent" },
-                      { subject: "Science & Technology", marks: 90, grade: "A", remark: "Excellent" },
-                      { subject: "Social Studies", marks: 82, grade: "A", remark: "Excellent" },
-                      { subject: "CRE", marks: 88, grade: "A", remark: "Excellent" },
-                    ].map(s => (
-                      <TableRow key={s.subject} className="hover:bg-muted/30">
-                        <TableCell className="font-semibold">{s.subject}</TableCell>
-                        <TableCell className="text-center font-bold">{s.marks}</TableCell>
-                        <TableCell className="text-center"><Badge className="bg-success/10 text-success border-0 rounded-lg">{s.grade}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{s.remark}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/30 font-bold">
-                      <TableCell className="font-bold">TOTAL</TableCell><TableCell className="text-center font-bold">525/600</TableCell>
-                      <TableCell className="text-center"><Badge className="bg-success/10 text-success border-0 rounded-lg">A</Badge></TableCell>
-                      <TableCell className="font-bold">Rank: 1st out of 45</TableCell>
-                    </TableRow>
-                  </TableBody></Table>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm border-t border-border/50 pt-4">
-                  <div><span className="text-muted-foreground">Mean Grade: </span><span className="font-bold text-success">A (87.5%)</span></div>
-                  <div><span className="text-muted-foreground">Position: </span><span className="font-bold">1 / 45</span></div>
-                </div>
-                <div className="text-sm border-t border-border/50 pt-4 space-y-2">
-                  <div><span className="text-muted-foreground">Class Teacher: </span><span className="italic">Outstanding performance. Keep it up!</span></div>
-                  <div><span className="text-muted-foreground">Principal: </span><span className="italic">Excellent work. A role model student.</span></div>
-                </div>
-              </div>
+              <p className="text-center text-muted-foreground py-8">Select a student and exam to generate a report card.</p>
             </CardContent>
           </Card>
         </TabsContent>
