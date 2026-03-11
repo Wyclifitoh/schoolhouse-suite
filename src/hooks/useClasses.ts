@@ -2,33 +2,69 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-export interface ClassRow {
-  id: string; name: string; alias?: string; sections: string[]; students: number; curriculum: string;
+export interface GradeRow {
+  id: string; name: string; level: string; order_index: number; curriculum_type: string;
+}
+
+export interface StreamRow {
+  id: string; name: string; grade_id: string; grade_name: string; capacity: number | null; class_teacher_id: string | null;
 }
 
 export interface SubjectRow {
-  id: string; name: string; code: string; type: string; classes: string[];
+  id: string; name: string; code: string; description: string | null;
 }
 
-export interface SubjectAssignment {
-  id: string; subject: string; teacher: string; class: string; section: string;
+export interface StaffRow {
+  id: string; first_name: string; last_name: string; employee_number: string; email: string; phone: string; status: string;
 }
 
-export interface TimetableEntry {
-  id: string; day: string; period: number; start: string; end: string;
-  subject: string; teacher: string; class: string; section: string; room: string;
+export interface DepartmentRow {
+  id: string; name: string; description: string | null; head_staff_id: string | null; is_active: boolean;
 }
 
+// Classes hook returns grades for backward compatibility
 export function useClasses() {
   return useQuery({
-    queryKey: ["classes"],
+    queryKey: ["grades"],
     queryFn: async () => {
       try {
-        const data = await api.get<any>("/classes");
-        return (data?.data || data || []) as ClassRow[];
-      } catch { return [] as ClassRow[]; }
+        const data = await api.get<any>("/classes/grades");
+        return (data?.data || data || []) as GradeRow[];
+      } catch { return [] as GradeRow[]; }
     },
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useStreams(gradeId?: string) {
+  return useQuery({
+    queryKey: ["streams", gradeId],
+    queryFn: async () => {
+      try {
+        const params = gradeId ? `?grade_id=${gradeId}` : "";
+        const data = await api.get<any>(`/classes/streams${params}`);
+        return (data?.data || data || []) as StreamRow[];
+      } catch { return [] as StreamRow[]; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCreateGrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<GradeRow>) => api.post<GradeRow>("/classes/grades", data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["grades"] }); toast.success("Grade created!"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useCreateStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<StreamRow & { academic_year_id: string }>) => api.post<StreamRow>("/classes/streams", data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Stream created!"); },
+    onError: (err: Error) => toast.error(err.message),
   });
 }
 
@@ -45,45 +81,48 @@ export function useSubjects() {
   });
 }
 
-export function useSubjectAssignments() {
+export function useCreateSubject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<SubjectRow>) => api.post<SubjectRow>("/classes/subjects", data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); toast.success("Subject created!"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useStaff() {
   return useQuery({
-    queryKey: ["subject-assignments"],
+    queryKey: ["staff"],
     queryFn: async () => {
       try {
-        const data = await api.get<any>("/classes/subject-assignments");
-        return (data?.data || data || []) as SubjectAssignment[];
-      } catch { return [] as SubjectAssignment[]; }
+        const data = await api.get<any>("/classes/staff");
+        return (data?.data || data || []) as StaffRow[];
+      } catch { return [] as StaffRow[]; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useDepartments() {
+  return useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>("/classes/departments");
+        return (data?.data || data || []) as DepartmentRow[];
+      } catch { return [] as DepartmentRow[]; }
     },
   });
 }
 
-export function useTimetable(className?: string, section?: string) {
+export function useDesignations() {
   return useQuery({
-    queryKey: ["timetable", className, section],
+    queryKey: ["designations"],
     queryFn: async () => {
       try {
-        const params = new URLSearchParams();
-        if (className) params.set("class", className);
-        if (section) params.set("section", section);
-        const data = await api.get<any>(`/classes/timetable?${params}`);
-        return (data?.data || data || []) as TimetableEntry[];
-      } catch { return [] as TimetableEntry[]; }
+        const data = await api.get<any>("/classes/designations");
+        return (data?.data || data || []) as any[];
+      } catch { return []; }
     },
-    enabled: !!className,
-  });
-}
-
-export function useTeacherTimetable(teacher?: string) {
-  return useQuery({
-    queryKey: ["teacher-timetable", teacher],
-    queryFn: async () => {
-      try {
-        const params = new URLSearchParams();
-        if (teacher) params.set("teacher", teacher);
-        const data = await api.get<any>(`/classes/timetable?${params}`);
-        return (data?.data || data || []) as TimetableEntry[];
-      } catch { return [] as TimetableEntry[]; }
-    },
-    enabled: !!teacher,
   });
 }
