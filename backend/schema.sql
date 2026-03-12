@@ -3,8 +3,8 @@
 -- Run this file to create all tables from scratch
 -- ============================================
 
-CREATE DATABASE IF NOT EXISTS chuo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE chuo;
+CREATE DATABASE IF NOT EXISTS chuo_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE chuo_database;
 
 -- ============================================
 -- 1. CORE / TENANCY
