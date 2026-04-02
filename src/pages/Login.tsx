@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { School, Eye, EyeOff, ArrowRight, Shield, Users, BarChart3, Zap, Loader2 } from "lucide-react";
+import { School, Eye, EyeOff, ArrowRight, ShieldCheck, Landmark, BookOpen, Wallet, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { getDashboardRedirect } from "@/hooks/usePermission";
+import loginCampus from "@/assets/login-campus.jpg";
 
 const features = [
-  { icon: Users, label: "342 Students", desc: "Active enrollments" },
-  { icon: Shield, label: "Role-based Access", desc: "12 user roles" },
-  { icon: BarChart3, label: "Real-time Analytics", desc: "Live dashboards" },
-  { icon: Zap, label: "99.9% Uptime", desc: "Always available" },
+  { icon: BookOpen, label: "Academics", desc: "Classes, exams, subjects and timetables" },
+  { icon: Wallet, label: "Finance", desc: "Fees, payments, balances and reporting" },
+  { icon: ShieldCheck, label: "Secure Access", desc: "Role-based access with session login" },
+  { icon: Landmark, label: "School Operations", desc: "Parents, staff, inventory and settings" },
 ];
 
 const Login = () => {
@@ -52,45 +53,44 @@ const Login = () => {
   return (
     <div className="flex min-h-screen">
       {/* Left — Hero */}
-      <div className="hidden lg:flex lg:w-[55%] relative items-center justify-center overflow-hidden bg-gradient-to-br from-[hsl(221,83%,20%)] via-[hsl(221,83%,35%)] to-[hsl(262,83%,40%)]">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-[10%] left-[15%] w-[400px] h-[400px] rounded-full bg-white/[0.04] blur-3xl" />
-          <div className="absolute bottom-[10%] right-[10%] w-[500px] h-[500px] rounded-full bg-white/[0.03] blur-3xl" />
-          <div className="absolute top-[60%] left-[60%] w-[200px] h-[200px] rounded-full bg-primary-foreground/[0.05] blur-2xl" />
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
-            backgroundSize: '64px 64px'
-          }} />
-        </div>
+      <div
+        className="relative hidden lg:flex lg:w-[58%] items-center justify-center overflow-hidden bg-card"
+        style={{
+          backgroundImage: `linear-gradient(135deg, hsl(var(--foreground) / 0.72), hsl(var(--primary) / 0.18), hsl(var(--foreground) / 0.42)), url(${loginCampus})`,
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+        }}
+      >
+        <div className="absolute inset-0 bg-background/5" />
 
-        <div className="relative z-10 max-w-lg px-12 text-white">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl">
+        <div className="relative z-10 flex w-full max-w-2xl flex-col items-center justify-center px-14 text-center text-primary-foreground">
+          <div className="mb-10 flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary-foreground/20 bg-background/10 backdrop-blur-md shadow-2xl">
               <School className="h-8 w-8" />
             </div>
             <div>
-              <span className="text-2xl font-extrabold tracking-wide">CHUO</span>
-              <p className="text-xs text-white/50 tracking-widest uppercase">Management System</p>
+              <span className="text-2xl font-black tracking-[0.2em]">CHUO</span>
+              <p className="text-xs uppercase tracking-[0.28em] text-primary-foreground/70">School Management System</p>
             </div>
           </div>
-          <h1 className="text-5xl font-extrabold leading-[1.1] mb-5 tracking-tight">
-            School Management,
+          <h1 className="mb-5 text-5xl font-black leading-[1.05] tracking-tight">
+            One official platform
             <br />
-            <span className="text-white/50">Reimagined.</span>
+            for running your school.
           </h1>
-          <p className="text-lg text-white/50 leading-relaxed mb-12">
-            A modern platform designed for Kenyan schools. Manage admissions, fees, exams, and more — all in one place.
+          <p className="mb-10 max-w-xl text-lg leading-relaxed text-primary-foreground/80">
+            Manage admissions, academics, finance, communication and daily school operations from one secure system built for real institutional use.
           </p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid w-full grid-cols-2 gap-4">
             {features.map(f => (
-              <div key={f.label} className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/[0.08]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
-                  <f.icon className="h-5 w-5 text-white/80" />
+              <div key={f.label} className="flex items-center gap-3 rounded-2xl border border-primary-foreground/15 bg-background/10 p-4 text-left backdrop-blur-md">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/10">
+                  <f.icon className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">{f.label}</p>
-                  <p className="text-[11px] text-white/40">{f.desc}</p>
+                  <p className="text-sm font-bold">{f.label}</p>
+                  <p className="text-[11px] text-primary-foreground/70">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -109,8 +109,8 @@ const Login = () => {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">Welcome back</h2>
-            <p className="mt-2 text-muted-foreground">Sign in to your school management portal</p>
+            <h2 className="text-3xl font-black text-foreground tracking-tight">Welcome back</h2>
+            <p className="mt-2 text-muted-foreground">Sign in to continue to your official school workspace</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
@@ -174,7 +174,7 @@ const Login = () => {
           </form>
 
           <p className="mt-10 text-center text-xs text-muted-foreground">
-            Powered by <span className="font-semibold text-foreground">CHUO</span> School Management System
+            Secure access to <span className="font-bold text-foreground">CHUO</span> School Management System
           </p>
         </div>
       </div>

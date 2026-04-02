@@ -18,7 +18,22 @@ pool.on && pool.getConnection().then(conn => {
 });
 
 const query = async (sql, params) => {
-  const [rows] = await pool.execute(sql, params || []);
+  const rawParams = params || [];
+  const limitOffsetPlaceholders = (sql.match(/\b(?:LIMIT|OFFSET)\s+\?/gi) || []).length;
+  const normalizedParams = rawParams.map((value, index) => {
+    if (
+      limitOffsetPlaceholders > 0 &&
+      index >= rawParams.length - limitOffsetPlaceholders &&
+      typeof value === 'number' &&
+      Number.isFinite(value)
+    ) {
+      return String(Math.trunc(value));
+    }
+
+    return value;
+  });
+
+  const [rows] = await pool.execute(sql, normalizedParams);
   return rows;
 };
 

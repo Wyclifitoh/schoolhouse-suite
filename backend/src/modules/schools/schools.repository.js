@@ -1,4 +1,4 @@
-const { query } = require('../../config/database');
+const { query, queryOne } = require('../../config/database');
 
 const findSchoolsByUser = async (userId) => {
   return query(
@@ -11,6 +11,26 @@ const findSchoolsByUser = async (userId) => {
 
 const findTerms = async (schoolId) => {
   return query('SELECT * FROM terms WHERE school_id = ? ORDER BY start_date DESC', [schoolId]);
+};
+
+const findById = async (schoolId) => {
+  return queryOne(
+    'SELECT id, name, code, email, phone, logo_url, address, curriculum_type, paybill_number FROM schools WHERE id = ?',
+    [schoolId],
+  );
+};
+
+const update = async (schoolId, data) => {
+  const allowed = ['name', 'code', 'email', 'phone', 'logo_url', 'address', 'curriculum_type', 'paybill_number'];
+  const entries = Object.entries(data).filter(([key]) => allowed.includes(key));
+  if (entries.length === 0) return findById(schoolId);
+
+  const fields = entries.map(([key]) => `${key} = ?`);
+  const values = entries.map(([, value]) => value);
+  values.push(schoolId);
+
+  await query(`UPDATE schools SET ${fields.join(', ')} WHERE id = ?`, values);
+  return findById(schoolId);
 };
 
 const findAcademicYears = async (schoolId) => {
@@ -60,4 +80,52 @@ const getDashboardStats = async (schoolId) => {
   };
 };
 
-module.exports = { findSchoolsByUser, findTerms, findAcademicYears, getDashboardStats };
+const findUsers = async (schoolId) => {
+  return query(
+    `SELECT u.id, u.email, u.full_name, u.phone, u.is_active, u.last_login_at,
+            GROUP_CONCAT(ur.role ORDER BY ur.role SEPARATOR ', ') as roles
+     FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     WHERE ur.school_id = ? AND ur.is_active = TRUE
+     GROUP BY u.id, u.email, u.full_name, u.phone, u.is_active, u.last_login_at
+     ORDER BY u.full_name ASC`,
+    [schoolId],
+  );
+};
+
+const findNotificationTemplates = async (schoolId) => {
+  return query(
+    `SELECT id, name, event_type, channel, subject, body, is_active
+     FROM notification_templates
+     WHERE school_id = ? OR school_id IS NULL
+     ORDER BY created_at DESC`,
+    [schoolId],
+  );
+};
+
+const updateNotificationTemplate = async (id, data) => {
+  const allowed = ['name', 'event_type', 'channel', 'subject', 'body', 'is_active'];
+  const entries = Object.entries(data).filter(([key]) => allowed.includes(key));
+  if (entries.length === 0) {
+    return queryOne('SELECT id, name, event_type, channel, subject, body, is_active FROM notification_templates WHERE id = ?', [id]);
+  }
+
+  const fields = entries.map(([key]) => `${key} = ?`);
+  const values = entries.map(([, value]) => value);
+  values.push(id);
+
+  await query(`UPDATE notification_templates SET ${fields.join(', ')} WHERE id = ?`, values);
+  return queryOne('SELECT id, name, event_type, channel, subject, body, is_active FROM notification_templates WHERE id = ?', [id]);
+};
+
+module.exports = {
+  findSchoolsByUser,
+  findById,
+  update,
+  findTerms,
+  findAcademicYears,
+  getDashboardStats,
+  findUsers,
+  findNotificationTemplates,
+  updateNotificationTemplate,
+};
