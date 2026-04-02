@@ -1,6 +1,52 @@
 const { query, queryOne } = require('../../config/database');
 const { v4: uuidv4 } = require('uuid');
 
+const mapClassRow = (grade, streams = []) => ({
+  id: grade.id,
+  name: grade.name,
+  curriculum_type: grade.curriculum_type,
+  level: grade.level,
+  order_index: grade.order_index,
+  sections: streams.map((stream) => stream.name),
+  sections_count: streams.length,
+});
+
+const findAllClasses = async (schoolId, { limit, offset }) => {
+  const grades = await query(
+    'SELECT * FROM grades WHERE school_id = ? ORDER BY order_index ASC, name ASC LIMIT ? OFFSET ?',
+    [schoolId, limit, offset],
+  );
+  const countRows = await query('SELECT COUNT(*) as count FROM grades WHERE school_id = ?', [schoolId]);
+
+  const rows = await Promise.all(
+    grades.map(async (grade) => {
+      const streams = await query(
+        'SELECT id, name FROM streams WHERE school_id = ? AND grade_id = ? ORDER BY name ASC',
+        [schoolId, grade.id],
+      );
+      return mapClassRow(grade, streams);
+    }),
+  );
+
+  return { rows, total: countRows[0]?.count || 0 };
+};
+
+const findClassById = async (id, schoolId) => {
+  const grade = await queryOne('SELECT * FROM grades WHERE id = ? AND school_id = ?', [id, schoolId]);
+  if (!grade) return null;
+
+  const streams = await query(
+    'SELECT id, name FROM streams WHERE school_id = ? AND grade_id = ? ORDER BY name ASC',
+    [schoolId, grade.id],
+  );
+
+  return mapClassRow(grade, streams);
+};
+
+const createClass = async (data) => {
+  return createGrade(data);
+};
+
 // Grades
 const findAllGrades = async (schoolId) => {
   return query('SELECT * FROM grades WHERE school_id = ? ORDER BY order_index ASC', [schoolId]);
@@ -64,6 +110,9 @@ const findAllDesignations = async (schoolId) => {
 };
 
 module.exports = {
+  findAllClasses,
+  findClassById,
+  createClass,
   findAllGrades, findAllStreams, createGrade, createStream,
   findAllSubjects, createSubject,
   findAllStaff, findAllDepartments, createDepartment, findAllDesignations
