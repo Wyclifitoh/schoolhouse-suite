@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useLibraryBooks, useBookIssues } from "@/hooks/useLibrary";
+import { useBooks, useBookIssues, type BookRow, type BookIssueRow } from "@/hooks/useLibrary";
 import {
   Search, Plus, Download, BookOpen, BookCopy, AlertTriangle, RotateCcw,
   Filter, MoreHorizontal, Clock, CheckCircle, XCircle, Banknote,
