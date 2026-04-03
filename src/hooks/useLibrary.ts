@@ -11,6 +11,7 @@ export interface BookIssueRow {
   id: string; student_name: string; admission_no: string; class: string;
   book_title: string; issue_date: string; due_date: string;
   return_date: string | null; fine_amount: number; status: string;
+  fine_paid: boolean; overdue_days: number; fine_per_day: number;
 }
 
 export function useBooks(search?: string, category?: string) {
