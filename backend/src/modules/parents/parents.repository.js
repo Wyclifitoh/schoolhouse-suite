@@ -50,4 +50,8 @@ const findChildren = async (parentId) => {
   );
 };
 
-module.exports = { findAll, findById, create, update, findChildren };
+const findByPhone = async (schoolId, phone) => {
+  return queryOne('SELECT * FROM parents WHERE school_id = ? AND phone = ?', [schoolId, phone]);
+};
+
+module.exports = { findAll, findById, create, update, findChildren, findByPhone };

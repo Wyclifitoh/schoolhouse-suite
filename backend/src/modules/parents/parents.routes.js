@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const c = require('./parents.controller');
 
+router.get('/lookup', c.lookup);
 router.get('/', c.list);
 router.get('/:id', c.getById);
 router.post('/', c.create);
