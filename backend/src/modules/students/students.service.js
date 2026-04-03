@@ -20,32 +20,55 @@ const getById = async (id, schoolId) => {
 };
 
 const create = async (schoolId, data) => {
-  // Auto-create parent record if parent info provided
-  if (data.parent_name && data.parent_phone) {
-    try {
-      const nameParts = data.parent_name.trim().split(/\s+/);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
-      
-      // Check if parent with this phone already exists
-      const existingParent = await parentsRepository.findByPhone(schoolId, data.parent_phone);
-      
-      if (!existingParent) {
-        await parentsRepository.create({
-          school_id: schoolId,
-          first_name: firstName,
-          last_name: lastName,
-          phone: data.parent_phone,
-          email: data.parent_email || null,
-        });
+  // Auto-create BOTH parent records (father + mother) if info provided
+  const parentCreations = [
+    { name: data.father_name, phone: data.father_phone, email: data.father_email, occupation: data.father_occupation, id_number: data.father_id_number, type: 'father' },
+    { name: data.mother_name, phone: data.mother_phone, email: data.mother_email, occupation: data.mother_occupation, id_number: null, type: 'mother' },
+  ];
+
+  for (const p of parentCreations) {
+    if (p.name && p.phone) {
+      try {
+        const nameParts = p.name.trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
+        const existing = await parentsRepository.findByPhone(schoolId, p.phone);
+        if (!existing) {
+          await parentsRepository.create({
+            school_id: schoolId,
+            first_name: firstName,
+            last_name: lastName,
+            phone: p.phone,
+            email: p.email || null,
+            occupation: p.occupation || null,
+            id_number: p.id_number || null,
+          });
+        }
+      } catch (err) {
+        console.error(`Auto-create ${p.type} parent failed:`, err.message);
       }
-    } catch (err) {
-      console.error('Auto-create parent failed:', err.message);
-      // Don't block student creation if parent creation fails
     }
   }
+
+  // Set primary parent info based on guardian selection
+  const isPrimaryFather = data.primary_guardian !== 'mother';
+  const parentName = isPrimaryFather ? data.father_name : data.mother_name;
+  const parentPhone = isPrimaryFather ? data.father_phone : data.mother_phone;
+  const parentEmail = isPrimaryFather ? (data.father_email || data.mother_email) : (data.mother_email || data.father_email);
+
+  // Clean up data - remove extra fields before insert
+  const studentData = { ...data, school_id: schoolId };
+  studentData.parent_name = parentName || data.parent_name || null;
+  studentData.parent_phone = parentPhone || data.parent_phone || null;
   
-  return studentsRepository.create({ ...data, school_id: schoolId });
+  // Remove non-column fields
+  const extraFields = ['father_name','father_phone','father_email','father_occupation','father_id_number',
+    'mother_name','mother_phone','mother_email','mother_occupation','primary_guardian',
+    'parent_email','emergency_name','emergency_relation','emergency_phone',
+    'birth_cert','prev_notes','year_leaving','tc_no','previous_class','allergies','medical_info_text'];
+  for (const f of extraFields) delete studentData[f];
+
+  return studentsRepository.create(studentData);
 };
 
 const update = async (id, schoolId, data) => {
