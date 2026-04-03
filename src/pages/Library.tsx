@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { libraryBooks, bookIssues } from "@/data/mockData";
+import { useBooks, useBookIssues, type BookRow, type BookIssueRow } from "@/hooks/useLibrary";
 import {
   Search, Plus, Download, BookOpen, BookCopy, AlertTriangle, RotateCcw,
   Filter, MoreHorizontal, Clock, CheckCircle, XCircle, Banknote,
@@ -48,9 +48,12 @@ const Library = () => {
   const [issueSearch, setIssueSearch] = useState("");
   const [issueStatusFilter, setIssueStatusFilter] = useState("all");
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState<typeof bookIssues[0] | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<any>(null);
 
-  const categories: string[] = [...new Set(libraryBooks.map(b => b.category))];
+  const { data: libraryBooks = [] } = useBooks();
+  const { data: bookIssues = [] } = useBookIssues();
+
+  const categories: string[] = [...new Set(libraryBooks.map((b: BookRow) => b.category))];
 
   const filteredBooks = libraryBooks.filter(b => {
     const matchSearch = b.title.toLowerCase().includes(search.toLowerCase()) ||

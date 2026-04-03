@@ -10,7 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { students, recentPayments, expenses, feeAllotments, dashboardStats, expenseCategories, studentFeeCollection } from "@/data/mockData";
+const students: any[] = []; const recentPayments: any[] = []; const expenses: any[] = [];
+const feeAllotments: any[] = []; const dashboardStats = { totalRevenue: 0, totalExpenses: 0, netIncome: 0, collectionRate: 0, totalStudents: 0, outstandingFees: 0, totalCollected: 0 };
+const expenseCategories: any[] = []; const studentFeeCollection: any[] = [];
 import { Download, Banknote, TrendingDown, TrendingUp, Smartphone, DollarSign, FileText, Receipt } from "lucide-react";
 
 const formatKES = (a: number) => `KES ${Math.abs(a).toLocaleString()}`;

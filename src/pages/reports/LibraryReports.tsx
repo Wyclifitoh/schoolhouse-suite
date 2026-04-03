@@ -6,7 +6,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { libraryBooks, bookIssues } from "@/data/mockData";
+const libraryBooks: any[] = [];
+const bookIssues: any[] = [];
 import { Download, BookOpen, AlertCircle, Package, RotateCcw } from "lucide-react";
 
 const formatKES = (a: number) => `KES ${a.toLocaleString()}`;

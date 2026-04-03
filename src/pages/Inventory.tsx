@@ -24,7 +24,7 @@ import {
   ArrowUpDown, ShoppingCart, TrendingUp, Receipt, Tag, Shirt, BookOpen, Ruler, Package,
   Truck, FileText, ClipboardList, Phone, Mail, MapPin, Calendar, CheckCircle, Clock, XCircle,
 } from "lucide-react";
-import { students } from "@/data/mockData";
+import { useStudents } from "@/hooks/useStudents";
 
 // ===== MOCK DATA =====
 const storeCategories = [
@@ -249,7 +249,7 @@ const SellToStudent = () => {
       <div className="lg:col-span-2 space-y-4">
         <Select value={selectedStudent} onValueChange={setSelectedStudent}>
           <SelectTrigger className="max-w-xs rounded-lg"><SelectValue placeholder="Select Student" /></SelectTrigger>
-          <SelectContent>{students.filter(s => s.status === "active").map(s => <SelectItem key={s.id} value={s.id}>{s.full_name} ({s.admission_no})</SelectItem>)}</SelectContent>
+          <SelectContent><SelectItem value="walk-in">Walk-in Customer</SelectItem></SelectContent>
         </Select>
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {storeItems.filter(i => i.status !== "out_of_stock").map(item => {

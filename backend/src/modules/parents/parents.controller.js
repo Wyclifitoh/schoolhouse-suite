@@ -29,4 +29,13 @@ const update = async (req, res) => {
   } catch (err) { return error(res, err.message, err.statusCode || 500); }
 };
 
-module.exports = { list, getById, create, update };
+const lookup = async (req, res) => {
+  try {
+    const repo = require('./parents.repository');
+    const parent = await repo.findByPhone(req.schoolId, req.query.phone);
+    if (!parent) return success(res, null);
+    return success(res, parent);
+  } catch (err) { return error(res, err.message, err.statusCode || 500); }
+};
+
+module.exports = { list, getById, create, update, lookup };

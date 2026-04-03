@@ -9,7 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { students, classes, parents, subjects, subjectAssignments } from "@/data/mockData";
+const students: any[] = []; const classes: any[] = []; const parents: any[] = [];
+const subjects: any[] = []; const subjectAssignments: any[] = [];
 import { Download, Users, GraduationCap, UserCheck, BookOpen, History, Key, Link2, User } from "lucide-react";
 
 const StudentReports = () => {

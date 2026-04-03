@@ -9,7 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { marksRegister, exams } from "@/data/mockData";
+const marksRegister: any[] = [];
+const exams: any[] = [];
 import { Download, BarChart3, Trophy } from "lucide-react";
 
 const sorted = [...marksRegister].sort((a, b) => a.rank - b.rank);

@@ -8,7 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { timetableEntries, classes, subjects } from "@/data/mockData";
+import { useClasses, useSubjects, useTimetable } from "@/hooks/useClasses";
+
+const timetableEntries: any[] = [];
+const classes: any[] = [];
+const subjects: any[] = [];
 import { Calendar, Plus, Wand2, Download, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 
