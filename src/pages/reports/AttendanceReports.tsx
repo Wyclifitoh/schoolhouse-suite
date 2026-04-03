@@ -9,7 +9,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { attendanceRecords, students } from "@/data/mockData";
+const attendanceRecords: any[] = [];
+const students: any[] = [];
 import { Download, Calendar, Users, ClipboardList } from "lucide-react";
 
 const staffAttendance = [

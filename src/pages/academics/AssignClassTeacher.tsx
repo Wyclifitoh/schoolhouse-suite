@@ -27,7 +27,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { classes, timetableEntries } from "@/data/mockData";
+const classes: any[] = [];
+const timetableEntries: any[] = [];
 import { UserCheck, Edit, Plus } from "lucide-react";
 import { toast } from "sonner";
 
