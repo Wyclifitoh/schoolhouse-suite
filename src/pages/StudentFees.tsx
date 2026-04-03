@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
-import { students, feeDiscounts, carryForwards } from "@/data/mockData";
+import { useStudentWithFees } from "@/hooks/useStudents";
+import { useFinance } from "@/hooks/useFinance";
 import {
   ArrowLeft, Wallet, Download, Percent, Phone, Receipt, AlertTriangle, ArrowUpRight, Scale,
 } from "lucide-react";

@@ -48,7 +48,10 @@ const Library = () => {
   const [issueSearch, setIssueSearch] = useState("");
   const [issueStatusFilter, setIssueStatusFilter] = useState("all");
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState<typeof bookIssues[0] | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<any>(null);
+
+  const { data: libraryBooks = [] } = useLibraryBooks();
+  const { data: bookIssues = [] } = useBookIssues();
 
   const categories: string[] = [...new Set(libraryBooks.map(b => b.category))];
 

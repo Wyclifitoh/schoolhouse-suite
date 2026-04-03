@@ -24,7 +24,7 @@ import {
   ArrowUpDown, ShoppingCart, TrendingUp, Receipt, Tag, Shirt, BookOpen, Ruler, Package,
   Truck, FileText, ClipboardList, Phone, Mail, MapPin, Calendar, CheckCircle, Clock, XCircle,
 } from "lucide-react";
-import { students } from "@/data/mockData";
+import { useStudents } from "@/hooks/useStudents";
 
 // ===== MOCK DATA =====
 const storeCategories = [
