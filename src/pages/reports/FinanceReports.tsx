@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const students: any[] = []; const recentPayments: any[] = []; const expenses: any[] = [];
-const feeAllotments: any[] = []; const dashboardStats = { totalRevenue: 0, totalExpenses: 0, netIncome: 0, collectionRate: 0, totalStudents: 0, outstandingFees: 0 };
+const feeAllotments: any[] = []; const dashboardStats = { totalRevenue: 0, totalExpenses: 0, netIncome: 0, collectionRate: 0, totalStudents: 0, outstandingFees: 0, totalCollected: 0 };
 const expenseCategories: any[] = []; const studentFeeCollection: any[] = [];
 import { Download, Banknote, TrendingDown, TrendingUp, Smartphone, DollarSign, FileText, Receipt } from "lucide-react";
 
