@@ -17,6 +17,7 @@ import Unauthorized from "./pages/Unauthorized";
 
 // Dashboard pages
 import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Finance from "./pages/Finance";
