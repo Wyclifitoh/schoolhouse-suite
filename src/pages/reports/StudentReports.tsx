@@ -27,7 +27,7 @@ const StudentReports = () => {
   const guardians = report?.guardians || [];
   const history = report?.history || [];
   const summary = report?.summary || { total: 0, male: 0, female: 0, active: 0 };
-  const classes = classesData?.classes || classesData || [];
+  const classes = Array.isArray(classesData) ? classesData : [];
 
   return (
     <DashboardLayout title="Student Reports" subtitle="Comprehensive student information reports">

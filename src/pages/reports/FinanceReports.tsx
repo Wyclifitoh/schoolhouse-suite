@@ -39,7 +39,7 @@ const FinanceReports = () => {
   const payrollSummary = report?.payrollSummary || [];
   const mpesaPayments = paymentsReport?.mpesaPayments || [];
   const allPayments = paymentsReport?.payments || [];
-  const classes = classesData?.classes || classesData || [];
+  const classes = Array.isArray(classesData) ? classesData : [];
 
   const totalCollected = dailyCollections.reduce((s: number, d: any) => s + (d.total || 0), 0);
   const totalTransactions = dailyCollections.reduce((s: number, d: any) => s + (d.transactions || 0), 0);
