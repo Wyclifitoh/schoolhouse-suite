@@ -30,5 +30,6 @@ router.use('/finance', require('../modules/finance/finance.routes'));
 router.use('/payments', require('../modules/payments/payments.routes'));
 router.use('/attendance', require('../modules/attendance/attendance.routes'));
 router.use('/inventory', require('../modules/inventory/inventory.routes'));
+router.use('/reports', require('../modules/reports/reports.routes'));
 
 module.exports = router;
