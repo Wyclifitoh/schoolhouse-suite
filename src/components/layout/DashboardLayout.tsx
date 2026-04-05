@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Bell, BookOpen, Briefcase, Building2, Calendar, ChevronDown, ChevronRight, ClipboardList,
   Download, FileText, GraduationCap, Home, Layers, Library, LogOut, Menu,
   MessageSquare, Package, Receipt, School, Search, Settings, Truck, Users,
   Wallet, X, Award, BarChart3, Clock, CreditCard, UserCheck, Clipboard,
-  Bus, ScrollText, Archive, User, Shield,
+  Bus, ScrollText, Archive, User, Shield, Timer,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { createPortal } from "react-dom";
 
 const ADMIN_ROLES = ["super_admin", "school_admin", "deputy_admin"] as const;
 const FINANCE_ROLES = [...ADMIN_ROLES, "finance_officer"] as const;
@@ -120,20 +124,127 @@ const navigationGroups: NavGroup[] = [
   },
 ];
 
-/* ── Desktop Nav Dropdown ── */
+/* ── Session Timeout Hook ── */
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
+const IDLE_WARNING_MS = 25 * 60 * 1000; // show warning at 25 min
+const COUNTDOWN_SECONDS = 5 * 60; // 5 min countdown
+
+function useSessionTimeout(onLogout: () => void, onRefresh: () => void) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const lastActivityRef = useRef(Date.now());
+  const warningTimerRef = useRef<ReturnType<typeof setInterval>>();
+
+  const resetActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (showDialog) return; // don't auto-dismiss warning
+  }, [showDialog]);
+
+  // Track user activity
+  useEffect(() => {
+    const events = ["mousedown", "keydown", "scroll", "touchstart", "mousemove"];
+    events.forEach(e => window.addEventListener(e, resetActivity, { passive: true }));
+    return () => events.forEach(e => window.removeEventListener(e, resetActivity));
+  }, [resetActivity]);
+
+  // Check for idle every 30s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const idle = Date.now() - lastActivityRef.current;
+      if (idle >= SESSION_TIMEOUT_MS) {
+        // Fully timed out
+        clearInterval(interval);
+        setShowDialog(false);
+        onLogout();
+      } else if (idle >= IDLE_WARNING_MS && !showDialog) {
+        // User is idle, show warning
+        setShowDialog(true);
+        setCountdown(Math.ceil((SESSION_TIMEOUT_MS - idle) / 1000));
+      } else if (idle < IDLE_WARNING_MS && !showDialog) {
+        // User is active, silently refresh
+        onRefresh();
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [showDialog, onLogout, onRefresh]);
+
+  // Countdown timer for dialog
+  useEffect(() => {
+    if (!showDialog) return;
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onLogout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    warningTimerRef.current = interval;
+    return () => clearInterval(interval);
+  }, [showDialog, onLogout]);
+
+  const extendSession = useCallback(() => {
+    setShowDialog(false);
+    lastActivityRef.current = Date.now();
+    onRefresh();
+    setCountdown(COUNTDOWN_SECONDS);
+  }, [onRefresh]);
+
+  const logoutNow = useCallback(() => {
+    setShowDialog(false);
+    onLogout();
+  }, [onLogout]);
+
+  return { showDialog, countdown, extendSession, logoutNow };
+}
+
+/* ── Portal-based Desktop Nav Dropdown ── */
 function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [pos, setPos] = useState({ top: 0, left: 0 });
 
   const isActive = group.items.some(item => location.pathname === item.url || location.pathname.startsWith(item.url + "/"));
   const isSingle = group.items.length === 1;
 
-  const handleEnter = () => { clearTimeout(timeoutRef.current); setOpen(true); };
-  const handleLeave = () => { timeoutRef.current = setTimeout(() => setOpen(false), 150); };
+  const updatePos = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const dropdownWidth = 220;
+      let left = rect.left;
+      // Prevent overflow on right
+      if (left + dropdownWidth > window.innerWidth - 8) {
+        left = window.innerWidth - dropdownWidth - 8;
+      }
+      setPos({ top: rect.bottom + 4, left });
+    }
+  }, []);
+
+  const handleEnter = () => {
+    clearTimeout(timeoutRef.current);
+    updatePos();
+    setOpen(true);
+  };
+  const handleLeave = () => {
+    timeoutRef.current = setTimeout(() => setOpen(false), 180);
+  };
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  // Close on scroll/resize
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, { passive: true, capture: true });
+    window.addEventListener("resize", close);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+  }, [open]);
 
   if (isSingle) {
     const item = group.items[0];
@@ -141,7 +252,7 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
       <button
         onClick={() => navigate(item.url)}
         className={cn(
-          "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap",
+          "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0",
           isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
         )}
       >
@@ -151,10 +262,42 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
     );
   }
 
+  const dropdown = open ? createPortal(
+    <div
+      ref={dropdownRef}
+      onMouseEnter={() => clearTimeout(timeoutRef.current)}
+      onMouseLeave={handleLeave}
+      className="fixed z-[9999] min-w-[220px] rounded-xl border border-border/60 bg-popover p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150"
+      style={{ top: pos.top, left: pos.left }}
+    >
+      {group.items.map(item => (
+        <button
+          key={item.url}
+          onClick={() => { navigate(item.url); setOpen(false); }}
+          className={cn(
+            "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
+            location.pathname === item.url
+              ? "bg-primary/10 text-primary font-semibold"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          <span>{item.title}</span>
+        </button>
+      ))}
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+    <div
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      className="shrink-0"
+    >
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={triggerRef}
+        onClick={() => { if (!open) { updatePos(); setOpen(true); } else { setOpen(false); } }}
         className={cn(
           "flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap",
           isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -164,25 +307,7 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
         <span>{group.label}</span>
         <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", open && "rotate-180")} />
       </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1 z-[100] min-w-[220px] rounded-xl border border-border/60 bg-popover p-1.5 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
-          {group.items.map(item => (
-            <button
-              key={item.url}
-              onClick={() => { navigate(item.url); setOpen(false); }}
-              className={cn(
-                "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
-                location.pathname === item.url
-                  ? "bg-primary/10 text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              <span>{item.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
@@ -244,10 +369,50 @@ function MobileNavGroup({ group, onNavigate }: { group: NavGroup & { items: NavI
   );
 }
 
+/* ── Session Timeout Dialog ── */
+function SessionTimeoutDialog({ open, countdown, onExtend, onLogout }: {
+  open: boolean; countdown: number; onExtend: () => void; onLogout: () => void;
+}) {
+  const mins = Math.floor(countdown / 60);
+  const secs = countdown % 60;
+
+  return (
+    <Dialog open={open} onOpenChange={() => {}}>
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={e => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Timer className="h-5 w-5 text-warning" />
+            Session Expiring
+          </DialogTitle>
+          <DialogDescription>
+            Your session will expire due to inactivity. You will be logged out automatically.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center justify-center py-6">
+          <div className="text-center">
+            <div className="text-4xl font-black text-destructive tabular-nums">
+              {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">Time remaining</p>
+          </div>
+        </div>
+        <DialogFooter className="flex-row gap-2 sm:gap-2">
+          <Button variant="outline" onClick={onLogout} className="flex-1">
+            <LogOut className="mr-2 h-4 w-4" />Logout
+          </Button>
+          <Button onClick={onExtend} className="flex-1">
+            Extend Session
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface DashboardLayoutProps { children: React.ReactNode; title: string; subtitle?: string; }
 
 export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
-  const { profile, user, roleLabel, hasAnyRole, logout, signOut } = useAuth();
+  const { profile, user, roleLabel, hasAnyRole, signOut } = useAuth();
   const { currentSchool } = useSchool();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -259,15 +424,25 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     .map(g => ({ ...g, items: g.items.filter(item => hasAnyRole(item.roles as any)) }))
     .filter(g => g.items.length > 0);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     signOut();
     localStorage.removeItem("chuo-token");
     localStorage.removeItem("chuo-school-id");
     navigate("/login", { replace: true });
-  };
+  }, [signOut, navigate]);
+
+  const handleSessionRefresh = useCallback(() => {
+    // Silently refresh - the token is still valid for 30 min from last activity
+    // In production, call /auth/refresh endpoint here
+  }, []);
+
+  const { showDialog, countdown, extendSession, logoutNow } = useSessionTimeout(handleLogout, handleSessionRefresh);
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Session Timeout Dialog */}
+      <SessionTimeoutDialog open={showDialog} countdown={countdown} onExtend={extendSession} onLogout={logoutNow} />
+
       {/* Top Header */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-xl">
         <div className="flex h-14 items-center gap-3 px-3 sm:px-6">
@@ -360,9 +535,9 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           </DropdownMenu>
         </div>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Navigation — NO overflow-x-auto, dropdowns use portals */}
         <nav className="hidden lg:block border-t border-border/40 bg-card/50 px-4">
-          <div className="flex items-center gap-0.5 overflow-x-auto py-1.5 scrollbar-thin">
+          <div className="flex items-center gap-0.5 py-1.5 flex-wrap">
             {visibleGroups.map(g => (
               <DesktopNavItem key={g.label} group={g} />
             ))}
