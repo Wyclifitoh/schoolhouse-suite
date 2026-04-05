@@ -90,7 +90,7 @@ export default function LandingPage() {
         </div>
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border/60 bg-background px-4 py-4 space-y-1 animate-in slide-in-from-top-2 duration-200">
-            {["Features", "Modules", "Benefits", "FAQ"].map(item => (
+             {["Features", "Modules", "Pricing", "Benefits", "FAQ"].map(item => (
               <a
                 key={item}
                 href={`#${item.toLowerCase()}`}
