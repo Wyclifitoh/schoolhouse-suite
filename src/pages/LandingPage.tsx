@@ -242,8 +242,94 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="py-20 sm:py-24 bg-muted/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Pricing</Badge>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+              Simple, Transparent <span className="bg-gradient-to-r from-primary to-[hsl(var(--primary-glow))] bg-clip-text text-transparent">Pricing</span>
+            </h2>
+            <p className="mt-4 text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">Choose the plan that fits your school. Scale as you grow — no hidden fees.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {/* Starter */}
+            <Card className="border-border/60 hover:border-primary/30 hover:shadow-lg transition-all duration-300 relative">
+              <CardContent className="p-7">
+                <h3 className="text-lg font-bold text-foreground">Starter</h3>
+                <p className="text-sm text-muted-foreground mt-1">For small schools getting started</p>
+                <div className="mt-6 mb-6">
+                  <span className="text-4xl font-black text-foreground">KES 5,000</span>
+                  <span className="text-sm text-muted-foreground"> /month</span>
+                </div>
+                <Button className="w-full font-semibold shadow-lg shadow-primary/20" asChild>
+                  <Link to="/login">Start Free Trial <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+                </Button>
+                <ul className="mt-6 space-y-3">
+                  {["Up to 300 students", "Fee collection & receipts", "M-Pesa STK Push", "Student admissions", "Exam & report cards", "SMS notifications (100/mo)", "1 admin user", "Email support"].map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Professional — highlighted */}
+            <Card className="border-2 border-primary shadow-xl shadow-primary/10 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge className="bg-primary text-primary-foreground px-4 py-1 text-xs font-bold shadow-lg shadow-primary/30">Most Popular</Badge>
+              </div>
+              <CardContent className="p-7">
+                <h3 className="text-lg font-bold text-foreground">Professional</h3>
+                <p className="text-sm text-muted-foreground mt-1">For growing schools</p>
+                <div className="mt-6 mb-6">
+                  <span className="text-4xl font-black text-foreground">KES 12,000</span>
+                  <span className="text-sm text-muted-foreground"> /month</span>
+                </div>
+                <Button className="w-full font-semibold shadow-xl shadow-primary/30" asChild>
+                  <Link to="/login">Start Free Trial <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+                </Button>
+                <ul className="mt-6 space-y-3">
+                  {["Up to 1,000 students", "Everything in Starter", "HR & payroll", "Inventory & POS", "Library management", "Attendance tracking", "SMS notifications (500/mo)", "5 admin users", "Priority support"].map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Enterprise */}
+            <Card className="border-border/60 hover:border-primary/30 hover:shadow-lg transition-all duration-300 relative">
+              <CardContent className="p-7">
+                <h3 className="text-lg font-bold text-foreground">Enterprise</h3>
+                <p className="text-sm text-muted-foreground mt-1">For large schools & groups</p>
+                <div className="mt-6 mb-6">
+                  <span className="text-4xl font-black text-foreground">Custom</span>
+                </div>
+                <Button variant="outline" className="w-full font-semibold border-2" asChild>
+                  <a href="mailto:info@chuo.co.ke">Contact Sales <ArrowRight className="ml-1.5 h-4 w-4" /></a>
+                </Button>
+                <ul className="mt-6 space-y-3">
+                  {["Unlimited students", "Everything in Professional", "Multi-school management", "Custom integrations", "Dedicated account manager", "Unlimited SMS", "Unlimited admin users", "On-site training", "SLA guarantee"].map(f => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+          <p className="text-center text-sm text-muted-foreground mt-8">All plans include a <strong className="text-foreground">30-day free trial</strong>. No credit card required. Cancel anytime.</p>
+        </div>
+      </section>
+
       {/* Testimonials */}
-      <section className="py-20 sm:py-24 bg-muted/30">
+      <section className="py-20 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
             <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Testimonials</Badge>
