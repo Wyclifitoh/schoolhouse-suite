@@ -66,7 +66,7 @@ export default function LandingPage() {
             </div>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
-            {["Features", "Modules", "Benefits", "FAQ"].map(item => (
+             {["Features", "Modules", "Pricing", "Benefits", "FAQ"].map(item => (
               <a
                 key={item}
                 href={`#${item.toLowerCase()}`}
