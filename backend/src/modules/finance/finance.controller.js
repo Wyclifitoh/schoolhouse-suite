@@ -9,12 +9,24 @@ const getFeeCategories = async (req, res) => {
   try { return success(res, await financeService.getFeeCategories(req.schoolId)); }
   catch (err) { return error(res, err.message, 500); }
 };
+const createFeeCategory = async (req, res) => {
+  try { return success(res, await financeService.createFeeCategory(req.schoolId, req.body), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
 const getFeeStructures = async (req, res) => {
   try { return success(res, await financeService.getFeeStructures(req.schoolId)); }
   catch (err) { return error(res, err.message, 500); }
 };
+const createFeeStructure = async (req, res) => {
+  try { return success(res, await financeService.createFeeStructure(req.schoolId, req.body), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
 const getFeeDiscounts = async (req, res) => {
   try { return success(res, await financeService.getFeeDiscounts(req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const createFeeDiscount = async (req, res) => {
+  try { return success(res, await financeService.createFeeDiscount(req.schoolId, req.body), 201); }
   catch (err) { return error(res, err.message, 500); }
 };
 const getStudentFees = async (req, res) => {
@@ -47,7 +59,9 @@ const getExpenseCategories = async (req, res) => {
 };
 
 module.exports = {
-  getFeeTemplates, getFeeCategories, getFeeStructures, getFeeDiscounts,
+  getFeeTemplates, getFeeCategories, createFeeCategory,
+  getFeeStructures, createFeeStructure,
+  getFeeDiscounts, createFeeDiscount,
   getStudentFees, getStudentBalance, getCarryForwards, getStudentFeesList,
   createStudentFee, getExpenses, getExpenseCategories,
 };

@@ -5,6 +5,7 @@ router.get("/grades", classesController.listGrades);
 router.post("/grades", classesController.createGrade);
 router.get("/streams", classesController.listStreams);
 router.post("/streams", classesController.createStream);
+router.put("/streams/:id", classesController.updateStream);
 router.get("/subjects", classesController.listSubjects);
 router.post("/subjects", classesController.createSubject);
 router.get("/staff", classesController.listStaff);

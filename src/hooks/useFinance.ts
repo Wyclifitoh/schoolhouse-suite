@@ -6,13 +6,13 @@ export function useFeeTemplates() {
   return useQuery({ queryKey: ["fee-templates"], queryFn: async () => { const r = await api.get<any>("/finance/fee-templates"); return r?.rows || r?.data || r || []; } });
 }
 export function useFeeCategories() {
-  return useQuery({ queryKey: ["fee-categories"], queryFn: () => api.get<any[]>("/finance/fee-categories") });
+  return useQuery({ queryKey: ["fee-categories"], queryFn: async () => { const d = await api.get<any>("/finance/fee-categories"); return d?.data || d || []; } });
 }
 export function useFeeStructures() {
-  return useQuery({ queryKey: ["fee-structures"], queryFn: () => api.get<any[]>("/finance/fee-structures") });
+  return useQuery({ queryKey: ["fee-structures"], queryFn: async () => { const d = await api.get<any>("/finance/fee-structures"); return d?.data || d || []; } });
 }
 export function useFeeDiscounts() {
-  return useQuery({ queryKey: ["fee-discounts"], queryFn: () => api.get<any[]>("/finance/fee-discounts") });
+  return useQuery({ queryKey: ["fee-discounts"], queryFn: async () => { const d = await api.get<any>("/finance/fee-discounts"); return d?.data || d || []; } });
 }
 export function useStudentFeesList(search?: string) {
   const { selectedTerm } = useTerm();
@@ -48,10 +48,10 @@ export function usePayments(filters?: { status?: string; method?: string; search
   });
 }
 export function useExpenses() {
-  return useQuery({ queryKey: ["expenses"], queryFn: () => api.get<any[]>("/finance/expenses") });
+  return useQuery({ queryKey: ["expenses"], queryFn: async () => { const d = await api.get<any>("/finance/expenses"); return d?.data || d || []; } });
 }
 export function useExpenseCategories() {
-  return useQuery({ queryKey: ["expense-categories"], queryFn: () => api.get<any[]>("/finance/expense-categories") });
+  return useQuery({ queryKey: ["expense-categories"], queryFn: async () => { const d = await api.get<any>("/finance/expense-categories"); return d?.data || d || []; } });
 }
 export function useCarryForwards() {
   return useQuery({
