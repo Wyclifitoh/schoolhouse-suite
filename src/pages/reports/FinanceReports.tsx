@@ -23,7 +23,7 @@ const EmptyState = ({ message }: { message: string }) => (
 );
 
 const FinanceReports = () => {
-  const [classFilter, setClassFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
