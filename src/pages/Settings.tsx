@@ -14,41 +14,39 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   School, Calendar, Users, Shield, MoreHorizontal, Plus, Save, Mail, Phone, MapPin, Globe,
-  MessageSquare, Bell, Edit, Copy, Trash2, CheckCircle, Send,
+  MessageSquare, Bell, Edit, Copy, Trash2, CheckCircle, Send, GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { useSchoolProfile, useUpdateSchoolProfile, useSchoolUsers, useNotificationTemplates, useUpdateNotificationTemplate } from "@/hooks/useSettings";
+import { useTerm, AcademicYear, Term } from "@/contexts/TermContext";
 
-const academicTerms = [
-  { id: "t1", name: "Term 1 2024", start: "2024-01-08", end: "2024-04-05", status: "completed" as const },
-  { id: "t2", name: "Term 2 2024", start: "2024-04-29", end: "2024-08-02", status: "active" as const },
-  { id: "t3", name: "Term 3 2024", start: "2024-08-26", end: "2024-11-01", status: "upcoming" as const },
-];
+const termStatusConfig: Record<string, { label: string; className: string }> = {
+  completed: { label: "Completed", className: "bg-muted text-muted-foreground border-0" },
+  active: { label: "Active", className: "bg-success/10 text-success border-0 hover:bg-success/20" },
+  upcoming: { label: "Upcoming", className: "bg-info/10 text-info border-0 hover:bg-info/20" },
+};
 
-const users = [
-  { id: "u1", name: "Jane Kamau", email: "jane@chuo.ac.ke", role: "admin", status: "active", last_login: "2024-03-15 09:12" },
-  { id: "u2", name: "Peter Otieno", email: "peter@chuo.ac.ke", role: "accountant", status: "active", last_login: "2024-03-15 08:45" },
-  { id: "u3", name: "Sarah Mwangi", email: "sarah@chuo.ac.ke", role: "teacher", status: "active", last_login: "2024-03-14 16:30" },
-  { id: "u4", name: "David Kimani", email: "david@chuo.ac.ke", role: "teacher", status: "active", last_login: "2024-03-14 14:20" },
-  { id: "u5", name: "Grace Wambui", email: "grace@chuo.ac.ke", role: "receptionist", status: "inactive", last_login: "2024-02-28 10:00" },
-];
-
-const smsTemplates = [
-  { id: "sms1", name: "Payment Received", event: "payment_received", enabled: true, message: "Dear Parent, payment of KES {amount} received for {student_name} ({admission_no}). Balance: KES {balance}. Ref: {reference}. Thank you - {school_name}" },
-  { id: "sms2", name: "Fee Reminder", event: "fee_reminder", enabled: true, message: "Dear Parent, fee balance of KES {balance} for {student_name} ({admission_no}) is due on {due_date}. Please pay to avoid late charges. - {school_name}" },
-  { id: "sms3", name: "Fee Overdue", event: "fee_overdue", enabled: true, message: "Dear Parent, fee of KES {balance} for {student_name} ({admission_no}) is overdue. Please make payment immediately. - {school_name}" },
-  { id: "sms4", name: "New Fee Assigned", event: "fee_assigned", enabled: false, message: "Dear Parent, {fee_name} of KES {amount} has been assigned to {student_name} ({admission_no}). Due date: {due_date}. - {school_name}" },
-  { id: "sms5", name: "Admission Confirmation", event: "student_admitted", enabled: false, message: "Dear Parent, {student_name} has been admitted to {grade} at {school_name}. Admission No: {admission_no}. Welcome!" },
-  { id: "sms6", name: "Attendance Alert", event: "student_absent", enabled: false, message: "Dear Parent, {student_name} ({admission_no}) was marked absent today ({date}). Please contact the school if this is unexpected. - {school_name}" },
-];
+const roleColors: Record<string, string> = {
+  admin: "bg-primary/10 text-primary border-0",
+  school_admin: "bg-primary/10 text-primary border-0",
+  accountant: "bg-chart-5/10 text-chart-5 border-0",
+  finance_officer: "bg-chart-5/10 text-chart-5 border-0",
+  teacher: "bg-success/10 text-success border-0",
+  receptionist: "bg-warning/10 text-warning border-0",
+  front_office: "bg-warning/10 text-warning border-0",
+};
 
 const smsPlaceholders: Record<string, string[]> = {
   payment_received: ["{amount}", "{student_name}", "{admission_no}", "{balance}", "{reference}", "{payment_method}", "{school_name}", "{date}"],
@@ -59,68 +57,101 @@ const smsPlaceholders: Record<string, string[]> = {
   student_absent: ["{student_name}", "{admission_no}", "{date}", "{school_name}"],
 };
 
-const termStatusConfig = {
-  completed: { label: "Completed", className: "bg-muted text-muted-foreground border-0" },
-  active: { label: "Active", className: "bg-success/10 text-success border-0 hover:bg-success/20" },
-  upcoming: { label: "Upcoming", className: "bg-info/10 text-info border-0 hover:bg-info/20" },
-};
-
-const roleColors: Record<string, string> = {
-  admin: "bg-primary/10 text-primary border-0",
-  accountant: "bg-chart-5/10 text-chart-5 border-0",
-  teacher: "bg-success/10 text-success border-0",
-  receptionist: "bg-warning/10 text-warning border-0",
-};
-
 const Settings = () => {
+  const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState("school");
-  const [templates, setTemplates] = useState(smsTemplates);
-  const [editingTemplate, setEditingTemplate] = useState<typeof smsTemplates[0] | null>(null);
+
+  // --- Data hooks ---
+  const { data: schoolProfile, isLoading: profileLoading } = useSchoolProfile();
+  const updateProfile = useUpdateSchoolProfile();
+  const { data: usersData = [], isLoading: usersLoading } = useSchoolUsers();
+  const { data: templatesData = [], isLoading: templatesLoading } = useNotificationTemplates();
+  const updateTemplate = useUpdateNotificationTemplate();
+
+  // Academic Years
+  const { data: academicYears = [], isLoading: ayLoading } = useQuery({
+    queryKey: ["academic-years-settings"],
+    queryFn: async () => { const d = await api.get<any>("/schools/academic-years"); return (d?.data || d || []) as any[]; },
+  });
+
+  // Terms
+  const { data: terms = [], isLoading: termsLoading } = useQuery({
+    queryKey: ["terms-settings"],
+    queryFn: async () => { const d = await api.get<any>("/schools/terms"); return (d?.data || d || []) as any[]; },
+  });
+
+  // --- Academic Year CRUD ---
+  const [ayDialogOpen, setAyDialogOpen] = useState(false);
+  const [ayForm, setAyForm] = useState({ name: "", start_date: "", end_date: "" });
+
+  const createAY = useMutation({
+    mutationFn: (data: any) => api.post("/schools/academic-years", data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["academic-years-settings"] }); qc.invalidateQueries({ queryKey: ["academic-years"] }); toast.success("Academic year created!"); setAyDialogOpen(false); setAyForm({ name: "", start_date: "", end_date: "" }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setCurrentAY = useMutation({
+    mutationFn: (id: string) => api.put(`/schools/academic-years/${id}/set-current`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["academic-years-settings"] }); qc.invalidateQueries({ queryKey: ["academic-years"] }); toast.success("Current academic year updated!"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // --- Term CRUD ---
+  const [termDialogOpen, setTermDialogOpen] = useState(false);
+  const [termForm, setTermForm] = useState({ name: "", start_date: "", end_date: "", academic_year_id: "" });
+
+  const createTerm = useMutation({
+    mutationFn: (data: any) => api.post("/schools/terms", data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["terms-settings"] }); qc.invalidateQueries({ queryKey: ["terms"] }); toast.success("Term created!"); setTermDialogOpen(false); setTermForm({ name: "", start_date: "", end_date: "", academic_year_id: "" }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const setCurrentTerm = useMutation({
+    mutationFn: (id: string) => api.put(`/schools/terms/${id}/set-current`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["terms-settings"] }); qc.invalidateQueries({ queryKey: ["terms"] }); toast.success("Current term updated!"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteTerm = useMutation({
+    mutationFn: (id: string) => api.delete(`/schools/terms/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["terms-settings"] }); qc.invalidateQueries({ queryKey: ["terms"] }); toast.success("Term deleted!"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // --- SMS Template editing ---
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null);
   const [editMessage, setEditMessage] = useState("");
   const [editName, setEditName] = useState("");
   const [testPhone, setTestPhone] = useState("");
 
-  const toggleTemplate = (id: string) => {
-    setTemplates(prev => prev.map(t => t.id === id ? { ...t, enabled: !t.enabled } : t));
-    const tpl = templates.find(t => t.id === id);
-    toast.success(`${tpl?.name} SMS ${tpl?.enabled ? "disabled" : "enabled"}`);
-  };
-
-  const openEditTemplate = (tpl: typeof smsTemplates[0]) => {
-    setEditingTemplate(tpl);
-    setEditMessage(tpl.message);
-    setEditName(tpl.name);
-  };
-
+  const openEditTemplate = (tpl: any) => { setEditingTemplate(tpl); setEditMessage(tpl.body || tpl.message); setEditName(tpl.name); };
   const saveTemplate = () => {
     if (!editingTemplate) return;
-    setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? { ...t, name: editName, message: editMessage } : t));
-    toast.success("SMS template saved!");
+    updateTemplate.mutate({ id: editingTemplate.id, data: { name: editName, body: editMessage } });
     setEditingTemplate(null);
   };
 
-  const sendTestSms = () => {
-    if (!testPhone) { toast.error("Enter a phone number"); return; }
-    toast.success(`Test SMS sent to ${testPhone}`);
-    setTestPhone("");
+  // --- School Profile form ---
+  const [profileForm, setProfileForm] = useState<Record<string, string>>({});
+  const pf = { ...schoolProfile, ...profileForm };
+
+  const getTermStatus = (term: any) => {
+    if (term.is_current) return "active";
+    const now = new Date();
+    const end = new Date(term.end_date);
+    if (end < now) return "completed";
+    return "upcoming";
   };
 
   return (
     <DashboardLayout title="Settings" subtitle="Manage school configuration, users, and notifications">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-muted/60">
-          <TabsTrigger value="school" className="gap-1.5">
-            <School className="h-4 w-4" /> School Profile
-          </TabsTrigger>
-          <TabsTrigger value="terms" className="gap-1.5">
-            <Calendar className="h-4 w-4" /> Academic Terms
-          </TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5">
-            <Users className="h-4 w-4" /> User Management
-          </TabsTrigger>
-          <TabsTrigger value="sms" className="gap-1.5">
-            <MessageSquare className="h-4 w-4" /> SMS Templates
-          </TabsTrigger>
+        <TabsList className="bg-muted/60 flex-wrap h-auto gap-1">
+          <TabsTrigger value="school" className="gap-1.5"><School className="h-4 w-4" /> School Profile</TabsTrigger>
+          <TabsTrigger value="academic-years" className="gap-1.5"><GraduationCap className="h-4 w-4" /> Academic Years</TabsTrigger>
+          <TabsTrigger value="terms" className="gap-1.5"><Calendar className="h-4 w-4" /> Academic Terms</TabsTrigger>
+          <TabsTrigger value="users" className="gap-1.5"><Users className="h-4 w-4" /> User Management</TabsTrigger>
+          <TabsTrigger value="sms" className="gap-1.5"><MessageSquare className="h-4 w-4" /> SMS Templates</TabsTrigger>
         </TabsList>
 
         {/* ── School Profile ── */}
@@ -131,37 +162,98 @@ const Settings = () => {
               <CardDescription>Basic details about your institution</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>School Name</Label><Input defaultValue="Chuo Academy" /></div>
-                <div className="space-y-2"><Label>Registration Number</Label><Input defaultValue="SCH-2024-00142" disabled className="bg-muted/50" /></div>
+              {profileLoading ? <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div> : (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>School Name</Label><Input value={pf.name || ""} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label>Registration Code</Label><Input value={pf.code || ""} disabled className="bg-muted/50" /></div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email</Label><Input value={pf.email || ""} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone</Label><Input value={pf.phone || ""} onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} /></div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> Address</Label><Input value={pf.address || ""} onChange={e => setProfileForm(p => ({ ...p, address: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label>Paybill Number</Label><Input value={pf.paybill_number || ""} onChange={e => setProfileForm(p => ({ ...p, paybill_number: e.target.value }))} /></div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={() => updateProfile.mutate(profileForm)} disabled={updateProfile.isPending}>
+                      <Save className="h-4 w-4 mr-1.5" /> Save Changes
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Academic Years ── */}
+        <TabsContent value="academic-years" className="space-y-6">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div><CardTitle className="text-base font-semibold">Academic Years</CardTitle><CardDescription>Manage academic years. Terms are attached to academic years.</CardDescription></div>
+                <Dialog open={ayDialogOpen} onOpenChange={setAyDialogOpen}>
+                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> Add Academic Year</Button></DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader><DialogTitle>Add Academic Year</DialogTitle></DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2"><Label>Year Name</Label><Input placeholder="e.g. 2025" value={ayForm.name} onChange={e => setAyForm(f => ({ ...f, name: e.target.value }))} /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Start Date</Label><Input type="date" value={ayForm.start_date} onChange={e => setAyForm(f => ({ ...f, start_date: e.target.value }))} /></div>
+                        <div className="space-y-2"><Label>End Date</Label><Input type="date" value={ayForm.end_date} onChange={e => setAyForm(f => ({ ...f, end_date: e.target.value }))} /></div>
+                      </div>
+                      <Button className="w-full mt-2" onClick={() => createAY.mutate(ayForm)} disabled={createAY.isPending || !ayForm.name || !ayForm.start_date || !ayForm.end_date}>
+                        {createAY.isPending ? "Creating..." : "Create Academic Year"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email</Label><Input defaultValue="admin@chuoacademy.ac.ke" /></div>
-                <div className="space-y-2"><Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone</Label><Input defaultValue="+254 712 345 678" /></div>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> Address</Label><Input defaultValue="P.O. Box 1234, Nairobi" /></div>
-                <div className="space-y-2"><Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-muted-foreground" /> Website</Label><Input defaultValue="https://chuoacademy.ac.ke" /></div>
-              </div>
-              <Separator />
-              <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-foreground">Preferences</h4>
-                <div className="flex items-center justify-between">
-                  <div><p className="text-sm font-medium text-foreground">SMS Notifications</p><p className="text-xs text-muted-foreground">Send payment receipts and reminders via SMS</p></div>
-                  <Switch defaultChecked />
+            </CardHeader>
+            <CardContent>
+              {ayLoading ? <div className="space-y-3">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> :
+              academicYears.length === 0 ? <p className="text-center py-8 text-sm text-muted-foreground">No academic years configured. Add one to get started.</p> : (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader><TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Year</TableHead>
+                      <TableHead className="font-semibold">Start Date</TableHead>
+                      <TableHead className="font-semibold">End Date</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">Terms</TableHead>
+                      <TableHead className="w-10" />
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {academicYears.map((ay: any) => {
+                        const ayTerms = terms.filter((t: any) => t.academic_year_id === ay.id);
+                        return (
+                          <TableRow key={ay.id} className="group">
+                            <TableCell className="font-medium text-foreground">{ay.name}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{ay.start_date}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{ay.end_date}</TableCell>
+                            <TableCell>
+                              {ay.is_current ? <Badge className="bg-success/10 text-success border-0">Current</Badge> :
+                                <Badge variant="secondary">Inactive</Badge>}
+                            </TableCell>
+                            <TableCell><Badge variant="secondary">{ayTerms.length} terms</Badge></TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {!ay.is_current && <DropdownMenuItem onClick={() => setCurrentAY.mutate(ay.id)}>Set as Current</DropdownMenuItem>}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div><p className="text-sm font-medium text-foreground">Auto Fee Carry-Forward</p><p className="text-xs text-muted-foreground">Automatically carry unpaid balances to next term</p></div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div><p className="text-sm font-medium text-foreground">M-Pesa Integration</p><p className="text-xs text-muted-foreground">Accept payments via M-Pesa STK push</p></div>
-                  <Switch defaultChecked />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={() => toast.success("Settings saved!")}><Save className="h-4 w-4 mr-1.5" /> Save Changes</Button>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -171,60 +263,78 @@ const Settings = () => {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div><CardTitle className="text-base font-semibold">Academic Terms</CardTitle><CardDescription>Configure school terms and academic calendar</CardDescription></div>
-                <Dialog>
+                <div><CardTitle className="text-base font-semibold">Academic Terms</CardTitle><CardDescription>Each term must be attached to an academic year</CardDescription></div>
+                <Dialog open={termDialogOpen} onOpenChange={setTermDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> Add Term</Button></DialogTrigger>
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader><DialogTitle>Add Academic Term</DialogTitle></DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <div className="space-y-2"><Label>Term Name</Label><Input placeholder="e.g. Term 1 2025" /></div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Start Date</Label><Input type="date" /></div>
-                        <div className="space-y-2"><Label>End Date</Label><Input type="date" /></div>
+                      <div className="space-y-2">
+                        <Label>Academic Year <span className="text-destructive">*</span></Label>
+                        <Select value={termForm.academic_year_id} onValueChange={v => setTermForm(f => ({ ...f, academic_year_id: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select academic year" /></SelectTrigger>
+                          <SelectContent>
+                            {academicYears.map((ay: any) => <SelectItem key={ay.id} value={ay.id}>{ay.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Button className="w-full mt-2" onClick={() => toast.success("Term created!")}>Create Term</Button>
+                      <div className="space-y-2"><Label>Term Name</Label><Input placeholder="e.g. Term 1 2025" value={termForm.name} onChange={e => setTermForm(f => ({ ...f, name: e.target.value }))} /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Start Date</Label><Input type="date" value={termForm.start_date} onChange={e => setTermForm(f => ({ ...f, start_date: e.target.value }))} /></div>
+                        <div className="space-y-2"><Label>End Date</Label><Input type="date" value={termForm.end_date} onChange={e => setTermForm(f => ({ ...f, end_date: e.target.value }))} /></div>
+                      </div>
+                      <Button className="w-full mt-2" disabled={createTerm.isPending || !termForm.name || !termForm.start_date || !termForm.end_date || !termForm.academic_year_id}
+                        onClick={() => createTerm.mutate(termForm)}>
+                        {createTerm.isPending ? "Creating..." : "Create Term"}
+                      </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader><TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">Term</TableHead>
-                    <TableHead className="font-semibold">Start Date</TableHead>
-                    <TableHead className="font-semibold">End Date</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {academicTerms.map((term) => {
-                      const cfg = termStatusConfig[term.status];
-                      return (
-                        <TableRow key={term.id} className="group">
-                          <TableCell className="font-medium text-foreground">{term.name}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{term.start}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{term.end}</TableCell>
-                          <TableCell><Badge variant="default" className={cfg.className}>{cfg.label}</Badge></TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => toast.success("Edit term")}>Edit Term</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => toast.success(`${term.name} set as active`)}>Set as Active</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => toast.success(`${term.name} deleted`)}>Delete</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              {termsLoading ? <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> :
+              terms.length === 0 ? <p className="text-center py-8 text-sm text-muted-foreground">No terms configured. Add an academic year first, then create terms.</p> : (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader><TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Term</TableHead>
+                      <TableHead className="font-semibold">Academic Year</TableHead>
+                      <TableHead className="font-semibold">Start Date</TableHead>
+                      <TableHead className="font-semibold">End Date</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="w-10" />
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {terms.map((term: any) => {
+                        const status = getTermStatus(term);
+                        const cfg = termStatusConfig[status];
+                        const ay = academicYears.find((a: any) => a.id === term.academic_year_id);
+                        return (
+                          <TableRow key={term.id} className="group">
+                            <TableCell className="font-medium text-foreground">{term.name}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{ay?.name || "—"}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{term.start_date}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{term.end_date}</TableCell>
+                            <TableCell><Badge variant="default" className={cfg.className}>{cfg.label}</Badge></TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {!term.is_current && <DropdownMenuItem onClick={() => setCurrentTerm.mutate(term.id)}>Set as Current</DropdownMenuItem>}
+                                  <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm("Delete this term?")) deleteTerm.mutate(term.id); }}>Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -235,75 +345,45 @@ const Settings = () => {
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div><CardTitle className="text-base font-semibold">Staff & Users</CardTitle><CardDescription>Manage system users and their access roles</CardDescription></div>
-                <Dialog>
-                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> Invite User</Button></DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader><DialogTitle>Invite New User</DialogTitle></DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2"><Label>Full Name</Label><Input placeholder="Full name" /></div>
-                      <div className="space-y-2"><Label>Email Address</Label><Input placeholder="email@school.ac.ke" type="email" /></div>
-                      <div className="space-y-2"><Label>Role</Label>
-                        <Select><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="accountant">Accountant</SelectItem>
-                          <SelectItem value="teacher">Teacher</SelectItem>
-                          <SelectItem value="receptionist">Receptionist</SelectItem>
-                        </SelectContent></Select>
-                      </div>
-                      <Button className="w-full mt-2" onClick={() => toast.success("Invitation sent!")}>Send Invitation</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader><TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">User</TableHead>
-                    <TableHead className="font-semibold">Role</TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">Last Login</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow></TableHeader>
-                  <TableBody>
-                    {users.map((u) => (
-                      <TableRow key={u.id} className="group">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                              {u.name.split(" ").map((n) => n[0]).join("")}
+              {usersLoading ? <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> :
+              (usersData as any[]).length === 0 ? <p className="text-center py-8 text-sm text-muted-foreground">No users found.</p> : (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader><TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">User</TableHead>
+                      <TableHead className="font-semibold">Role</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">Last Login</TableHead>
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {(usersData as any[]).map((u: any) => (
+                        <TableRow key={u.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                                {(u.full_name || u.email || "?").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
+                              </div>
+                              <div><p className="font-medium text-foreground">{u.full_name}</p><p className="text-xs text-muted-foreground">{u.email}</p></div>
                             </div>
-                            <div><p className="font-medium text-foreground">{u.name}</p><p className="text-xs text-muted-foreground">{u.email}</p></div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="default" className={roleColors[u.role] || ""}>
-                            <Shield className="h-3 w-3 mr-1" />{u.role.charAt(0).toUpperCase() + u.role.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={u.status === "active" ? "default" : "secondary"} className={u.status === "active" ? "bg-success/10 text-success border-0 hover:bg-success/20" : ""}>{u.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{u.last_login}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => toast.success("Edit role")}>Edit Role</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toast.success("Password reset sent")}>Reset Password</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toast.success(u.status === "active" ? "User deactivated" : "User activated")}>{u.status === "active" ? "Deactivate" : "Activate"}</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="default" className={roleColors[u.roles?.split(",")[0]?.trim()] || "bg-secondary"}>
+                              <Shield className="h-3 w-3 mr-1" />{u.roles}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={u.is_active ? "default" : "secondary"} className={u.is_active ? "bg-success/10 text-success border-0 hover:bg-success/20" : ""}>{u.is_active ? "active" : "inactive"}</Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{u.last_login_at || "Never"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -311,32 +391,21 @@ const Settings = () => {
         {/* ── SMS Templates ── */}
         <TabsContent value="sms" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
-            {/* SMS Settings Overview */}
             <Card className="lg:col-span-1">
               <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2"><Bell className="h-4 w-4 text-primary" />SMS Settings</CardTitle>
-                <CardDescription>Configure when and how SMS notifications are sent to parents</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-lg bg-muted/50 p-4 space-y-3">
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">SMS Provider</span><span className="font-medium text-foreground">Africa's Talking</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Sender ID</span><span className="font-medium text-foreground">CHUO_ACAD</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">SMS Balance</span><span className="font-medium text-success">2,450 units</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Active Templates</span><span className="font-medium text-foreground">{templates.filter(t => t.enabled).length} / {templates.length}</span></div>
-                </div>
-                <Separator />
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-foreground">Send Test SMS</h4>
-                  <p className="text-xs text-muted-foreground">Send a test SMS to verify your configuration works.</p>
-                  <Input placeholder="0712345678" value={testPhone} onChange={e => setTestPhone(e.target.value)} className="h-9" />
-                  <Button size="sm" className="w-full" onClick={sendTestSms}><Send className="h-3.5 w-3.5 mr-1.5" />Send Test</Button>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Active Templates</span>
+                    <span className="font-medium text-foreground">{(templatesData as any[]).filter((t: any) => t.is_active).length} / {(templatesData as any[]).length}</span>
+                  </div>
                 </div>
                 <Separator />
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-foreground">Available Placeholders</h4>
-                  <p className="text-xs text-muted-foreground">Use these in your templates. They'll be replaced with actual values when sending.</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {["{student_name}", "{admission_no}", "{amount}", "{balance}", "{school_name}", "{date}", "{fee_name}", "{reference}", "{due_date}", "{grade}", "{payment_method}"].map(p => (
+                    {["{student_name}", "{admission_no}", "{amount}", "{balance}", "{school_name}", "{date}", "{fee_name}", "{reference}", "{due_date}"].map(p => (
                       <Badge key={p} variant="secondary" className="text-[10px] font-mono cursor-pointer hover:bg-primary/10" onClick={() => { navigator.clipboard.writeText(p); toast.success(`Copied ${p}`); }}>{p}</Badge>
                     ))}
                   </div>
@@ -344,33 +413,25 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            {/* Templates List */}
             <Card className="lg:col-span-2">
               <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">Message Templates</CardTitle>
-                    <CardDescription>Customize the SMS messages sent for each event</CardDescription>
-                  </div>
-                </div>
+                <CardTitle className="text-base font-semibold">Message Templates</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {templates.map(tpl => (
-                  <div key={tpl.id} className={`rounded-lg border p-4 space-y-3 transition-colors ${tpl.enabled ? "bg-background" : "bg-muted/30 opacity-70"}`}>
+                {templatesLoading ? <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div> :
+                (templatesData as any[]).map((tpl: any) => (
+                  <div key={tpl.id} className={`rounded-lg border p-4 space-y-3 transition-colors ${tpl.is_active ? "bg-background" : "bg-muted/30 opacity-70"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-sm text-foreground">{tpl.name}</h4>
-                          <Badge variant="secondary" className="text-[10px] font-mono">{tpl.event}</Badge>
+                          <Badge variant="secondary" className="text-[10px] font-mono">{tpl.event_type}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{tpl.message}</p>
-                        <p className="text-[10px] text-muted-foreground/70 mt-1">{tpl.message.length} characters · {Math.ceil(tpl.message.length / 160)} SMS page(s)</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{tpl.body}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Switch checked={tpl.enabled} onCheckedChange={() => toggleTemplate(tpl.id)} />
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditTemplate(tpl)}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
+                        <Switch checked={tpl.is_active} onCheckedChange={() => updateTemplate.mutate({ id: tpl.id, data: { is_active: !tpl.is_active } })} />
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditTemplate(tpl)}><Edit className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
                   </div>
@@ -379,59 +440,16 @@ const Settings = () => {
             </Card>
           </div>
 
-          {/* Edit Template Dialog */}
           <Dialog open={!!editingTemplate} onOpenChange={() => setEditingTemplate(null)}>
             <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5 text-primary" />Edit SMS Template</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5 text-primary" />Edit SMS Template</DialogTitle></DialogHeader>
               {editingTemplate && (
                 <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <Label>Template Name</Label>
-                    <Input value={editName} onChange={e => setEditName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Trigger Event</Label>
-                    <Input value={editingTemplate.event} disabled className="bg-muted/50 font-mono text-xs" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Message</Label>
-                    <Textarea value={editMessage} onChange={e => setEditMessage(e.target.value)} rows={5} className="font-mono text-xs" />
-                    <p className="text-[10px] text-muted-foreground">{editMessage.length} characters · {Math.ceil(editMessage.length / 160)} SMS page(s) · Keep under 160 chars for 1 SMS</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Available Placeholders</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(smsPlaceholders[editingTemplate.event] || []).map(p => (
-                        <Badge key={p} variant="secondary" className="text-[10px] font-mono cursor-pointer hover:bg-primary/10"
-                          onClick={() => { setEditMessage(prev => prev + " " + p); }}>{p}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Preview */}
-                  <div className="rounded-lg bg-muted/50 p-3 space-y-1">
-                    <p className="text-xs font-semibold text-foreground">Preview</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {editMessage
-                        .replace("{student_name}", "Amina Wanjiku")
-                        .replace("{admission_no}", "ADM-2024-001")
-                        .replace("{amount}", "15,000")
-                        .replace("{balance}", "12,500")
-                        .replace("{reference}", "SHQ2K4LM9X")
-                        .replace("{payment_method}", "M-Pesa")
-                        .replace("{school_name}", "Chuo Academy")
-                        .replace("{fee_name}", "Tuition Fee")
-                        .replace("{due_date}", "31 Jan 2024")
-                        .replace("{date}", "15 Mar 2024")
-                        .replace("{grade}", "Grade 8")
-                        .replace("{days_overdue}", "15")
-                      }
-                    </p>
-                  </div>
+                  <div className="space-y-2"><Label>Template Name</Label><Input value={editName} onChange={e => setEditName(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Message</Label><Textarea value={editMessage} onChange={e => setEditMessage(e.target.value)} rows={5} className="font-mono text-xs" /></div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setEditingTemplate(null)}>Cancel</Button>
-                    <Button onClick={saveTemplate}><CheckCircle className="h-4 w-4 mr-1.5" />Save Template</Button>
+                    <Button onClick={saveTemplate}><CheckCircle className="h-4 w-4 mr-1.5" />Save</Button>
                   </div>
                 </div>
               )}
