@@ -27,7 +27,7 @@ const FinanceReports = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const { data: report, isLoading } = useFinanceReportData({ classId: classFilter, startDate, endDate });
+  const { data: report, isLoading } = useFinanceReportData({ classId: classFilter === "all" ? "" : classFilter, startDate, endDate });
   const { data: paymentsReport, isLoading: paymentsLoading } = usePaymentsReportData({ startDate, endDate });
   const { data: classesData } = useClasses();
 
