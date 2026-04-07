@@ -13,6 +13,13 @@ const findFeeCategories = async (schoolId) => {
   return query('SELECT * FROM fee_categories WHERE school_id = ? ORDER BY name', [schoolId]);
 };
 
+const createFeeCategory = async (schoolId, data) => {
+  const id = uuidv4();
+  await query('INSERT INTO fee_categories (id, school_id, name, type, description, gl_code, is_optional) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, schoolId, data.name, data.type || 'tuition', data.description || null, data.gl_code || null, data.is_optional || false]);
+  return queryOne('SELECT * FROM fee_categories WHERE id = ?', [id]);
+};
+
 // ---- Fee Structures ----
 const findFeeStructures = async (schoolId) => {
   return query(
@@ -25,9 +32,29 @@ const findFeeStructures = async (schoolId) => {
   );
 };
 
+const createFeeStructure = async (schoolId, data) => {
+  const id = uuidv4();
+  await query(
+    `INSERT INTO fee_structures (id, school_id, name, fee_category_id, academic_year_id, amount, grade_id, term_id, due_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, schoolId, data.name, data.fee_category_id, data.academic_year_id, data.amount || 0,
+     data.grade_id || null, data.term_id || null, data.due_date || null]);
+  return queryOne('SELECT * FROM fee_structures WHERE id = ?', [id]);
+};
+
 // ---- Fee Discounts ----
 const findFeeDiscounts = async (schoolId) => {
   return query('SELECT * FROM fee_discounts WHERE school_id = ? AND is_active = TRUE ORDER BY priority', [schoolId]);
+};
+
+const createFeeDiscount = async (schoolId, data) => {
+  const id = uuidv4();
+  await query(
+    `INSERT INTO fee_discounts (id, school_id, name, type, value, code, description, applicable_to)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, schoolId, data.name, data.type || 'percentage', data.value || 0,
+     data.code || null, data.description || null, data.applicable_to || null]);
+  return queryOne('SELECT * FROM fee_discounts WHERE id = ?', [id]);
 };
 
 // ---- Student Fees ----
@@ -67,7 +94,6 @@ const updateStudentFee = async (id, schoolId, data) => {
   return queryOne('SELECT * FROM student_fees WHERE id = ?', [id]);
 };
 
-// ---- Student Balance ----
 const getStudentBalance = async (studentId, schoolId) => {
   return query(
     `SELECT ledger_type, COALESCE(SUM(amount_due), 0) as total_due, COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(amount_due - amount_paid), 0) as balance
@@ -76,7 +102,6 @@ const getStudentBalance = async (studentId, schoolId) => {
   );
 };
 
-// ---- Carry Forwards ----
 const getCarryForwards = async (schoolId) => {
   return query(
     `SELECT cf.*, s.full_name as student_name, t1.name as from_term_name, t2.name as to_term_name
@@ -89,7 +114,6 @@ const getCarryForwards = async (schoolId) => {
   );
 };
 
-// ---- Student Fees List (aggregated) ----
 const getStudentFeesList = async (schoolId, { search, termId }) => {
   let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, s.grade, s.stream,
     COALESCE(SUM(sf.amount_due), 0) as total_fee,
@@ -118,7 +142,6 @@ const getStudentFeesList = async (schoolId, { search, termId }) => {
   return query(sql, params);
 };
 
-// ---- Expenses ----
 const findExpenses = async (schoolId) => {
   return query(
     `SELECT e.*, ec.name as category_name FROM expenses e LEFT JOIN expense_categories ec ON ec.id = e.category_id WHERE e.school_id = ? ORDER BY e.expense_date DESC`,
@@ -131,7 +154,9 @@ const findExpenseCategories = async (schoolId) => {
 };
 
 module.exports = {
-  findFeeTemplates, findFeeCategories, findFeeStructures, findFeeDiscounts,
+  findFeeTemplates, findFeeCategories, createFeeCategory,
+  findFeeStructures, createFeeStructure,
+  findFeeDiscounts, createFeeDiscount,
   findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
   getStudentBalance, getCarryForwards, getStudentFeesList,
   findExpenses, findExpenseCategories,
