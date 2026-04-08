@@ -23,11 +23,11 @@ const EmptyState = ({ message }: { message: string }) => (
 );
 
 const FinanceReports = () => {
-  const [classFilter, setClassFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const { data: report, isLoading } = useFinanceReportData({ classId: classFilter, startDate, endDate });
+  const { data: report, isLoading } = useFinanceReportData({ classId: classFilter === "all" ? "" : classFilter, startDate, endDate });
   const { data: paymentsReport, isLoading: paymentsLoading } = usePaymentsReportData({ startDate, endDate });
   const { data: classesData } = useClasses();
 
@@ -68,7 +68,7 @@ const FinanceReports = () => {
                   <Select value={classFilter} onValueChange={setClassFilter}>
                     <SelectTrigger className="w-36 h-9"><SelectValue placeholder="All Classes" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       {Array.isArray(classes) && classes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>

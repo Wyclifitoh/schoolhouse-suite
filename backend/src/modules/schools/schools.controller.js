@@ -21,8 +21,33 @@ const getTerms = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
+const createTerm = async (req, res) => {
+  try { return success(res, await svc.createTerm(req.schoolId, req.body), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const setCurrentTerm = async (req, res) => {
+  try { return success(res, await svc.setCurrentTerm(req.schoolId, req.params.id)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteTerm = async (req, res) => {
+  try { return success(res, await svc.deleteTerm(req.schoolId, req.params.id)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
 const getAcademicYears = async (req, res) => {
   try { return success(res, await svc.getAcademicYears(req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const createAcademicYear = async (req, res) => {
+  try { return success(res, await svc.createAcademicYear(req.schoolId, req.body), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const setCurrentAcademicYear = async (req, res) => {
+  try { return success(res, await svc.setCurrentAcademicYear(req.schoolId, req.params.id)); }
   catch (err) { return error(res, err.message, 500); }
 };
 
@@ -46,4 +71,8 @@ const updateNotificationTemplate = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
-module.exports = { getMySchools, getSchool, updateSchool, getTerms, getAcademicYears, getDashboardStats, getUsers, getNotificationTemplates, updateNotificationTemplate };
+module.exports = {
+  getMySchools, getSchool, updateSchool, getTerms, createTerm, setCurrentTerm, deleteTerm,
+  getAcademicYears, createAcademicYear, setCurrentAcademicYear,
+  getDashboardStats, getUsers, getNotificationTemplates, updateNotificationTemplate,
+};
