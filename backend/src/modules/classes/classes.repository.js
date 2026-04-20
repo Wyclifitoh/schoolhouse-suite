@@ -99,6 +99,32 @@ const createSubject = async (data) => {
   return queryOne('SELECT * FROM subjects WHERE id = ?', [id]);
 };
 
+const updateSubject = async (id, schoolId, data) => {
+  const allowed = ['name', 'code', 'description', 'is_active'];
+  const entries = Object.entries(data).filter(([k]) => allowed.includes(k));
+  if (entries.length === 0) return queryOne('SELECT * FROM subjects WHERE id = ?', [id]);
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => v);
+  values.push(id, schoolId);
+  await query(`UPDATE subjects SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, values);
+  return queryOne('SELECT * FROM subjects WHERE id = ?', [id]);
+};
+
+const deleteSubject = async (id, schoolId) => {
+  await query('DELETE FROM subjects WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
+const deleteStream = async (id, schoolId) => {
+  await query('DELETE FROM streams WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
+const deleteGrade = async (id, schoolId) => {
+  await query('DELETE FROM grades WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
 const findAllStaff = async (schoolId) => {
   return query('SELECT id, first_name, last_name, employee_number, email, phone, status FROM staff WHERE school_id = ? AND status = ? ORDER BY first_name ASC', [schoolId, 'active']);
 };
