@@ -172,14 +172,26 @@ export function useDesignations() {
   });
 }
 
-// Stub hooks for pages that reference them - these return empty arrays until backend endpoints exist
+// ============= TIMETABLE =============
 export interface SubjectAssignment {
   id: string; subject: string; teacher: string; class: string; section: string;
 }
 
 export interface TimetableEntry {
-  id: string; day: string; period: number; start: string; end: string;
-  subject: string; teacher: string; class: string; section: string; room: string;
+  id: string;
+  day: string;
+  period: number;
+  start_time?: string | null;
+  end_time?: string | null;
+  subject: string;
+  subject_id: string;
+  teacher: string;
+  teacher_id: string | null;
+  class: string;
+  grade_id: string;
+  section: string;
+  stream_id: string;
+  room?: string | null;
 }
 
 export function useSubjectAssignments() {
@@ -189,18 +201,55 @@ export function useSubjectAssignments() {
   });
 }
 
-export function useTimetable(className?: string, section?: string) {
+export function useTimetable(streamId?: string) {
   return useQuery({
-    queryKey: ["timetable", className, section],
-    queryFn: async () => [] as TimetableEntry[],
-    enabled: !!className,
+    queryKey: ["timetable", streamId],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>(`/classes/timetable?stream_id=${streamId}`);
+        return (data?.data || data || []) as TimetableEntry[];
+      } catch { return [] as TimetableEntry[]; }
+    },
+    enabled: !!streamId,
   });
 }
 
-export function useTeacherTimetable(teacher?: string) {
+export function useTeacherTimetable(teacherId?: string) {
   return useQuery({
-    queryKey: ["teacher-timetable", teacher],
-    queryFn: async () => [] as TimetableEntry[],
-    enabled: !!teacher,
+    queryKey: ["teacher-timetable", teacherId],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>(`/classes/timetable?teacher_id=${teacherId}`);
+        return (data?.data || data || []) as TimetableEntry[];
+      } catch { return [] as TimetableEntry[]; }
+    },
+    enabled: !!teacherId,
+  });
+}
+
+export function useCreateTimetableEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<TimetableEntry> & { stream_id: string; grade_id: string; subject_id: string; day: string; period: number }) =>
+      api.post<TimetableEntry>("/classes/timetable", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timetable"] });
+      qc.invalidateQueries({ queryKey: ["teacher-timetable"] });
+      toast.success("Period added");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteTimetableEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/classes/timetable/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timetable"] });
+      qc.invalidateQueries({ queryKey: ["teacher-timetable"] });
+      toast.success("Period removed");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 }
