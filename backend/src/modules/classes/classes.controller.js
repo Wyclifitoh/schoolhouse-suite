@@ -98,9 +98,27 @@ const listDesignations = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
+const listTimetable = async (req, res) => {
+  try { return success(res, await svc.listTimetable(req.schoolId, req.query)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const createTimetableEntry = async (req, res) => {
+  try { return success(res, await svc.createTimetableEntry({ ...req.body, school_id: req.schoolId }), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const updateTimetableEntry = async (req, res) => {
+  try { return success(res, await svc.updateTimetableEntry(req.params.id, req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const deleteTimetableEntry = async (req, res) => {
+  try { return success(res, await svc.deleteTimetableEntry(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
 module.exports = {
   list, getById, create, listGrades, listStreams, createGrade, createStream, updateStream,
   deleteStream, deleteGrade,
   listSubjects, createSubject, updateSubject, deleteSubject,
   listStaff, listDepartments, createDepartment, listDesignations,
+  listTimetable, createTimetableEntry, updateTimetableEntry, deleteTimetableEntry,
 };

@@ -879,3 +879,31 @@ CREATE INDEX idx_attendance_date ON student_attendance(date);
 CREATE INDEX idx_staff_school ON staff(school_id);
 CREATE INDEX idx_parents_school ON parents(school_id);
 CREATE INDEX idx_expenses_school ON expenses(school_id);
+
+-- ============================================
+-- TIMETABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS timetable_entries (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  academic_year_id CHAR(36),
+  term_id CHAR(36),
+  grade_id CHAR(36) NOT NULL,
+  stream_id CHAR(36) NOT NULL,
+  subject_id CHAR(36) NOT NULL,
+  teacher_id CHAR(36),
+  day VARCHAR(15) NOT NULL,
+  period INT NOT NULL,
+  start_time VARCHAR(10),
+  end_time VARCHAR(10),
+  room VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_slot (stream_id, day, period)
+);
+CREATE INDEX idx_tt_school ON timetable_entries(school_id);
+CREATE INDEX idx_tt_teacher ON timetable_entries(teacher_id);
+CREATE INDEX idx_tt_stream ON timetable_entries(stream_id);
