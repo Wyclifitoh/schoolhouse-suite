@@ -55,9 +55,25 @@ const createGrade = async (data) => {
 };
 
 const createStream = async (data) => {
+  if (!data.grade_id) throw new Error('grade_id is required to create a stream (select a class first)');
+  if (!data.name) throw new Error('Stream name is required');
+
+  // Auto-resolve academic_year_id from current year if not supplied
+  let academicYearId = data.academic_year_id || null;
+  if (!academicYearId) {
+    const currentYear = await queryOne('SELECT id FROM academic_years WHERE school_id = ? AND is_current = TRUE LIMIT 1', [data.school_id]);
+    if (currentYear) academicYearId = currentYear.id;
+  }
+  if (!academicYearId) {
+    // Fallback: most recent academic year
+    const anyYear = await queryOne('SELECT id FROM academic_years WHERE school_id = ? ORDER BY start_date DESC LIMIT 1', [data.school_id]);
+    if (anyYear) academicYearId = anyYear.id;
+  }
+  if (!academicYearId) throw new Error('Create an Academic Year first (Settings → Academic Years)');
+
   const id = uuidv4();
   await query('INSERT INTO streams (id, school_id, grade_id, academic_year_id, name, capacity, class_teacher_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, data.school_id, data.grade_id || null, data.academic_year_id || null, data.name, data.capacity || null, data.class_teacher_id || null]);
+    [id, data.school_id, data.grade_id, academicYearId, data.name, data.capacity || null, data.class_teacher_id || null]);
   return queryOne('SELECT * FROM streams WHERE id = ?', [id]);
 };
 
@@ -83,6 +99,32 @@ const createSubject = async (data) => {
   return queryOne('SELECT * FROM subjects WHERE id = ?', [id]);
 };
 
+const updateSubject = async (id, schoolId, data) => {
+  const allowed = ['name', 'code', 'description', 'is_active'];
+  const entries = Object.entries(data).filter(([k]) => allowed.includes(k));
+  if (entries.length === 0) return queryOne('SELECT * FROM subjects WHERE id = ?', [id]);
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => v);
+  values.push(id, schoolId);
+  await query(`UPDATE subjects SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, values);
+  return queryOne('SELECT * FROM subjects WHERE id = ?', [id]);
+};
+
+const deleteSubject = async (id, schoolId) => {
+  await query('DELETE FROM subjects WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
+const deleteStream = async (id, schoolId) => {
+  await query('DELETE FROM streams WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
+const deleteGrade = async (id, schoolId) => {
+  await query('DELETE FROM grades WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
 const findAllStaff = async (schoolId) => {
   return query('SELECT id, first_name, last_name, employee_number, email, phone, status FROM staff WHERE school_id = ? AND status = ? ORDER BY first_name ASC', [schoolId, 'active']);
 };
@@ -104,7 +146,7 @@ const findAllDesignations = async (schoolId) => {
 
 module.exports = {
   findAllClasses, findClassById, createClass,
-  findAllGrades, findAllStreams, createGrade, createStream, updateStream,
-  findAllSubjects, createSubject,
+  findAllGrades, findAllStreams, createGrade, createStream, updateStream, deleteStream, deleteGrade,
+  findAllSubjects, createSubject, updateSubject, deleteSubject,
   findAllStaff, findAllDepartments, createDepartment, findAllDesignations,
 };

@@ -90,6 +90,51 @@ export function useCreateSubject() {
   });
 }
 
+export function useUpdateSubject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<SubjectRow> }) => api.put<SubjectRow>(`/classes/subjects/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); toast.success("Subject updated!"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteSubject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/classes/subjects/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); toast.success("Subject deleted"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/classes/streams/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Stream deleted"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<StreamRow> }) => api.put<StreamRow>(`/classes/streams/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Stream updated"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteGrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/classes/grades/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["grades"] }); toast.success("Class deleted"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
 export function useStaff() {
   return useQuery({
     queryKey: ["staff"],

@@ -8,6 +8,7 @@ import {
   Check, Star, ArrowRight, School, Menu, X, Zap, Globe, Lock, HeadphonesIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 
 const modules = [
   { icon: GraduationCap, title: "Admissions", desc: "Streamlined student enrollment with guardian linking, sibling detection, and document management." },
@@ -48,6 +49,7 @@ const stats = [
 ];
 
 export default function LandingPage() {
+  useSeo("School Management System for Kenya", "Run your school on one platform: admissions, fees, M-Pesa, exams, attendance, payroll, parent SMS, and reports.");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
