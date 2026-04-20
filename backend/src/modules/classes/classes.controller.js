@@ -58,6 +58,26 @@ const createSubject = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
+const updateSubject = async (req, res) => {
+  try { return success(res, await svc.updateSubject(req.params.id, req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteSubject = async (req, res) => {
+  try { return success(res, await svc.deleteSubject(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteStream = async (req, res) => {
+  try { return success(res, await svc.deleteStream(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteGrade = async (req, res) => {
+  try { return success(res, await svc.deleteGrade(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
 const listStaff = async (req, res) => {
   try { return success(res, await svc.listStaff(req.schoolId)); }
   catch (err) { return error(res, err.message, 500); }
@@ -80,5 +100,7 @@ const listDesignations = async (req, res) => {
 
 module.exports = {
   list, getById, create, listGrades, listStreams, createGrade, createStream, updateStream,
-  listSubjects, createSubject, listStaff, listDepartments, createDepartment, listDesignations,
+  deleteStream, deleteGrade,
+  listSubjects, createSubject, updateSubject, deleteSubject,
+  listStaff, listDepartments, createDepartment, listDesignations,
 };

@@ -146,7 +146,7 @@ const findAllDesignations = async (schoolId) => {
 
 module.exports = {
   findAllClasses, findClassById, createClass,
-  findAllGrades, findAllStreams, createGrade, createStream, updateStream,
-  findAllSubjects, createSubject,
+  findAllGrades, findAllStreams, createGrade, createStream, updateStream, deleteStream, deleteGrade,
+  findAllSubjects, createSubject, updateSubject, deleteSubject,
   findAllStaff, findAllDepartments, createDepartment, findAllDesignations,
 };
