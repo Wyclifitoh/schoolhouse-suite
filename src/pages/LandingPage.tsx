@@ -8,6 +8,7 @@ import {
   Check, Star, ArrowRight, School, Menu, X, Zap, Globe, Lock, HeadphonesIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 
 const modules = [
   { icon: GraduationCap, title: "Admissions", desc: "Streamlined student enrollment with guardian linking, sibling detection, and document management." },
