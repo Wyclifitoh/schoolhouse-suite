@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,8 +29,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Building2, Briefcase, Edit } from "lucide-react";
-
-const API_BASE_URL = "http://localhost:4040/api/v1/departments";
+import { api } from "@/lib/api";
 
 export default function Departments() {
   const { currentSchool } = useSchool();
@@ -40,32 +40,49 @@ export default function Departments() {
   const [desigForm, setDesigForm] = useState({ name: "", description: "" });
   const [isDesigOpen, setIsDesigOpen] = useState(false);
 
+  useEffect(() => {
+    if (schoolId) {
+      api.setSchoolId(schoolId);
+    }
+  }, [schoolId]);
+
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", schoolId],
-    queryFn: async () => {
-      const { data } = await axios.get(`${API_BASE_URL}/departments`, {
-        headers: { "x-school-id": schoolId }, 
-      });
-      return data.data.rows || [];
-    },
+    queryFn: () => api.get<any[]>("/departments"),
     enabled: !!schoolId,
   });
 
   const { data: designations = [] } = useQuery({
     queryKey: ["designations", schoolId],
-    queryFn: async () => {
-      const { data } = await axios.get(`${API_BASE_URL}/designations`, {
-        headers: { "x-school-id": schoolId },
-      });
-      return data.data.rows || [];
-    },
+    queryFn: () => api.get<any[]>("/designations"),
     enabled: !!schoolId,
+  });
+
+  const addDeptMutation = useMutation({
+    mutationFn: () =>
+      api.post("/departments", {
+        ...deptForm,
+        school_id: schoolId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      setIsDeptOpen(false);
+      setDeptForm({ name: "", description: "" });
+      toast({ title: "Department added successfully" });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const { data: staffCounts = {} } = useQuery({
     queryKey: ["staff-dept-counts", schoolId],
     queryFn: async () => {
-      const { data } = await axios.get(`${API_BASE_URL}/staff`, {
+      const { data } = await axios.get(`/staff`, {
         params: { school_id: schoolId },
       });
 
@@ -79,29 +96,6 @@ export default function Departments() {
     enabled: !!schoolId,
   });
 
-  const addDeptMutation = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        school_id: schoolId,
-        name: deptForm.name,
-        description: deptForm.description,
-      };
-
-      const { data } = await axios.post(`${API_BASE_URL}/departments`, payload);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["departments"] });
-      setIsDeptOpen(false);
-      setDeptForm({ name: "", description: "" });
-      toast({ title: "Department added" });
-    },
-    onError: (err: any) => {
-      const message = err.response?.data?.message || err.message;
-      toast({ title: "Error", description: message, variant: "destructive" });
-    },
-  });
-
   const addDesigMutation = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -110,11 +104,7 @@ export default function Departments() {
         description: desigForm.description,
       };
 
-      const { data } = await axios.post(
-        `${API_BASE_URL}/designations`,
-        payload,
-      );
-      return data;
+      return api.post("/designations", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["designations"] });
@@ -123,7 +113,7 @@ export default function Departments() {
       toast({ title: "Designation added" });
     },
     onError: (err: any) => {
-      const message = err.response?.data?.message || err.message;
+      const message = err.message || "Something went wrong";
       toast({ title: "Error", description: message, variant: "destructive" });
     },
   });
@@ -132,9 +122,6 @@ export default function Departments() {
     <DashboardLayout title="Departments & Designations">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Departments & Designations
-          </h1>
           <p className="text-muted-foreground">
             Manage organizational structure
           </p>
