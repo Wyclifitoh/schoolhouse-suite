@@ -21,6 +21,10 @@ const listStaff = async (schoolId) => repo.findAllStaff(schoolId);
 const listDepartments = async (schoolId) => repo.findAllDepartments(schoolId);
 const createDepartment = async (data) => repo.createDepartment(data);
 const listDesignations = async (schoolId) => repo.findAllDesignations(schoolId);
+const listTimetable = async (schoolId, filters) => repo.findTimetable(schoolId, filters);
+const createTimetableEntry = async (data) => repo.createTimetableEntry(data);
+const updateTimetableEntry = async (id, schoolId, data) => repo.updateTimetableEntry(id, schoolId, data);
+const deleteTimetableEntry = async (id, schoolId) => repo.deleteTimetableEntry(id, schoolId);
 
 module.exports = {
   listClasses,
@@ -41,4 +45,8 @@ module.exports = {
   listDepartments,
   createDepartment,
   listDesignations,
+  listTimetable,
+  createTimetableEntry,
+  updateTimetableEntry,
+  deleteTimetableEntry,
 };

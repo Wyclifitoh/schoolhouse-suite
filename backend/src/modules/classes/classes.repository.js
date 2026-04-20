@@ -144,9 +144,54 @@ const findAllDesignations = async (schoolId) => {
   return query('SELECT * FROM designations WHERE school_id = ? ORDER BY name ASC', [schoolId]);
 };
 
+// ============= TIMETABLE =============
+const findTimetable = async (schoolId, { stream_id, teacher_id }) => {
+  let sql = `SELECT t.*, s.name AS subject, g.name AS class, st.name AS section,
+             CONCAT(IFNULL(stf.first_name,''),' ',IFNULL(stf.last_name,'')) AS teacher
+             FROM timetable_entries t
+             LEFT JOIN subjects s ON s.id = t.subject_id
+             LEFT JOIN grades g ON g.id = t.grade_id
+             LEFT JOIN streams st ON st.id = t.stream_id
+             LEFT JOIN staff stf ON stf.id = t.teacher_id
+             WHERE t.school_id = ?`;
+  const params = [schoolId];
+  if (stream_id) { sql += ' AND t.stream_id = ?'; params.push(stream_id); }
+  if (teacher_id) { sql += ' AND t.teacher_id = ?'; params.push(teacher_id); }
+  sql += ' ORDER BY FIELD(t.day,"Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"), t.period ASC';
+  return query(sql, params);
+};
+
+const createTimetableEntry = async (data) => {
+  const id = uuidv4();
+  await query(
+    `INSERT INTO timetable_entries (id, school_id, grade_id, stream_id, subject_id, teacher_id, day, period, start_time, end_time, room)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.school_id, data.grade_id, data.stream_id, data.subject_id, data.teacher_id || null,
+     data.day, data.period, data.start_time || null, data.end_time || null, data.room || null]
+  );
+  return queryOne('SELECT * FROM timetable_entries WHERE id = ?', [id]);
+};
+
+const updateTimetableEntry = async (id, schoolId, data) => {
+  const allowed = ['grade_id','stream_id','subject_id','teacher_id','day','period','start_time','end_time','room'];
+  const entries = Object.entries(data).filter(([k]) => allowed.includes(k));
+  if (entries.length === 0) return queryOne('SELECT * FROM timetable_entries WHERE id = ?', [id]);
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => v);
+  values.push(id, schoolId);
+  await query(`UPDATE timetable_entries SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, values);
+  return queryOne('SELECT * FROM timetable_entries WHERE id = ?', [id]);
+};
+
+const deleteTimetableEntry = async (id, schoolId) => {
+  await query('DELETE FROM timetable_entries WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
 module.exports = {
   findAllClasses, findClassById, createClass,
   findAllGrades, findAllStreams, createGrade, createStream, updateStream, deleteStream, deleteGrade,
   findAllSubjects, createSubject, updateSubject, deleteSubject,
   findAllStaff, findAllDepartments, createDepartment, findAllDesignations,
+  findTimetable, createTimetableEntry, updateTimetableEntry, deleteTimetableEntry,
 };
