@@ -55,9 +55,25 @@ const createGrade = async (data) => {
 };
 
 const createStream = async (data) => {
+  if (!data.grade_id) throw new Error('grade_id is required to create a stream (select a class first)');
+  if (!data.name) throw new Error('Stream name is required');
+
+  // Auto-resolve academic_year_id from current year if not supplied
+  let academicYearId = data.academic_year_id || null;
+  if (!academicYearId) {
+    const currentYear = await queryOne('SELECT id FROM academic_years WHERE school_id = ? AND is_current = TRUE LIMIT 1', [data.school_id]);
+    if (currentYear) academicYearId = currentYear.id;
+  }
+  if (!academicYearId) {
+    // Fallback: most recent academic year
+    const anyYear = await queryOne('SELECT id FROM academic_years WHERE school_id = ? ORDER BY start_date DESC LIMIT 1', [data.school_id]);
+    if (anyYear) academicYearId = anyYear.id;
+  }
+  if (!academicYearId) throw new Error('Create an Academic Year first (Settings → Academic Years)');
+
   const id = uuidv4();
   await query('INSERT INTO streams (id, school_id, grade_id, academic_year_id, name, capacity, class_teacher_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, data.school_id, data.grade_id || null, data.academic_year_id || null, data.name, data.capacity || null, data.class_teacher_id || null]);
+    [id, data.school_id, data.grade_id, academicYearId, data.name, data.capacity || null, data.class_teacher_id || null]);
   return queryOne('SELECT * FROM streams WHERE id = ?', [id]);
 };
 
