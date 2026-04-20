@@ -39,17 +39,19 @@ const Classes = () => {
 
   // --- Add Stream Dialog ---
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
-  const [streamForm, setStreamForm] = useState({ name: "", capacity: "" });
+  const [streamForm, setStreamForm] = useState({ name: "", capacity: "", grade_id: "" });
 
   const handleCreateStream = () => {
     if (!streamForm.name) { toast.error("Stream name required"); return; }
+    if (!streamForm.grade_id) { toast.error("Please select a class for this stream"); return; }
+    if (!currentAcademicYear?.id) { toast.error("Set a current Academic Year in Settings first"); return; }
     createStreamMut.mutate({
       name: streamForm.name,
       capacity: streamForm.capacity ? parseInt(streamForm.capacity) : null,
-      grade_id: undefined as any, // streams are created first without grade
-      academic_year_id: currentAcademicYear?.id,
+      grade_id: streamForm.grade_id,
+      academic_year_id: currentAcademicYear.id,
     }, {
-      onSuccess: () => { setStreamDialogOpen(false); setStreamForm({ name: "", capacity: "" }); },
+      onSuccess: () => { setStreamDialogOpen(false); setStreamForm({ name: "", capacity: "", grade_id: "" }); },
     });
   };
 
@@ -117,12 +119,21 @@ const Classes = () => {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Streams / Sections</CardTitle>
                 <Dialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen}>
-                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Stream</Button></DialogTrigger>
+                  <DialogTrigger asChild><Button size="sm" disabled={grades.length === 0}><Plus className="h-4 w-4 mr-1.5" />Add Stream</Button></DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Add Stream</DialogTitle></DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <div className="space-y-2"><Label>Stream Name</Label><Input placeholder="e.g. East, West, A, B" value={streamForm.name} onChange={e => setStreamForm(f => ({ ...f, name: e.target.value }))} /></div>
+                      <div className="space-y-2"><Label>Class *</Label>
+                        <Select value={streamForm.grade_id} onValueChange={v => setStreamForm(f => ({ ...f, grade_id: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select class for this stream" /></SelectTrigger>
+                          <SelectContent>
+                            {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2"><Label>Stream Name *</Label><Input placeholder="e.g. East, West, A, B" value={streamForm.name} onChange={e => setStreamForm(f => ({ ...f, name: e.target.value }))} /></div>
                       <div className="space-y-2"><Label>Capacity (optional)</Label><Input type="number" placeholder="e.g. 45" value={streamForm.capacity} onChange={e => setStreamForm(f => ({ ...f, capacity: e.target.value }))} /></div>
+                      {grades.length === 0 && <p className="text-xs text-destructive">Create a class first before adding streams.</p>}
                       <Button className="w-full mt-2" onClick={handleCreateStream} disabled={createStreamMut.isPending}>
                         {createStreamMut.isPending ? "Creating..." : "Add Stream"}
                       </Button>

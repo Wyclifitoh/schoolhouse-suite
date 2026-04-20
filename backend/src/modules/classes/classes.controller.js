@@ -40,7 +40,7 @@ const createGrade = async (req, res) => {
 
 const createStream = async (req, res) => {
   try { return success(res, await svc.createStream({ ...req.body, school_id: req.schoolId }), 201); }
-  catch (err) { return error(res, err.message, 500); }
+  catch (err) { return error(res, err.message, /required/i.test(err.message) ? 400 : 500); }
 };
 
 const updateStream = async (req, res) => {
@@ -55,6 +55,26 @@ const listSubjects = async (req, res) => {
 
 const createSubject = async (req, res) => {
   try { return success(res, await svc.createSubject({ ...req.body, school_id: req.schoolId }), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const updateSubject = async (req, res) => {
+  try { return success(res, await svc.updateSubject(req.params.id, req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteSubject = async (req, res) => {
+  try { return success(res, await svc.deleteSubject(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteStream = async (req, res) => {
+  try { return success(res, await svc.deleteStream(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
+const deleteGrade = async (req, res) => {
+  try { return success(res, await svc.deleteGrade(req.params.id, req.schoolId)); }
   catch (err) { return error(res, err.message, 500); }
 };
 
@@ -78,7 +98,27 @@ const listDesignations = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
+const listTimetable = async (req, res) => {
+  try { return success(res, await svc.listTimetable(req.schoolId, req.query)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const createTimetableEntry = async (req, res) => {
+  try { return success(res, await svc.createTimetableEntry({ ...req.body, school_id: req.schoolId }), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const updateTimetableEntry = async (req, res) => {
+  try { return success(res, await svc.updateTimetableEntry(req.params.id, req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const deleteTimetableEntry = async (req, res) => {
+  try { return success(res, await svc.deleteTimetableEntry(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
 module.exports = {
   list, getById, create, listGrades, listStreams, createGrade, createStream, updateStream,
-  listSubjects, createSubject, listStaff, listDepartments, createDepartment, listDesignations,
+  deleteStream, deleteGrade,
+  listSubjects, createSubject, updateSubject, deleteSubject,
+  listStaff, listDepartments, createDepartment, listDesignations,
+  listTimetable, createTimetableEntry, updateTimetableEntry, deleteTimetableEntry,
 };
