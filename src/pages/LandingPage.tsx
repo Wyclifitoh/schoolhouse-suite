@@ -48,6 +48,7 @@ const stats = [
 ];
 
 export default function LandingPage() {
+  useSeo("School Management System for Kenya", "Run your school on one platform: admissions, fees, M-Pesa, exams, attendance, payroll, parent SMS, and reports.");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
