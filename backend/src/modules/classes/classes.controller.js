@@ -40,7 +40,7 @@ const createGrade = async (req, res) => {
 
 const createStream = async (req, res) => {
   try { return success(res, await svc.createStream({ ...req.body, school_id: req.schoolId }), 201); }
-  catch (err) { return error(res, err.message, 500); }
+  catch (err) { return error(res, err.message, /required/i.test(err.message) ? 400 : 500); }
 };
 
 const updateStream = async (req, res) => {
