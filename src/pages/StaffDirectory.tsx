@@ -96,7 +96,7 @@ export default function StaffDirectory() {
     note: "",
     department_id: "",
     designation_id: "",
-    role: "teacher",
+    role: "",
     epf_no: "",
     basic_salary: "",
     contract_type: "permanent",
@@ -168,6 +168,7 @@ export default function StaffDirectory() {
         bank_name: form.bank_name || null,
         bank_account: form.bank_account_number || null,
         status: "active",
+        role: form.role || null,
       };
 
       return api.post("/staff", payload);
@@ -209,7 +210,7 @@ export default function StaffDirectory() {
       note: "",
       department_id: "",
       designation_id: "",
-      role: "teacher",
+      role: "",
       epf_no: "",
       basic_salary: "",
       contract_type: "permanent",
@@ -531,9 +532,7 @@ export default function StaffDirectory() {
                       <Input
                         type="number"
                         value={form.kra_pin}
-                        onChange={(e) =>
-                          updateField("kra_pin", e.target.value)
-                        }
+                        onChange={(e) => updateField("kra_pin", e.target.value)}
                       />
                     </div>
                     <div>

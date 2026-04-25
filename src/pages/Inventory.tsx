@@ -77,6 +77,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 import { toast } from "@/hooks/use-toast";
+import PurchaseOrders from "@/components/inventory/PurchaseOrders";
 
 const statusConfig = {
   in_stock: {
@@ -880,53 +881,6 @@ const SupplierManagement = () => {
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell>{s.contact_person}</TableCell>
                 <TableCell>{s.phone}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-};
-
-// ===== PURCHASE ORDERS =====
-
-const PurchaseOrders = () => {
-  const { currentSchool } = useSchool();
-  const schoolId = currentSchool?.id;
-
-  const { data: pos = [], isLoading } = useQuery({
-    queryKey: ["inventory-pos", schoolId],
-    queryFn: () => api.get<any[]>("/inventory/purchase-orders"),
-    enabled: !!schoolId,
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Purchase Orders History</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order #</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pos.map((po: any) => (
-              <TableRow key={po.id}>
-                <TableCell className="font-mono font-bold text-primary">
-                  {po.order_number}
-                </TableCell>
-                <TableCell>{po.supplier_name}</TableCell>
-                <TableCell>KES {po.total_amount?.toLocaleString()}</TableCell>
-                <TableCell>
-                  <Badge className="capitalize">{po.status}</Badge>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
