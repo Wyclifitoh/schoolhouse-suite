@@ -7,7 +7,7 @@ export interface GradeRow {
 }
 
 export interface StreamRow {
-  id: string; name: string; grade_id: string; grade_name: string; capacity: number | null; class_teacher_id: string | null;
+  id: string; name: string; description?: string | null; grade_id: string | null; grade_name: string | null; capacity: number | null; class_teacher_id: string | null;
 }
 
 export interface SubjectRow {
