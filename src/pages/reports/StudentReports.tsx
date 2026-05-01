@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Users, GraduationCap, UserCheck, BookOpen, History } from "lucide-react";
 import { useStudentReportData } from "@/hooks/useReports";
-import { useClasses } from "@/hooks/useClasses";
+import { useClasses, useStreams } from "@/hooks/useClasses";
 
 const LoadingSkeleton = () => (
   <div className="space-y-3 p-6">{[1,2,3,4].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
@@ -19,11 +19,18 @@ const EmptyState = ({ message }: { message: string }) => (
 );
 
 const StudentReports = () => {
-  const [classFilter, setClassFilter] = useState("");
-  const { data: report, isLoading } = useStudentReportData({ classId: classFilter });
+  const [classFilter, setClassFilter] = useState("all");
+  const [streamFilter, setStreamFilter] = useState("all");
+  const { data: report, isLoading } = useStudentReportData({
+    classId: classFilter !== "all" ? classFilter : undefined,
+  });
   const { data: classesData } = useClasses();
+  const { data: allStreams = [] } = useStreams(classFilter !== "all" ? classFilter : undefined);
 
-  const students = report?.students || [];
+  const rawStudents = report?.students || [];
+  const students = streamFilter !== "all"
+    ? rawStudents.filter((s: any) => s.stream_id === streamFilter || s.stream_name === streamFilter)
+    : rawStudents;
   const guardians = report?.guardians || [];
   const history = report?.history || [];
   const summary = report?.summary || { total: 0, male: 0, female: 0, active: 0 };
@@ -47,12 +54,19 @@ const StudentReports = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-base font-semibold">Student Report</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Select value={classFilter} onValueChange={setClassFilter}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setStreamFilter("all"); }}>
                     <SelectTrigger className="w-36 h-9"><SelectValue placeholder="All Classes" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
-                      {Array.isArray(classes) && classes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      <SelectItem value="all">All Classes</SelectItem>
+                      {classes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={streamFilter} onValueChange={setStreamFilter} disabled={classFilter === "all"}>
+                    <SelectTrigger className="w-36 h-9"><SelectValue placeholder="All Streams" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Streams</SelectItem>
+                      {(allStreams as any[]).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
