@@ -908,3 +908,15 @@ CREATE TABLE IF NOT EXISTS timetable_entries (
 CREATE INDEX idx_tt_school ON timetable_entries(school_id);
 CREATE INDEX idx_tt_teacher ON timetable_entries(teacher_id);
 CREATE INDEX idx_tt_stream ON timetable_entries(stream_id);
+
+-- ============================================================
+-- IDEMPOTENT MIGRATIONS for existing databases
+-- Run these on an existing DB to align with the latest schema
+-- ============================================================
+
+-- Streams: make grade_id and academic_year_id nullable so streams
+-- can exist independently and be attached to a class later.
+-- (Run only if your existing streams table still has them as NOT NULL.)
+-- ALTER TABLE streams MODIFY COLUMN grade_id CHAR(36) NULL;
+-- ALTER TABLE streams MODIFY COLUMN academic_year_id CHAR(36) NULL;
+-- ALTER TABLE streams ADD COLUMN IF NOT EXISTS description TEXT NULL AFTER name;
