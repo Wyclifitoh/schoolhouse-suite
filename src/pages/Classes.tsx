@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject } from "@/hooks/useClasses";
+import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject, useUpdateStream, useDeleteStream } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
 import {
   School, Plus, BookOpen, Users, Clock, Wand2, Layers,
@@ -36,22 +36,21 @@ const Classes = () => {
   const createGrade = useCreateGrade();
   const createStreamMut = useCreateStream();
   const createSubject = useCreateSubject();
+  const updateStream = useUpdateStream();
+  const deleteStream = useDeleteStream();
 
-  // --- Add Stream Dialog ---
+  // --- Add Stream Dialog (simple: name + description) ---
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
-  const [streamForm, setStreamForm] = useState({ name: "", capacity: "", grade_id: "" });
+  const [streamForm, setStreamForm] = useState({ name: "", description: "" });
 
   const handleCreateStream = () => {
     if (!streamForm.name) { toast.error("Stream name required"); return; }
-    if (!streamForm.grade_id) { toast.error("Please select a class for this stream"); return; }
-    if (!currentAcademicYear?.id) { toast.error("Set a current Academic Year in Settings first"); return; }
     createStreamMut.mutate({
       name: streamForm.name,
-      capacity: streamForm.capacity ? parseInt(streamForm.capacity) : null,
-      grade_id: streamForm.grade_id,
-      academic_year_id: currentAcademicYear.id,
-    }, {
-      onSuccess: () => { setStreamDialogOpen(false); setStreamForm({ name: "", capacity: "", grade_id: "" }); },
+      description: streamForm.description || null,
+      academic_year_id: currentAcademicYear?.id,
+    } as any, {
+      onSuccess: () => { setStreamDialogOpen(false); setStreamForm({ name: "", description: "" }); },
     });
   };
 
@@ -75,15 +74,10 @@ const Classes = () => {
       order_index: parseInt(classForm.order_index) || 0,
     }, {
       onSuccess: (data: any) => {
-        // Assign selected streams to this grade
         const gradeId = data?.id;
         if (gradeId && classForm.selectedStreams.length > 0) {
-          // Update each stream to point to this grade
           classForm.selectedStreams.forEach(streamId => {
-            // We'll use a direct API call to update stream grade_id
-            import("@/lib/api").then(({ api }) => {
-              api.put(`/classes/streams/${streamId}`, { grade_id: gradeId }).catch(() => {});
-            });
+            updateStream.mutate({ id: streamId, data: { grade_id: gradeId } as any });
           });
         }
         setClassDialogOpen(false);
