@@ -66,4 +66,15 @@ const me = async (userId) => {
   return { user, profile, roles };
 };
 
-module.exports = { login, register, me };
+const verifyPassword = async (userId, password) => {
+  if (!password) throw new AppError('Password required', 400);
+  const user = await authRepository.findByEmail(
+    (await authRepository.findById(userId))?.email || ''
+  );
+  if (!user) throw new AppError('User not found', 404);
+  const isMatch = await bcrypt.compare(password, user.password_hash);
+  if (!isMatch) throw new AppError('Incorrect password', 401, 'INVALID_PASSWORD');
+  return { verified: true };
+};
+
+module.exports = { login, register, me, verifyPassword };
