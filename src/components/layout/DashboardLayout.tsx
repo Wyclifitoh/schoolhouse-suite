@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
+import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -494,6 +495,13 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search..." className="h-8 rounded-lg border-border/60 bg-muted/40 pl-8 text-sm" />
           </div>
+
+          {/* Term Switcher (admin / super_admin only) */}
+          {hasAnyRole(["super_admin", "school_admin"] as any) && (
+            <div className="hidden sm:block">
+              <TermSwitcher compact />
+            </div>
+          )}
 
           {/* Notifications */}
           <button className="relative h-9 w-9 flex items-center justify-center rounded-lg border border-border/60 bg-card hover:bg-muted transition-colors">
