@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUpRight, ArrowRightLeft, LogOut as LeaveIcon, Users, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
-import { useClasses } from "@/hooks/useClasses";
+import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useAcademicSessions } from "@/hooks/usePromotion";
+import { useTerm } from "@/contexts/TermContext";
 import { toast } from "sonner";
 
 type PromotionAction = "promote" | "retain" | "leaving";
@@ -22,18 +23,29 @@ interface PromotionEntry {
 }
 
 const Promotion = () => {
+  const [mode, setMode] = useState<"term" | "year">("term");
   const [fromSession, setFromSession] = useState("");
   const [toSession, setToSession] = useState("");
+  const [fromTerm, setFromTerm] = useState("");
+  const [toTerm, setToTerm] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
+  const [selectedStream, setSelectedStream] = useState("all");
   const [entries, setEntries] = useState<PromotionEntry[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const { data: classes = [] } = useClasses();
   const { data: sessions = [] } = useAcademicSessions();
   const { data: allStudents = [] } = useStudents({ gradeId: undefined });
+  const { terms, currentTerm } = useTerm();
+  const { data: streamsForClass = [] } = useStreams(selectedClass || undefined);
 
   const handleGenerate = () => {
-    const classStudents = allStudents.filter((s: any) => s.grade === selectedClass && s.status === "active");
+    const classStudents = allStudents.filter((s: any) => {
+      if (s.status !== "active") return false;
+      if (s.grade !== selectedClass) return false;
+      if (selectedStream !== "all" && s.stream !== selectedStream && s.current_stream_id !== selectedStream) return false;
+      return true;
+    });
     const generated: PromotionEntry[] = classStudents.map((s: any) => {
       const pct = Math.floor(Math.random() * 60 + 30);
       const pass = pct >= 40;
@@ -52,7 +64,10 @@ const Promotion = () => {
   const setAction = (idx: number, action: PromotionAction) => setEntries(prev => prev.map((e, i) => i === idx ? { ...e, action } : e));
   const handlePromote = () => {
     const selected = entries.filter(e => e.selected);
-    toast.success(`${selected.length} students processed for promotion`);
+    const target = mode === "term"
+      ? (terms.find(t => t.id === toTerm)?.name || "next term")
+      : (toSession || "next year");
+    toast.success(`${selected.length} students processed → ${target}`);
     setShowConfirm(false);
   };
 
@@ -64,29 +79,73 @@ const Promotion = () => {
     <DashboardLayout title="Student Promotion" subtitle="Promote students to next academic session">
       <Card className="mb-6">
         <CardContent className="p-5">
-          <div className="grid gap-4 sm:grid-cols-4 items-end">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">From Session</label>
-              <Select value={fromSession} onValueChange={setFromSession}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground">Promotion Type:</label>
+              <Select value={mode} onValueChange={(v) => setMode(v as "term" | "year")}>
+                <SelectTrigger className="w-56 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="term">Promote to Next Term (same year)</SelectItem>
+                  <SelectItem value="year">Promote to Next Academic Year</SelectItem>
+                </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">To Session</label>
-              <Select value={toSession} onValueChange={setToSession}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
-              </Select>
+
+            <div className="grid gap-4 sm:grid-cols-5 items-end">
+              {mode === "year" ? (
+                <>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">From Year</label>
+                    <Select value={fromSession} onValueChange={setFromSession}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">To Year</label>
+                    <Select value={toSession} onValueChange={setToSession}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{sessions.map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">From Term</label>
+                    <Select value={fromTerm || currentTerm?.id || ""} onValueChange={setFromTerm}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{terms.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">To Term</label>
+                    <Select value={toTerm} onValueChange={setToTerm}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>{terms.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Class</label>
+                <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); setSelectedStream("all"); }}>
+                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectContent>{classes.map((c: any) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Stream</label>
+                <Select value={selectedStream} onValueChange={setSelectedStream} disabled={!selectedClass}>
+                  <SelectTrigger><SelectValue placeholder="All streams" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Streams</SelectItem>
+                    {(streamsForClass as any[]).map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleGenerate} disabled={!selectedClass}>Generate List</Button>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Class / Grade</label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>{classes.map((c: any) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleGenerate} disabled={!selectedClass}>Generate List</Button>
           </div>
         </CardContent>
       </Card>

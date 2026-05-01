@@ -139,15 +139,16 @@ CREATE TABLE grades (
 CREATE TABLE streams (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
   school_id CHAR(36) NOT NULL,
-  grade_id CHAR(36) NOT NULL,
-  academic_year_id CHAR(36) NOT NULL,
+  grade_id CHAR(36) NULL,
+  academic_year_id CHAR(36) NULL,
   name VARCHAR(100) NOT NULL,
+  description TEXT NULL,
   capacity INT,
   class_teacher_id CHAR(36),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE,
-  FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE CASCADE
+  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE SET NULL,
+  FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE SET NULL
 );
 
 CREATE TABLE subjects (
@@ -907,3 +908,15 @@ CREATE TABLE IF NOT EXISTS timetable_entries (
 CREATE INDEX idx_tt_school ON timetable_entries(school_id);
 CREATE INDEX idx_tt_teacher ON timetable_entries(teacher_id);
 CREATE INDEX idx_tt_stream ON timetable_entries(stream_id);
+
+-- ============================================================
+-- IDEMPOTENT MIGRATIONS for existing databases
+-- Run these on an existing DB to align with the latest schema
+-- ============================================================
+
+-- Streams: make grade_id and academic_year_id nullable so streams
+-- can exist independently and be attached to a class later.
+-- (Run only if your existing streams table still has them as NOT NULL.)
+-- ALTER TABLE streams MODIFY COLUMN grade_id CHAR(36) NULL;
+-- ALTER TABLE streams MODIFY COLUMN academic_year_id CHAR(36) NULL;
+-- ALTER TABLE streams ADD COLUMN IF NOT EXISTS description TEXT NULL AFTER name;

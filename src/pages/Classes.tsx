@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject } from "@/hooks/useClasses";
+import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject, useUpdateStream, useDeleteStream } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
 import {
   School, Plus, BookOpen, Users, Clock, Wand2, Layers,
@@ -36,22 +36,21 @@ const Classes = () => {
   const createGrade = useCreateGrade();
   const createStreamMut = useCreateStream();
   const createSubject = useCreateSubject();
+  const updateStream = useUpdateStream();
+  const deleteStream = useDeleteStream();
 
-  // --- Add Stream Dialog ---
+  // --- Add Stream Dialog (simple: name + description) ---
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
-  const [streamForm, setStreamForm] = useState({ name: "", capacity: "", grade_id: "" });
+  const [streamForm, setStreamForm] = useState({ name: "", description: "" });
 
   const handleCreateStream = () => {
     if (!streamForm.name) { toast.error("Stream name required"); return; }
-    if (!streamForm.grade_id) { toast.error("Please select a class for this stream"); return; }
-    if (!currentAcademicYear?.id) { toast.error("Set a current Academic Year in Settings first"); return; }
     createStreamMut.mutate({
       name: streamForm.name,
-      capacity: streamForm.capacity ? parseInt(streamForm.capacity) : null,
-      grade_id: streamForm.grade_id,
-      academic_year_id: currentAcademicYear.id,
-    }, {
-      onSuccess: () => { setStreamDialogOpen(false); setStreamForm({ name: "", capacity: "", grade_id: "" }); },
+      description: streamForm.description || null,
+      academic_year_id: currentAcademicYear?.id,
+    } as any, {
+      onSuccess: () => { setStreamDialogOpen(false); setStreamForm({ name: "", description: "" }); },
     });
   };
 
@@ -75,15 +74,10 @@ const Classes = () => {
       order_index: parseInt(classForm.order_index) || 0,
     }, {
       onSuccess: (data: any) => {
-        // Assign selected streams to this grade
         const gradeId = data?.id;
         if (gradeId && classForm.selectedStreams.length > 0) {
-          // Update each stream to point to this grade
           classForm.selectedStreams.forEach(streamId => {
-            // We'll use a direct API call to update stream grade_id
-            import("@/lib/api").then(({ api }) => {
-              api.put(`/classes/streams/${streamId}`, { grade_id: gradeId }).catch(() => {});
-            });
+            updateStream.mutate({ id: streamId, data: { grade_id: gradeId } as any });
           });
         }
         setClassDialogOpen(false);
@@ -119,21 +113,13 @@ const Classes = () => {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Streams / Sections</CardTitle>
                 <Dialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen}>
-                  <DialogTrigger asChild><Button size="sm" disabled={grades.length === 0}><Plus className="h-4 w-4 mr-1.5" />Add Stream</Button></DialogTrigger>
+                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Stream</Button></DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Add Stream</DialogTitle></DialogHeader>
                     <div className="grid gap-4 py-4">
-                      <div className="space-y-2"><Label>Class *</Label>
-                        <Select value={streamForm.grade_id} onValueChange={v => setStreamForm(f => ({ ...f, grade_id: v }))}>
-                          <SelectTrigger><SelectValue placeholder="Select class for this stream" /></SelectTrigger>
-                          <SelectContent>
-                            {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2"><Label>Stream Name *</Label><Input placeholder="e.g. East, West, A, B" value={streamForm.name} onChange={e => setStreamForm(f => ({ ...f, name: e.target.value }))} /></div>
-                      <div className="space-y-2"><Label>Capacity (optional)</Label><Input type="number" placeholder="e.g. 45" value={streamForm.capacity} onChange={e => setStreamForm(f => ({ ...f, capacity: e.target.value }))} /></div>
-                      {grades.length === 0 && <p className="text-xs text-destructive">Create a class first before adding streams.</p>}
+                      <div className="space-y-2"><Label>Stream Name *</Label><Input placeholder="e.g. East, West, A, B, Blue" value={streamForm.name} onChange={e => setStreamForm(f => ({ ...f, name: e.target.value }))} /></div>
+                      <div className="space-y-2"><Label>Description (optional)</Label><Input placeholder="Short description" value={streamForm.description} onChange={e => setStreamForm(f => ({ ...f, description: e.target.value }))} /></div>
+                      <p className="text-xs text-muted-foreground">Streams are independent. You will attach them to a class when you create that class.</p>
                       <Button className="w-full mt-2" onClick={handleCreateStream} disabled={createStreamMut.isPending}>
                         {createStreamMut.isPending ? "Creating..." : "Add Stream"}
                       </Button>
@@ -148,15 +134,21 @@ const Classes = () => {
                 <Table>
                   <TableHeader><TableRow className="bg-muted/50">
                     <TableHead className="font-semibold">Stream</TableHead>
-                    <TableHead className="font-semibold">Class</TableHead>
-                    <TableHead className="font-semibold">Capacity</TableHead>
+                    <TableHead className="font-semibold">Description</TableHead>
+                    <TableHead className="font-semibold">Attached to Class</TableHead>
+                    <TableHead className="font-semibold text-right">Actions</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
                     {allStreams.map((s: any) => (
                       <TableRow key={s.id}>
                         <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell>{s.grade_name || <span className="text-muted-foreground text-xs">Unassigned</span>}</TableCell>
-                        <TableCell>{s.capacity || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{s.description || "—"}</TableCell>
+                        <TableCell>{s.grade_name ? <Badge variant="secondary">{s.grade_name}</Badge> : <span className="text-muted-foreground text-xs italic">Unassigned</span>}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Delete stream "${s.name}"?`)) deleteStream.mutate(s.id); }}>
+                            Delete
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
