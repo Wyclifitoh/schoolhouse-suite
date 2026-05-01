@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUpRight, ArrowRightLeft, LogOut as LeaveIcon, Users, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
-import { useClasses } from "@/hooks/useClasses";
+import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useAcademicSessions } from "@/hooks/usePromotion";
+import { useTerm } from "@/contexts/TermContext";
 import { toast } from "sonner";
 
 type PromotionAction = "promote" | "retain" | "leaving";
@@ -22,18 +23,29 @@ interface PromotionEntry {
 }
 
 const Promotion = () => {
+  const [mode, setMode] = useState<"term" | "year">("term");
   const [fromSession, setFromSession] = useState("");
   const [toSession, setToSession] = useState("");
+  const [fromTerm, setFromTerm] = useState("");
+  const [toTerm, setToTerm] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
+  const [selectedStream, setSelectedStream] = useState("all");
   const [entries, setEntries] = useState<PromotionEntry[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const { data: classes = [] } = useClasses();
   const { data: sessions = [] } = useAcademicSessions();
   const { data: allStudents = [] } = useStudents({ gradeId: undefined });
+  const { terms, currentTerm } = useTerm();
+  const { data: streamsForClass = [] } = useStreams(selectedClass || undefined);
 
   const handleGenerate = () => {
-    const classStudents = allStudents.filter((s: any) => s.grade === selectedClass && s.status === "active");
+    const classStudents = allStudents.filter((s: any) => {
+      if (s.status !== "active") return false;
+      if (s.grade !== selectedClass) return false;
+      if (selectedStream !== "all" && s.stream !== selectedStream && s.current_stream_id !== selectedStream) return false;
+      return true;
+    });
     const generated: PromotionEntry[] = classStudents.map((s: any) => {
       const pct = Math.floor(Math.random() * 60 + 30);
       const pass = pct >= 40;
@@ -52,7 +64,10 @@ const Promotion = () => {
   const setAction = (idx: number, action: PromotionAction) => setEntries(prev => prev.map((e, i) => i === idx ? { ...e, action } : e));
   const handlePromote = () => {
     const selected = entries.filter(e => e.selected);
-    toast.success(`${selected.length} students processed for promotion`);
+    const target = mode === "term"
+      ? (terms.find(t => t.id === toTerm)?.name || "next term")
+      : (toSession || "next year");
+    toast.success(`${selected.length} students processed → ${target}`);
     setShowConfirm(false);
   };
 
