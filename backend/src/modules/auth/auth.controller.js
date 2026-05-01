@@ -42,4 +42,14 @@ const me = async (req, res) => {
   }
 };
 
-module.exports = { login, register, me };
+const verifyPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const result = await authService.verifyPassword(req.user.id, password);
+    return success(res, result);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+module.exports = { login, register, me, verifyPassword };
