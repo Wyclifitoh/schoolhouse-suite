@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useFinance";
 import { useClasses } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
@@ -39,6 +40,8 @@ const formatKES = (amount: number) => `KES ${Math.abs(amount || 0).toLocaleStrin
 
 const Finance = () => {
   const qc = useQueryClient();
+  const { hasAnyRole } = useAuth();
+  const canManage = hasAnyRole(["super_admin", "school_admin", "deputy_admin", "finance_officer"] as any);
   const [collectSearch, setCollectSearch] = useState("");
 
   const { data: feeTemplates = [], isLoading: templatesLoading } = useFeeTemplates();
@@ -67,6 +70,19 @@ const Finance = () => {
   const createStructure = useMutation({
     mutationFn: (data: any) => api.post("/finance/fee-structures", data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure created!"); setStructDialogOpen(false); setStructForm({ name: "", fee_category_id: "", amount: "", grade_id: "", term_id: "", due_date: "" }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editStructOpen, setEditStructOpen] = useState(false);
+  const [editingStruct, setEditingStruct] = useState<any>(null);
+  const updateStructure = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/finance/fee-structures/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure updated"); setEditStructOpen(false); setEditingStruct(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const deleteStructure = useMutation({
+    mutationFn: (id: string) => api.delete(`/finance/fee-structures/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure deleted"); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -234,6 +250,18 @@ const Finance = () => {
                       <TableCell className="font-semibold">{formatKES(fs.amount)}</TableCell>
                       <TableCell>{fs.grade_name || <span className="text-muted-foreground">All</span>}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{fs.due_date || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {canManage && (
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingStruct(fs); setEditStructOpen(true); }}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete "${fs.name}"?`)) deleteStructure.mutate(fs.id); }}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
