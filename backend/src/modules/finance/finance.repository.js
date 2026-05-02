@@ -171,7 +171,7 @@ const findExpenseCategories = async (schoolId) => {
 
 module.exports = {
   findFeeTemplates, findFeeCategories, createFeeCategory,
-  findFeeStructures, createFeeStructure,
+  findFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure,
   findFeeDiscounts, createFeeDiscount,
   findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
   getStudentBalance, getCarryForwards, getStudentFeesList,
