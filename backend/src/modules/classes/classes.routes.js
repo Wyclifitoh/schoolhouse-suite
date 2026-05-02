@@ -3,6 +3,7 @@ const classesController = require("./classes.controller");
 
 router.get("/grades", classesController.listGrades);
 router.post("/grades", classesController.createGrade);
+router.put("/grades/:id", classesController.updateGrade);
 router.get("/streams", classesController.listStreams);
 router.post("/streams", classesController.createStream);
 router.put("/streams/:id", classesController.updateStream);
