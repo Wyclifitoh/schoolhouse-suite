@@ -39,7 +39,6 @@ const allNav = {
     icon: BookOpen,
     items: [
       { title: "Classes", url: "/classes", icon: School, roles: ACADEMIC_ROLES },
-      { title: "Streams", url: "/streams", icon: Layers, roles: ACADEMIC_ROLES },
       { title: "Subjects", url: "/subjects", icon: BookOpen, roles: ACADEMIC_ROLES },
       { title: "Class Timetable", url: "/class-timetable", icon: Calendar, roles: ACADEMIC_ROLES },
       { title: "Teacher Timetable", url: "/teacher-timetable", icon: Clock, roles: ACADEMIC_ROLES },

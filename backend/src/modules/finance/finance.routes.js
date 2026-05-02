@@ -6,6 +6,8 @@ router.get('/fee-categories', c.getFeeCategories);
 router.post('/fee-categories', c.createFeeCategory);
 router.get('/fee-structures', c.getFeeStructures);
 router.post('/fee-structures', c.createFeeStructure);
+router.put('/fee-structures/:id', c.updateFeeStructure);
+router.delete('/fee-structures/:id', c.deleteFeeStructure);
 router.get('/fee-discounts', c.getFeeDiscounts);
 router.post('/fee-discounts', c.createFeeDiscount);
 router.get('/carry-forwards', c.getCarryForwards);

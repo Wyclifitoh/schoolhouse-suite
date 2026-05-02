@@ -135,6 +135,15 @@ export function useDeleteGrade() {
   });
 }
 
+export function useUpdateGrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<GradeRow> }) => api.put<GradeRow>(`/classes/grades/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["grades"] }); qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Class updated"); },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
 export function useStaff() {
   return useQuery({
     queryKey: ["staff"],

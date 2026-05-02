@@ -42,6 +42,22 @@ const createFeeStructure = async (schoolId, data) => {
   return queryOne('SELECT * FROM fee_structures WHERE id = ?', [id]);
 };
 
+const updateFeeStructure = async (id, schoolId, data) => {
+  const allowed = ['name', 'fee_category_id', 'amount', 'grade_id', 'term_id', 'academic_year_id', 'due_date', 'is_active'];
+  const entries = Object.entries(data).filter(([k]) => allowed.includes(k));
+  if (entries.length === 0) return queryOne('SELECT * FROM fee_structures WHERE id = ? AND school_id = ?', [id, schoolId]);
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => (v === undefined ? null : v));
+  values.push(id, schoolId);
+  await query(`UPDATE fee_structures SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, values);
+  return queryOne('SELECT * FROM fee_structures WHERE id = ?', [id]);
+};
+
+const deleteFeeStructure = async (id, schoolId) => {
+  await query('DELETE FROM fee_structures WHERE id = ? AND school_id = ?', [id, schoolId]);
+  return { deleted: true };
+};
+
 // ---- Fee Discounts ----
 const findFeeDiscounts = async (schoolId) => {
   return query('SELECT * FROM fee_discounts WHERE school_id = ? AND is_active = TRUE ORDER BY priority', [schoolId]);
@@ -155,7 +171,7 @@ const findExpenseCategories = async (schoolId) => {
 
 module.exports = {
   findFeeTemplates, findFeeCategories, createFeeCategory,
-  findFeeStructures, createFeeStructure,
+  findFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure,
   findFeeDiscounts, createFeeDiscount,
   findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
   getStudentBalance, getCarryForwards, getStudentFeesList,

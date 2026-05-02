@@ -8,6 +8,7 @@ const listGrades = async (schoolId) => repo.findAllGrades(schoolId);
 const listStreams = async (schoolId, gradeId) =>
   repo.findAllStreams(schoolId, gradeId);
 const createGrade = async (data) => repo.createGrade(data);
+const updateGrade = async (id, schoolId, data) => repo.updateGrade(id, schoolId, data);
 const createStream = async (data) => repo.createStream(data);
 const updateStream = async (id, schoolId, data) =>
   repo.updateStream(id, schoolId, data);
@@ -33,6 +34,7 @@ module.exports = {
   listGrades,
   listStreams,
   createGrade,
+  updateGrade,
   createStream,
   updateStream,
   deleteStream,

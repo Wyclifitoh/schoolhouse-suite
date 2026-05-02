@@ -17,10 +17,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject, useUpdateStream, useDeleteStream } from "@/hooks/useClasses";
+import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject, useUpdateStream, useDeleteStream, useDeleteGrade, useUpdateGrade, useUpdateSubject, useDeleteSubject } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  School, Plus, BookOpen, Users, Clock, Wand2, Layers,
+  School, Plus, BookOpen, Users, Clock, Wand2, Layers, Pencil, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,10 +33,16 @@ const Classes = () => {
   const { data: allStreams = [], isLoading: streamsLoading } = useStreams();
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { currentAcademicYear } = useTerm();
+  const { hasAnyRole } = useAuth();
+  const canManage = hasAnyRole(["super_admin", "school_admin", "deputy_admin"] as any);
 
   const createGrade = useCreateGrade();
+  const updateGrade = useUpdateGrade();
+  const deleteGrade = useDeleteGrade();
   const createStreamMut = useCreateStream();
   const createSubject = useCreateSubject();
+  const updateSubject = useUpdateSubject();
+  const deleteSubject = useDeleteSubject();
   const updateStream = useUpdateStream();
   const deleteStream = useDeleteStream();
 
@@ -67,6 +74,7 @@ const Classes = () => {
 
   const handleCreateClass = () => {
     if (!classForm.name) { toast.error("Class name required"); return; }
+    if (classForm.selectedStreams.length === 0) { toast.error("Please select at least one stream"); return; }
     createGrade.mutate({
       name: classForm.name,
       level: classForm.level as any,
@@ -84,6 +92,39 @@ const Classes = () => {
         setClassForm({ name: "", level: "primary", curriculum_type: "CBC", order_index: "0", selectedStreams: [] });
       },
     });
+  };
+
+  // --- Edit Class Dialog ---
+  const [editClassOpen, setEditClassOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ name: "", level: "primary", curriculum_type: "CBC", order_index: "0", selectedStreams: [] as string[] });
+  const openEditClass = (c: any) => {
+    setEditingClass(c);
+    const attached = (allStreams as any[]).filter((s: any) => s.grade_id === c.id).map((s: any) => s.id);
+    setEditForm({ name: c.name, level: c.level || "primary", curriculum_type: c.curriculum_type || "CBC", order_index: String(c.order_index || 0), selectedStreams: attached });
+    setEditClassOpen(true);
+  };
+  const toggleEditStream = (id: string) => setEditForm(f => ({ ...f, selectedStreams: f.selectedStreams.includes(id) ? f.selectedStreams.filter(x => x !== id) : [...f.selectedStreams, id] }));
+  const handleUpdateClass = () => {
+    if (!editingClass) return;
+    if (editForm.selectedStreams.length === 0) { toast.error("Class must have at least one stream"); return; }
+    updateGrade.mutate({ id: editingClass.id, data: { name: editForm.name, level: editForm.level as any, curriculum_type: editForm.curriculum_type, order_index: parseInt(editForm.order_index) || 0 } }, {
+      onSuccess: () => {
+        const previouslyAttached = (allStreams as any[]).filter((s: any) => s.grade_id === editingClass.id).map((s: any) => s.id);
+        const toAttach = editForm.selectedStreams.filter(id => !previouslyAttached.includes(id));
+        const toDetach = previouslyAttached.filter(id => !editForm.selectedStreams.includes(id));
+        toAttach.forEach(id => updateStream.mutate({ id, data: { grade_id: editingClass.id } as any }));
+        toDetach.forEach(id => updateStream.mutate({ id, data: { grade_id: null } as any }));
+        setEditClassOpen(false);
+        setEditingClass(null);
+      },
+    });
+  };
+  const handleDeleteClass = (c: any) => {
+    if (!confirm(`Delete class "${c.name}"? Attached streams will become unassigned.`)) return;
+    // detach streams first
+    (allStreams as any[]).filter((s: any) => s.grade_id === c.id).forEach((s: any) => updateStream.mutate({ id: s.id, data: { grade_id: null } as any }));
+    deleteGrade.mutate(c.id);
   };
 
   // --- Add Subject Dialog ---
@@ -112,7 +153,7 @@ const Classes = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Streams / Sections</CardTitle>
-                <Dialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen}>
+                {canManage && <Dialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Stream</Button></DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Add Stream</DialogTitle></DialogHeader>
@@ -125,7 +166,7 @@ const Classes = () => {
                       </Button>
                     </div>
                   </DialogContent>
-                </Dialog>
+                </Dialog>}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -145,9 +186,9 @@ const Classes = () => {
                         <TableCell className="text-muted-foreground text-sm">{s.description || "—"}</TableCell>
                         <TableCell>{s.grade_name ? <Badge variant="secondary">{s.grade_name}</Badge> : <span className="text-muted-foreground text-xs italic">Unassigned</span>}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Delete stream "${s.name}"?`)) deleteStream.mutate(s.id); }}>
-                            Delete
-                          </Button>
+                          {canManage && <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Delete stream "${s.name}"?`)) deleteStream.mutate(s.id); }}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -164,7 +205,7 @@ const Classes = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Classes (Grades)</CardTitle>
-                <Dialog open={classDialogOpen} onOpenChange={setClassDialogOpen}>
+                {canManage && <Dialog open={classDialogOpen} onOpenChange={setClassDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Class</Button></DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Add Class</DialogTitle></DialogHeader>
@@ -192,25 +233,27 @@ const Classes = () => {
                           </Select>
                         </div>
                       </div>
-                      {allStreams.length > 0 && (
-                        <div className="space-y-2">
-                          <Label>Select Streams for this Class</Label>
+                      <div className="space-y-2">
+                        <Label>Select Streams for this Class * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
+                        {allStreams.length === 0 ? (
+                          <p className="text-xs text-warning bg-warning/10 p-2 rounded">No streams available. Create streams first in the Streams tab.</p>
+                        ) : (
                           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
                             {allStreams.map((s: any) => (
                               <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
                                 <Checkbox checked={classForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleStream(s.id)} />
-                                {s.name}
+                                {s.name}{s.grade_name ? <span className="text-xs text-muted-foreground">(in {s.grade_name})</span> : null}
                               </label>
                             ))}
                           </div>
-                        </div>
-                      )}
-                      <Button className="w-full mt-2" onClick={handleCreateClass} disabled={createGrade.isPending}>
+                        )}
+                      </div>
+                      <Button className="w-full mt-2" onClick={handleCreateClass} disabled={createGrade.isPending || allStreams.length === 0}>
                         {createGrade.isPending ? "Creating..." : "Add Class"}
                       </Button>
                     </div>
                   </DialogContent>
-                </Dialog>
+                </Dialog>}
               </div>
             </CardHeader>
             <CardContent>
@@ -219,13 +262,21 @@ const Classes = () => {
               ) : grades.length === 0 ? (
                 <p className="text-center py-8 text-sm text-muted-foreground">No classes configured yet. Add streams first, then create classes.</p>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {grades.map((c: any) => (
                     <Card key={c.id} className="border hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-bold text-foreground">{c.name}</h3>
-                          <Badge variant="secondary" className="text-xs">{c.curriculum_type || "CBC"}</Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="secondary" className="text-xs">{c.curriculum_type || "CBC"}</Badge>
+                            {canManage && (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditClass(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteClass(c)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                              </>
+                            )}
+                          </div>
                         </div>
                         <p className="text-xs text-muted-foreground mb-3">{c.level}</p>
                         <div className="flex items-center justify-between">
@@ -238,6 +289,53 @@ const Classes = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Edit Class Dialog */}
+          <Dialog open={editClassOpen} onOpenChange={setEditClassOpen}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Class</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Class Name</Label><Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} /></div>
+                  <div className="space-y-2"><Label>Order</Label><Input type="number" value={editForm.order_index} onChange={e => setEditForm(f => ({ ...f, order_index: e.target.value }))} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Level</Label>
+                    <Select value={editForm.level} onValueChange={v => setEditForm(f => ({ ...f, level: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pre_primary">Pre-Primary</SelectItem>
+                        <SelectItem value="primary">Primary</SelectItem>
+                        <SelectItem value="junior_secondary">Junior Secondary</SelectItem>
+                        <SelectItem value="senior_secondary">Senior Secondary</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Curriculum</Label>
+                    <Select value={editForm.curriculum_type} onValueChange={v => setEditForm(f => ({ ...f, curriculum_type: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="CBC">CBC</SelectItem><SelectItem value="8-4-4">8-4-4</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Streams in this Class * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                    {(allStreams as any[]).map((s: any) => (
+                      <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Checkbox checked={editForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleEditStream(s.id)} />
+                        {s.name}
+                        {s.grade_id && s.grade_id !== editingClass?.id && <span className="text-xs text-muted-foreground">(in {s.grade_name})</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <Button className="w-full mt-2" onClick={handleUpdateClass} disabled={updateGrade.isPending}>
+                  {updateGrade.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Subjects Tab */}

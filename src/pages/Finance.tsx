@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useFinance";
 import { useClasses } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
@@ -39,6 +40,8 @@ const formatKES = (amount: number) => `KES ${Math.abs(amount || 0).toLocaleStrin
 
 const Finance = () => {
   const qc = useQueryClient();
+  const { hasAnyRole } = useAuth();
+  const canManage = hasAnyRole(["super_admin", "school_admin", "deputy_admin", "finance_officer"] as any);
   const [collectSearch, setCollectSearch] = useState("");
 
   const { data: feeTemplates = [], isLoading: templatesLoading } = useFeeTemplates();
@@ -67,6 +70,19 @@ const Finance = () => {
   const createStructure = useMutation({
     mutationFn: (data: any) => api.post("/finance/fee-structures", data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure created!"); setStructDialogOpen(false); setStructForm({ name: "", fee_category_id: "", amount: "", grade_id: "", term_id: "", due_date: "" }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editStructOpen, setEditStructOpen] = useState(false);
+  const [editingStruct, setEditingStruct] = useState<any>(null);
+  const updateStructure = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/finance/fee-structures/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure updated"); setEditStructOpen(false); setEditingStruct(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const deleteStructure = useMutation({
+    mutationFn: (id: string) => api.delete(`/finance/fee-structures/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure deleted"); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -223,10 +239,11 @@ const Finance = () => {
                   <TableHead className="font-semibold">Name</TableHead><TableHead className="font-semibold">Category</TableHead>
                   <TableHead className="font-semibold">Amount</TableHead><TableHead className="font-semibold">Grade</TableHead>
                   <TableHead className="font-semibold">Due Date</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {structuresLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  (feeStructures as any[]).length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No fee structures. Add categories first, then create structures.</TableCell></TableRow> :
+                  {structuresLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
+                  (feeStructures as any[]).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No fee structures. Add categories first, then create structures.</TableCell></TableRow> :
                   (feeStructures as any[]).map((fs: any) => (
                     <TableRow key={fs.id}>
                       <TableCell className="font-medium">{fs.name}</TableCell>
@@ -234,6 +251,18 @@ const Finance = () => {
                       <TableCell className="font-semibold">{formatKES(fs.amount)}</TableCell>
                       <TableCell>{fs.grade_name || <span className="text-muted-foreground">All</span>}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{fs.due_date || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        {canManage && (
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingStruct(fs); setEditStructOpen(true); }}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete "${fs.name}"?`)) deleteStructure.mutate(fs.id); }}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -382,6 +411,58 @@ const Finance = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Fee Structure Dialog */}
+      <Dialog open={editStructOpen} onOpenChange={setEditStructOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Edit Fee Structure</DialogTitle></DialogHeader>
+          {editingStruct && (
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2"><Label>Name</Label><Input value={editingStruct.name || ""} onChange={e => setEditingStruct((s: any) => ({ ...s, name: e.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Fee Category</Label>
+                  <Select value={editingStruct.fee_category_id || ""} onValueChange={v => setEditingStruct((s: any) => ({ ...s, fee_category_id: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{(feeCategories as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={editingStruct.amount || 0} onChange={e => setEditingStruct((s: any) => ({ ...s, amount: e.target.value }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Grade</Label>
+                  <Select value={editingStruct.grade_id || "__all__"} onValueChange={v => setEditingStruct((s: any) => ({ ...s, grade_id: v === "__all__" ? null : v }))}>
+                    <SelectTrigger><SelectValue placeholder="All grades" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All grades</SelectItem>
+                      {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Term</Label>
+                  <Select value={editingStruct.term_id || "__all__"} onValueChange={v => setEditingStruct((s: any) => ({ ...s, term_id: v === "__all__" ? null : v }))}>
+                    <SelectTrigger><SelectValue placeholder="All terms" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All terms</SelectItem>
+                      {terms.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={editingStruct.due_date ? String(editingStruct.due_date).split("T")[0] : ""} onChange={e => setEditingStruct((s: any) => ({ ...s, due_date: e.target.value }))} /></div>
+              <Button className="w-full mt-2" onClick={() => updateStructure.mutate({ id: editingStruct.id, data: {
+                name: editingStruct.name,
+                fee_category_id: editingStruct.fee_category_id,
+                amount: parseFloat(editingStruct.amount) || 0,
+                grade_id: editingStruct.grade_id || null,
+                term_id: editingStruct.term_id || null,
+                due_date: editingStruct.due_date || null,
+              }})} disabled={updateStructure.isPending}>
+                {updateStructure.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

@@ -21,6 +21,14 @@ const createFeeStructure = async (req, res) => {
   try { return success(res, await financeService.createFeeStructure(req.schoolId, req.body), 201); }
   catch (err) { return error(res, err.message, 500); }
 };
+const updateFeeStructure = async (req, res) => {
+  try { return success(res, await financeService.updateFeeStructure(req.params.id, req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const deleteFeeStructure = async (req, res) => {
+  try { return success(res, await financeService.deleteFeeStructure(req.params.id, req.schoolId)); }
+  catch (err) { return error(res, err.message, 500); }
+};
 const getFeeDiscounts = async (req, res) => {
   try { return success(res, await financeService.getFeeDiscounts(req.schoolId)); }
   catch (err) { return error(res, err.message, 500); }
@@ -60,7 +68,7 @@ const getExpenseCategories = async (req, res) => {
 
 module.exports = {
   getFeeTemplates, getFeeCategories, createFeeCategory,
-  getFeeStructures, createFeeStructure,
+  getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure,
   getFeeDiscounts, createFeeDiscount,
   getStudentFees, getStudentBalance, getCarryForwards, getStudentFeesList,
   createStudentFee, getExpenses, getExpenseCategories,
