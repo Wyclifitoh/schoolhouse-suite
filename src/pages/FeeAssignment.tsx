@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStudents } from "@/hooks/useStudents";
-import { useFeeTemplates, useFeeDiscounts } from "@/hooks/useFinance";
-import { useClasses } from "@/hooks/useClasses";
+import { useFeeStructures, useFeeDiscounts, useFeeTemplates } from "@/hooks/useFinance";
+import { useClasses, useStreams } from "@/hooks/useClasses";
 import {
   Search, Users, CheckCircle, ListChecks, Banknote, Percent, AlertTriangle,
 } from "lucide-react";
@@ -31,15 +31,29 @@ const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 const FeeAssignment = () => {
   const [selectedFee, setSelectedFee] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
+  const [streamFilter, setStreamFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [selectedDiscount, setSelectedDiscount] = useState("none");
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const { data: feeTemplates = [], isLoading: templatesLoading } = useFeeTemplates();
+  const { data: feeStructures = [], isLoading: structuresLoading } = useFeeStructures();
+  const { data: feeTemplates = [] } = useFeeTemplates();
   const { data: feeDiscounts = [], isLoading: discountsLoading } = useFeeDiscounts();
   const { data: studentsData = [], isLoading: studentsLoading } = useStudents({ search: searchQuery || undefined });
   const { data: classes = [] } = useClasses();
+  const { data: allStreams = [] } = useStreams();
+
+  // Combine fee structures (primary, since user creates these) with any legacy fee templates
+  const fees: any[] = [
+    ...(Array.isArray(feeStructures) ? feeStructures : []).map((f: any) => ({
+      id: f.id, name: f.name, amount: Number(f.amount || 0), ledger_type: f.category_type || "fees",
+    })),
+    ...(Array.isArray(feeTemplates) ? feeTemplates : []).map((f: any) => ({
+      id: f.id, name: f.name, amount: Number(f.amount || 0), ledger_type: f.fee_type || "fees",
+    })),
+  ];
+  const templatesLoading = structuresLoading;
 
   const allStudents = (studentsData as any[]).map((s: any) => ({
     id: s.id, full_name: s.full_name || `${s.first_name} ${s.last_name}`,
@@ -49,6 +63,7 @@ const FeeAssignment = () => {
 
   const filteredStudents = allStudents.filter((s: any) => {
     if (gradeFilter !== "all" && s.grade !== gradeFilter) return false;
+    if (streamFilter !== "all" && s.stream !== streamFilter) return false;
     return true;
   });
 
@@ -60,7 +75,7 @@ const FeeAssignment = () => {
     else setSelectedStudents(new Set(filteredStudents.map((s: any) => s.id)));
   };
 
-  const getSelectedFeeInfo = () => (feeTemplates as any[]).find((f: any) => f.id === selectedFee);
+  const getSelectedFeeInfo = () => fees.find((f: any) => f.id === selectedFee);
   const getDiscountInfo = () => (feeDiscounts as any[]).find((d: any) => d.id === selectedDiscount);
 
   const calculateTotal = () => {
@@ -84,6 +99,7 @@ const FeeAssignment = () => {
 
   const feeSelected = !!selectedFee;
   const allGrades = [...new Set(allStudents.map((s: any) => s.grade).filter(Boolean))].sort();
+  const availableStreams = [...new Set(allStudents.filter((s: any) => gradeFilter === "all" || s.grade === gradeFilter).map((s: any) => s.stream).filter(Boolean))].sort();
 
   return (
     <DashboardLayout title="Fee Assignment" subtitle="Select fees and assign to students by class, section, or individually">
@@ -103,9 +119,9 @@ const FeeAssignment = () => {
             </CardHeader>
             <CardContent>
               {templatesLoading ? <div className="grid gap-3 sm:grid-cols-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}</div> :
-              (feeTemplates as any[]).length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No fee templates configured.</p> :
+              fees.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No fee structures configured. Go to Finance → Fee Structures to add one.</p> :
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {(feeTemplates as any[]).map((f: any) => (
+                {fees.map((f: any) => (
                   <button key={f.id} onClick={() => setSelectedFee(f.id)}
                     className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${selectedFee === f.id ? "border-primary bg-primary/5 shadow-md" : "border-border hover:border-primary/40 hover:bg-muted/30"}`}>
                     <div className="flex items-center justify-between mb-1">
@@ -159,10 +175,14 @@ const FeeAssignment = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <Select value={gradeFilter} onValueChange={setGradeFilter}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="All Grades" /></SelectTrigger>
                   <SelectContent><SelectItem value="all">All Grades</SelectItem>{allGrades.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={streamFilter} onValueChange={setStreamFilter}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="All Streams" /></SelectTrigger>
+                  <SelectContent><SelectItem value="all">All Streams</SelectItem>{availableStreams.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
                 <div className="relative col-span-2 sm:col-span-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
