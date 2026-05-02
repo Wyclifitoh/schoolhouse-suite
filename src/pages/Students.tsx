@@ -317,6 +317,7 @@ const Students = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
+  const [streamFilters, setStreamFilters] = useState<string[]>([]);
   const [admissionOpen, setAdmissionOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -327,9 +328,15 @@ const Students = () => {
 
   const { data: allStudents = [], isLoading, refetch } = useStudents({ search: search || undefined });
   const { data: grades = [] } = useGrades();
+  const selectedGrade = grades.find(g => g.name === gradeFilter);
+  const { data: streamsForGrade = [] } = useStreams(selectedGrade?.id);
   const softDelete = useSoftDeleteStudent();
 
-  const filtered = allStudents.filter(s => gradeFilter === "all" || s.grade === gradeFilter);
+  const filtered = allStudents.filter(s => {
+    if (gradeFilter !== "all" && s.grade !== gradeFilter) return false;
+    if (streamFilters.length > 0 && !streamFilters.includes(s.stream || "")) return false;
+    return true;
+  });
   const activeCount = allStudents.filter(s => s.status === "active").length;
 
   const handleRecordPayment = async () => {
@@ -398,13 +405,37 @@ const Students = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Search students..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-              <Select value={gradeFilter} onValueChange={setGradeFilter}>
+              <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setStreamFilters([]); }}>
                 <SelectTrigger className="w-full sm:w-40 h-9"><Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Grade" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Grades</SelectItem>
                   {grades.map(g => <SelectItem key={g.id} value={g.name}>{g.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {gradeFilter !== "all" && streamsForGrade.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9">
+                      <Filter className="h-3.5 w-3.5 mr-1.5" />
+                      Streams {streamFilters.length > 0 && <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-xs">{streamFilters.length}</Badge>}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {streamsForGrade.map((s: any) => (
+                      <DropdownMenuItem key={s.id} onSelect={(e) => { e.preventDefault(); setStreamFilters(prev => prev.includes(s.name) ? prev.filter(x => x !== s.name) : [...prev, s.name]); }}>
+                        <Checkbox checked={streamFilters.includes(s.name)} className="mr-2" />
+                        {s.name}
+                      </DropdownMenuItem>
+                    ))}
+                    {streamFilters.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setStreamFilters([])} className="text-destructive">Clear filters</DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             {/* Mobile list */}
