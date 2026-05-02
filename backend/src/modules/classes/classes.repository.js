@@ -54,6 +54,17 @@ const createGrade = async (data) => {
   return queryOne('SELECT * FROM grades WHERE id = ?', [id]);
 };
 
+const updateGrade = async (id, schoolId, data) => {
+  const allowed = ['name', 'level', 'order_index', 'curriculum_type'];
+  const entries = Object.entries(data).filter(([k]) => allowed.includes(k));
+  if (entries.length === 0) return queryOne('SELECT * FROM grades WHERE id = ? AND school_id = ?', [id, schoolId]);
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => (v === undefined ? null : v));
+  values.push(id, schoolId);
+  await query(`UPDATE grades SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`, values);
+  return queryOne('SELECT * FROM grades WHERE id = ?', [id]);
+};
+
 const createStream = async (data) => {
   if (!data.name) throw new Error('Stream name is required');
 
@@ -194,7 +205,7 @@ const deleteTimetableEntry = async (id, schoolId) => {
 
 module.exports = {
   findAllClasses, findClassById, createClass,
-  findAllGrades, findAllStreams, createGrade, createStream, updateStream, deleteStream, deleteGrade,
+  findAllGrades, findAllStreams, createGrade, updateGrade, createStream, updateStream, deleteStream, deleteGrade,
   findAllSubjects, createSubject, updateSubject, deleteSubject,
   findAllStaff, findAllDepartments, createDepartment, findAllDesignations,
   findTimetable, createTimetableEntry, updateTimetableEntry, deleteTimetableEntry,
