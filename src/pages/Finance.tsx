@@ -411,6 +411,58 @@ const Finance = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Fee Structure Dialog */}
+      <Dialog open={editStructOpen} onOpenChange={setEditStructOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Edit Fee Structure</DialogTitle></DialogHeader>
+          {editingStruct && (
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2"><Label>Name</Label><Input value={editingStruct.name || ""} onChange={e => setEditingStruct((s: any) => ({ ...s, name: e.target.value }))} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Fee Category</Label>
+                  <Select value={editingStruct.fee_category_id || ""} onValueChange={v => setEditingStruct((s: any) => ({ ...s, fee_category_id: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{(feeCategories as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={editingStruct.amount || 0} onChange={e => setEditingStruct((s: any) => ({ ...s, amount: e.target.value }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Grade</Label>
+                  <Select value={editingStruct.grade_id || "__all__"} onValueChange={v => setEditingStruct((s: any) => ({ ...s, grade_id: v === "__all__" ? null : v }))}>
+                    <SelectTrigger><SelectValue placeholder="All grades" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All grades</SelectItem>
+                      {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Term</Label>
+                  <Select value={editingStruct.term_id || "__all__"} onValueChange={v => setEditingStruct((s: any) => ({ ...s, term_id: v === "__all__" ? null : v }))}>
+                    <SelectTrigger><SelectValue placeholder="All terms" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All terms</SelectItem>
+                      {terms.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={editingStruct.due_date ? String(editingStruct.due_date).split("T")[0] : ""} onChange={e => setEditingStruct((s: any) => ({ ...s, due_date: e.target.value }))} /></div>
+              <Button className="w-full mt-2" onClick={() => updateStructure.mutate({ id: editingStruct.id, data: {
+                name: editingStruct.name,
+                fee_category_id: editingStruct.fee_category_id,
+                amount: parseFloat(editingStruct.amount) || 0,
+                grade_id: editingStruct.grade_id || null,
+                term_id: editingStruct.term_id || null,
+                due_date: editingStruct.due_date || null,
+              }})} disabled={updateStructure.isPending}>
+                {updateStructure.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
