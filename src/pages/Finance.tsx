@@ -239,10 +239,11 @@ const Finance = () => {
                   <TableHead className="font-semibold">Name</TableHead><TableHead className="font-semibold">Category</TableHead>
                   <TableHead className="font-semibold">Amount</TableHead><TableHead className="font-semibold">Grade</TableHead>
                   <TableHead className="font-semibold">Due Date</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {structuresLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  (feeStructures as any[]).length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No fee structures. Add categories first, then create structures.</TableCell></TableRow> :
+                  {structuresLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
+                  (feeStructures as any[]).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No fee structures. Add categories first, then create structures.</TableCell></TableRow> :
                   (feeStructures as any[]).map((fs: any) => (
                     <TableRow key={fs.id}>
                       <TableCell className="font-medium">{fs.name}</TableCell>
