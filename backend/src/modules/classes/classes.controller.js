@@ -38,6 +38,11 @@ const createGrade = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
+const updateGrade = async (req, res) => {
+  try { return success(res, await svc.updateGrade(req.params.id, req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
+
 const createStream = async (req, res) => {
   try { return success(res, await svc.createStream({ ...req.body, school_id: req.schoolId }), 201); }
   catch (err) { return error(res, err.message, /required/i.test(err.message) ? 400 : 500); }
@@ -116,7 +121,7 @@ const deleteTimetableEntry = async (req, res) => {
 };
 
 module.exports = {
-  list, getById, create, listGrades, listStreams, createGrade, createStream, updateStream,
+  list, getById, create, listGrades, listStreams, createGrade, updateGrade, createStream, updateStream,
   deleteStream, deleteGrade,
   listSubjects, createSubject, updateSubject, deleteSubject,
   listStaff, listDepartments, createDepartment, listDesignations,
