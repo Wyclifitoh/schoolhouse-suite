@@ -46,7 +46,6 @@ import ClassTimetable from "./pages/academics/ClassTimetable";
 import TeacherTimetable from "./pages/academics/TeacherTimetable";
 import AssignClassTeacher from "./pages/academics/AssignClassTeacher";
 import Subjects from "./pages/academics/Subjects";
-import Streams from "./pages/academics/Streams";
 
 // HR Module
 import StaffDirectory from "./pages/StaffDirectory";
@@ -105,7 +104,6 @@ const App = () => (
 
                 {/* Academic Module */}
                 <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
-                <Route path="/streams" element={<ProtectedRoute><Streams /></ProtectedRoute>} />
                 <Route path="/subjects" element={<ProtectedRoute><Subjects /></ProtectedRoute>} />
                 <Route path="/class-timetable" element={<ProtectedRoute><ClassTimetable /></ProtectedRoute>} />
                 <Route path="/teacher-timetable" element={<ProtectedRoute><TeacherTimetable /></ProtectedRoute>} />

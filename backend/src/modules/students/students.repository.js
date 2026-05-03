@@ -1,7 +1,7 @@
 const { query, queryOne, queryCount } = require('../../config/database');
 const { v4: uuidv4 } = require('uuid');
 
-const findAll = async (schoolId, { limit, offset, search, status, gradeId }) => {
+const findAll = async (schoolId, { limit, offset, search, status, gradeId, streamIds }) => {
   let sql = 'SELECT * FROM students WHERE school_id = ?';
   const params = [schoolId];
 
@@ -12,6 +12,10 @@ const findAll = async (schoolId, { limit, offset, search, status, gradeId }) => 
   if (gradeId) {
     sql += ' AND current_grade_id = ?';
     params.push(gradeId);
+  }
+  if (streamIds && streamIds.length) {
+    sql += ` AND current_stream_id IN (${streamIds.map(() => '?').join(',')})`;
+    params.push(...streamIds);
   }
   if (search) {
     sql += ' AND (full_name LIKE ? OR admission_number LIKE ? OR first_name LIKE ? OR last_name LIKE ?)';

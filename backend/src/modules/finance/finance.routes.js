@@ -15,6 +15,9 @@ router.get('/student-fees-list', c.getStudentFeesList);
 router.get('/student-fees/:studentId', c.getStudentFees);
 router.get('/student-balance/:studentId', c.getStudentBalance);
 router.post('/student-fees', c.createStudentFee);
+router.get('/fee-assignments', c.getFeeAssignments);
+router.post('/fee-assignments/bulk', c.bulkAssignFee);
+router.post('/fee-assignments/bulk-unassign', c.bulkUnassignFee);
 router.get('/expenses', c.getExpenses);
 router.get('/expense-categories', c.getExpenseCategories);
 

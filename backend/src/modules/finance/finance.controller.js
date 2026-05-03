@@ -57,6 +57,18 @@ const createStudentFee = async (req, res) => {
   try { return success(res, await financeService.createStudentFee({ ...req.body, school_id: req.schoolId }), 201); }
   catch (err) { return error(res, err.message, 500); }
 };
+const getFeeAssignments = async (req, res) => {
+  try { return success(res, await financeService.getFeeAssignments(req.schoolId, { feeStructureId: req.query.fee_structure_id, termId: req.query.term_id })); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const bulkAssignFee = async (req, res) => {
+  try { return success(res, await financeService.bulkAssignFee(req.schoolId, req.body, req.user?.id), 201); }
+  catch (err) { return error(res, err.message, 500); }
+};
+const bulkUnassignFee = async (req, res) => {
+  try { return success(res, await financeService.bulkUnassignFee(req.schoolId, req.body)); }
+  catch (err) { return error(res, err.message, 500); }
+};
 const getExpenses = async (req, res) => {
   try { return success(res, await financeService.getExpenses(req.schoolId)); }
   catch (err) { return error(res, err.message, 500); }
@@ -72,4 +84,5 @@ module.exports = {
   getFeeDiscounts, createFeeDiscount,
   getStudentFees, getStudentBalance, getCarryForwards, getStudentFeesList,
   createStudentFee, getExpenses, getExpenseCategories,
+  getFeeAssignments, bulkAssignFee, bulkUnassignFee,
 };

@@ -449,6 +449,7 @@ CREATE TABLE student_fees (
   school_id CHAR(36) NOT NULL,
   student_id CHAR(36) NOT NULL,
   fee_template_id CHAR(36),
+  fee_structure_id CHAR(36),
   term_id CHAR(36),
   academic_year_id CHAR(36),
   ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',

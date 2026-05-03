@@ -83,6 +83,81 @@ const findStudentFees = async (studentId, schoolId) => {
   );
 };
 
+// Find which students already have a given fee (structure) in a term
+const findFeeAssignments = async (schoolId, { feeStructureId, termId }) => {
+  try {
+    return await query(
+      `SELECT id, student_id, amount_due, amount_paid, status
+       FROM student_fees
+       WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ? AND status NOT IN ('cancelled')`,
+      [schoolId, feeStructureId, termId || null]
+    );
+  } catch {
+    return query(
+      `SELECT id, student_id, amount_due, amount_paid, status
+       FROM student_fees
+       WHERE school_id = ? AND fee_template_id = ? AND term_id <=> ? AND status NOT IN ('cancelled')`,
+      [schoolId, feeStructureId, termId || null]
+    );
+  }
+};
+
+const bulkAssignFee = async ({ schoolId, studentIds, feeStructure, termId, academicYearId, discountAmount, assignedBy }) => {
+  const created = [];
+  for (const studentId of studentIds) {
+    let existing = null;
+    try {
+      existing = await queryOne(
+        `SELECT id FROM student_fees WHERE school_id = ? AND student_id = ? AND fee_structure_id = ? AND term_id <=> ?`,
+        [schoolId, studentId, feeStructure.id, termId || null]
+      );
+    } catch {
+      existing = await queryOne(
+        `SELECT id FROM student_fees WHERE school_id = ? AND student_id = ? AND fee_template_id = ? AND term_id <=> ?`,
+        [schoolId, studentId, feeStructure.id, termId || null]
+      );
+    }
+    if (existing) continue;
+    const id = uuidv4();
+    const amount = Math.max(0, Number(feeStructure.amount || 0) - Number(discountAmount || 0));
+    try {
+      await query(
+        `INSERT INTO student_fees (id, school_id, student_id, fee_structure_id, term_id, academic_year_id, ledger_type, amount_due, discount_amount, status, due_date, assigned_by, assignment_mode)
+         VALUES (?, ?, ?, ?, ?, ?, 'fees', ?, ?, 'pending', ?, ?, 'bulk')`,
+        [id, schoolId, studentId, feeStructure.id, termId || null, academicYearId || null, amount, discountAmount || 0, feeStructure.due_date || null, assignedBy || null]
+      );
+    } catch {
+      await query(
+        `INSERT INTO student_fees (id, school_id, student_id, fee_template_id, term_id, academic_year_id, ledger_type, amount_due, discount_amount, status, due_date, assigned_by, assignment_mode)
+         VALUES (?, ?, ?, ?, ?, ?, 'fees', ?, ?, 'pending', ?, ?, 'bulk')`,
+        [id, schoolId, studentId, feeStructure.id, termId || null, academicYearId || null, amount, discountAmount || 0, feeStructure.due_date || null, assignedBy || null]
+      );
+    }
+    created.push(id);
+  }
+  return { created: created.length };
+};
+
+const bulkUnassignFee = async ({ schoolId, studentIds, feeStructureId, termId }) => {
+  if (!studentIds.length) return { removed: 0 };
+  const placeholders = studentIds.map(() => '?').join(',');
+  let result;
+  try {
+    result = await query(
+      `DELETE FROM student_fees WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
+         AND student_id IN (${placeholders}) AND amount_paid = 0`,
+      [schoolId, feeStructureId, termId || null, ...studentIds]
+    );
+  } catch {
+    result = await query(
+      `DELETE FROM student_fees WHERE school_id = ? AND fee_template_id = ? AND term_id <=> ?
+         AND student_id IN (${placeholders}) AND amount_paid = 0`,
+      [schoolId, feeStructureId, termId || null, ...studentIds]
+    );
+  }
+  return { removed: result.affectedRows || 0 };
+};
+
 const findStudentFeeById = async (id, schoolId) => {
   return queryOne('SELECT * FROM student_fees WHERE id = ? AND school_id = ?', [id, schoolId]);
 };
@@ -176,4 +251,5 @@ module.exports = {
   findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
   getStudentBalance, getCarryForwards, getStudentFeesList,
   findExpenses, findExpenseCategories,
+  findFeeAssignments, bulkAssignFee, bulkUnassignFee,
 };
