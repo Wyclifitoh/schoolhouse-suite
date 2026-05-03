@@ -214,11 +214,11 @@ const FeeAssignment = () => {
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
                   Select Students
-                  {selectedStudents.size > 0 && <Badge className="bg-primary/10 text-primary border-0 ml-2">{selectedStudents.size} selected</Badge>}
+                  {selected.size > 0 && <Badge className="bg-primary/10 text-primary border-0 ml-2">{selected.size} selected</Badge>}
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={toggleAll}><Users className="h-3.5 w-3.5 mr-1" />Select All</Button>
-                  {selectedStudents.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelectedStudents(new Set())} className="text-destructive">Clear</Button>}
+                  {selected.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(paidLocked))} className="text-destructive">Clear</Button>}
                 </div>
               </div>
             </CardHeader>
