@@ -49,6 +49,22 @@ const Classes = () => {
   // --- Add Stream Dialog (simple: name + description) ---
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamForm, setStreamForm] = useState({ name: "", description: "" });
+  // Edit Stream
+  const [editStreamOpen, setEditStreamOpen] = useState(false);
+  const [editingStream, setEditingStream] = useState<any>(null);
+  const [editStreamForm, setEditStreamForm] = useState({ name: "", description: "" });
+  const openEditStream = (s: any) => {
+    setEditingStream(s);
+    setEditStreamForm({ name: s.name || "", description: s.description || "" });
+    setEditStreamOpen(true);
+  };
+  const handleUpdateStream = () => {
+    if (!editingStream) return;
+    if (!editStreamForm.name) { toast.error("Name required"); return; }
+    updateStream.mutate({ id: editingStream.id, data: { name: editStreamForm.name, description: editStreamForm.description || null } as any }, {
+      onSuccess: () => { setEditStreamOpen(false); setEditingStream(null); },
+    });
+  };
 
   const handleCreateStream = () => {
     if (!streamForm.name) { toast.error("Stream name required"); return; }
@@ -186,9 +202,14 @@ const Classes = () => {
                         <TableCell className="text-muted-foreground text-sm">{s.description || "—"}</TableCell>
                         <TableCell>{s.grade_name ? <Badge variant="secondary">{s.grade_name}</Badge> : <span className="text-muted-foreground text-xs italic">Unassigned</span>}</TableCell>
                         <TableCell className="text-right">
-                          {canManage && <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Delete stream "${s.name}"?`)) deleteStream.mutate(s.id); }}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>}
+                          {canManage && (
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditStream(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { if (confirm(`Delete stream "${s.name}"?`)) deleteStream.mutate(s.id); }}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -197,6 +218,18 @@ const Classes = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Edit Stream Dialog */}
+          <Dialog open={editStreamOpen} onOpenChange={setEditStreamOpen}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Edit Stream</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2"><Label>Stream Name *</Label><Input value={editStreamForm.name} onChange={e => setEditStreamForm(f => ({ ...f, name: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Description</Label><Input value={editStreamForm.description} onChange={e => setEditStreamForm(f => ({ ...f, description: e.target.value }))} /></div>
+                <Button onClick={handleUpdateStream} disabled={updateStream.isPending}>{updateStream.isPending ? "Saving..." : "Save"}</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Classes Tab */}
