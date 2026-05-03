@@ -19,18 +19,20 @@ export interface StudentWithFees extends StudentRow {
   balance: number; total_fees: number; total_paid: number;
 }
 
-export function useStudents(filters?: { status?: string; gradeId?: string; search?: string }) {
+export function useStudents(filters?: { status?: string; gradeId?: string; streamIds?: string[]; search?: string; enabled?: boolean }) {
   return useQuery({
     queryKey: ["students", filters],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.status && filters.status !== "all") params.set("status", filters.status);
       if (filters?.gradeId) params.set("grade_id", filters.gradeId);
+      if (filters?.streamIds && filters.streamIds.length) params.set("stream_ids", filters.streamIds.join(","));
       if (filters?.search) params.set("search", filters.search);
       params.set("limit", "500");
       const result = await api.get<{ data: StudentRow[] }>(`/students?${params}`);
       return (result as any)?.data || result || [];
     },
+    enabled: filters?.enabled !== false,
   });
 }
 

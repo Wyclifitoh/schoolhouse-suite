@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useTerm } from "@/contexts/TermContext";
+import { toast } from "sonner";
 
 export function useFeeTemplates() {
   return useQuery({ queryKey: ["fee-templates"], queryFn: async () => { const r = await api.get<any>("/finance/fee-templates"); return r?.rows || r?.data || r || []; } });
@@ -60,5 +61,47 @@ export function useCarryForwards() {
       const data = await api.get<any[]>("/finance/carry-forwards");
       return (data || []).map((cf: any) => ({ ...cf, student_name: cf.student_name || "Unknown", from_term_name: cf.from_term_name || "N/A", to_term_name: cf.to_term_name || "N/A" }));
     },
+  });
+}
+
+export function useFeeAssignments(feeStructureId: string | undefined, termId: string | undefined) {
+  return useQuery({
+    queryKey: ["fee-assignments", feeStructureId, termId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (feeStructureId) params.set("fee_structure_id", feeStructureId);
+      if (termId) params.set("term_id", termId);
+      const r = await api.get<any>(`/finance/fee-assignments?${params}`);
+      return (r?.data || r || []) as Array<{ id: string; student_id: string; amount_due: number; amount_paid: number; status: string }>;
+    },
+    enabled: !!feeStructureId,
+  });
+}
+
+export function useBulkAssignFee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { fee_structure_id: string; term_id?: string | null; academic_year_id?: string | null; student_ids: string[]; discount_amount?: number }) =>
+      api.post<any>("/finance/fee-assignments/bulk", body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["fee-assignments", vars.fee_structure_id] });
+      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      toast.success("Fee assigned");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useBulkUnassignFee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { fee_structure_id: string; term_id?: string | null; student_ids: string[] }) =>
+      api.post<any>("/finance/fee-assignments/bulk-unassign", body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["fee-assignments", vars.fee_structure_id] });
+      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      toast.success("Unassigned");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 }
