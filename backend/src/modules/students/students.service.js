@@ -9,6 +9,7 @@ const list = async (schoolId, queryParams) => {
     search: queryParams.search,
     status: queryParams.status,
     gradeId: queryParams.grade_id,
+    streamIds: queryParams.stream_ids ? String(queryParams.stream_ids).split(',').filter(Boolean) : undefined,
   });
   return { data: rows, total, page, limit };
 };
