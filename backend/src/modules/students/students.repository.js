@@ -13,6 +13,10 @@ const findAll = async (schoolId, { limit, offset, search, status, gradeId }) => 
     sql += ' AND current_grade_id = ?';
     params.push(gradeId);
   }
+  if (arguments[1].streamIds && arguments[1].streamIds.length) {
+    sql += ` AND current_stream_id IN (${arguments[1].streamIds.map(() => '?').join(',')})`;
+    params.push(...arguments[1].streamIds);
+  }
   if (search) {
     sql += ' AND (full_name LIKE ? OR admission_number LIKE ? OR first_name LIKE ? OR last_name LIKE ?)';
     const s = `%${search}%`;
