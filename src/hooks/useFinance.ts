@@ -105,3 +105,27 @@ export function useBulkUnassignFee() {
     onError: (e: Error) => toast.error(e.message),
   });
 }
+
+export function useRecordPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      student_id: string;
+      amount: number;
+      payment_method: string;
+      reference_number?: string;
+      fee_ids?: string[];
+      notes?: string;
+      term_id?: string | null;
+    }) => api.post<any>("/payments/record", body),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["student-payments", vars.student_id] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items", vars.student_id] });
+      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      qc.invalidateQueries({ queryKey: ["fee-assignments"] });
+      toast.success("Payment recorded successfully");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}

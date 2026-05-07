@@ -4,6 +4,7 @@ const c = require('./payments.controller');
 router.get('/', c.list);
 router.get('/:id', c.getById);
 router.post('/', c.create);
+router.post('/record', c.record);
 router.patch('/:id/void', c.voidPayment);
 
 module.exports = router;

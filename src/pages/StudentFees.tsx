@@ -8,7 +8,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter,
 } from "@/components/ui/table";
 import { useStudentWithFees } from "@/hooks/useStudents";
-import { useFeeDiscounts } from "@/hooks/useFinance";
+import { useFeeDiscounts, useRecordPayment } from "@/hooks/useFinance";
+import { useTerm } from "@/contexts/TermContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, Wallet, Download, Phone, Receipt, AlertTriangle, Scale,
@@ -54,6 +55,8 @@ const StudentFees = () => {
   const [paymentAmount, setPaymentAmount] = useState<number | undefined>();
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
+  const { selectedTerm } = useTerm();
+  const recordPayment = useRecordPayment();
 
   const totals = useMemo(() => {
     const totalAmount = studentFees.reduce((a: number, f: any) => a + Number(f.amount || 0), 0);
@@ -85,9 +88,19 @@ const StudentFees = () => {
 
   const displayName = student.full_name || `${student.first_name} ${student.last_name}`;
 
-  const handleRecordPayment = (data: any) => {
-    toast.success(`Payment of ${formatKES(data.amount)} recorded for ${displayName}`);
-    setShowPaymentDialog(false);
+  const handleRecordPayment = async (data: any) => {
+    try {
+      await recordPayment.mutateAsync({
+        student_id: data.studentId,
+        amount: data.amount,
+        payment_method: data.method,
+        reference_number: data.reference,
+        fee_ids: data.feeIds || [],
+        notes: data.notes,
+        term_id: selectedTerm?.id || null,
+      });
+      setShowPaymentDialog(false);
+    } catch { /* toast handled in hook */ }
   };
 
   const handleAdjustment = (data: any) => {

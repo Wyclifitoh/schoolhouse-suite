@@ -16,6 +16,11 @@ const create = async (req, res) => {
   catch (err) { return error(res, err.message, err.statusCode || 500); }
 };
 
+const record = async (req, res) => {
+  try { return success(res, await paymentsService.record(req.schoolId, req.body, req.user?.id), 201); }
+  catch (err) { return error(res, err.message, err.statusCode || 500); }
+};
+
 const voidPayment = async (req, res) => {
   try { return success(res, await paymentsService.voidPayment(req.params.id, req.schoolId, req.body.reason)); }
   catch (err) { return error(res, err.message, err.statusCode || 500); }
@@ -26,4 +31,4 @@ const mpesaCallback = async (req, res) => {
   res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
 };
 
-module.exports = { list, getById, create, voidPayment, mpesaCallback };
+module.exports = { list, getById, create, record, voidPayment, mpesaCallback };
