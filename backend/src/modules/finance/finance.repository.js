@@ -76,9 +76,19 @@ const createFeeDiscount = async (schoolId, data) => {
 // ---- Student Fees ----
 const findStudentFees = async (studentId, schoolId) => {
   return query(
-    `SELECT sf.*, ft.name as fee_name, ft.fee_type
-     FROM student_fees sf LEFT JOIN fee_templates ft ON ft.id = sf.fee_template_id
-     WHERE sf.student_id = ? AND sf.school_id = ? ORDER BY sf.due_date ASC`,
+    `SELECT sf.*,
+            COALESCE(fs.name, ft.name) AS fee_name,
+            COALESCE(fc.type, ft.fee_type) AS fee_type,
+            sf.amount_due AS amount,
+            sf.amount_paid AS paid,
+            (sf.amount_due - sf.amount_paid) AS balance,
+            sf.discount_amount AS discount
+     FROM student_fees sf
+     LEFT JOIN fee_templates ft   ON ft.id = sf.fee_template_id
+     LEFT JOIN fee_structures fs  ON fs.id = sf.fee_structure_id
+     LEFT JOIN fee_categories fc  ON fc.id = fs.fee_category_id
+     WHERE sf.student_id = ? AND sf.school_id = ?
+     ORDER BY sf.due_date ASC, sf.created_at ASC`,
     [studentId, schoolId]
   );
 };
