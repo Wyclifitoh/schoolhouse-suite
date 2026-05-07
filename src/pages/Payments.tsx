@@ -10,7 +10,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { usePayments } from "@/hooks/useFinance";
+import { usePayments, useRecordPayment } from "@/hooks/useFinance";
+import { useTerm } from "@/contexts/TermContext";
 import { Search, Download, CreditCard, Banknote, Smartphone, Plus, MoreHorizontal, Eye, XCircle, Printer } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -27,13 +28,25 @@ const Payments = () => {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
 
   const { data: payments = [], isLoading } = usePayments({ search });
+  const { selectedTerm } = useTerm();
+  const recordPayment = useRecordPayment();
 
   const total = payments.reduce((s: number, p: any) => s + (p.status === "completed" ? p.amount : 0), 0);
   const mpesaTotal = payments.filter((p: any) => p.payment_method?.includes("mpesa")).reduce((s: number, p: any) => s + p.amount, 0);
 
-  const handleRecordPayment = (data: any) => {
-    toast.success(`Payment of ${formatKES(data.amount)} recorded successfully`);
-    setShowRecordPayment(false);
+  const handleRecordPayment = async (data: any) => {
+    try {
+      await recordPayment.mutateAsync({
+        student_id: data.studentId,
+        amount: data.amount,
+        payment_method: data.method,
+        reference_number: data.reference,
+        fee_ids: data.feeIds || [],
+        notes: data.notes,
+        term_id: selectedTerm?.id || null,
+      });
+      setShowRecordPayment(false);
+    } catch { /* toast handled in hook */ }
   };
 
   const handleVoidPayment = (paymentId: string, reason: string) => {
@@ -144,7 +157,7 @@ const Payments = () => {
         </CardContent>
       </Card>
 
-      <RecordPaymentDialog open={showRecordPayment} onOpenChange={setShowRecordPayment} onSubmit={handleRecordPayment} />
+      <RecordPaymentDialog open={showRecordPayment} onOpenChange={setShowRecordPayment} onSubmit={handleRecordPayment} isSubmitting={recordPayment.isPending} />
       <VoidPaymentDialog open={showVoidPayment} onOpenChange={setShowVoidPayment} payment={selectedPayment ? { id: selectedPayment.id, studentName: selectedPayment.student_name, amount: selectedPayment.amount, method: selectedPayment.payment_method, reference: selectedPayment.reference_number || "", date: selectedPayment.received_at } : null} onConfirm={handleVoidPayment} />
     </DashboardLayout>
   );
