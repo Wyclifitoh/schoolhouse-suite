@@ -32,4 +32,8 @@ router.use('/attendance', require('../modules/attendance/attendance.routes'));
 router.use('/inventory', require('../modules/inventory/inventory.routes'));
 router.use('/reports', require('../modules/reports/reports.routes'));
 
+// Staff org chart routes (departments + designations)
+const staffRoutes = require('../modules/staff/staff.routes');
+router.use('/', staffRoutes);
+
 module.exports = router;
