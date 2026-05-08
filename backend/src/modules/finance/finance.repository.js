@@ -217,11 +217,14 @@ const getCarryForwards = async (schoolId) => {
 
 const getStudentFeesList = async (schoolId, { search, termId }) => {
   let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, s.grade, s.stream,
+    s.parent_name, s.parent_phone,
     COALESCE(SUM(sf.amount_due), 0) as total_fee,
     COALESCE(SUM(sf.discount_amount), 0) as discount,
     COALESCE(SUM(sf.fine_amount), 0) as fine,
     COALESCE(SUM(sf.amount_paid), 0) as paid,
-    COALESCE(SUM(sf.amount_due - sf.amount_paid), 0) as balance
+    COALESCE(SUM(sf.amount_due - sf.amount_paid), 0) as balance,
+    COALESCE(SUM(CASE WHEN (sf.amount_due - sf.amount_paid) > 0 THEN 1 ELSE 0 END), 0) as fee_count,
+    COALESCE(SUM(CASE WHEN sf.due_date IS NOT NULL AND sf.due_date < CURRENT_DATE() AND (sf.amount_due - sf.amount_paid) > 0 THEN 1 ELSE 0 END), 0) as overdue_count
     FROM students s
     LEFT JOIN student_fees sf ON sf.student_id = s.id AND sf.school_id = s.school_id AND sf.status NOT IN ('cancelled','waived')`;
 
