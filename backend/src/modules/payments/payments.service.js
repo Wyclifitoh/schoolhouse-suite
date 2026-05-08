@@ -40,6 +40,7 @@ const record = async (schoolId, body, userId) => {
     notes: body.notes || null,
     feeIds: Array.isArray(body.fee_ids) ? body.fee_ids : [],
     termId: body.term_id || null,
+    idempotencyKey: body.idempotency_key || null,
   });
 };
 
