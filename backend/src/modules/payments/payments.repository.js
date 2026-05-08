@@ -53,15 +53,30 @@ const findMpesaByCheckoutId = async (checkoutRequestId) => {
 const recordPaymentWithAllocation = async ({
   schoolId, studentId, amount, paymentMethod, referenceNumber,
   ledgerType = 'fees', recordedBy, payerPhone, notes, feeIds = [], termId = null,
+  idempotencyKey = null,
 }) => {
+  // Idempotency: if same key already produced a payment, return it.
+  if (idempotencyKey) {
+    const existing = await queryOne(
+      `SELECT p.* FROM payments p
+       WHERE p.school_id = ?
+         AND p.notes LIKE ?
+       ORDER BY p.created_at DESC LIMIT 1`,
+      [schoolId, `%[idem:${idempotencyKey}]%`]
+    );
+    if (existing) return existing;
+  }
   const paymentId = uuidv4();
+  const notesWithIdem = idempotencyKey
+    ? `${notes || ''}\n[idem:${idempotencyKey}]`.trim()
+    : (notes || null);
   await query(
     `INSERT INTO payments
       (id, school_id, student_id, amount, payment_method, reference_number,
        ledger_type, status, received_at, recorded_by, payer_phone, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?)`,
     [paymentId, schoolId, studentId, amount, paymentMethod, referenceNumber || null,
-     ledgerType, recordedBy || null, payerPhone || null, notes || null]
+     ledgerType, recordedBy || null, payerPhone || null, notesWithIdem]
   );
 
   // Pick target fees
@@ -121,6 +136,19 @@ const recordPaymentWithAllocation = async ({
       );
     } catch (e) { /* table may not exist in some setups */ }
   }
+
+  // Finance audit log
+  try {
+    await query(
+      `INSERT INTO finance_audit_logs
+        (id, school_id, action, entity_type, entity_id, student_id,
+         amount_affected, performed_by, metadata)
+       VALUES (?, ?, 'PAYMENT_RECORDED', 'payment', ?, ?, ?, ?, ?)`,
+      [uuidv4(), schoolId, paymentId, studentId, amount,
+       String(recordedBy || 'system'),
+       JSON.stringify({ paymentMethod, referenceNumber, termId, feeIds, excess: remaining })]
+    );
+  } catch (e) { /* non-fatal */ }
 
   return queryOne('SELECT * FROM payments WHERE id = ?', [paymentId]);
 };
