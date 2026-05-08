@@ -254,6 +254,18 @@ const findExpenseCategories = async (schoolId) => {
   return query('SELECT * FROM expense_categories WHERE school_id = ? ORDER BY name', [schoolId]);
 };
 
+const logBulkFeeAudit = async ({ schoolId, action, feeStructureId, termId, studentIds, performedBy, extra }) => {
+  try {
+    await query(
+      `INSERT INTO finance_audit_logs
+        (id, school_id, action, entity_type, entity_id, performed_by, metadata)
+       VALUES (?, ?, ?, 'fee_structure', ?, ?, ?)`,
+      [uuidv4(), schoolId, action, feeStructureId, String(performedBy || 'system'),
+       JSON.stringify({ termId, studentIds, ...extra })]
+    );
+  } catch (e) { /* non-fatal */ }
+};
+
 module.exports = {
   findFeeTemplates, findFeeCategories, createFeeCategory,
   findFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure,
@@ -261,5 +273,5 @@ module.exports = {
   findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
   getStudentBalance, getCarryForwards, getStudentFeesList,
   findExpenses, findExpenseCategories,
-  findFeeAssignments, bulkAssignFee, bulkUnassignFee,
+  findFeeAssignments, bulkAssignFee, bulkUnassignFee, logBulkFeeAudit,
 };
