@@ -33,7 +33,8 @@ router.use('/inventory', require('../modules/inventory/inventory.routes'));
 router.use('/reports', require('../modules/reports/reports.routes'));
 
 // Staff org chart routes (departments + designations)
+// Mount the same router under both paths so existing UI works.
 const staffRoutes = require('../modules/staff/staff.routes');
-router.use('/', staffRoutes);
+router.use(staffRoutes);
 
 module.exports = router;
