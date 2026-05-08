@@ -17,7 +17,13 @@ const create = async (req, res) => {
 };
 
 const record = async (req, res) => {
-  try { return success(res, await paymentsService.record(req.schoolId, req.body, req.user?.id), 201); }
+  try {
+    const body = { ...req.body };
+    if (!body.idempotency_key) {
+      body.idempotency_key = req.header('Idempotency-Key') || req.header('X-Idempotency-Key') || null;
+    }
+    return success(res, await paymentsService.record(req.schoolId, body, req.user?.id), 201);
+  }
   catch (err) { return error(res, err.message, err.statusCode || 500); }
 };
 
