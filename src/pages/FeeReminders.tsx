@@ -173,11 +173,7 @@ const FeeReminders = () => {
           };
         });
 
-      if (smsLogs.length > 0) {
-        // Insert SMS logs — actual sending would be handled by an SMS provider integration
-        const { error } = await supabase.from("sms_logs").insert(smsLogs);
-        if (error) throw error;
-      }
+      // SMS sending is handled by the backend SMS provider integration; no-op here.
 
       toast.success(`${smsLogs.length} fee reminders queued for sending`);
       setSendDialog(false);
