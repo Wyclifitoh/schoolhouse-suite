@@ -6,6 +6,7 @@ const list = async (schoolId, queryParams) => {
   const { rows, total } = await paymentsRepository.findAll(schoolId, {
     limit, offset, status: queryParams.status, method: queryParams.method,
     studentId: queryParams.student_id,
+    sortBy: queryParams.sort_by, sortDir: queryParams.sort_dir,
   });
   return { data: rows, total, page, limit };
 };
