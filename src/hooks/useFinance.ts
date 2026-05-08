@@ -117,7 +117,13 @@ export function useRecordPayment() {
       fee_ids?: string[];
       notes?: string;
       term_id?: string | null;
-    }) => api.post<any>("/payments/record", body),
+    }) => {
+      const idempotencyKey =
+        (typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      return api.post<any>("/payments/record", { ...body, idempotency_key: idempotencyKey });
+    },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["student-payments", vars.student_id] });

@@ -6,6 +6,7 @@ const list = async (schoolId, queryParams) => {
   const { rows, total } = await paymentsRepository.findAll(schoolId, {
     limit, offset, status: queryParams.status, method: queryParams.method,
     studentId: queryParams.student_id,
+    sortBy: queryParams.sort_by, sortDir: queryParams.sort_dir,
   });
   return { data: rows, total, page, limit };
 };
@@ -40,6 +41,7 @@ const record = async (schoolId, body, userId) => {
     notes: body.notes || null,
     feeIds: Array.isArray(body.fee_ids) ? body.fee_ids : [],
     termId: body.term_id || null,
+    idempotencyKey: body.idempotency_key || null,
   });
 };
 

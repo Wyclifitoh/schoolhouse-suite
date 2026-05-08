@@ -27,18 +27,32 @@ const bulkAssignFee = async (schoolId, body, userId) => {
   const fs = await financeRepository.findFeeStructures(schoolId);
   const feeStructure = fs.find((f) => f.id === fee_structure_id);
   if (!feeStructure) throw new Error('Fee structure not found');
-  return financeRepository.bulkAssignFee({
+  const result = await financeRepository.bulkAssignFee({
     schoolId, studentIds: student_ids, feeStructure,
     termId: term_id || null, academicYearId: academic_year_id || null,
     discountAmount: discount_amount || 0, assignedBy: userId || null,
   });
+  await financeRepository.logBulkFeeAudit({
+    schoolId, action: 'FEES_BULK_ASSIGNED',
+    feeStructureId: fee_structure_id, termId: term_id || null,
+    studentIds: student_ids, performedBy: userId || 'system',
+    extra: { created: result.created, discountAmount: discount_amount || 0 },
+  });
+  return result;
 };
 const bulkUnassignFee = async (schoolId, body) => {
   const { fee_structure_id, term_id, student_ids } = body;
   if (!fee_structure_id) throw new Error('fee_structure_id is required');
-  return financeRepository.bulkUnassignFee({
+  const result = await financeRepository.bulkUnassignFee({
     schoolId, studentIds: student_ids || [], feeStructureId: fee_structure_id, termId: term_id || null,
   });
+  await financeRepository.logBulkFeeAudit({
+    schoolId, action: 'FEES_BULK_UNASSIGNED',
+    feeStructureId: fee_structure_id, termId: term_id || null,
+    studentIds: student_ids || [], performedBy: 'system',
+    extra: { removed: result.removed },
+  });
+  return result;
 };
 const getExpenses = async (schoolId) => financeRepository.findExpenses(schoolId);
 const getExpenseCategories = async (schoolId) => financeRepository.findExpenseCategories(schoolId);

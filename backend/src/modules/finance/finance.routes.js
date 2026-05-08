@@ -20,5 +20,6 @@ router.post('/fee-assignments/bulk', c.bulkAssignFee);
 router.post('/fee-assignments/bulk-unassign', c.bulkUnassignFee);
 router.get('/expenses', c.getExpenses);
 router.get('/expense-categories', c.getExpenseCategories);
+router.get('/audit-logs', c.getAuditLogs);
 
 module.exports = router;
