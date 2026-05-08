@@ -20,9 +20,9 @@ import {
   Bell, Send, Users, Search, MessageSquare, AlertTriangle, CheckCircle,
   Clock, Phone, Filter,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -70,69 +70,29 @@ const FeeReminders = () => {
     if (!schoolId) return;
     setLoading(true);
     try {
-      // Get grades
-      const { data: gradeData } = await supabase
-        .from("grades")
-        .select("id, name")
-        .eq("school_id", schoolId)
-        .order("order_index");
-      setGrades(gradeData || []);
+      // Grades from backend
+      try {
+        const g = await api.get<any>("/classes/grades");
+        setGrades((g?.data || g || []).map((x: any) => ({ id: x.id, name: x.name })));
+      } catch { /* ignore */ }
 
-      // Get students with outstanding balances
-      const { data: fees, error } = await supabase
-        .from("student_fees")
-        .select("student_id, balance, status, due_date")
-        .eq("school_id", schoolId)
-        .gt("balance", 0)
-        .not("status", "in", '("cancelled","waived")');
-
-      if (error) throw error;
-
-      // Group by student
-      const studentFeeMap: Record<string, { total: number; count: number; overdue: number }> = {};
-      const today = new Date().toISOString().split("T")[0];
-      (fees || []).forEach(f => {
-        if (!studentFeeMap[f.student_id]) {
-          studentFeeMap[f.student_id] = { total: 0, count: 0, overdue: 0 };
-        }
-        studentFeeMap[f.student_id].total += Number(f.balance);
-        studentFeeMap[f.student_id].count += 1;
-        if (f.due_date && f.due_date < today) {
-          studentFeeMap[f.student_id].overdue += 1;
-        }
-      });
-
-      const studentIds = Object.keys(studentFeeMap);
-      if (studentIds.length === 0) {
-        setStudents([]);
-        setLoading(false);
-        return;
-      }
-
-      // Get student details — students table has parent_name/parent_phone directly
-      const { data: studentData } = await supabase
-        .from("students")
-        .select("id, full_name, admission_number, current_grade_id, parent_name, parent_phone")
-        .in("id", studentIds)
-        .eq("status", "active");
-
-      // Get grade names
-      const gradeMap: Record<string, string> = {};
-      (gradeData || []).forEach(g => { gradeMap[g.id] = g.name; });
-
-      const enriched: StudentWithBalance[] = (studentData || []).map(s => ({
-        id: s.id,
-        full_name: s.full_name || `${s.id}`,
-        admission_number: s.admission_number,
-        parent_phone: s.parent_phone || "N/A",
-        parent_name: s.parent_name || "N/A",
-        grade_name: s.current_grade_id ? gradeMap[s.current_grade_id] || "—" : "—",
-        total_balance: studentFeeMap[s.id]?.total || 0,
-        fee_count: studentFeeMap[s.id]?.count || 0,
-        overdue_count: studentFeeMap[s.id]?.overdue || 0,
-      })).sort((a, b) => b.total_balance - a.total_balance);
-
-      setStudents(enriched);
+      // Students with balances from backend (already aggregated)
+      const list = await api.get<any[]>("/finance/student-fees-list");
+      const rows: StudentWithBalance[] = (list || [])
+        .filter((s: any) => Number(s.balance || 0) > 0)
+        .map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim(),
+          admission_number: s.admission_number,
+          parent_phone: s.parent_phone || "N/A",
+          parent_name: s.parent_name || "Parent",
+          grade_name: s.grade || "—",
+          total_balance: Number(s.balance || 0),
+          fee_count: Number(s.fee_count || 0),
+          overdue_count: Number(s.overdue_count || 0),
+        }))
+        .sort((a, b) => b.total_balance - a.total_balance);
+      setStudents(rows);
     } catch (err: any) {
       toast.error("Failed to load student balances");
     } finally {
@@ -144,14 +104,8 @@ const FeeReminders = () => {
     if (!schoolId) return;
     setHistoryLoading(true);
     try {
-      const { data } = await supabase
-        .from("sms_logs")
-        .select("*")
-        .eq("school_id", schoolId)
-        .eq("reference_type", "fee_reminder")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      setReminderHistory(data || []);
+      // Backend SMS logs endpoint not yet wired; keep history empty silently.
+      setReminderHistory([]);
     } catch {
       // silent
     } finally {
