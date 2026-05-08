@@ -1,7 +1,7 @@
 const { query, queryOne } = require('../../config/database');
 const { v4: uuidv4 } = require('uuid');
 
-const findAll = async (schoolId, { limit, offset, status, method, studentId }) => {
+const findAll = async (schoolId, { limit, offset, status, method, studentId, sortBy, sortDir }) => {
   let sql = `SELECT p.*, s.full_name as student_name, s.admission_number 
              FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.school_id = ?`;
   const params = [schoolId];
@@ -9,7 +9,10 @@ const findAll = async (schoolId, { limit, offset, status, method, studentId }) =
   if (method && method !== 'all') { sql += ' AND p.payment_method = ?'; params.push(method); }
   if (studentId) { sql += ' AND p.student_id = ?'; params.push(studentId); }
   const countSql = sql.replace(/SELECT p\.\*.*?FROM/, 'SELECT COUNT(*) as count FROM');
-  sql += ' ORDER BY p.received_at DESC LIMIT ? OFFSET ?';
+  const sortable = { received_at: 'p.received_at', amount: 'p.amount', status: 'p.status', payment_method: 'p.payment_method', student_name: 's.full_name' };
+  const col = sortable[sortBy] || 'p.received_at';
+  const dir = String(sortDir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  sql += ` ORDER BY ${col} ${dir} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
   const [rows, countRows] = await Promise.all([query(sql, params), query(countSql, params.slice(0, -2))]);
   return { rows, total: countRows[0]?.count || 0 };
