@@ -56,6 +56,7 @@ const bulkUnassignFee = async (schoolId, body) => {
 };
 const getExpenses = async (schoolId) => financeRepository.findExpenses(schoolId);
 const getExpenseCategories = async (schoolId) => financeRepository.findExpenseCategories(schoolId);
+const getAuditLogs = async (schoolId, params) => financeRepository.getAuditLogs(schoolId, params);
 
 module.exports = {
   getFeeTemplates, getFeeCategories, createFeeCategory,
@@ -63,5 +64,5 @@ module.exports = {
   getFeeDiscounts, createFeeDiscount,
   getStudentFees, getStudentBalance, getCarryForwards, getStudentFeesList,
   createStudentFee, updateStudentFee, getExpenses, getExpenseCategories,
-  getFeeAssignments, bulkAssignFee, bulkUnassignFee,
+  getFeeAssignments, bulkAssignFee, bulkUnassignFee, getAuditLogs,
 };

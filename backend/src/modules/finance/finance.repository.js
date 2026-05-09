@@ -269,6 +269,19 @@ const logBulkFeeAudit = async ({ schoolId, action, feeStructureId, termId, stude
   } catch (e) { /* non-fatal */ }
 };
 
+const getAuditLogs = async (schoolId, { limit = 100, action, studentId } = {}) => {
+  let sql = `SELECT fal.*, s.full_name AS student_name
+             FROM finance_audit_logs fal
+             LEFT JOIN students s ON s.id = fal.student_id
+             WHERE fal.school_id = ?`;
+  const params = [schoolId];
+  if (action) { sql += ' AND fal.action = ?'; params.push(action); }
+  if (studentId) { sql += ' AND fal.student_id = ?'; params.push(studentId); }
+  sql += ' ORDER BY fal.created_at DESC LIMIT ?';
+  params.push(Number(limit));
+  return query(sql, params);
+};
+
 module.exports = {
   findFeeTemplates, findFeeCategories, createFeeCategory,
   findFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure,
@@ -276,5 +289,5 @@ module.exports = {
   findStudentFees, findStudentFeeById, createStudentFee, updateStudentFee,
   getStudentBalance, getCarryForwards, getStudentFeesList,
   findExpenses, findExpenseCategories,
-  findFeeAssignments, bulkAssignFee, bulkUnassignFee, logBulkFeeAudit,
+  findFeeAssignments, bulkAssignFee, bulkUnassignFee, logBulkFeeAudit, getAuditLogs,
 };
