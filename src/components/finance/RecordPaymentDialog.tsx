@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Loader2, Search, Wallet, ArrowRight, ArrowLeft, CheckCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Search, Wallet, ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -64,8 +64,8 @@ export function RecordPaymentDialog({
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
-  const [selectedFeeIds, setSelectedFeeIds] = useState<Set<string>>(
-    preselectedFeeId ? new Set([preselectedFeeId]) : new Set()
+  const [selectedFeeIds, setSelectedFeeIds] = useState<string[]>(
+    preselectedFeeId ? [preselectedFeeId] : []
   );
   const [allocateMode, setAllocateMode] = useState<"fifo" | "manual">(preselectedFeeId ? "manual" : "fifo");
   const [confirmAmount, setConfirmAmount] = useState("");
@@ -79,7 +79,7 @@ export function RecordPaymentDialog({
       setMethod("");
       setReference("");
       setNotes("");
-      setSelectedFeeIds(preselectedFeeId ? new Set([preselectedFeeId]) : new Set());
+      setSelectedFeeIds(preselectedFeeId ? [preselectedFeeId] : []);
       setAllocateMode(preselectedFeeId ? "manual" : "fifo");
       setConfirmAmount("");
     }
@@ -104,11 +104,11 @@ export function RecordPaymentDialog({
 
   const parsedAmount = Number(amount) || 0;
 
-  // FIFO allocation preview
+  // Allocation preview — manual mode honours selected order
   const allocationPreview = useMemo(() => {
     let remaining = parsedAmount;
     const targetFees = allocateMode === "manual"
-      ? fees.filter(f => selectedFeeIds.has(f.id))
+      ? selectedFeeIds.map(id => fees.find(f => f.id === id)).filter(Boolean) as FeeItem[]
       : fees.filter(f => f.balance > 0);
 
     return targetFees.map(fee => {
@@ -123,9 +123,15 @@ export function RecordPaymentDialog({
   const overpayment = parsedAmount - totalAllocated;
 
   const toggleFee = (id: string) => {
+    setSelectedFeeIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const moveFee = (id: string, dir: -1 | 1) => {
     setSelectedFeeIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      const idx = prev.indexOf(id);
+      const target = idx + dir;
+      if (idx < 0 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
       return next;
     });
   };
@@ -140,7 +146,7 @@ export function RecordPaymentDialog({
       amount: parsedAmount,
       method,
       reference,
-      feeIds: allocateMode === "manual" ? [...selectedFeeIds] : [],
+      feeIds: allocateMode === "manual" ? selectedFeeIds : [],
       notes,
     });
   };
@@ -301,25 +307,63 @@ export function RecordPaymentDialog({
                 </Button>
               </div>
 
-              {allocateMode === "manual" && (
-                <div className="space-y-1.5 border rounded-lg p-3">
-                  {fees.filter(f => f.balance > 0).map(f => (
-                    <label
-                      key={f.id}
-                      className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={selectedFeeIds.has(f.id)}
-                          onCheckedChange={() => toggleFee(f.id)}
-                        />
-                        <span className="text-sm font-medium text-foreground">{f.name}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">{formatKES(f.balance)}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              {allocateMode === "manual" && (() => {
+                const outstanding = fees.filter(f => f.balance > 0);
+                const ordered = [
+                  ...selectedFeeIds.map(id => outstanding.find(f => f.id === id)).filter(Boolean) as FeeItem[],
+                  ...outstanding.filter(f => !selectedFeeIds.includes(f.id)),
+                ];
+                return (
+                  <div className="space-y-1.5 border rounded-lg p-3">
+                    <p className="text-[11px] text-muted-foreground mb-1">Tick fees to allocate to. Use arrows to set priority order.</p>
+                    {ordered.map((f, i) => {
+                      const checked = selectedFeeIds.includes(f.id);
+                      const order = checked ? selectedFeeIds.indexOf(f.id) + 1 : null;
+                      return (
+                        <div
+                          key={f.id}
+                          className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleFee(f.id)}
+                            />
+                            {order !== null && (
+                              <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-bold">{order}</Badge>
+                            )}
+                            <span className="text-sm font-medium text-foreground">{f.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">{formatKES(f.balance)}</span>
+                            {checked && (
+                              <div className="flex flex-col">
+                                <button
+                                  type="button"
+                                  className="h-4 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
+                                  disabled={selectedFeeIds.indexOf(f.id) === 0}
+                                  onClick={() => moveFee(f.id, -1)}
+                                  aria-label="Move up"
+                                ><ChevronUp className="h-3 w-3" /></button>
+                                <button
+                                  type="button"
+                                  className="h-4 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-30"
+                                  disabled={selectedFeeIds.indexOf(f.id) === selectedFeeIds.length - 1}
+                                  onClick={() => moveFee(f.id, 1)}
+                                  aria-label="Move down"
+                                ><ChevronDown className="h-3 w-3" /></button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {outstanding.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2">No outstanding fees.</p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="space-y-2">
