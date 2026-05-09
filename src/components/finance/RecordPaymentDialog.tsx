@@ -294,7 +294,7 @@ export function RecordPaymentDialog({
                 <Button
                   variant={allocateMode === "fifo" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => { setAllocateMode("fifo"); setSelectedFeeIds(new Set()); }}
+                  onClick={() => { setAllocateMode("fifo"); setSelectedFeeIds([]); }}
                 >
                   Auto (FIFO)
                 </Button>
