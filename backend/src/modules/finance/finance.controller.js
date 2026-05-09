@@ -78,11 +78,21 @@ const getExpenseCategories = async (req, res) => {
   catch (err) { return error(res, err.message, 500); }
 };
 
+const getAuditLogs = async (req, res) => {
+  try {
+    return success(res, await financeService.getAuditLogs(req.schoolId, {
+      limit: parseInt(req.query.limit, 10) || 100,
+      action: req.query.action,
+      studentId: req.query.student_id,
+    }));
+  } catch (err) { return error(res, err.message, 500); }
+};
+
 module.exports = {
   getFeeTemplates, getFeeCategories, createFeeCategory,
   getFeeStructures, createFeeStructure, updateFeeStructure, deleteFeeStructure,
   getFeeDiscounts, createFeeDiscount,
   getStudentFees, getStudentBalance, getCarryForwards, getStudentFeesList,
   createStudentFee, getExpenses, getExpenseCategories,
-  getFeeAssignments, bulkAssignFee, bulkUnassignFee,
+  getFeeAssignments, bulkAssignFee, bulkUnassignFee, getAuditLogs,
 };
