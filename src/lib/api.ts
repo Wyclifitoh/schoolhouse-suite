@@ -27,7 +27,16 @@ class ApiClient {
     if (this.schoolId) headers["X-School-ID"] = this.schoolId;
 
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-    const json = await res.json();
+    const raw = await res.text();
+    let json: any = null;
+    try {
+      json = raw ? JSON.parse(raw) : null;
+    } catch {
+      json = {
+        success: false,
+        error: { message: raw || `Request failed: ${res.status}` },
+      };
+    }
     if (!res.ok || json.success === false) {
       throw new Error(
         json.error?.message || json.error || `Request failed: ${res.status}`,
