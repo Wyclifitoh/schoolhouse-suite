@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useGrades, useStreams } from "@/hooks/useGrades";
 
 interface BulkImportDialogProps {
   open: boolean;
@@ -58,8 +59,14 @@ export function BulkImportDialog({
   const [previewData, setPreviewData] = useState<string[][]>([]);
   const [allRows, setAllRows] = useState<Record<string, string>[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
-  const [grade, setGrade] = useState("");
-  const [stream, setStream] = useState("");
+  const [gradeId, setGradeId] = useState("");
+  const [streamId, setStreamId] = useState("");
+  const { data: grades = [], isLoading: gradesLoading } = useGrades();
+  const { data: streams = [], isLoading: streamsLoading } = useStreams(
+    gradeId || undefined,
+  );
+  const selectedGrade = grades.find((g) => g.id === gradeId);
+  const selectedStream = streams.find((s) => s.id === streamId);
 
   const headers = type === "students" ? STUDENT_CSV_HEADERS : STAFF_CSV_HEADERS;
 
@@ -150,7 +157,7 @@ export function BulkImportDialog({
       toast.error("Please select a file");
       return;
     }
-    if (type === "students" && (!grade || !stream)) {
+    if (type === "students" && (!gradeId || !streamId)) {
       toast.error("Please select grade and stream");
       return;
     }
@@ -166,8 +173,10 @@ export function BulkImportDialog({
     importMutation.mutate(
       allRows.map((row) => ({
         ...row,
-        grade: row.grade || grade,
-        stream: row.stream || stream,
+        grade: row.grade || selectedGrade?.name || "",
+        stream: row.stream || selectedStream?.name || "",
+        grade_id: gradeId,
+        stream_id: streamId,
       })),
     );
   };
@@ -186,42 +195,64 @@ export function BulkImportDialog({
           {type === "students" && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Grade *</Label>
-                <Select value={grade} onValueChange={setGrade}>
+                <Label className="text-xs">Class / Grade *</Label>
+                <Select
+                  value={gradeId}
+                  onValueChange={(v) => {
+                    setGradeId(v);
+                    setStreamId("");
+                  }}
+                  disabled={gradesLoading}
+                >
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select Grade" />
+                    <SelectValue
+                      placeholder={
+                        gradesLoading ? "Loading..." : "Select Class"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {[
-                      "Grade 1",
-                      "Grade 2",
-                      "Grade 3",
-                      "Grade 4",
-                      "Grade 5",
-                      "Grade 6",
-                      "Grade 7",
-                      "Grade 8",
-                    ].map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
+                    {grades.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
                       </SelectItem>
                     ))}
+                    {grades.length === 0 && !gradesLoading && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        No classes found
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Stream *</Label>
-                <Select value={stream} onValueChange={setStream}>
+                <Select
+                  value={streamId}
+                  onValueChange={setStreamId}
+                  disabled={!gradeId || streamsLoading}
+                >
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select Stream" />
+                    <SelectValue
+                      placeholder={
+                        !gradeId
+                          ? "Select class first"
+                          : streamsLoading
+                            ? "Loading..."
+                            : "Select Stream"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {["East", "West", "North", "South", "A", "B", "C"].map(
-                      (s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ),
+                    {streams.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                    {gradeId && streams.length === 0 && !streamsLoading && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        No streams in this class
+                      </div>
                     )}
                   </SelectContent>
                 </Select>
