@@ -98,16 +98,43 @@ const StudentFees = () => {
       (a: number, f: any) => a + Number(f.discount || 0),
       0,
     );
-    const totalPaid = studentFees.reduce(
+    // Paid = sum of completed payments (truth) — works even before any fee is assigned
+    const completedPayments = (paymentHistory as any[]).filter((p) => {
+      const s = String(p.status || "").toLowerCase();
+      return (
+        s === "completed" ||
+        s === "succeeded" ||
+        s === "success" ||
+        s === "paid"
+      );
+    });
+    const totalPaid = completedPayments.reduce(
+      (a: number, p: any) => a + Number(p.amount || 0),
+      0,
+    );
+    const totalAllocated = studentFees.reduce(
       (a: number, f: any) => a + Number(f.paid || 0),
       0,
     );
-    const totalBalance = studentFees.reduce(
-      (a: number, f: any) => a + Number(f.balance || 0),
-      0,
-    );
-    return { totalAmount, totalDiscount, totalPaid, totalBalance };
-  }, [studentFees]);
+    const totalBalance = totalAmount - totalPaid; // negative => advance credit
+    const advanceCredit = Math.max(0, totalPaid - totalAllocated);
+    return {
+      totalAmount,
+      totalDiscount,
+      totalPaid,
+      totalBalance,
+      totalAllocated,
+      advanceCredit,
+    };
+  }, [studentFees, paymentHistory]);
+
+  const overallStatus = useMemo(() => {
+    if (totals.totalAmount === 0 && totals.totalPaid === 0) return "no_fees";
+    if (totals.totalBalance <= 0 && totals.totalAmount > 0) return "paid";
+    if (totals.totalBalance < 0) return "advance";
+    if (totals.totalPaid > 0 && totals.totalBalance > 0) return "partial";
+    return "pending";
+  }, [totals]);
 
   if (isLoading) {
     return (
@@ -249,14 +276,39 @@ const StudentFees = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Balance</p>
-                <p
-                  className={`text-2xl font-bold ${student.balance > 0 ? "text-red-500" : student.balance < 0 ? "text-green-600" : "text-muted-foreground"}`}
-                >
-                  {student.balance === 0
-                    ? "Cleared"
-                    : formatKES(student.balance)}
+                <p className="text-xs text-muted-foreground">
+                  {totals.totalBalance < 0 ? "Advance Credit" : "Balance"}
                 </p>
+                <p
+                  className={`text-2xl font-bold ${
+                    totals.totalBalance > 0
+                      ? "text-red-500"
+                      : totals.totalBalance < 0
+                        ? "text-green-600"
+                        : totals.totalAmount > 0
+                          ? "text-green-600"
+                          : "text-muted-foreground"
+                  }`}
+                >
+                  {overallStatus === "no_fees"
+                    ? "No Fees"
+                    : overallStatus === "paid"
+                      ? "Cleared"
+                      : formatKES(totals.totalBalance)}
+                </p>
+                <Badge
+                  className={`mt-1 ${statusColor(overallStatus === "advance" ? "paid" : overallStatus)}`}
+                >
+                  {overallStatus === "no_fees"
+                    ? "No fees assigned"
+                    : overallStatus === "paid"
+                      ? "Paid"
+                      : overallStatus === "advance"
+                        ? "Advance Credit"
+                        : overallStatus === "partial"
+                          ? "Partial"
+                          : "Pending"}
+                </Badge>
               </div>
             </div>
           </CardContent>
@@ -281,11 +333,13 @@ const StudentFees = () => {
               color: "text-green-600",
             },
             {
-              label: "Balance",
+              label: totals.totalBalance < 0 ? "Advance Credit" : "Balance",
               value:
-                totals.totalBalance === 0
-                  ? "Cleared"
-                  : formatKES(totals.totalBalance),
+                overallStatus === "no_fees"
+                  ? "—"
+                  : totals.totalBalance === 0
+                    ? "Cleared"
+                    : formatKES(totals.totalBalance),
               color:
                 totals.totalBalance > 0 ? "text-red-500" : "text-green-600",
             },
@@ -300,6 +354,19 @@ const StudentFees = () => {
             </Card>
           ))}
         </div>
+
+        {totals.advanceCredit > 0 && (
+          <Card className="border-green-500/30 bg-green-500/5">
+            <CardContent className="p-3 text-sm flex items-center gap-2">
+              <Scale className="h-4 w-4 text-green-600" />
+              <span className="text-foreground">
+                <strong>{formatKES(totals.advanceCredit)}</strong> received but
+                not yet allocated to any fee. It will auto-apply when fees are
+                assigned.
+              </span>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Fee Items */}
         <Card>
@@ -479,8 +546,14 @@ const StudentFees = () => {
                         {Number(p.amount).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-green-500/10 text-green-600 border-0">
-                          {p.status}
+                        <Badge
+                          className={statusColor(
+                            p.status === "completed" || p.status === "succeeded"
+                              ? "paid"
+                              : p.status,
+                          )}
+                        >
+                          {p.status || "completed"}
                         </Badge>
                       </TableCell>
                     </TableRow>
