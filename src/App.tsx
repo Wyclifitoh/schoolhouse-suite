@@ -25,6 +25,7 @@ import FeeAssignment from "./pages/FeeAssignment";
 import StudentFees from "./pages/StudentFees";
 import Payments from "./pages/Payments";
 import ExcessPayments from "./pages/ExcessPayments";
+import UnallocatedPayments from "./pages/UnallocatedPayments";
 import FeeReminders from "./pages/FeeReminders";
 import Parents from "./pages/Parents";
 import Attendance from "./pages/Attendance";
@@ -119,6 +120,7 @@ const App = () => (
                 <Route path="/student-fees/:studentId" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
                 <Route path="/payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "front_office"]}><Payments /></ProtectedRoute>} />
                 <Route path="/excess-payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><ExcessPayments /></ProtectedRoute>} />
+                <Route path="/unallocated-payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><UnallocatedPayments /></ProtectedRoute>} />
                 <Route path="/fee-reminders" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><FeeReminders /></ProtectedRoute>} />
 
                 {/* Expenses Module */}

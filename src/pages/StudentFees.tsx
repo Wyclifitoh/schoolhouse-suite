@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +81,21 @@ const StudentFees = () => {
     enabled: !!studentId,
   });
 
+  const { data: excessCredits = [], refetch: refetchExcess } = useQuery({
+    queryKey: ["student-excess-credits", studentId],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>(
+          `/finance/excess-credits?student_id=${studentId}&status=pending`,
+        );
+        return (data?.data || data || []) as any[];
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!studentId,
+  });
+
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentFeeId, setPaymentFeeId] = useState("");
   const [paymentAmount, setPaymentAmount] = useState<number | undefined>();
@@ -88,6 +103,15 @@ const StudentFees = () => {
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const { selectedTerm } = useTerm();
   const recordPayment = useRecordPayment();
+
+  const excessAvailable = useMemo(
+    () =>
+      (excessCredits as any[]).reduce(
+        (sum, c) => sum + Number(c.amount || 0),
+        0,
+      ),
+    [excessCredits],
+  );
 
   const totals = useMemo(() => {
     const totalAmount = studentFees.reduce(
@@ -98,7 +122,11 @@ const StudentFees = () => {
       (a: number, f: any) => a + Number(f.discount || 0),
       0,
     );
-    // Paid = sum of completed payments (truth) — works even before any fee is assigned
+    const totalAllocated = studentFees.reduce(
+      (a: number, f: any) => a + Number(f.paid || 0),
+      0,
+    );
+    // Truth = sum of completed payments + any unspent excess credit.
     const completedPayments = (paymentHistory as any[]).filter((p) => {
       const s = String(p.status || "").toLowerCase();
       return (
@@ -108,33 +136,41 @@ const StudentFees = () => {
         s === "paid"
       );
     });
-    const totalPaid = completedPayments.reduce(
+    const totalReceived = completedPayments.reduce(
       (a: number, p: any) => a + Number(p.amount || 0),
       0,
     );
-    const totalAllocated = studentFees.reduce(
-      (a: number, f: any) => a + Number(f.paid || 0),
-      0,
-    );
-    const totalBalance = totalAmount - totalPaid; // negative => advance credit
-    const advanceCredit = Math.max(0, totalPaid - totalAllocated);
+    const totalPaid = totalAllocated; // what's been applied to fees
+    const totalBalance = Math.max(0, totalAmount - totalPaid); // never negative
     return {
       totalAmount,
       totalDiscount,
       totalPaid,
+      totalReceived,
       totalBalance,
       totalAllocated,
-      advanceCredit,
+      advanceCredit: excessAvailable,
     };
-  }, [studentFees, paymentHistory]);
+  }, [studentFees, paymentHistory, excessAvailable]);
 
   const overallStatus = useMemo(() => {
-    if (totals.totalAmount === 0 && totals.totalPaid === 0) return "no_fees";
-    if (totals.totalBalance <= 0 && totals.totalAmount > 0) return "paid";
-    if (totals.totalBalance < 0) return "advance";
+    if (totals.totalAmount === 0 && totals.advanceCredit === 0)
+      return "no_fees";
+    if (totals.totalAmount > 0 && totals.totalBalance === 0) return "paid";
+    if (totals.advanceCredit > 0 && totals.totalBalance === 0) return "advance";
     if (totals.totalPaid > 0 && totals.totalBalance > 0) return "partial";
     return "pending";
   }, [totals]);
+
+  const applyExcess = async (creditId: string) => {
+    try {
+      await api.post(`/finance/excess-credits/${creditId}/apply`, {});
+      toast.success("Excess credit applied to outstanding fees");
+      refetchExcess();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to apply excess");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -315,10 +351,10 @@ const StudentFees = () => {
         </Card>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             {
-              label: "Total Fees",
+              label: "Total Payable",
               value: formatKES(totals.totalAmount),
               color: "text-foreground",
             },
@@ -328,12 +364,12 @@ const StudentFees = () => {
               color: "text-primary",
             },
             {
-              label: "Paid",
+              label: "Total Paid",
               value: formatKES(totals.totalPaid),
               color: "text-green-600",
             },
             {
-              label: totals.totalBalance < 0 ? "Advance Credit" : "Balance",
+              label: "Balance",
               value:
                 overallStatus === "no_fees"
                   ? "—"
@@ -342,6 +378,17 @@ const StudentFees = () => {
                     : formatKES(totals.totalBalance),
               color:
                 totals.totalBalance > 0 ? "text-red-500" : "text-green-600",
+            },
+            {
+              label: "Excess Available",
+              value:
+                totals.advanceCredit > 0
+                  ? formatKES(totals.advanceCredit)
+                  : "—",
+              color:
+                totals.advanceCredit > 0
+                  ? "text-green-600"
+                  : "text-muted-foreground",
             },
           ].map((s) => (
             <Card key={s.label}>
@@ -357,13 +404,30 @@ const StudentFees = () => {
 
         {totals.advanceCredit > 0 && (
           <Card className="border-green-500/30 bg-green-500/5">
-            <CardContent className="p-3 text-sm flex items-center gap-2">
-              <Scale className="h-4 w-4 text-green-600" />
-              <span className="text-foreground">
-                <strong>{formatKES(totals.advanceCredit)}</strong> received but
-                not yet allocated to any fee. It will auto-apply when fees are
-                assigned.
+            <CardContent className="p-3 text-sm flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <Scale className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <span className="flex-1 text-foreground">
+                <strong>{formatKES(totals.advanceCredit)}</strong> in excess
+                credit is available.{" "}
+                {totals.totalBalance > 0
+                  ? "Apply it to clear outstanding fees."
+                  : "It will auto-apply when new fees are assigned."}
               </span>
+              {totals.totalBalance > 0 && excessCredits.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {excessCredits.map((c: any) => (
+                    <Button
+                      key={c.id}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      onClick={() => applyExcess(c.id)}
+                    >
+                      Apply {formatKES(Number(c.amount))}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -529,35 +593,86 @@ const StudentFees = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paymentHistory.map((p: any) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {p.received_at || p.created_at || "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {p.reference_number || p.mpesa_receipt || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {p.payment_method}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">
-                        {Number(p.amount).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={statusColor(
-                            p.status === "completed" || p.status === "succeeded"
-                              ? "paid"
-                              : p.status,
-                          )}
-                        >
-                          {p.status || "completed"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  paymentHistory.map((p: any) => {
+                    const allocs = (allocationHistory as any[]).filter(
+                      (a) => a.payment_id === p.id,
+                    );
+                    const allocated = allocs.reduce(
+                      (sum, a) => sum + Number(a.amount || 0),
+                      0,
+                    );
+                    const unallocated = Math.max(
+                      0,
+                      Number(p.amount || 0) - allocated,
+                    );
+                    return (
+                      <Fragment key={p.id}>
+                        <TableRow key={p.id}>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {p.received_at || p.created_at || "—"}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {p.reference_number || p.mpesa_receipt || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {p.payment_method}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-green-600">
+                            {Number(p.amount).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={statusColor(
+                                p.status === "completed" ||
+                                  p.status === "succeeded"
+                                  ? "paid"
+                                  : p.status === "unallocated"
+                                    ? "overdue"
+                                    : p.status,
+                              )}
+                            >
+                              {p.status || "completed"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                        {(allocs.length > 0 || unallocated > 0) && (
+                          <TableRow
+                            key={`${p.id}-alloc`}
+                            className="bg-muted/20"
+                          >
+                            <TableCell colSpan={5} className="py-2">
+                              <div className="text-[11px] text-muted-foreground space-y-0.5 pl-4">
+                                {allocs.map((a: any) => (
+                                  <div
+                                    key={a.id}
+                                    className="flex justify-between"
+                                  >
+                                    <span>
+                                      → {a.fee_name || "Fee"}
+                                      {a.term_name ? ` (${a.term_name})` : ""}
+                                    </span>
+                                    <span className="font-mono text-green-600">
+                                      {Number(a.amount).toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                                {unallocated > 0 && (
+                                  <div className="flex justify-between text-orange-500">
+                                    <span>→ Unallocated (excess credit)</span>
+                                    <span className="font-mono">
+                                      {unallocated.toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
