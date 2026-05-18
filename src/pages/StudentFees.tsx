@@ -38,13 +38,16 @@ const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 const StudentFees = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
+  const { selectedTerm } = useTerm();
   const { data: student, isLoading } = useStudentWithFees(studentId);
 
   const { data: studentFees = [] } = useQuery({
-    queryKey: ["student-fee-items", studentId],
+    queryKey: ["student-fee-items", studentId, selectedTerm?.id],
     queryFn: async () => {
       try {
-        const data = await api.get<any>(`/finance/student-fees/${studentId}`);
+        const params = new URLSearchParams();
+        if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
+        const data = await api.get<any>(`/finance/student-fees/${studentId}?${params}`);
         return (data?.data || data || []) as any[];
       } catch {
         return [];
@@ -101,7 +104,6 @@ const StudentFees = () => {
   const [paymentAmount, setPaymentAmount] = useState<number | undefined>();
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
-  const { selectedTerm } = useTerm();
   const recordPayment = useRecordPayment();
 
   const excessAvailable = useMemo(
