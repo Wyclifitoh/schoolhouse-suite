@@ -42,6 +42,9 @@ import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import Homework from "./pages/Homework";
 import StudentProfile from "./pages/StudentProfile";
+import FinanceAudit from "./pages/FinanceAudit";
+import FeeAdjustments from "./pages/FeeAdjustments";
+import Reconciliation from "./pages/Reconciliation";
 
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
@@ -124,6 +127,9 @@ const App = () => (
                 <Route path="/excess-payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><ExcessPayments /></ProtectedRoute>} />
                 <Route path="/unallocated-payments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><UnallocatedPayments /></ProtectedRoute>} />
                 <Route path="/fee-reminders" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><FeeReminders /></ProtectedRoute>} />
+                <Route path="/fee-adjustments" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><FeeAdjustments /></ProtectedRoute>} />
+                <Route path="/finance-audit" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "auditor"]}><FinanceAudit /></ProtectedRoute>} />
+                <Route path="/reports/reconciliation" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer", "auditor"]}><Reconciliation /></ProtectedRoute>} />
 
                 {/* Expenses Module */}
                 <Route path="/expenses" element={<ProtectedRoute roles={["super_admin", "school_admin", "deputy_admin", "finance_officer"]}><Expenses /></ProtectedRoute>} />

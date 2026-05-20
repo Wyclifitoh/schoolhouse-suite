@@ -170,6 +170,20 @@ export function useBulkAssignFee() {
   });
 }
 
+export function useCloseTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { from_term_id: string; to_term_id: string }) =>
+      api.post<any>("/finance/terms/close", body),
+    onSuccess: (d: any) => {
+      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      qc.invalidateQueries({ queryKey: ["carry-forwards"] });
+      toast.success(`Term closed — ${d?.promoted ?? 0} students promoted`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 export function useBulkUnassignFee() {
   const qc = useQueryClient();
   return useMutation({
@@ -223,5 +237,86 @@ export function useRecordPayment() {
       toast.success("Payment recorded successfully");
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ---- Phase 4 ----
+export function useFinanceAuditLogs(filters?: { action?: string; studentId?: string; limit?: number }) {
+  return useQuery({
+    queryKey: ["finance-audit-logs", filters],
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      if (filters?.action) p.set("action", filters.action);
+      if (filters?.studentId) p.set("student_id", filters.studentId);
+      if (filters?.limit) p.set("limit", String(filters.limit));
+      const d = await api.get<any>(`/finance/audit-logs?${p}`);
+      return d?.data || d || [];
+    },
+  });
+}
+
+export function useFeeAdjustments(status?: string) {
+  return useQuery({
+    queryKey: ["fee-adjustments", status],
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      if (status) p.set("status", status);
+      const d = await api.get<any>(`/finance/adjustments?${p}`);
+      return d?.data || d || [];
+    },
+  });
+}
+
+export function useCreateFeeAdjustment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { student_fee_id: string; adjustment_type: string; amount: number; reason: string }) =>
+      api.post<any>("/finance/adjustments", body),
+    onSuccess: (d: any) => {
+      qc.invalidateQueries({ queryKey: ["fee-adjustments"] });
+      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items"] });
+      toast.success(d?.requires_approval ? "Adjustment submitted for approval" : "Adjustment applied");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDecideFeeAdjustment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision, rejected_reason }: { id: string; decision: "approve" | "reject"; rejected_reason?: string }) =>
+      api.post<any>(`/finance/adjustments/${id}/decision`, { decision, rejected_reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-adjustments"] });
+      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      toast.success("Decision recorded");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useReconciliation(date?: string) {
+  return useQuery({
+    queryKey: ["reconciliation", date],
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      if (date) p.set("date", date);
+      const d = await api.get<any>(`/finance/reconciliation?${p}`);
+      return d?.data || d;
+    },
+  });
+}
+
+export function useStudentExcessCredits(studentId?: string) {
+  return useQuery({
+    queryKey: ["excess-credits", studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const p = new URLSearchParams();
+      if (studentId) p.set("student_id", studentId);
+      const d = await api.get<any>(`/finance/excess-credits?${p}`);
+      return d?.data || d || [];
+    },
   });
 }
