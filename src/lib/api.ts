@@ -4,6 +4,8 @@ const API_BASE =
 class ApiClient {
   private token: string | null = null;
   private schoolId: string | null = null;
+  private academicYearId: string | null = null;
+  private termId: string | null = null;
 
   setToken(token: string | null) {
     this.token = token;
@@ -11,8 +13,15 @@ class ApiClient {
   setSchoolId(id: string | null) {
     this.schoolId = id;
   }
+  setSession(academicYearId: string | null, termId: string | null) {
+    this.academicYearId = academicYearId;
+    this.termId = termId;
+  }
   getToken() {
     return this.token;
+  }
+  getSession() {
+    return { academicYearId: this.academicYearId, termId: this.termId };
   }
 
   private async request<T>(
@@ -25,6 +34,9 @@ class ApiClient {
     };
     if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
     if (this.schoolId) headers["X-School-ID"] = this.schoolId;
+    if (this.academicYearId)
+      headers["X-Academic-Year-Id"] = this.academicYearId;
+    if (this.termId) headers["X-Term-Id"] = this.termId;
 
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
     const raw = await res.text();
@@ -70,8 +82,11 @@ class ApiClient {
 
 export const api = new ApiClient();
 
-// Restore token from localStorage on load
+// Restore from localStorage on load
 const savedToken = localStorage.getItem("chuo-token");
 if (savedToken) api.setToken(savedToken);
 const savedSchool = localStorage.getItem("chuo-school-id");
 if (savedSchool) api.setSchoolId(savedSchool);
+const savedYear = localStorage.getItem("chuo-academic-year-id");
+const savedTerm = localStorage.getItem("chuo-term-id");
+if (savedYear || savedTerm) api.setSession(savedYear, savedTerm);
