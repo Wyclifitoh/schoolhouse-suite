@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStudentWithFees, useUpdateStudent, useSoftDeleteStudent, useStudentParents, useStudentSiblings } from "@/hooks/useStudents";
+import { useStudentExcessCredits } from "@/hooks/useFinance";
 import { useGrades } from "@/hooks/useGrades";
 import {
   ArrowLeft, User, GraduationCap, Phone, Calendar, Edit,
@@ -37,6 +38,7 @@ const StudentProfile = () => {
   const { data: siblings = [] } = useStudentSiblings(studentId, student?.parent_phone);
   const { data: grades = [] } = useGrades();
   const updateStudent = useUpdateStudent();
+  const { data: excessCredits = [] } = useStudentExcessCredits(studentId);
   const softDelete = useSoftDeleteStudent();
 
   const [editData, setEditData] = useState<Record<string, any>>({});
@@ -381,6 +383,22 @@ const StudentProfile = () => {
                 <p className={`text-xl font-bold mt-1 ${student.balance > 0 ? "text-destructive" : "text-success"}`}>{formatKES(student.balance)}</p>
               </CardContent></Card>
             </div>
+            {excessCredits.length > 0 && (
+              <Card className="border-success/40 bg-success/5">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Available Excess / Advance Credits</p>
+                      <p className="text-2xl font-bold text-success mt-1">
+                        {formatKES(excessCredits.reduce((s: number, c: any) => s + Number(c.remaining_amount || c.amount || 0), 0))}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">{excessCredits.length} active credit{excessCredits.length === 1 ? "" : "s"} — applicable on next charge</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => navigate("/excess-payments")}>Manage</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Button onClick={() => navigate(`/student-fees/${student.id}`)}>
               <Wallet className="h-4 w-4 mr-1.5" />View Full Fee Details & Payments
             </Button>

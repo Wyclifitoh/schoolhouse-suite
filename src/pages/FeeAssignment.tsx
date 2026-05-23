@@ -18,11 +18,11 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStudents } from "@/hooks/useStudents";
-import { useFeeStructures, useFeeDiscounts, useFeeAssignments, useBulkAssignFee, useBulkUnassignFee } from "@/hooks/useFinance";
+import { useFeeStructures, useFeeAssignments, useBulkAssignFee, useBulkUnassignFee } from "@/hooks/useFinance";
 import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
 import {
-  Search, Users, CheckCircle, ListChecks, Banknote, Percent, AlertTriangle,
+  Search, Users, CheckCircle, ListChecks, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -38,11 +38,9 @@ const FeeAssignment = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [originallyAssigned, setOriginallyAssigned] = useState<Set<string>>(new Set());
   const [paidLocked, setPaidLocked] = useState<Set<string>>(new Set());
-  const [selectedDiscount, setSelectedDiscount] = useState("none");
   const [showConfirm, setShowConfirm] = useState(false);
 
   const { data: feeStructures = [], isLoading: structuresLoading } = useFeeStructures();
-  const { data: feeDiscounts = [] } = useFeeDiscounts();
   const { data: classes = [] } = useClasses();
   const { data: streamsAll = [] } = useStreams(gradeFilter || undefined);
 
@@ -95,15 +93,11 @@ const FeeAssignment = () => {
   };
 
   const getSelectedFeeInfo = () => fees.find((f: any) => f.id === selectedFee);
-  const getDiscountInfo = () => (feeDiscounts as any[]).find((d: any) => d.id === selectedDiscount);
 
   const perStudentAmount = useMemo(() => {
     const fee = getSelectedFeeInfo();
-    if (!fee) return 0;
-    const d = getDiscountInfo();
-    if (!d) return fee.amount;
-    return d.type === "percentage" ? fee.amount * (1 - d.value / 100) : Math.max(0, fee.amount - d.value);
-  }, [selectedFee, selectedDiscount, fees, feeDiscounts]);
+    return fee?.amount || 0;
+  }, [selectedFee, fees]);
 
   const additions = Array.from(selected).filter(id => !originallyAssigned.has(id));
   const removals = Array.from(originallyAssigned).filter(id => !selected.has(id) && !paidLocked.has(id));
@@ -112,9 +106,6 @@ const FeeAssignment = () => {
     setShowConfirm(false);
     const fee = getSelectedFeeInfo();
     if (!fee) return;
-    const discountAmount = getDiscountInfo()
-      ? (getDiscountInfo().type === "percentage" ? fee.amount * (getDiscountInfo().value / 100) : getDiscountInfo().value)
-      : 0;
     try {
       if (additions.length) {
         await bulkAssign.mutateAsync({
@@ -122,7 +113,6 @@ const FeeAssignment = () => {
           term_id: selectedTerm?.id || null,
           academic_year_id: currentAcademicYear?.id || null,
           student_ids: additions,
-          discount_amount: discountAmount,
         });
       }
       if (removals.length) {
@@ -139,7 +129,7 @@ const FeeAssignment = () => {
   };
 
   const feeSelected = !!selectedFee;
-  const totalDelta = additions.length - removals.length;
+  
   const toggleStreamFilter = (id: string) =>
     setStreamFilters(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const templatesLoading = structuresLoading;
@@ -185,34 +175,9 @@ const FeeAssignment = () => {
 
           <Card className={!feeSelected ? "opacity-50 pointer-events-none" : "border-primary/20"}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
-                Apply Discount (Optional)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <button onClick={() => setSelectedDiscount("none")}
-                  className={`text-left p-3 rounded-xl border-2 transition-all ${selectedDiscount === "none" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
-                  <span className="font-medium text-foreground text-sm">No Discount</span>
-                  <p className="text-xs text-muted-foreground">Full amount applies</p>
-                </button>
-                {(feeDiscounts as any[]).map((d: any) => (
-                  <button key={d.id} onClick={() => setSelectedDiscount(d.id)}
-                    className={`text-left p-3 rounded-xl border-2 transition-all ${selectedDiscount === d.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
-                    <span className="font-medium text-foreground text-sm">{d.name}</span>
-                    <p className="text-sm font-bold text-success">{d.type === "percentage" ? `${d.value}% off` : `${formatKES(d.value)} off`}</p>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className={!feeSelected ? "opacity-50 pointer-events-none" : "border-primary/20"}>
-            <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
                   Select Students
                   {selected.size > 0 && <Badge className="bg-primary/10 text-primary border-0 ml-2">{selected.size} selected</Badge>}
                 </CardTitle>

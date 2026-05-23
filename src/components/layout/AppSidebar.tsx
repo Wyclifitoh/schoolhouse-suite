@@ -4,7 +4,7 @@ import {
   MessageSquare, BarChart3, Wallet, ArrowUpRight, UserCircle, Library,
   ChevronDown, ShoppingBag, Sparkles, ListChecks, Building2,
   Shield, Truck, Bell, Briefcase, CalendarDays, DollarSign, Contact,
-  FileText, PenTool, Clock, Layers, UserCheck, FolderOpen,
+  FileText, PenTool, Clock, Layers, UserCheck, FolderOpen, Percent, Scale,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
@@ -55,9 +55,13 @@ const allNav = {
     items: [
       { title: "Finance", url: "/finance", icon: Banknote, roles: FINANCE_ROLES },
       { title: "Fee Assignment", url: "/fee-assignment", icon: ListChecks, roles: FINANCE_ROLES },
+      { title: "Fee Discounts", url: "/fee-discounts", icon: Percent, roles: FINANCE_ROLES },
       { title: "Payments", url: "/payments", icon: Receipt, roles: [...FINANCE_ROLES, "front_office"] as AppRole[] },
       { title: "Excess Payments", url: "/excess-payments", icon: Wallet, roles: FINANCE_ROLES },
+      { title: "Unallocated Payments", url: "/unallocated-payments", icon: Wallet, roles: FINANCE_ROLES },
       { title: "Fee Reminders", url: "/fee-reminders", icon: Bell, roles: FINANCE_ROLES },
+      { title: "Fee Adjustments", url: "/fee-adjustments", icon: Scale, roles: FINANCE_ROLES },
+      { title: "Audit Log", url: "/finance-audit", icon: Shield, roles: FINANCE_ROLES },
     ],
   },
   expenses: {
@@ -83,6 +87,7 @@ const allNav = {
     icon: BarChart3,
     items: [
       { title: "Finance Reports", url: "/reports/finance", icon: Banknote, roles: [...FINANCE_ROLES, "auditor"] as AppRole[] },
+      { title: "Reconciliation", url: "/reports/reconciliation", icon: Scale, roles: [...FINANCE_ROLES, "auditor"] as AppRole[] },
       { title: "Student Reports", url: "/reports/students", icon: GraduationCap, roles: [...ADMIN_ROLES, "teacher"] as AppRole[] },
       { title: "Attendance Reports", url: "/reports/attendance", icon: ClipboardList, roles: ACADEMIC_ROLES },
       { title: "Exam Reports", url: "/reports/examinations", icon: BookOpen, roles: ACADEMIC_ROLES },

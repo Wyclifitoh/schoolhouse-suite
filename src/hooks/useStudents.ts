@@ -53,7 +53,11 @@ export function useStudentWithFees(studentId: string | undefined) {
         api.get<any[]>(`/finance/student-balance/${studentId}`).catch(() => []),
       ]);
       const total_fees = (balance || []).reduce((s: number, b: any) => s + Number(b.total_due || 0), 0);
-      const total_paid = (balance || []).reduce((s: number, b: any) => s + Number(b.total_paid || 0), 0);
+      // total_paid uses effective paid (allocated OR received — set by backend)
+      const total_paid = (balance || []).reduce(
+        (s: number, b: any) => s + Number(b.total_paid ?? b.total_received ?? 0),
+        0,
+      );
       return { ...student, total_fees, total_paid, balance: total_fees - total_paid } as StudentWithFees;
     },
     enabled: !!studentId,
