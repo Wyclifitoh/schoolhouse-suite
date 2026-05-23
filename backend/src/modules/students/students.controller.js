@@ -1,5 +1,5 @@
-const studentsService = require('./students.service');
-const { success, error } = require('../../utils/response');
+const studentsService = require("./students.service");
+const { success, error } = require("../../utils/response");
 
 const list = async (req, res) => {
   try {
@@ -28,9 +28,25 @@ const create = async (req, res) => {
   }
 };
 
+const bulkImport = async (req, res) => {
+  try {
+    const result = await studentsService.bulkImport(
+      req.schoolId,
+      req.body.students || req.body.rows || [],
+    );
+    return success(res, result, 201);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
 const update = async (req, res) => {
   try {
-    const student = await studentsService.update(req.params.id, req.schoolId, req.body);
+    const student = await studentsService.update(
+      req.params.id,
+      req.schoolId,
+      req.body,
+    );
     return success(res, student);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
@@ -39,7 +55,10 @@ const update = async (req, res) => {
 
 const deactivate = async (req, res) => {
   try {
-    const student = await studentsService.deactivate(req.params.id, req.schoolId);
+    const student = await studentsService.deactivate(
+      req.params.id,
+      req.schoolId,
+    );
     return success(res, student);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
@@ -48,11 +67,23 @@ const deactivate = async (req, res) => {
 
 const getSiblings = async (req, res) => {
   try {
-    const siblings = await studentsService.getSiblings(req.schoolId, req.query.parent_phone, req.query.exclude_id);
+    const siblings = await studentsService.getSiblings(
+      req.schoolId,
+      req.query.parent_phone,
+      req.query.exclude_id,
+    );
     return success(res, siblings);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
 };
 
-module.exports = { list, getById, create, update, deactivate, getSiblings };
+module.exports = {
+  list,
+  getById,
+  create,
+  bulkImport,
+  update,
+  deactivate,
+  getSiblings,
+};

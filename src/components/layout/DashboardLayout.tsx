@@ -757,7 +757,7 @@ function SessionTimeoutDialog({
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  title: string;
+  title?: string;
   subtitle?: string;
 }
 

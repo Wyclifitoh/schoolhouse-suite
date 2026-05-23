@@ -47,6 +47,13 @@ import FeeAdjustments from "./pages/FeeAdjustments";
 import Reconciliation from "./pages/Reconciliation";
 import Archives from "./pages/Archives";
 
+// Exam Module v2
+import MarksEntry from "./pages/exams/MarksEntry";
+import ExamReview from "./pages/exams/ExamReview";
+import ExamAnalytics from "./pages/exams/ExamAnalytics";
+import ReportCards from "./pages/exams/ReportCards";
+import AssessmentSettings from "./pages/settings/AssessmentSettings";
+
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
 import TeacherTimetable from "./pages/academics/TeacherTimetable";
@@ -194,6 +201,11 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/exams/entry" element={<ProtectedRoute><MarksEntry /></ProtectedRoute>} />
+                  <Route path="/exams/review" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin","teacher"]}><ExamReview /></ProtectedRoute>} />
+                  <Route path="/exams/analytics" element={<ProtectedRoute><ExamAnalytics /></ProtectedRoute>} />
+                  <Route path="/reports/cards" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin","teacher"]}><ReportCards /></ProtectedRoute>} />
+                  <Route path="/settings/academics" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}><AssessmentSettings /></ProtectedRoute>} />
                   <Route
                     path="/homework"
                     element={

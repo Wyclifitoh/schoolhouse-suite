@@ -6,4 +6,7 @@ router.post('/', attendanceController.mark);
 router.post('/bulk', attendanceController.bulkMark);
 router.get('/student/:studentId', attendanceController.getByStudent);
 
+router.get("/", attendanceController.getRegister);
+router.post("/bulk", attendanceController.submitAttendance);
+
 module.exports = router;

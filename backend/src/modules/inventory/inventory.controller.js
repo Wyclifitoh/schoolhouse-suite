@@ -129,6 +129,85 @@ const createTransaction = async (req, res) => {
       201,
     );
   } catch (err) {
+    console.error("Error creating transaction:", err);
+    return error(res, err.message, 500);
+  }
+};
+
+const listSuppliers = async (req, res) => {
+  try {
+    const data = await svc.listSuppliers(req.schoolId);
+    return success(res, data);
+  } catch (err) {
+    console.error("Error listing suppliers:", err);
+    return error(res, err.message, 500);
+  }
+};
+
+const createSupplier = async (req, res) => {
+  try {
+    const data = await svc.createSupplier({
+      ...req.body,
+      school_id: req.schoolId,
+    });
+    return success(res, data, 201);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const listPOs = async (req, res) => {
+  try {
+    const data = await svc.listPOs(req.schoolId);
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const createPO = async (req, res) => {
+  try {
+    const data = await svc.createPO(req.schoolId, req.body);
+    return success(res, data, 201);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const updatePOStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const data = await svc.updatePOStatus(req.params.id, status);
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const getPOById = async (req, res) => {
+  try {
+    const data = await svc.getPOById(req.params.id, req.schoolId);
+    if (!data) return error(res, "Purchase Order not found", 404);
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const getPOItems = async (req, res) => {
+  try {
+    const data = await svc.getPOItems(req.params.id);
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const updatePO = async (req, res) => {
+  try {
+    const data = await svc.updatePO(req.params.id, req.schoolId, req.body);
+    return success(res, data);
+  } catch (err) {
     return error(res, err.message, 500);
   }
 };

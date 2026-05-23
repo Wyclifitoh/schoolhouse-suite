@@ -3,8 +3,8 @@
 -- Run this file to create all tables from scratch
 -- ============================================
 
-CREATE DATABASE IF NOT EXISTS chuo_database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE chuo_database;
+CREATE DATABASE IF NOT EXISTS chuo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE chuo;
 
 -- ============================================
 -- 1. CORE / TENANCY
@@ -98,7 +98,7 @@ CREATE TABLE school_role_permissions (
 );
 
 -- ============================================
--- 3. ACADEMIC STRUCTURE
+-- 3a. ACADEMIC STRUCTURE
 -- ============================================
 
 CREATE TABLE academic_years (
@@ -136,19 +136,101 @@ CREATE TABLE grades (
   FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
 );
 
+CREATE TABLE designations (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
+);
+
+CREATE TABLE departments (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
+);
+
+CREATE TABLE staff (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  user_id CHAR(36),
+  employee_number VARCHAR(50),
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  email VARCHAR(255),
+  phone VARCHAR(30),
+  gender ENUM('Male','Female','Other'),
+  date_of_birth DATE,
+  join_date DATE,
+  department_id CHAR(36),
+  designation_id CHAR(36),
+  qualification VARCHAR(255),
+  experience_years INT DEFAULT 0,
+  salary DECIMAL(15,2) DEFAULT 0,
+  status ENUM('active','inactive','on_leave','terminated') DEFAULT 'active',
+  role ENUM('manager','accountant','librarian','teacher','receptionist') NOT NULL,
+  photo_url TEXT,
+  address TEXT,
+  id_number VARCHAR(50),
+  kra_pin VARCHAR(50),
+  nhif_number VARCHAR(50),
+  nssf_number VARCHAR(50),
+  bank_name VARCHAR(100),
+  bank_account VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+  FOREIGN KEY (designation_id) REFERENCES designations(id) ON DELETE SET NULL
+);
+
+CREATE TABLE teachers (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  staff_id CHAR(36) NOT NULL UNIQUE,
+  tsc_number VARCHAR(50) UNIQUE, -- Specific to Kenyan context
+  specialization VARCHAR(255), -- e.g., "Maths/Physics"
+  is_class_teacher BOOLEAN DEFAULT FALSE,
+  bio TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE
+);
+
 CREATE TABLE streams (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
   school_id CHAR(36) NOT NULL,
-  grade_id CHAR(36) NULL,
-  academic_year_id CHAR(36) NULL,
-  name VARCHAR(100) NOT NULL,
-  description TEXT NULL,
-  capacity INT,
-  class_teacher_id CHAR(36),
+  grade_id CHAR(36) NOT NULL, -- Ties it to Grade 1, Grade 2, etc.
+  name VARCHAR(100) NOT NULL, -- e.g., "North", "Blue", "Mercury"
+  capacity INT DEFAULT 40,
+  room_number VARCHAR(50),
+  class_teacher_id CHAR(36),  -- Links to teachers.id
+  is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE SET NULL,
-  FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE SET NULL
+  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE,
+  FOREIGN KEY (class_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE grade_definitions (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  display_name VARCHAR(100) NOT NULL, -- e.g., "Grade 1", "PP1", "Form 4"
+  short_name VARCHAR(20),             -- e.g., "G1", "F4"
+  level ENUM('pre_primary','primary','junior_secondary','senior_secondary') NOT NULL,
+  curriculum_type VARCHAR(20) DEFAULT 'CBC',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_school_grade_name (school_id, display_name)
 );
 
 CREATE TABLE subjects (
@@ -161,28 +243,21 @@ CREATE TABLE subjects (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
 );
-
 -- ============================================
--- 4. STUDENTS
+-- 3b. CBC ASSESSMENT STRUCTURE
 -- ============================================
 
-CREATE TABLE parents (
+CREATE TABLE cbc_strands (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
   school_id CHAR(36) NOT NULL,
-  user_id CHAR(36),
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  phone VARCHAR(30) NOT NULL,
-  alt_phone VARCHAR(30),
-  email VARCHAR(255),
-  id_number VARCHAR(50),
-  occupation VARCHAR(255),
-  employer VARCHAR(255),
-  address TEXT,
+  subject_id CHAR(36) NOT NULL,
+  grade_id CHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL, -- e.g., "Numbers", "Measurement"
+  description TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE
 );
 
 CREATE TABLE students (
@@ -220,6 +295,44 @@ CREATE TABLE students (
   UNIQUE KEY uq_school_admission (school_id, admission_number)
 );
 
+CREATE TABLE cbc_assessments (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  student_id CHAR(36) NOT NULL,
+  strand_id CHAR(36) NOT NULL,
+  term_id CHAR(36) NOT NULL,
+  score TINYINT COMMENT '1: Below, 2: Approaching, 3: Meeting, 4: Exceeding',
+  teacher_remarks TEXT,
+  assessed_by CHAR(36),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (strand_id) REFERENCES cbc_strands(id) ON DELETE CASCADE,
+  FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- 4. STUDENTS
+-- ============================================
+
+CREATE TABLE parents (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  user_id CHAR(36),
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(30) NOT NULL,
+  alt_phone VARCHAR(30),
+  email VARCHAR(255),
+  id_number VARCHAR(50),
+  occupation VARCHAR(255),
+  employer VARCHAR(255),
+  address TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE student_parents (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
   student_id CHAR(36) NOT NULL,
@@ -236,62 +349,6 @@ CREATE TABLE student_parents (
 -- ============================================
 -- 5. STAFF / HR
 -- ============================================
-
-CREATE TABLE departments (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  head_staff_id CHAR(36),
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE designations (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE staff (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  user_id CHAR(36),
-  employee_number VARCHAR(50),
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  email VARCHAR(255),
-  phone VARCHAR(30),
-  gender ENUM('Male','Female','Other'),
-  date_of_birth DATE,
-  join_date DATE,
-  department_id CHAR(36),
-  designation_id CHAR(36),
-  qualification VARCHAR(255),
-  experience_years INT DEFAULT 0,
-  salary DECIMAL(15,2) DEFAULT 0,
-  status ENUM('active','inactive','on_leave','terminated') DEFAULT 'active',
-  photo_url TEXT,
-  address TEXT,
-  id_number VARCHAR(50),
-  kra_pin VARCHAR(50),
-  nhif_number VARCHAR(50),
-  nssf_number VARCHAR(50),
-  bank_name VARCHAR(100),
-  bank_account VARCHAR(50),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
-  FOREIGN KEY (designation_id) REFERENCES designations(id) ON DELETE SET NULL
-);
 
 CREATE TABLE leave_types (
   id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -449,7 +506,6 @@ CREATE TABLE student_fees (
   school_id CHAR(36) NOT NULL,
   student_id CHAR(36) NOT NULL,
   fee_template_id CHAR(36),
-  fee_structure_id CHAR(36),
   term_id CHAR(36),
   academic_year_id CHAR(36),
   ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',
@@ -719,6 +775,49 @@ CREATE TABLE inventory_transactions (
   FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
 );
 
+CREATE TABLE inventory_suppliers (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  contact_person VARCHAR(255),
+  phone VARCHAR(50),
+  email VARCHAR(255),
+  category VARCHAR(100),
+  location TEXT,
+  status ENUM('active', 'inactive') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
+);
+
+CREATE TABLE inventory_purchase_orders (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  school_id CHAR(36) NOT NULL,
+  supplier_id CHAR(36) NOT NULL,
+  order_number VARCHAR(50) NOT NULL UNIQUE,
+  order_date DATE NOT NULL,
+  expected_date DATE,
+  shipping_cost DECIMAL(15,2) DEFAULT 0.00,
+  discount_amount DECIMAL(15,2) DEFAULT 0.00,
+  total_amount DECIMAL(15,2) DEFAULT 0,
+  status ENUM('pending', 'ordered', 'in_transit', 'delivered', 'cancelled') DEFAULT 'pending',
+  payment_status ENUM('unpaid', 'partially_paid', 'paid') DEFAULT 'unpaid',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+  FOREIGN KEY (supplier_id) REFERENCES inventory_suppliers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE inventory_po_items (
+  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  po_id CHAR(36) NOT NULL,
+  item_id CHAR(36) NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(15,2) NOT NULL,
+  total_price DECIMAL(15,2) NOT NULL,
+  FOREIGN KEY (po_id) REFERENCES inventory_purchase_orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+);
+
 -- ============================================
 -- 14. HOMEWORK
 -- ============================================
@@ -881,43 +980,3 @@ CREATE INDEX idx_attendance_date ON student_attendance(date);
 CREATE INDEX idx_staff_school ON staff(school_id);
 CREATE INDEX idx_parents_school ON parents(school_id);
 CREATE INDEX idx_expenses_school ON expenses(school_id);
-
--- ============================================
--- TIMETABLE
--- ============================================
-CREATE TABLE IF NOT EXISTS timetable_entries (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  academic_year_id CHAR(36),
-  term_id CHAR(36),
-  grade_id CHAR(36) NOT NULL,
-  stream_id CHAR(36) NOT NULL,
-  subject_id CHAR(36) NOT NULL,
-  teacher_id CHAR(36),
-  day VARCHAR(15) NOT NULL,
-  period INT NOT NULL,
-  start_time VARCHAR(10),
-  end_time VARCHAR(10),
-  room VARCHAR(50),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE,
-  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
-  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
-  UNIQUE KEY uniq_slot (stream_id, day, period)
-);
-CREATE INDEX idx_tt_school ON timetable_entries(school_id);
-CREATE INDEX idx_tt_teacher ON timetable_entries(teacher_id);
-CREATE INDEX idx_tt_stream ON timetable_entries(stream_id);
-
--- ============================================================
--- IDEMPOTENT MIGRATIONS for existing databases
--- Run these on an existing DB to align with the latest schema
--- ============================================================
-
--- Streams: make grade_id and academic_year_id nullable so streams
--- can exist independently and be attached to a class later.
--- (Run only if your existing streams table still has them as NOT NULL.)
--- ALTER TABLE streams MODIFY COLUMN grade_id CHAR(36) NULL;
--- ALTER TABLE streams MODIFY COLUMN academic_year_id CHAR(36) NULL;
--- ALTER TABLE streams ADD COLUMN IF NOT EXISTS description TEXT NULL AFTER name;

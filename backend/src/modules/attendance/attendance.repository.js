@@ -1,31 +1,179 @@
-const { query } = require('../../config/database');
+const { query, queryOne } = require("../../config/database");
+const { v4: uuidv4 } = require("uuid");
 
-const findByClassAndDate = async (classId, schoolId, date) => {
-  const result = await query(
-    `SELECT a.*, s.full_name as student_name FROM attendance a JOIN students s ON s.id = a.student_id WHERE a.class_id = $1 AND a.school_id = $2 AND a.date = $3 ORDER BY s.full_name`,
-    [classId, schoolId, date]
-  );
-  return result.rows;
+/**
+ * Attendance is strictly session-scoped: every read filters by the active
+ * (academic_year_id, term_id) tuple and every write stamps them.
+ *
+ * NOTE: backend uses MySQL — placeholders are `?`, not `$1`.
+ */
+const findByClassAndDate = async (classId, schoolId, date, session = {}) => {
+  const params = [classId, schoolId, date];
+  let sql = `SELECT a.*, s.full_name as student_name
+             FROM attendance a
+             JOIN students s ON s.id = a.student_id
+             WHERE a.class_id = ? AND a.school_id = ? AND a.date = ?`;
+
+  if (session.academicYearId) {
+    sql += " AND a.academic_year_id = ?";
+    params.push(session.academicYearId);
+  }
+  if (session.termId) {
+    sql += " AND a.term_id = ?";
+    params.push(session.termId);
+  }
+
+  sql += " ORDER BY s.full_name";
+  const result = await query(sql, params);
+  return result; // Assuming query() returns rows directly
 };
 
-const upsert = async (data) => {
-  const result = await query(
-    `INSERT INTO attendance (school_id, student_id, class_id, date, status, marked_by) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (student_id, class_id, date) DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW() RETURNING *`,
-    [data.school_id, data.student_id, data.class_id, data.date, data.status, data.marked_by]
+const upsert = async (data, session = {}) => {
+  // Check if record exists
+  const existing = await queryOne(
+    "SELECT id FROM attendance WHERE student_id = ? AND class_id = ? AND date = ?",
+    [data.student_id, data.class_id, data.date],
   );
-  return result.rows[0];
+
+  if (existing) {
+    // Update existing record
+    await query(
+      `UPDATE attendance 
+       SET status = ?, 
+           marked_by = ?, 
+           academic_year_id = ?, 
+           term_id = ?, 
+           updated_at = NOW()
+       WHERE id = ?`,
+      [
+        data.status,
+        data.marked_by,
+        session.academicYearId || null,
+        session.termId || null,
+        existing.id,
+      ],
+    );
+    return queryOne("SELECT * FROM attendance WHERE id = ?", [existing.id]);
+  }
+
+  // Insert new record
+  const id = uuidv4();
+  await query(
+    `INSERT INTO attendance
+      (id, school_id, student_id, class_id, date, status, marked_by, academic_year_id, term_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      data.school_id,
+      data.student_id,
+      data.class_id,
+      data.date,
+      data.status,
+      data.marked_by,
+      session.academicYearId || null,
+      session.termId || null,
+    ],
+  );
+  return queryOne("SELECT * FROM attendance WHERE id = ?", [id]);
 };
 
-const getStudentAttendance = async (studentId, schoolId, { limit, offset }) => {
-  const result = await query(
-    `SELECT * FROM attendance WHERE student_id = $1 AND school_id = $2 ORDER BY date DESC LIMIT $3 OFFSET $4`,
-    [studentId, schoolId, limit, offset]
+const getStudentAttendance = async (
+  studentId,
+  schoolId,
+  { limit, offset },
+  session = {},
+) => {
+  const params = [studentId, schoolId];
+  let where = "student_id = ? AND school_id = ?";
+
+  if (session.academicYearId) {
+    where += " AND academic_year_id = ?";
+    params.push(session.academicYearId);
+  }
+  if (session.termId) {
+    where += " AND term_id = ?";
+    params.push(session.termId);
+  }
+
+  // Get paginated results
+  const rows = await query(
+    `SELECT * FROM attendance WHERE ${where} ORDER BY date DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   );
-  const countResult = await query(
-    `SELECT COUNT(*) FROM attendance WHERE student_id = $1 AND school_id = $2`,
-    [studentId, schoolId]
+
+  // Get total count
+  const countRows = await query(
+    `SELECT COUNT(*) AS count FROM attendance WHERE ${where}`,
+    params,
   );
-  return { rows: result.rows, total: parseInt(countResult.rows[0].count, 10) };
+
+  return {
+    rows,
+    total: Number(countRows[0]?.count || 0),
+  };
 };
 
-module.exports = { findByClassAndDate, upsert, getStudentAttendance };
+const getAttendanceRegister = async (schoolId, date, gradeId) => {
+  let sql = `
+    SELECT 
+      s.id AS student_id,
+      CONCAT(s.first_name, ' ', COALESCE(s.middle_name, ''), ' ', s.last_name) AS student_name,
+      s.admission_number,
+      s.current_grade_id,
+      a.id AS attendance_id,
+      a.date,
+      COALESCE(a.status, 'present') AS status, -- Defaults to present if unrecorded
+      CASE WHEN a.id IS NOT NULL THEN TRUE ELSE FALSE END AS is_marked
+    FROM students s
+    LEFT JOIN attendance a 
+      ON s.id = a.student_id AND a.date = ?
+    WHERE s.school_id = ?
+  `;
+
+  const params = [date, schoolId];
+
+  // Dynamic grade filtering if specified
+  if (gradeId && gradeId !== "all") {
+    sql += ` AND s.current_grade_id = ?`;
+    params.push(gradeId);
+  }
+
+  sql += ` ORDER BY s.first_name ASC`;
+  return await query(sql, params);
+};
+
+const bulkSaveAttendance = async (records, session = {}) => {
+  if (!records || records.length === 0) return 0;
+
+  // Build values for bulk insert
+  const values = records.map((r) => [
+    uuidv4(),
+    r.school_id,
+    r.student_id,
+    r.date,
+    r.status,
+    session.academicYearId || null,
+    session.termId || null,
+    r.marked_by || null,
+  ]);
+
+  const sql = `
+    INSERT INTO attendance (id, school_id, student_id, date, status, academic_year_id, term_id, marked_by)
+    VALUES ?
+    ON DUPLICATE KEY UPDATE 
+      status = VALUES(status),
+      marked_by = VALUES(marked_by),
+      updated_at = NOW()
+  `;
+
+  const result = await query(sql, [values]);
+  return result.affectedRows;
+};
+
+module.exports = {
+  findByClassAndDate,
+  upsert,
+  getStudentAttendance,
+  getAttendanceRegister,
+  bulkSaveAttendance,
+};

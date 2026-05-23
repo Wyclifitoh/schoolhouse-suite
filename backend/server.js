@@ -31,7 +31,7 @@ app.use("/api/v1", routes);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`CHUO API running on port ${PORT}`);
+  console.log(`CHUO API running on port ${PORT}...`);
 });
 
 module.exports = app;

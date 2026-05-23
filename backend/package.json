@@ -6,9 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "db:setup": "mysql -u root -p < schema.sql"
+    "db:setup": "mysql -u root -p < schema.sql",
+    "test": "node --test tests/*.test.js",
+    "lint:session": "node scripts/lint-session-isolation.js",
+    "ci": "npm run lint:session && npm test"
   },
   "dependencies": {
+    "axios": "^1.9.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
