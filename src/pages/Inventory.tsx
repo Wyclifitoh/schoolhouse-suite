@@ -78,6 +78,7 @@ import { api } from "@/lib/api";
 
 import { toast } from "@/hooks/use-toast";
 import PurchaseOrders from "@/components/inventory/PurchaseOrders";
+import { useStudents } from "@/hooks/useStudents";
 
 const statusConfig = {
   in_stock: {
@@ -566,16 +567,61 @@ const SellToStudent = () => {
     },
   });
 
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: studentsData, isLoading } = useStudents({
+    search: searchTerm,
+    enabled: true,
+  });
+
+  const studentList = Array.isArray(studentsData) ? studentsData : [];
+
+  const displayedStudents = studentList.slice(0, 10);
+
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
         <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-          <SelectTrigger className="max-w-xs rounded-lg">
-            <SelectValue placeholder="Select Student" />
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a student or walk-in" />
           </SelectTrigger>
+
           <SelectContent>
-            {/* Replace this with your actual students list query if needed */}
-            <SelectItem value="walk-in">Walk-in Customer</SelectItem>
+            <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border">
+              <input
+                type="text"
+                className="w-full px-2 py-1 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Search students..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <SelectItem
+              value="walk-in"
+              className="font-medium text-muted-foreground"
+            >
+              Walk-in Customer
+            </SelectItem>
+
+            {isLoading ? (
+              <div className="p-2 text-xs text-center text-muted-foreground">
+                Loading...
+              </div>
+            ) : displayedStudents.length === 0 && searchTerm ? (
+              <div className="p-2 text-xs text-center text-muted-foreground">
+                No students found
+              </div>
+            ) : (
+              displayedStudents.map((student) => (
+                <SelectItem key={student.id} value={student.id}>
+                  {student.first_name} {student.last_name}
+                  {student.admission_number
+                    ? ` (${student.admission_number})`
+                    : ""}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
 

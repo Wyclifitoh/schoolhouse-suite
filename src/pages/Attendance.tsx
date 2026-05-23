@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,93 +6,278 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { useGrades } from "@/hooks/useGrades";
-import { useStudentAttendance } from "@/hooks/useAttendance";
-import { Search, Download, ClipboardCheck, UserCheck, UserX, Clock, Filter, CalendarDays } from "lucide-react";
+import { useStudentAttendance, useSaveAttendance } from "@/hooks/useAttendance";
+import {
+  Search,
+  Download,
+  ClipboardCheck,
+  UserCheck,
+  UserX,
+  Clock,
+  Filter,
+  CalendarDays,
+} from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  present: { label: "Present", className: "bg-success/10 text-success border-0 hover:bg-success/20" },
-  absent: { label: "Absent", className: "bg-destructive/10 text-destructive border-0 hover:bg-destructive/20" },
-  late: { label: "Late", className: "bg-warning/10 text-warning border-0 hover:bg-warning/20" },
+  present: {
+    label: "Present",
+    className: "bg-success/10 text-success border-0 hover:bg-success/20",
+  },
+  absent: {
+    label: "Absent",
+    className:
+      "bg-destructive/10 text-destructive border-0 hover:bg-destructive/20",
+  },
+  late: {
+    label: "Late",
+    className: "bg-warning/10 text-warning border-0 hover:bg-warning/20",
+  },
 };
 
 const Attendance = () => {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
-  const today = format(new Date(), "yyyy-MM-dd");
-  const [localStatus, setLocalStatus] = useState<Record<string, string>>({});
+  const [selectedDate, setSelectedDate] = useState(
+    format(new Date(), "yyyy-MM-dd"),
+  );
 
-  const { data: records = [], isLoading } = useStudentAttendance(today, gradeFilter);
+  const [localStatus, setLocalStatus] = useState<
+    Record<string, "present" | "absent" | "late">
+  >({});
+
+  const { data: serverRecords = [], isLoading } = useStudentAttendance(
+    selectedDate,
+    gradeFilter,
+  );
   const { data: grades = [] } = useGrades();
+  const { mutate: saveAttendance, isPending: isSaving } = useSaveAttendance();
 
-  const filtered = records.filter((r: any) => {
+  useEffect(() => {
+    setLocalStatus({});
+  }, [serverRecords]);
+
+  const getStudentStatus = (studentId: string, serverStatus: string) => {
+    return (
+      localStatus[studentId] || (serverStatus as "present" | "absent" | "late")
+    );
+  };
+
+  const filtered = serverRecords.filter((r: any) => {
     if (!search) return true;
-    return r.student_name?.toLowerCase().includes(search.toLowerCase()) || r.admission_number?.toLowerCase().includes(search.toLowerCase());
+    return (
+      r.student_name?.toLowerCase().includes(search.toLowerCase()) ||
+      r.admission_number?.toLowerCase().includes(search.toLowerCase())
+    );
   });
 
-  const getStatus = (id: string, def: string) => localStatus[id] || def;
-  const presentCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "present").length;
-  const absentCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "absent").length;
-  const lateCount = filtered.filter((s: any) => getStatus(s.id, s.status) === "late").length;
+  const presentCount = filtered.filter(
+    (s: any) => getStudentStatus(s.student_id, s.status) === "present",
+  ).length;
+  const absentCount = filtered.filter(
+    (s: any) => getStudentStatus(s.student_id, s.status) === "absent",
+  ).length;
+  const lateCount = filtered.filter(
+    (s: any) => getStudentStatus(s.student_id, s.status) === "late",
+  ).length;
 
-  const toggleStatus = (id: string, current: string) => {
-    const cycle = ["present", "absent", "late"];
-    setLocalStatus(prev => ({ ...prev, [id]: cycle[(cycle.indexOf(current) + 1) % cycle.length] }));
+  const isAlreadyMarked =
+    serverRecords.length > 0 &&
+    serverRecords.some((r: any) => r.is_marked === 1);
+
+  const toggleStatus = (
+    studentId: string,
+    currentStatus: "present" | "absent" | "late",
+  ) => {
+    if (isAlreadyMarked) {
+      toast.error("This day's register is locked and cannot be altered.");
+      return;
+    }
+    const cycle: ("present" | "absent" | "late")[] = [
+      "present",
+      "absent",
+      "late",
+    ];
+    const nextStatus = cycle[(cycle.indexOf(currentStatus) + 1) % cycle.length];
+    setLocalStatus((prev) => ({ ...prev, [studentId]: nextStatus }));
+  };
+
+  const handleSaveBulkAttendance = () => {
+    if (filtered.length === 0) {
+      toast.error("No student records available to save.");
+      return;
+    }
+
+    const recordsToSubmit = filtered.map((s: any) => ({
+      student_id: s.student_id,
+      status: getStudentStatus(s.student_id, s.status),
+      remarks: "",
+    }));
+
+    saveAttendance(
+      { date: selectedDate, records: recordsToSubmit },
+      {
+        onSuccess: () => {
+          toast.success("Attendance successfully registered across roster!");
+          setLocalStatus({});
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || "Failed to submit attendance register.");
+        },
+      },
+    );
   };
 
   return (
-    <DashboardLayout title="Attendance" subtitle="Track daily student attendance">
+    <DashboardLayout
+      title="Attendance"
+      subtitle="Track daily student attendance sheets"
+    >
       <div className="grid gap-4 sm:grid-cols-4 mb-6">
-        <Card><CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><ClipboardCheck className="h-5 w-5 text-primary" /></div>
-          <div><p className="text-sm text-muted-foreground">Total</p>
-            {isLoading ? <Skeleton className="h-7 w-12" /> : <p className="text-2xl font-bold text-foreground">{filtered.length}</p>}</div>
-        </CardContent></Card>
-        <Card><CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10"><UserCheck className="h-5 w-5 text-success" /></div>
-          <div><p className="text-sm text-muted-foreground">Present</p><p className="text-2xl font-bold text-foreground">{presentCount}</p></div>
-        </CardContent></Card>
-        <Card><CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10"><UserX className="h-5 w-5 text-destructive" /></div>
-          <div><p className="text-sm text-muted-foreground">Absent</p><p className="text-2xl font-bold text-foreground">{absentCount}</p></div>
-        </CardContent></Card>
-        <Card><CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10"><Clock className="h-5 w-5 text-warning" /></div>
-          <div><p className="text-sm text-muted-foreground">Late</p><p className="text-2xl font-bold text-foreground">{lateCount}</p></div>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total</p>
+              {isLoading ? (
+                <Skeleton className="h-7 w-12" />
+              ) : (
+                <p className="text-2xl font-bold text-foreground">
+                  {filtered.length}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+              <UserCheck className="h-5 w-5 text-success" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Present</p>
+              <p className="text-2xl font-bold text-foreground">
+                {presentCount}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+              <UserX className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Absent</p>
+              <p className="text-2xl font-bold text-foreground">
+                {absentCount}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10">
+              <Clock className="h-5 w-5 text-warning" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Late</p>
+              <p className="text-2xl font-bold text-foreground">{lateCount}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <CardTitle className="text-base font-semibold">Attendance Register</CardTitle>
-              <Badge variant="secondary" className="font-normal"><CalendarDays className="h-3 w-3 mr-1" />{format(new Date(), "dd MMM yyyy")}</Badge>
+              <CardTitle className="text-base font-semibold">
+                Attendance Register
+              </CardTitle>
+              <Badge
+                variant={isAlreadyMarked ? "default" : "secondary"}
+                className={
+                  isAlreadyMarked
+                    ? "bg-success/20 text-success border-0 font-medium"
+                    : "font-normal"
+                }
+              >
+                <CalendarDays className="h-3 w-3 mr-1" />
+                {format(new Date(selectedDate), "dd MMM yyyy")}
+                {isAlreadyMarked && " - Marked"}
+              </Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
-              <Button size="sm" onClick={() => toast.success("Attendance saved")}>Save Attendance</Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-1.5" />
+                Export
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveBulkAttendance}
+                disabled={isAlreadyMarked || isSaving || isLoading}
+              >
+                {isSaving
+                  ? "Saving..."
+                  : isAlreadyMarked
+                    ? "Attendance Saved"
+                    : "Save Attendance"}
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
+          {/* Controls Bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
             <div className="relative flex-1 w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by name or admission no..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+              <Input
+                placeholder="Search by name or admission no..."
+                className="pl-9 h-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
+
+            {/* Native Date Picker input synced to React Query cache tracking */}
+            <Input
+              type="date"
+              className="w-44 h-9"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+
             <Select value={gradeFilter} onValueChange={setGradeFilter}>
-              <SelectTrigger className="w-44 h-9"><Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Grade" /></SelectTrigger>
+              <SelectTrigger className="w-44 h-9">
+                <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue placeholder="Grade" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Grades</SelectItem>
-                {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                {grades.map((g: any) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -103,35 +288,72 @@ const Attendance = () => {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">Student</TableHead>
                   <TableHead className="font-semibold">Admission No.</TableHead>
-                  <TableHead className="font-semibold">Grade</TableHead>
                   <TableHead className="font-semibold">Status</TableHead>
                   <TableHead className="font-semibold w-32">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  [1,2,3,4].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>)
+                  [1, 2, 3, 4].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell colSpan={4}>
+                        <Skeleton className="h-10 w-full" />
+                      </TableCell>
+                    </TableRow>
+                  ))
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No students found</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      No students matching conditions found
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filtered.map((s: any) => {
-                    const st = getStatus(s.id, s.status);
-                    const cfg = statusConfig[st] || statusConfig.present;
+                    const currentStatus = getStudentStatus(
+                      s.student_id,
+                      s.status,
+                    );
+                    const cfg =
+                      statusConfig[currentStatus] || statusConfig.present;
                     return (
-                      <TableRow key={s.id} className="group">
+                      <TableRow key={s.student_id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                              {s.student_name?.split(" ").map((n: string) => n[0]).join("").substring(0, 2)}
+                              {s.student_name
+                                ?.split(" ")
+                                .map((n: string) => n[0])
+                                .join("")
+                                .substring(0, 2)}
                             </div>
-                            <p className="font-medium text-foreground">{s.student_name}</p>
+                            <p className="font-medium text-foreground">
+                              {s.student_name}
+                            </p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground font-mono text-xs">{s.admission_number}</TableCell>
-                        <TableCell><Badge variant="secondary" className="font-normal">{s.grade || "N/A"}</Badge></TableCell>
-                        <TableCell><Badge variant="default" className={cfg.className}>{cfg.label}</Badge></TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">
+                          {s.admission_number}
+                        </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleStatus(s.id, st)}>Toggle</Button>
+                          <Badge variant="default" className={cfg.className}>
+                            {cfg.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() =>
+                              toggleStatus(s.student_id, currentStatus)
+                            }
+                            disabled={isAlreadyMarked}
+                          >
+                            Toggle
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -142,11 +364,22 @@ const Attendance = () => {
           </div>
 
           <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">Showing {filtered.length} students</p>
+            <p className="text-sm text-muted-foreground">
+              Showing {filtered.length} students
+            </p>
             <div className="flex gap-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />Present {presentCount}</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />Absent {absentCount}</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warning" />Late {lateCount}</span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-success" />
+                Present {presentCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-destructive" />
+                Absent {absentCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-warning" />
+                Late {lateCount}
+              </span>
             </div>
           </div>
         </CardContent>
