@@ -55,18 +55,13 @@ const EmptyState = ({ message }: { message: string }) => (
 
 // Helper function to safely extract arrays from API responses
 const safeArray = (data: any, defaultValue: any[] = []) => {
-  // If it's already an array, return it
   if (Array.isArray(data)) return data;
 
-  // If it's null or undefined, return default
   if (!data) return defaultValue;
 
-  // If it's an object (not array), wrap it in an array
   if (typeof data === "object") {
-    // Check if it has length property (array-like)
     if (data.length !== undefined) return Array.from(data);
 
-    // If it's a single object, wrap it
     return [data];
   }
 
