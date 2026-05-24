@@ -51,13 +51,24 @@ const Payments = () => {
   const { selectedTerm } = useTerm();
   const recordPayment = useRecordPayment();
 
+  // const total = payments.reduce(
+  //   (s: number, p: any) => s + (p.status === "completed" ? p.amount : 0),
+  //   0,
+  // );
+
   const total = payments.reduce(
-    (s: number, p: any) => s + (p.status === "completed" ? p.amount : 0),
+    (s: number, p: any) =>
+      s + (p.status === "completed" ? Number(p.amount) : 0),
     0,
   );
+
+  // const mpesaTotal = payments
+  //   .filter((p: any) => p.payment_method?.includes("mpesa"))
+  //   .reduce((s: number, p: any) => s + p.amount, 0);
+
   const mpesaTotal = payments
     .filter((p: any) => p.payment_method?.includes("mpesa"))
-    .reduce((s: number, p: any) => s + p.amount, 0);
+    .reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   const handleRecordPayment = async (data: any) => {
     try {
