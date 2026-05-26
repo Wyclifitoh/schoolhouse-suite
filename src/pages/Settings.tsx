@@ -316,9 +316,7 @@ const Settings = () => {
           <TabsTrigger value="users" className="gap-1.5">
             <Users className="h-4 w-4" /> User Management
           </TabsTrigger>
-          <TabsTrigger value="sms" className="gap-1.5">
-            <MessageSquare className="h-4 w-4" /> SMS Templates
-          </TabsTrigger>
+          {/* SMS Templates moved to /communication */}
         </TabsList>
 
         {/* ── School Profile ── */}
