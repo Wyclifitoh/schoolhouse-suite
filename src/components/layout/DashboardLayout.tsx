@@ -65,6 +65,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createPortal } from "react-dom";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const ADMIN_ROLES = ["super_admin", "school_admin", "deputy_admin"] as const;
 const FINANCE_ROLES = [...ADMIN_ROLES, "finance_officer"] as const;
@@ -895,10 +896,7 @@ export function DashboardLayout({
           )}
 
           {/* Notifications */}
-          <button className="relative h-9 w-9 flex items-center justify-center rounded-lg border border-border/60 bg-card hover:bg-muted transition-colors">
-            <Bell className="h-4 w-4 text-muted-foreground" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
-          </button>
+          <NotificationBell />
 
           {/* Profile Dropdown */}
           <DropdownMenu>
