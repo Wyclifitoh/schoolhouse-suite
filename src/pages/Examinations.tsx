@@ -775,7 +775,7 @@ const Examinations = () => {
                                     Enter Marks
                                   </Link>
                                 </DropdownMenuItem>
-                                {e.status === "DRAFT" && (
+                                {e.status === "draft" && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.submit.mutate({ id: e.id })
@@ -785,7 +785,7 @@ const Examinations = () => {
                                     Submit for Review
                                   </DropdownMenuItem>
                                 )}
-                                {e.status === "SUBMITTED" && (
+                                {e.status === "submitted" && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.review.mutate({ id: e.id })

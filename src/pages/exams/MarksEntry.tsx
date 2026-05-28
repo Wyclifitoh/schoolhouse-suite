@@ -5,13 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  useExams, useMarksRegister, useBulkSaveMarks, CBC_LEVELS,
+  useExams,
+  useMarksRegister,
+  useBulkSaveMarks,
+  CBC_LEVELS,
 } from "@/hooks/useExams";
 import { useExamSubjects } from "@/hooks/useExamsExtended";
 import { useSubmitDraftMarks } from "@/hooks/useExamsExtended";
@@ -28,14 +40,21 @@ export default function MarksEntry() {
 
   const exam = exams.find((e: any) => e.id === examId);
   const isCBC = (exam?.curriculum_type || "CBC") === "CBC";
-  const { data: students = [] } = useStudents({ gradeId: gradeId || undefined, enabled: !!gradeId });
+  const { data: students = [] } = useStudents({
+    gradeId: gradeId || undefined,
+    enabled: !!gradeId,
+  });
   const { data: subjects = [] } = useExamSubjects(examId);
-  const { data: marks = [] } = useMarksRegister(examId, { grade_id: gradeId || undefined });
+  const { data: marks = [] } = useMarksRegister(examId, {
+    grade_id: gradeId || undefined,
+  });
 
   const bulk = useBulkSaveMarks();
   const submit = useSubmitDraftMarks();
 
-  const [draft, setDraft] = useState<Record<string, { score?: string; level?: string; remarks?: string }>>({});
+  const [draft, setDraft] = useState<
+    Record<string, { score?: string; level?: string; remarks?: string }>
+  >({});
 
   const rows = useMemo(() => {
     if (!students) return [];
@@ -47,17 +66,20 @@ export default function MarksEntry() {
       return {
         student: s,
         existing,
-        score: d.score ?? (existing?.score ?? ""),
-        level: d.level ?? (existing?.performance_level ?? ""),
-        remarks: d.remarks ?? (existing?.remarks ?? ""),
+        score: d.score ?? existing?.score ?? "",
+        level: d.level ?? existing?.performance_level ?? "",
+        remarks: d.remarks ?? existing?.remarks ?? "",
       };
     });
   }, [students, marks, subject, draft]);
 
-  const setCell = (id: string, patch: Partial<{ score: string; level: string; remarks: string }>) =>
-    setDraft((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
+  const setCell = (
+    id: string,
+    patch: Partial<{ score: string; level: string; remarks: string }>,
+  ) => setDraft((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
 
-  const subjectMaxMarks = subjects.find((s: any) => s.subject_name === subject)?.max_marks || 100;
+  const subjectMaxMarks =
+    subjects.find((s: any) => s.subject_name === subject)?.max_marks || 100;
 
   const onSave = async () => {
     if (!subject || !examId) return;
@@ -86,7 +108,10 @@ export default function MarksEntry() {
   const downloadCsv = () => {
     const head = "Admission No,Student,Score,Out Of,Level,Remarks\n";
     const body = rows
-      .map((r) => `${r.student.admission_number || ""},"${r.student.first_name} ${r.student.last_name}",${r.score ?? ""},${subjectMaxMarks},${r.level ?? ""},"${(r.remarks ?? "").replace(/"/g, "'")}"`)
+      .map(
+        (r) =>
+          `${r.student.admission_number || ""},"${r.student.first_name} ${r.student.last_name}",${r.score ?? ""},${subjectMaxMarks},${r.level ?? ""},"${(r.remarks ?? "").replace(/"/g, "'")}"`,
+      )
       .join("\n");
     const blob = new Blob([head + body], { type: "text/csv" });
     const a = document.createElement("a");
@@ -104,7 +129,9 @@ export default function MarksEntry() {
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <ClipboardCheck className="h-7 w-7 text-primary" /> Marks Entry
           </h1>
-          <p className="text-muted-foreground">Teacher marks entry with autosave-ready draft, CBC and 8-4-4 modes.</p>
+          <p className="text-muted-foreground">
+            Teacher marks entry with autosave-ready draft, CBC and 8-4-4 modes.
+          </p>
         </div>
 
         <Card>
@@ -113,11 +140,16 @@ export default function MarksEntry() {
               <div className="flex-1 min-w-[200px]">
                 <label className="text-sm text-muted-foreground">Exam</label>
                 <Select value={examId} onValueChange={setExamId}>
-                  <SelectTrigger><SelectValue placeholder="Select exam" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select exam" />
+                  </SelectTrigger>
                   <SelectContent>
                     {(exams as any[]).map((e) => (
                       <SelectItem key={e.id} value={e.id}>
-                        {e.name} <span className="ml-2 text-xs text-muted-foreground">[{e.status}]</span>
+                        {e.name}{" "}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          [{e.status}]
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -126,10 +158,14 @@ export default function MarksEntry() {
               <div className="flex-1 min-w-[180px]">
                 <label className="text-sm text-muted-foreground">Class</label>
                 <Select value={gradeId} onValueChange={setGradeId}>
-                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
                   <SelectContent>
                     {(grades as any[]).map((g) => (
-                      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -137,22 +173,36 @@ export default function MarksEntry() {
               <div className="flex-1 min-w-[180px]">
                 <label className="text-sm text-muted-foreground">Subject</label>
                 <Select value={subject} onValueChange={setSubject}>
-                  <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject" />
+                  </SelectTrigger>
                   <SelectContent>
                     {(subjects as any[]).map((s) => (
-                      <SelectItem key={s.id} value={s.subject_name}>{s.subject_name}</SelectItem>
+                      <SelectItem key={s.id} value={s.subject_name}>
+                        {s.subject_name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={downloadCsv} disabled={!rows.length}>
+                <Button
+                  variant="outline"
+                  onClick={downloadCsv}
+                  disabled={!rows.length}
+                >
                   <Download className="h-4 w-4 mr-1" /> CSV
                 </Button>
-                <Button onClick={onSave} disabled={!subject || !examId || locked || bulk.isPending}>
+                <Button
+                  onClick={onSave}
+                  disabled={!subject || !examId || locked || bulk.isPending}
+                >
                   <Save className="h-4 w-4 mr-1" /> Save Draft
                 </Button>
-                <Button onClick={onSubmit} disabled={!subject || !examId || locked || submit.isPending}>
+                <Button
+                  onClick={onSubmit}
+                  disabled={!subject || !examId || locked || submit.isPending}
+                >
                   <Send className="h-4 w-4 mr-1" /> Submit
                 </Button>
               </div>
@@ -160,10 +210,14 @@ export default function MarksEntry() {
           </CardHeader>
           <CardContent>
             {locked && (
-              <div className="mb-3 text-sm text-warning">This exam is {exam?.status}. Marks are read-only.</div>
+              <div className="mb-3 text-sm text-warning">
+                This exam is {exam?.status}. Marks are read-only.
+              </div>
             )}
             {!examId || !subject ? (
-              <p className="text-muted-foreground text-sm">Select an exam and subject to start entering marks.</p>
+              <p className="text-muted-foreground text-sm">
+                Select an exam and subject to start entering marks.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -171,8 +225,12 @@ export default function MarksEntry() {
                     <TableRow>
                       <TableHead>Adm #</TableHead>
                       <TableHead>Student</TableHead>
-                      <TableHead className="w-32">Score / {subjectMaxMarks}</TableHead>
-                      {isCBC && <TableHead className="w-32">CBC Level</TableHead>}
+                      <TableHead className="w-32">
+                        Score / {subjectMaxMarks}
+                      </TableHead>
+                      {isCBC && (
+                        <TableHead className="w-32">CBC Level</TableHead>
+                      )}
                       <TableHead>Remarks</TableHead>
                       <TableHead className="w-24">Status</TableHead>
                     </TableRow>
@@ -181,7 +239,9 @@ export default function MarksEntry() {
                     {rows.map((r) => (
                       <TableRow key={r.student.id}>
                         <TableCell>{r.student.admission_number}</TableCell>
-                        <TableCell>{r.student.first_name} {r.student.last_name}</TableCell>
+                        <TableCell>
+                          {r.student.first_name} {r.student.last_name}
+                        </TableCell>
                         <TableCell>
                           <Input
                             type="number"
@@ -189,20 +249,28 @@ export default function MarksEntry() {
                             max={subjectMaxMarks}
                             value={r.score as any}
                             disabled={locked}
-                            onChange={(e) => setCell(r.student.id, { score: e.target.value })}
+                            onChange={(e) =>
+                              setCell(r.student.id, { score: e.target.value })
+                            }
                           />
                         </TableCell>
                         {isCBC && (
                           <TableCell>
                             <Select
                               value={r.level as string}
-                              onValueChange={(v) => setCell(r.student.id, { level: v })}
+                              onValueChange={(v) =>
+                                setCell(r.student.id, { level: v })
+                              }
                               disabled={locked}
                             >
-                              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectTrigger>
+                                <SelectValue placeholder="—" />
+                              </SelectTrigger>
                               <SelectContent>
                                 {CBC_LEVELS.map((l) => (
-                                  <SelectItem key={l.value} value={l.value}>{l.value} — {l.label}</SelectItem>
+                                  <SelectItem key={l.value} value={l.value}>
+                                    {l.value} — {l.label}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -212,16 +280,27 @@ export default function MarksEntry() {
                           <Input
                             value={r.remarks as string}
                             disabled={locked}
-                            onChange={(e) => setCell(r.student.id, { remarks: e.target.value })}
+                            onChange={(e) =>
+                              setCell(r.student.id, { remarks: e.target.value })
+                            }
                           />
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{r.existing?.status || "—"}</Badge>
+                          <Badge variant="outline">
+                            {r.existing?.status || "—"}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}
                     {!rows.length && (
-                      <TableRow><TableCell colSpan={isCBC ? 6 : 5} className="text-center text-muted-foreground">No students in this class.</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell
+                          colSpan={isCBC ? 6 : 5}
+                          className="text-center text-muted-foreground"
+                        >
+                          No students in this class.
+                        </TableCell>
+                      </TableRow>
                     )}
                   </TableBody>
                 </Table>
