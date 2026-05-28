@@ -795,7 +795,7 @@ const Examinations = () => {
                                     Mark Reviewed
                                   </DropdownMenuItem>
                                 )}
-                                {["SUBMITTED", "REVIEWED"].includes(
+                                {["submitted", "reviewed"].includes(
                                   e.status,
                                 ) && (
                                   <DropdownMenuItem
@@ -807,7 +807,7 @@ const Examinations = () => {
                                     Approve & Publish
                                   </DropdownMenuItem>
                                 )}
-                                {e.status === "APPROVED" && (
+                                {e.status === "approved" && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.lock.mutate({ id: e.id })
@@ -817,7 +817,7 @@ const Examinations = () => {
                                     Lock
                                   </DropdownMenuItem>
                                 )}
-                                {["APPROVED", "LOCKED"].includes(e.status) && (
+                                {["approved", "locked"].includes(e.status) && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.reopen.mutate({ id: e.id })
