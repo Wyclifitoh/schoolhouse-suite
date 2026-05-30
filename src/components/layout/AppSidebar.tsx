@@ -135,14 +135,26 @@ const allNav = {
         roles: ACADEMIC_ROLES,
       },
       {
+        title: "Subject Allocation",
+        url: "/subject-allocation",
+        icon: Layers,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Teacher Allocation",
+        url: "/teacher-allocation",
+        icon: UserCheck,
+        roles: ADMIN_ROLES,
+      },
+      {
         title: "Assign Class Teacher",
         url: "/assign-class-teacher",
         icon: UserCheck,
         roles: ADMIN_ROLES,
       },
       {
-        title: "Examinations",
-        url: "/examinations",
+        title: "Assessments",
+        url: "/assessments",
         icon: FileText,
         roles: ACADEMIC_ROLES,
       },
@@ -153,16 +165,22 @@ const allNav = {
         roles: ACADEMIC_ROLES,
       },
       {
-        title: "Exam Review",
+        title: "Assessment Review",
         url: "/exams/review",
         icon: CheckSquare,
         roles: ACADEMIC_ROLES,
       },
       {
-        title: "Exam Analytics",
+        title: "Assessment Analytics",
         url: "/exams/analytics",
         icon: TrendingUp,
         roles: ACADEMIC_ROLES,
+      },
+      {
+        title: "Assessment Settings",
+        url: "/assessments/settings",
+        icon: SlidersHorizontal,
+        roles: ADMIN_ROLES,
       },
       {
         title: "Report Cards",

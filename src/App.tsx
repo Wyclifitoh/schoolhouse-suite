@@ -54,11 +54,19 @@ import ExamAnalytics from "./pages/exams/ExamAnalytics";
 import ReportCards from "./pages/exams/ReportCards";
 import AssessmentSettings from "./pages/settings/AssessmentSettings";
 
+// Assessments Module v2 (CBC)
+import AssessmentsList from "./pages/assessments/Assessments";
+import AssessmentDetail from "./pages/assessments/AssessmentDetail";
+import AssessmentTasks from "./pages/assessments/AssessmentTasks";
+import AssessmentMarksEntry from "./pages/assessments/MarksEntry";
+
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
 import TeacherTimetable from "./pages/academics/TeacherTimetable";
 import AssignClassTeacher from "./pages/academics/AssignClassTeacher";
 import Subjects from "./pages/academics/Subjects";
+import SubjectAllocation from "./pages/academics/SubjectAllocation";
+import TeacherAllocation from "./pages/academics/TeacherAllocation";
 
 // HR Module
 import StaffDirectory from "./pages/StaffDirectory";
@@ -194,13 +202,72 @@ const App = () => (
                     }
                   />
                   <Route
-                    path="/examinations"
+                    path="/subject-allocation"
                     element={
-                      <ProtectedRoute>
-                        <Examinations />
+                      <ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}>
+                        <SubjectAllocation />
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/teacher-allocation"
+                    element={
+                      <ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}>
+                        <TeacherAllocation />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Assessments (renamed from Examinations) */}
+                  <Route
+                    path="/assessments"
+                    element={
+                      <ProtectedRoute>
+                        <AssessmentsList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/assessments/tasks"
+                    element={
+                      <ProtectedRoute>
+                        <AssessmentTasks />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/assessments/marks/:taskId"
+                    element={
+                      <ProtectedRoute>
+                        <AssessmentMarksEntry />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/assessments/:id"
+                    element={
+                      <ProtectedRoute>
+                        <AssessmentDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/assessments/settings"
+                    element={
+                      <ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}>
+                        <AssessmentSettings />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Backward-compatible redirect for legacy /examinations */}
+                  <Route
+                    path="/examinations"
+                    element={
+                      <ProtectedRoute>
+                        <AssessmentsList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Legacy exam pages (kept for migration) */}
                   <Route path="/exams/entry" element={<ProtectedRoute><MarksEntry /></ProtectedRoute>} />
                   <Route path="/exams/review" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin","teacher"]}><ExamReview /></ProtectedRoute>} />
                   <Route path="/exams/analytics" element={<ProtectedRoute><ExamAnalytics /></ProtectedRoute>} />
