@@ -48,4 +48,8 @@ router.use(
   require("../modules/examinations/examinations.routes"),
 );
 router.use("/promotion", require("../modules/promotion/promotion.routes"));
+router.use(
+  "/notifications",
+  require("../modules/notifications/notifications.routes"),
+);
 module.exports = router;
