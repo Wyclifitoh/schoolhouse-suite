@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,12 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { UserCheck, Plus, Trash2 } from "lucide-react";
-import {
-  useClasses,
-  useStaff,
-  useTeachers,
-  useStreams,
-} from "@/hooks/useClasses";
+import { useClasses, useTeachers, useStreams } from "@/hooks/useClasses";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -62,14 +57,15 @@ function useSubjectsForGrade(gradeId?: string) {
 }
 
 const TeacherAllocation = () => {
-  const { data: classes = [] } = useClasses();
-  const { data: staff = [] } = useTeachers();
+  const { data: classes = [], isLoading: classesLoading } = useClasses();
+  const { data: teachersList = [], isLoading: teachersLoading } = useTeachers();
   const [filterGrade, setFilterGrade] = useState<string>("all");
   const [filterTeacher, setFilterTeacher] = useState<string>("all");
-  const { data: allocations = [], isLoading } = useTeacherAllocations({
-    grade_id: filterGrade !== "all" ? filterGrade : undefined,
-    teacher_id: filterTeacher !== "all" ? filterTeacher : undefined,
-  });
+  const { data: allocations = [], isLoading: allocationsLoading } =
+    useTeacherAllocations({
+      grade_id: filterGrade !== "all" ? filterGrade : undefined,
+      teacher_id: filterTeacher !== "all" ? filterTeacher : undefined,
+    });
 
   const create = useCreateTeacherAllocation();
   const del = useDeleteTeacherAllocation();
@@ -84,16 +80,7 @@ const TeacherAllocation = () => {
   const { data: streams = [] } = useStreams(form.grade_id || undefined);
   const { data: gradeSubjects = [] } = useSubjectsForGrade(form.grade_id);
 
-  const teachers = useMemo(
-    () =>
-      (staff as any[]).filter(
-        (s) =>
-          (s.staff_type || s.designation || "")
-            .toLowerCase()
-            .includes("teach") || !s.staff_type,
-      ),
-    [staff],
-  );
+  const isLoading = teachersLoading || classesLoading || allocationsLoading;
 
   const handleCreate = () => {
     if (!form.teacher_id || !form.subject_id || !form.grade_id) return;
@@ -137,26 +124,28 @@ const TeacherAllocation = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All teachers</SelectItem>
-                  {(staff as any[]).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
+                  {teachersList.map((s) => (
+                    <SelectItem key={s.teacher_id} value={s.teacher_id}>
                       {s.first_name} {s.last_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
               <Select value={filterGrade} onValueChange={setFilterGrade}>
                 <SelectTrigger className="w-40 h-9">
                   <SelectValue placeholder="All classes" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All classes</SelectItem>
-                  {(classes as any[]).map((g) => (
+                  {classes.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
                       {g.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -180,14 +169,15 @@ const TeacherAllocation = () => {
                           <SelectValue placeholder="Pick teacher" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teachers.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
+                          {teachersList.map((s) => (
+                            <SelectItem key={s.teacher_id} value={s.teacher_id}>
                               {s.first_name} {s.last_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
+
                     <div>
                       <label className="text-xs font-medium">Class</label>
                       <Select
@@ -205,7 +195,7 @@ const TeacherAllocation = () => {
                           <SelectValue placeholder="Pick class" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(classes as any[]).map((g) => (
+                          {classes.map((g) => (
                             <SelectItem key={g.id} value={g.id}>
                               {g.name}
                             </SelectItem>
@@ -213,6 +203,7 @@ const TeacherAllocation = () => {
                         </SelectContent>
                       </Select>
                     </div>
+
                     <div>
                       <label className="text-xs font-medium">Subject</label>
                       <Select
@@ -232,21 +223,21 @@ const TeacherAllocation = () => {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {(gradeSubjects as any[]).map((s) => (
+                          {gradeSubjects.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
                               {s.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      {form.grade_id &&
-                        (gradeSubjects as any[]).length === 0 && (
-                          <p className="text-xs text-amber-600 mt-1">
-                            No subjects allocated to this class. Allocate
-                            subjects first.
-                          </p>
-                        )}
+                      {form.grade_id && gradeSubjects.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          No subjects allocated to this class. Allocate subjects
+                          first.
+                        </p>
+                      )}
                     </div>
+
                     <div>
                       <label className="text-xs font-medium">
                         Stream (optional)
@@ -261,7 +252,8 @@ const TeacherAllocation = () => {
                           <SelectValue placeholder="All streams" />
                         </SelectTrigger>
                         <SelectContent>
-                          {(streams as any[]).map((s) => (
+                          <SelectItem value="">All streams</SelectItem>
+                          {streams.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
                               {s.name}
                             </SelectItem>
@@ -283,7 +275,7 @@ const TeacherAllocation = () => {
                         create.isPending
                       }
                     >
-                      Save
+                      {create.isPending ? "Saving..." : "Save"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -314,7 +306,7 @@ const TeacherAllocation = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(allocations as any[]).map((a) => (
+                {allocations.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">
                       {a.teacher_name?.trim() || "—"}
@@ -335,6 +327,7 @@ const TeacherAllocation = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => del.mutate(a.id)}
+                        disabled={del.isPending}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
