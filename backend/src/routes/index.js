@@ -47,6 +47,11 @@ router.use(
   "/examinations",
   require("../modules/examinations/examinations.routes"),
 );
+// New CBC Assessments module (Phase 1: config + allocations)
+router.use(
+  "/assessments",
+  require("../modules/assessments/assessments.routes"),
+);
 router.use("/promotion", require("../modules/promotion/promotion.routes"));
 router.use(
   "/notifications",

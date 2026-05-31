@@ -1,10 +1,14 @@
 const { query, queryOne, queryCount } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 
-const findAll = async (
+const findAllV1 = async (
   schoolId,
   { limit, offset, search, status, gradeId, streamIds },
 ) => {
+  // Parse as integers to ensure they're numbers
+  const numLimit = parseInt(limit, 10);
+  const numOffset = parseInt(offset, 10);
+
   let sql = "SELECT * FROM students WHERE school_id = ?";
   const params = [schoolId];
 
@@ -30,13 +34,68 @@ const findAll = async (
     params.push(s, s, s, s);
   }
 
-  const countSql = sql.replace("SELECT *", "SELECT COUNT(*) as count");
-  sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
+  // Build count SQL (remove ORDER BY and LIMIT/OFFSET)
+  let countSql = sql;
+  // Remove ORDER BY clause for count query
+  const orderByIndex = countSql.toUpperCase().indexOf(" ORDER BY ");
+  if (orderByIndex !== -1) {
+    countSql = countSql.substring(0, orderByIndex);
+  }
+  countSql = countSql.replace("SELECT *", "SELECT COUNT(*) as count");
+
+  // Add ORDER BY and use template literals for LIMIT/OFFSET (not placeholders)
+  sql += ` ORDER BY created_at DESC LIMIT ${numLimit} OFFSET ${numOffset}`;
 
   const [rows, countRows] = await Promise.all([
     query(sql, params),
-    query(countSql, params.slice(0, -2)),
+    query(countSql, params), // All params except no LIMIT/OFFSET needed
+  ]);
+
+  return { rows, total: countRows[0]?.count || 0 };
+};
+
+const findAll = async (
+  schoolId,
+  { limit, offset, search, status, gradeId, streamIds },
+) => {
+  // Parse as integers
+  const numLimit = parseInt(limit, 10);
+  const numOffset = parseInt(offset, 10);
+
+  // Build WHERE clause
+  let whereClause = " WHERE school_id = ?";
+  const params = [schoolId];
+
+  if (status && status !== "all") {
+    whereClause += " AND status = ?";
+    params.push(status);
+  }
+  if (gradeId) {
+    whereClause +=
+      " AND (current_grade_id = ? OR (current_grade_id IS NULL AND grade = (SELECT name FROM grades WHERE id = ?)))";
+    params.push(gradeId, gradeId);
+  }
+  if (streamIds && streamIds.length) {
+    const ph = streamIds.map(() => "?").join(",");
+    whereClause += ` AND (current_stream_id IN (${ph}) OR (current_stream_id IS NULL AND stream IN (SELECT name FROM streams WHERE id IN (${ph}))))`;
+    params.push(...streamIds, ...streamIds);
+  }
+  if (search) {
+    whereClause +=
+      " AND (full_name LIKE ? OR admission_number LIKE ? OR first_name LIKE ? OR last_name LIKE ?)";
+    const s = `%${search}%`;
+    params.push(s, s, s, s);
+  }
+
+  // Main query with pagination
+  const sql = `SELECT * FROM students${whereClause} ORDER BY created_at DESC LIMIT ${numLimit} OFFSET ${numOffset}`;
+
+  // Count query
+  const countSql = `SELECT COUNT(*) as count FROM students${whereClause}`;
+
+  const [rows, countRows] = await Promise.all([
+    query(sql, params),
+    query(countSql, params),
   ]);
 
   return { rows, total: countRows[0]?.count || 0 };

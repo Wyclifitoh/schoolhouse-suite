@@ -16,5 +16,5 @@ const getDepartment = async (id, schoolId) => {
 module.exports = {
   createDepartment,
   listDepartments,
-  getDepartment
+  getDepartment,
 };
