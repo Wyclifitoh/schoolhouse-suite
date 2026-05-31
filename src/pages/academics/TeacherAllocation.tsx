@@ -28,7 +28,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { UserCheck, Plus, Trash2 } from "lucide-react";
-import { useClasses, useStaff, useStreams } from "@/hooks/useClasses";
+import {
+  useClasses,
+  useStaff,
+  useTeachers,
+  useStreams,
+} from "@/hooks/useClasses";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -58,7 +63,7 @@ function useSubjectsForGrade(gradeId?: string) {
 
 const TeacherAllocation = () => {
   const { data: classes = [] } = useClasses();
-  const { data: staff = [] } = useStaff();
+  const { data: staff = [] } = useTeachers();
   const [filterGrade, setFilterGrade] = useState<string>("all");
   const [filterTeacher, setFilterTeacher] = useState<string>("all");
   const { data: allocations = [], isLoading } = useTeacherAllocations({
@@ -82,8 +87,10 @@ const TeacherAllocation = () => {
   const teachers = useMemo(
     () =>
       (staff as any[]).filter(
-        (s) => (s.staff_type || s.designation || "").toLowerCase().includes("teach") ||
-          !s.staff_type,
+        (s) =>
+          (s.staff_type || s.designation || "")
+            .toLowerCase()
+            .includes("teach") || !s.staff_type,
       ),
     [staff],
   );
@@ -100,7 +107,12 @@ const TeacherAllocation = () => {
       {
         onSuccess: () => {
           setOpen(false);
-          setForm({ teacher_id: "", grade_id: "", subject_id: "", stream_id: "" });
+          setForm({
+            teacher_id: "",
+            grade_id: "",
+            subject_id: "",
+            stream_id: "",
+          });
         },
       },
     );
@@ -227,12 +239,13 @@ const TeacherAllocation = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      {form.grade_id && (gradeSubjects as any[]).length === 0 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          No subjects allocated to this class. Allocate
-                          subjects first.
-                        </p>
-                      )}
+                      {form.grade_id &&
+                        (gradeSubjects as any[]).length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No subjects allocated to this class. Allocate
+                            subjects first.
+                          </p>
+                        )}
                     </div>
                     <div>
                       <label className="text-xs font-medium">
@@ -258,10 +271,7 @@ const TeacherAllocation = () => {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setOpen(false)}
-                    >
+                    <Button variant="outline" onClick={() => setOpen(false)}>
                       Cancel
                     </Button>
                     <Button
