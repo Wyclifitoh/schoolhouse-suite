@@ -314,6 +314,12 @@ const allNav = {
         icon: Building2,
         roles: ADMIN_ROLES,
       },
+      {
+        title: "Staff Ratings",
+        url: "/ratings",
+        icon: TrendingUp,
+        roles: [...ADMIN_ROLES, "manager"] as AppRole[],
+      },
     ],
   },
   reports: {

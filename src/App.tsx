@@ -77,6 +77,8 @@ import StaffAttendance from "./pages/StaffAttendance";
 import LeaveManagement from "./pages/LeaveManagement";
 import Payroll from "./pages/Payroll";
 import Departments from "./pages/Departments";
+import Ratings from "./pages/Ratings";
+import ChangePassword from "./pages/ChangePassword";
 
 // Reports
 import FinanceReports from "./pages/reports/FinanceReports";
@@ -628,9 +630,38 @@ const App = () => (
                     path="/departments"
                     element={
                       <ProtectedRoute
-                        roles={["super_admin", "school_admin", "deputy_admin"]}
+                        roles={[
+                          "super_admin",
+                          "school_admin",
+                          "deputy_admin",
+                          "admin",
+                        ]}
                       >
                         <Departments />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ratings"
+                    element={
+                      <ProtectedRoute
+                        roles={[
+                          "super_admin",
+                          "school_admin",
+                          "deputy_admin",
+                          "admin",
+                          "manager",
+                        ]}
+                      >
+                        <Ratings />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/change-password"
+                    element={
+                      <ProtectedRoute>
+                        <ChangePassword />
                       </ProtectedRoute>
                     }
                   />

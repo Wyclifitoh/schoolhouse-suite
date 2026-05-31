@@ -16,7 +16,8 @@ export function ProtectedRoute({
   roles,
   redirectTo = "/login",
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, hasAnyRole } = useAuth();
+  const { isAuthenticated, isLoading, hasAnyRole, mustChangePassword } =
+    useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -32,6 +33,11 @@ export function ProtectedRoute({
 
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
+  }
+
+  // Force first-login password change before granting access to any other route
+  if (mustChangePassword && location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
   }
 
   // Role check
