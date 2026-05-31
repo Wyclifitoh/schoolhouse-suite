@@ -75,7 +75,7 @@ const TeacherAllocation = () => {
     teacher_id: "",
     grade_id: "",
     subject_id: "",
-    stream_id: "",
+    stream_id: "none",
   });
   const { data: streams = [] } = useStreams(form.grade_id || undefined);
   const { data: gradeSubjects = [] } = useSubjectsForGrade(form.grade_id);
@@ -84,12 +84,16 @@ const TeacherAllocation = () => {
 
   const handleCreate = () => {
     if (!form.teacher_id || !form.subject_id || !form.grade_id) return;
+
+    // Convert "none" to null for the API
+    const streamId = form.stream_id === "none" ? null : form.stream_id;
+
     create.mutate(
       {
         teacher_id: form.teacher_id,
         subject_id: form.subject_id,
         grade_id: form.grade_id,
-        stream_id: form.stream_id || null,
+        stream_id: streamId,
       },
       {
         onSuccess: () => {
@@ -98,7 +102,7 @@ const TeacherAllocation = () => {
             teacher_id: "",
             grade_id: "",
             subject_id: "",
-            stream_id: "",
+            stream_id: "none",
           });
         },
       },
@@ -124,9 +128,12 @@ const TeacherAllocation = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All teachers</SelectItem>
-                  {teachersList.map((s) => (
-                    <SelectItem key={s.teacher_id} value={s.teacher_id}>
-                      {s.first_name} {s.last_name}
+                  {teachersList.map((teacher) => (
+                    <SelectItem
+                      key={teacher.teacher_id}
+                      value={teacher.teacher_id}
+                    >
+                      {teacher.first_name} {teacher.last_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -138,9 +145,9 @@ const TeacherAllocation = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All classes</SelectItem>
-                  {classes.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name}
+                  {classes.map((grade) => (
+                    <SelectItem key={grade.id} value={grade.id}>
+                      {grade.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -169,9 +176,14 @@ const TeacherAllocation = () => {
                           <SelectValue placeholder="Pick teacher" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teachersList.map((s) => (
-                            <SelectItem key={s.teacher_id} value={s.teacher_id}>
-                              {s.first_name} {s.last_name}
+                          {teachersList.map((teacher) => (
+                            <SelectItem
+                              key={teacher.teacher_id}
+                              value={teacher.teacher_id}
+                            >
+                              {teacher.first_name} {teacher.last_name}
+                              {teacher.specialization &&
+                                ` - ${teacher.specialization}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -187,7 +199,7 @@ const TeacherAllocation = () => {
                             ...form,
                             grade_id: v,
                             subject_id: "",
-                            stream_id: "",
+                            stream_id: "none",
                           })
                         }
                       >
@@ -195,9 +207,9 @@ const TeacherAllocation = () => {
                           <SelectValue placeholder="Pick class" />
                         </SelectTrigger>
                         <SelectContent>
-                          {classes.map((g) => (
-                            <SelectItem key={g.id} value={g.id}>
-                              {g.name}
+                          {classes.map((grade) => (
+                            <SelectItem key={grade.id} value={grade.id}>
+                              {grade.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -223,9 +235,10 @@ const TeacherAllocation = () => {
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {gradeSubjects.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
+                          {gradeSubjects.map((subject) => (
+                            <SelectItem key={subject.id} value={subject.id}>
+                              {subject.name}{" "}
+                              {subject.code && `(${subject.code})`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -252,10 +265,10 @@ const TeacherAllocation = () => {
                           <SelectValue placeholder="All streams" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All streams</SelectItem>
-                          {streams.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
+                          <SelectItem value="none">All streams</SelectItem>
+                          {streams.map((stream) => (
+                            <SelectItem key={stream.id} value={stream.id}>
+                              {stream.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -306,19 +319,21 @@ const TeacherAllocation = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allocations.map((a) => (
-                  <TableRow key={a.id}>
+                {allocations.map((allocation) => (
+                  <TableRow key={allocation.id}>
                     <TableCell className="font-medium">
-                      {a.teacher_name?.trim() || "—"}
+                      {allocation.teacher_name?.trim() || "—"}
                     </TableCell>
-                    <TableCell>{a.subject_name}</TableCell>
-                    <TableCell>{a.grade_name}</TableCell>
+                    <TableCell>{allocation.subject_name}</TableCell>
+                    <TableCell>{allocation.grade_name}</TableCell>
                     <TableCell>
-                      {a.stream_name ? (
-                        <Badge variant="outline">{a.stream_name}</Badge>
+                      {allocation.stream_name ? (
+                        <Badge variant="outline">
+                          {allocation.stream_name}
+                        </Badge>
                       ) : (
                         <span className="text-muted-foreground text-xs">
-                          All
+                          All streams
                         </span>
                       )}
                     </TableCell>
@@ -326,7 +341,7 @@ const TeacherAllocation = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => del.mutate(a.id)}
+                        onClick={() => del.mutate(allocation.id)}
                         disabled={del.isPending}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
