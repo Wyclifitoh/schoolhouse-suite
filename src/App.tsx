@@ -59,6 +59,9 @@ import AssessmentsList from "./pages/assessments/Assessments";
 import AssessmentDetail from "./pages/assessments/AssessmentDetail";
 import AssessmentTasks from "./pages/assessments/AssessmentTasks";
 import AssessmentMarksEntry from "./pages/assessments/MarksEntry";
+import AssessmentResults from "./pages/assessments/Results";
+import AssessmentReportCards from "./pages/assessments/ReportCards";
+import AssessmentAnalytics from "./pages/assessments/Analytics";
 
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
@@ -204,7 +207,9 @@ const App = () => (
                   <Route
                     path="/subject-allocation"
                     element={
-                      <ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}>
+                      <ProtectedRoute
+                        roles={["super_admin", "school_admin", "deputy_admin"]}
+                      >
                         <SubjectAllocation />
                       </ProtectedRoute>
                     }
@@ -212,7 +217,9 @@ const App = () => (
                   <Route
                     path="/teacher-allocation"
                     element={
-                      <ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}>
+                      <ProtectedRoute
+                        roles={["super_admin", "school_admin", "deputy_admin"]}
+                      >
                         <TeacherAllocation />
                       </ProtectedRoute>
                     }
@@ -243,6 +250,44 @@ const App = () => (
                     }
                   />
                   <Route
+                    path="/assessments/results"
+                    element={
+                      <ProtectedRoute
+                        roles={[
+                          "super_admin",
+                          "school_admin",
+                          "deputy_admin",
+                          "teacher",
+                        ]}
+                      >
+                        <AssessmentResults />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/assessments/report-cards"
+                    element={
+                      <ProtectedRoute
+                        roles={[
+                          "super_admin",
+                          "school_admin",
+                          "deputy_admin",
+                          "teacher",
+                        ]}
+                      >
+                        <AssessmentReportCards />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/assessments/analytics"
+                    element={
+                      <ProtectedRoute>
+                        <AssessmentAnalytics />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/assessments/:id"
                     element={
                       <ProtectedRoute>
@@ -253,7 +298,9 @@ const App = () => (
                   <Route
                     path="/assessments/settings"
                     element={
-                      <ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}>
+                      <ProtectedRoute
+                        roles={["super_admin", "school_admin", "deputy_admin"]}
+                      >
                         <AssessmentSettings />
                       </ProtectedRoute>
                     }
@@ -268,11 +315,62 @@ const App = () => (
                     }
                   />
                   {/* Legacy exam pages (kept for migration) */}
-                  <Route path="/exams/entry" element={<ProtectedRoute><MarksEntry /></ProtectedRoute>} />
-                  <Route path="/exams/review" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin","teacher"]}><ExamReview /></ProtectedRoute>} />
-                  <Route path="/exams/analytics" element={<ProtectedRoute><ExamAnalytics /></ProtectedRoute>} />
-                  <Route path="/reports/cards" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin","teacher"]}><ReportCards /></ProtectedRoute>} />
-                  <Route path="/settings/academics" element={<ProtectedRoute roles={["super_admin","school_admin","deputy_admin"]}><AssessmentSettings /></ProtectedRoute>} />
+                  <Route
+                    path="/exams/entry"
+                    element={
+                      <ProtectedRoute>
+                        <MarksEntry />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/exams/review"
+                    element={
+                      <ProtectedRoute
+                        roles={[
+                          "super_admin",
+                          "school_admin",
+                          "deputy_admin",
+                          "teacher",
+                        ]}
+                      >
+                        <ExamReview />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/exams/analytics"
+                    element={
+                      <ProtectedRoute>
+                        <ExamAnalytics />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/reports/cards"
+                    element={
+                      <ProtectedRoute
+                        roles={[
+                          "super_admin",
+                          "school_admin",
+                          "deputy_admin",
+                          "teacher",
+                        ]}
+                      >
+                        <ReportCards />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings/academics"
+                    element={
+                      <ProtectedRoute
+                        roles={["super_admin", "school_admin", "deputy_admin"]}
+                      >
+                        <AssessmentSettings />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/homework"
                     element={

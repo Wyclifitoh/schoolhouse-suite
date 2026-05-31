@@ -535,3 +535,267 @@ export function useBulkSaveAssessmentMarks() {
     onError: (e: Error) => toast.error(e.message),
   });
 }
+
+// =====================================================================
+// PHASE 3 — Results, Report Cards, Analytics
+// =====================================================================
+
+export type ResultStatus =
+  | "draft" | "pending_review" | "approved" | "published" | "revoked";
+
+export interface AssessmentResult {
+  id: string;
+  assessment_id: string;
+  student_id: string;
+  grade_id: string;
+  stream_id: string | null;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  grade_name: string;
+  stream_name: string | null;
+  subjects_count: number;
+  total_score: number;
+  total_out_of: number;
+  mean_score: number;
+  percentage: number;
+  total_points: number;
+  mean_points: number;
+  overall_al: string | null;
+  overall_band: string | null;
+  class_position: number | null;
+  stream_position: number | null;
+  grade_position: number | null;
+  status: ResultStatus;
+  approved_at: string | null;
+  published_at: string | null;
+}
+
+export function useAssessmentResults(
+  assessmentId?: string,
+  filters: Record<string, string | undefined> = {},
+) {
+  return useQuery({
+    queryKey: ["assessment-results", assessmentId, filters],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
+      return (
+        unwrap<AssessmentResult[]>(
+          await api.get<any>(`/assessments/${assessmentId}/results?${qp}`),
+        ) || []
+      );
+    },
+  });
+}
+
+export function useComputeResults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: string) =>
+      api.post(`/assessments/${assessmentId}/results/compute`, {}),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["assessment-results", id] });
+      qc.invalidateQueries({ queryKey: ["assessment-analytics"] });
+      toast.success("Results computed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useRecomputeResultPositions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: string) =>
+      api.post(`/assessments/${assessmentId}/results/recompute-positions`, {}),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["assessment-results", id] });
+      toast.success("Positions updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useBulkResultStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      assessment_id, ids, status,
+    }: { assessment_id: string; ids: string[]; status: ResultStatus }) =>
+      api.post(`/assessments/${assessment_id}/results/bulk-status`, { ids, status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessment-results"] });
+      toast.success("Updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useStudentResultDetail(assessmentId?: string, studentId?: string) {
+  return useQuery({
+    queryKey: ["result-detail", assessmentId, studentId],
+    enabled: !!assessmentId && !!studentId,
+    queryFn: async () =>
+      unwrap<any>(
+        await api.get<any>(
+          `/assessments/${assessmentId}/results/student/${studentId}`,
+        ),
+      ),
+  });
+}
+
+// ---------------- REPORT CARD TEMPLATES ----------------
+export interface ReportCardTemplate {
+  id: string;
+  name: string;
+  kind: "CBC" | "844" | "HYBRID";
+  header_title: string | null;
+  header_subtitle: string | null;
+  show_position: boolean;
+  show_band: boolean;
+  show_competencies: boolean;
+  show_teacher_remarks: boolean;
+  show_principal_remarks: boolean;
+  is_default: boolean;
+}
+
+export function useRcTemplates() {
+  return useQuery({
+    queryKey: ["rc-templates"],
+    queryFn: async () =>
+      unwrap<ReportCardTemplate[]>(
+        await api.get<any>("/assessments/report-cards/templates"),
+      ) || [],
+  });
+}
+
+export function useSaveRcTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: Partial<ReportCardTemplate> & { id?: string }) =>
+      id
+        ? api.put(`/assessments/report-cards/templates/${id}`, data)
+        : api.post("/assessments/report-cards/templates", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rc-templates"] });
+      toast.success("Saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDeleteRcTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/assessments/report-cards/templates/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rc-templates"] });
+      toast.success("Deleted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ---------------- RUNS ----------------
+export interface RcRun {
+  id: string;
+  assessment_id: string;
+  assessment_name: string;
+  template_id: string | null;
+  template_name: string | null;
+  grade_id: string | null;
+  grade_name: string | null;
+  stream_id: string | null;
+  stream_name: string | null;
+  status: "queued" | "processing" | "generated" | "published" | "failed";
+  total_cards: number;
+  generated_at: string;
+  published_at: string | null;
+}
+
+export function useRcRuns(assessmentId?: string) {
+  return useQuery({
+    queryKey: ["rc-runs", assessmentId || "all"],
+    queryFn: async () => {
+      const qs = assessmentId ? `?assessment_id=${assessmentId}` : "";
+      return (
+        unwrap<RcRun[]>(
+          await api.get<any>(`/assessments/report-cards/runs${qs}`),
+        ) || []
+      );
+    },
+  });
+}
+
+export function useCreateRcRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      assessment_id: string;
+      template_id?: string | null;
+      grade_id?: string | null;
+      stream_id?: string | null;
+    }) => api.post("/assessments/report-cards/runs", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rc-runs"] });
+      toast.success("Run generated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function usePublishRcRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post(`/assessments/report-cards/runs/${id}/publish`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rc-runs"] });
+      qc.invalidateQueries({ queryKey: ["assessment-results"] });
+      toast.success("Published to parents");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useRcCards(runId?: string) {
+  return useQuery({
+    queryKey: ["rc-cards", runId],
+    enabled: !!runId,
+    queryFn: async () =>
+      unwrap<any[]>(
+        await api.get<any>(`/assessments/report-cards/runs/${runId}/cards`),
+      ) || [],
+  });
+}
+
+// ---------------- ANALYTICS ----------------
+export function useAssessmentAnalytics(assessmentId?: string) {
+  return useQuery({
+    queryKey: ["assessment-analytics", assessmentId],
+    enabled: !!assessmentId,
+    queryFn: async () => {
+      const [overview, subjects, bands, levels, leaderboard, grades, streams] =
+        await Promise.all([
+          api.get<any>(`/assessments/${assessmentId}/analytics/overview`),
+          api.get<any>(`/assessments/${assessmentId}/analytics/subjects`),
+          api.get<any>(`/assessments/${assessmentId}/analytics/bands`),
+          api.get<any>(`/assessments/${assessmentId}/analytics/levels`),
+          api.get<any>(`/assessments/${assessmentId}/analytics/leaderboard?limit=25`),
+          api.get<any>(`/assessments/${assessmentId}/analytics/grades`),
+          api.get<any>(`/assessments/${assessmentId}/analytics/streams`),
+        ]);
+      return {
+        overview: unwrap<any>(overview),
+        subjects: unwrap<any[]>(subjects) || [],
+        bands: unwrap<any[]>(bands) || [],
+        levels: unwrap<any[]>(levels) || [],
+        leaderboard: unwrap<any[]>(leaderboard) || [],
+        grades: unwrap<any[]>(grades) || [],
+        streams: unwrap<any[]>(streams) || [],
+      };
+    },
+  });
+}
