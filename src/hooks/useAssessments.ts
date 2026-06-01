@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-const unwrap = <T,>(d: any): T => (d?.data ?? d) as T;
+const unwrap = <T>(d: any): T => (d?.data ?? d) as T;
 
 // ============ TYPES ============
 export interface AssessmentType {
@@ -264,10 +264,12 @@ export function useAllocateSubjects() {
 }
 
 // ============ TEACHER ALLOCATIONS ============
-export function useTeacherAllocations(filters: {
-  teacher_id?: string;
-  grade_id?: string;
-} = {}) {
+export function useTeacherAllocations(
+  filters: {
+    teacher_id?: string;
+    grade_id?: string;
+  } = {},
+) {
   return useQuery({
     queryKey: ["teacher-allocations", filters],
     queryFn: async () => {
@@ -313,7 +315,11 @@ export function useDeleteTeacherAllocation() {
 
 // ============ ASSESSMENTS (CRUD) ============
 export type AssessmentStatus =
-  | "draft" | "published" | "in_progress" | "locked" | "archived";
+  | "draft"
+  | "published"
+  | "in_progress"
+  | "locked"
+  | "archived";
 
 export interface Assessment {
   id: string;
@@ -334,12 +340,19 @@ export interface Assessment {
   task_done?: number;
   classes?: { id: string; grade_id: string; grade_name: string }[];
   subjects?: {
-    id: string; grade_id: string; subject_id: string; out_of: number;
-    grade_name: string; subject_name: string; subject_code: string;
+    id: string;
+    grade_id: string;
+    subject_id: string;
+    out_of: number;
+    grade_name: string;
+    subject_name: string;
+    subject_code: string;
   }[];
 }
 
-export function useAssessmentsList(filters: Record<string, string | undefined> = {}) {
+export function useAssessmentsList(
+  filters: Record<string, string | undefined> = {},
+) {
   return useQuery({
     queryKey: ["assessments", filters],
     queryFn: async () => {
@@ -364,7 +377,10 @@ export function useAssessment(id?: string) {
 export function useSaveAssessment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: Partial<Assessment> & {
+    mutationFn: ({
+      id,
+      ...data
+    }: Partial<Assessment> & {
       id?: string;
       grade_ids?: string[];
       out_of?: number;
@@ -437,7 +453,9 @@ export interface AssessmentTask {
   marked_count: number;
 }
 
-export function useAssessmentTasks(filters: Record<string, string | undefined> = {}) {
+export function useAssessmentTasks(
+  filters: Record<string, string | undefined> = {},
+) {
   return useQuery({
     queryKey: ["assessment-tasks", filters],
     queryFn: async () => {
@@ -541,7 +559,11 @@ export function useBulkSaveAssessmentMarks() {
 // =====================================================================
 
 export type ResultStatus =
-  | "draft" | "pending_review" | "approved" | "published" | "revoked";
+  | "draft"
+  | "pending_review"
+  | "approved"
+  | "published"
+  | "revoked";
 
 export interface AssessmentResult {
   id: string;
@@ -621,9 +643,18 @@ export function useBulkResultStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
-      assessment_id, ids, status,
-    }: { assessment_id: string; ids: string[]; status: ResultStatus }) =>
-      api.post(`/assessments/${assessment_id}/results/bulk-status`, { ids, status }),
+      assessment_id,
+      ids,
+      status,
+    }: {
+      assessment_id: string;
+      ids: string[];
+      status: ResultStatus;
+    }) =>
+      api.post(`/assessments/${assessment_id}/results/bulk-status`, {
+        ids,
+        status,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assessment-results"] });
       toast.success("Updated");
@@ -632,7 +663,10 @@ export function useBulkResultStatus() {
   });
 }
 
-export function useStudentResultDetail(assessmentId?: string, studentId?: string) {
+export function useStudentResultDetail(
+  assessmentId?: string,
+  studentId?: string,
+) {
   return useQuery({
     queryKey: ["result-detail", assessmentId, studentId],
     enabled: !!assessmentId && !!studentId,
@@ -673,7 +707,10 @@ export function useRcTemplates() {
 export function useSaveRcTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: Partial<ReportCardTemplate> & { id?: string }) =>
+    mutationFn: ({
+      id,
+      ...data
+    }: Partial<ReportCardTemplate> & { id?: string }) =>
       id
         ? api.put(`/assessments/report-cards/templates/${id}`, data)
         : api.post("/assessments/report-cards/templates", data),
@@ -783,7 +820,9 @@ export function useAssessmentAnalytics(assessmentId?: string) {
           api.get<any>(`/assessments/${assessmentId}/analytics/subjects`),
           api.get<any>(`/assessments/${assessmentId}/analytics/bands`),
           api.get<any>(`/assessments/${assessmentId}/analytics/levels`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/leaderboard?limit=25`),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/leaderboard?limit=25`,
+          ),
           api.get<any>(`/assessments/${assessmentId}/analytics/grades`),
           api.get<any>(`/assessments/${assessmentId}/analytics/streams`),
         ]);
@@ -797,5 +836,96 @@ export function useAssessmentAnalytics(assessmentId?: string) {
         streams: unwrap<any[]>(streams) || [],
       };
     },
+  });
+}
+
+// ---------------- DOWNLOADS / EXPORTS ----------------
+function apiBase() {
+  return (import.meta as any).env?.VITE_API_URL || "/api";
+}
+async function downloadAuthed(path: string, filename: string) {
+  const token = localStorage.getItem("chuo-token");
+  const schoolId = localStorage.getItem("chuo-school-id") || "";
+  const res = await fetch(`${apiBase()}${path}`, {
+    headers: {
+      Authorization: token ? `Bearer ${token}` : "",
+      "x-school-id": schoolId,
+    },
+  });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function useDownloadReportCardPdf() {
+  return useMutation({
+    mutationFn: ({ cardId, name }: { cardId: string; name?: string }) =>
+      downloadAuthed(
+        `/assessments/report-cards/cards/${cardId}/pdf`,
+        `${name || "report-card"}.pdf`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDownloadRunZip() {
+  return useMutation({
+    mutationFn: ({ runId }: { runId: string }) =>
+      downloadAuthed(
+        `/assessments/report-cards/runs/${runId}/download.zip`,
+        `report-cards-${runId}.zip`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDownloadAnalytics() {
+  return useMutation({
+    mutationFn: ({
+      assessmentId,
+      format,
+    }: {
+      assessmentId: string;
+      format: "pdf" | "xlsx";
+    }) =>
+      downloadAuthed(
+        `/assessments/${assessmentId}/analytics/export.${format}`,
+        `analytics-${assessmentId}.${format}`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ---------------- COMPARISON ----------------
+export function usePreviousAssessments(assessmentId?: string) {
+  return useQuery({
+    queryKey: ["assessment-previous", assessmentId],
+    enabled: !!assessmentId,
+    queryFn: async () =>
+      unwrap<any[]>(
+        await api.get<any>(`/assessments/${assessmentId}/comparison/previous`),
+      ) || [],
+  });
+}
+export function useAssessmentComparison(
+  assessmentId?: string,
+  previousId?: string,
+) {
+  return useQuery({
+    queryKey: ["assessment-comparison", assessmentId, previousId],
+    enabled: !!assessmentId && !!previousId,
+    queryFn: async () =>
+      unwrap<any>(
+        await api.get<any>(
+          `/assessments/${assessmentId}/comparison/vs/${previousId}`,
+        ),
+      ),
   });
 }

@@ -22,15 +22,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSchool } from "@/contexts/SchoolContext";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   BookOpen, Plus, Search, Edit, Trash2, ClipboardCheck, Calendar, Users,
 } from "lucide-react";
-
-const SUBJECTS = ["Mathematics", "English", "Kiswahili", "Science", "Social Studies", "CRE", "Agriculture", "Home Science", "Art & Craft", "Computer Studies", "Physical Education"];
-const CLASSES = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8"];
+import { useClasses, useStreams, useSubjects } from "@/hooks/useClasses";
+import { formatDate } from "@/utils/date";
 
 const HomeworkForm = ({ homework, onSave, onClose }: { homework?: any; onSave: (d: any) => void; onClose: () => void }) => {
   const [title, setTitle] = useState(homework?.title || "");
@@ -40,6 +39,10 @@ const HomeworkForm = ({ homework, onSave, onClose }: { homework?: any; onSave: (
   const [section, setSection] = useState(homework?.section || "");
   const [dueDate, setDueDate] = useState(homework?.due_date || "");
   const [maxMarks, setMaxMarks] = useState(homework?.max_marks?.toString() || "100");
+  const { data: subjects = [] } = useSubjects();
+  const { data: classes = [] } = useClasses();
+  const selectedClass = (classes as any[]).find((c: any) => c.name === className);
+  const { data: streams = [] } = useStreams(selectedClass?.id);
 
   return (
     <div className="grid gap-4 py-2">
@@ -47,15 +50,31 @@ const HomeworkForm = ({ homework, onSave, onClose }: { homework?: any; onSave: (
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2"><Label>Subject *</Label>
           <Select value={subject} onValueChange={setSubject}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-            <SelectContent>{SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+            <SelectContent>
+              {(subjects as any[]).length === 0 && <SelectItem value="__none" disabled>No subjects configured</SelectItem>}
+              {(subjects as any[]).map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+            </SelectContent></Select>
         </div>
         <div className="space-y-2"><Label>Class *</Label>
-          <Select value={className} onValueChange={setClassName}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-            <SelectContent>{CLASSES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+          <Select value={className} onValueChange={(v) => { setClassName(v); setSection(""); }}>
+            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              {(classes as any[]).length === 0 && <SelectItem value="__none" disabled>No classes configured</SelectItem>}
+              {(classes as any[]).map((c: any) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2"><Label>Section</Label><Input value={section} onChange={e => setSection(e.target.value)} placeholder="e.g. East" /></div>
+        <div className="space-y-2"><Label>Stream / Section</Label>
+          <Select value={section} onValueChange={setSection} disabled={!selectedClass}>
+            <SelectTrigger><SelectValue placeholder={selectedClass ? "All streams" : "Select class first"} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">All streams</SelectItem>
+              {(streams as any[]).map((s: any) => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="space-y-2"><Label>Due Date *</Label><Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></div>
         <div className="space-y-2"><Label>Max Marks</Label><Input type="number" value={maxMarks} onChange={e => setMaxMarks(e.target.value)} /></div>
       </div>
@@ -64,7 +83,7 @@ const HomeworkForm = ({ homework, onSave, onClose }: { homework?: any; onSave: (
         <Button variant="outline" onClick={onClose}>Cancel</Button>
         <Button onClick={() => {
           if (!title || !subject || !className || !dueDate) { toast.error("Fill all required fields"); return; }
-          onSave({ title, description, subject, class_name: className, section, due_date: dueDate, max_marks: Number(maxMarks) });
+          onSave({ title, description, subject, class_name: className, section: section && section !== "__all" ? section : null, due_date: dueDate, max_marks: Number(maxMarks) });
         }}>{homework ? "Update" : "Assign"}</Button>
       </DialogFooter>
     </div>
@@ -107,9 +126,8 @@ const Homework = () => {
     queryKey: ["homework", schoolId],
     queryFn: async () => {
       if (!schoolId) return [];
-      const { data, error } = await supabase.from("homework").select("*").eq("school_id", schoolId).order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const res = await api.get<any>("/homework");
+      return (res?.data || res || []) as any[];
     },
     enabled: !!schoolId,
   });
@@ -118,37 +136,30 @@ const Homework = () => {
     queryKey: ["homework-submissions", selectedHw],
     queryFn: async () => {
       if (!selectedHw) return [];
-      const { data, error } = await supabase.from("homework_submissions").select("*, students(full_name, admission_number)").eq("homework_id", selectedHw);
-      if (error) throw error;
-      return data;
+      const res = await api.get<any>(`/homework/${selectedHw}/submissions`);
+      return (res?.data || res || []) as any[];
     },
     enabled: !!selectedHw,
   });
 
   const saveHw = useMutation({
     mutationFn: async (data: any) => {
-      if (editing) {
-        const { error } = await supabase.from("homework").update({ ...data, updated_at: new Date().toISOString() }).eq("id", editing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("homework").insert({ ...data, school_id: schoolId });
-        if (error) throw error;
-      }
+      if (editing) await api.put(`/homework/${editing.id}`, data);
+      else await api.post("/homework", data);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["homework"] }); toast.success(editing ? "Homework updated" : "Homework assigned"); setDialogOpen(false); setEditing(null); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const deleteHw = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("homework").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { await api.delete(`/homework/${id}`); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["homework"] }); toast.success("Homework deleted"); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const evaluateSub = useMutation({
     mutationFn: async (data: any) => {
-      const { error } = await supabase.from("homework_submissions").update({ marks: data.marks, remarks: data.remarks, status: data.status, evaluated_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", data.id);
-      if (error) throw error;
+      await api.put(`/homework/submissions/${data.id}`, { marks: data.marks, remarks: data.remarks, status: data.status });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["homework-submissions"] }); toast.success("Evaluation saved"); },
     onError: (e: any) => toast.error(e.message),
@@ -221,7 +232,7 @@ const Homework = () => {
                       <TableCell className="font-medium">{h.title}</TableCell>
                       <TableCell><Badge variant="secondary">{h.subject}</Badge></TableCell>
                       <TableCell>{h.class_name} {h.section}</TableCell>
-                      <TableCell className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>{h.due_date}</TableCell>
+                      <TableCell className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>{formatDate(h.due_date)}</TableCell>
                       <TableCell>{h.max_marks}</TableCell>
                       <TableCell><Badge className={isOverdue ? "bg-destructive/10 text-destructive border-0" : "bg-success/10 text-success border-0"}>{isOverdue ? "Overdue" : "Active"}</Badge></TableCell>
                       <TableCell>
@@ -268,7 +279,7 @@ const Homework = () => {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.students?.full_name || "—"}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{s.students?.admission_number || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{s.submission_date ? new Date(s.submission_date).toLocaleDateString() : "—"}</TableCell>
+                       <TableCell className="text-muted-foreground">{formatDate(s.submission_date)}</TableCell>
                       <TableCell className="font-semibold">{s.marks ?? "—"}</TableCell>
                       <TableCell><Badge className={
                         s.status === "evaluated" ? "bg-success/10 text-success border-0" :

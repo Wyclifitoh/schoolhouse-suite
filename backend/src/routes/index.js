@@ -9,6 +9,9 @@ const paymentsController = require("../modules/payments/payments.controller");
 const authRoutes = require("../modules/auth/auth.routes");
 router.use("/auth", authRoutes);
 
+// Parent / Student portal (separate auth, no school header required)
+router.use("/portal", require("../modules/portal/portal.routes"));
+
 // M-Pesa webhook (no auth)
 router.post("/webhooks/mpesa/callback", paymentsController.mpesaCallback);
 
@@ -47,9 +50,30 @@ router.use(
   "/examinations",
   require("../modules/examinations/examinations.routes"),
 );
+// New CBC Assessments module (Phase 1: config + allocations)
+router.use(
+  "/assessments",
+  require("../modules/assessments/assessments.routes"),
+);
 router.use("/promotion", require("../modules/promotion/promotion.routes"));
 router.use(
   "/notifications",
   require("../modules/notifications/notifications.routes"),
 );
+router.use(
+  "/lesson-plans",
+  require("../modules/lesson-plans/lesson-plans.routes"),
+);
+
+// HR module redesign (2026-05-31)
+router.use("/leaves", require("../modules/leaves/leaves.routes"));
+router.use("/ratings", require("../modules/ratings/ratings.routes"));
+router.use("/payroll", require("../modules/payroll/payroll.routes"));
+router.use(
+  "/staff-attendance",
+  require("../modules/staff-attendance/staff-attendance.routes"),
+);
+router.use("/timetable", require("../modules/timetable/timetable.routes"));
+router.use("/homework", require("../modules/homework/homework.routes"));
+
 module.exports = router;

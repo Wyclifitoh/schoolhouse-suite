@@ -38,15 +38,30 @@ const create = async ({
       (id, school_id, user_id, audience, type, title, body, link, priority, meta, source_type, source_id, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      id, schoolId, userId, audience, type, title, body, link, priority,
+      id,
+      schoolId,
+      userId,
+      audience,
+      type,
+      title,
+      body,
+      link,
+      priority,
       meta ? JSON.stringify(meta) : null,
-      sourceType, sourceId, expiresAt,
+      sourceType,
+      sourceId,
+      expiresAt,
     ],
   );
   return queryOne("SELECT * FROM notifications WHERE id = ?", [id]);
 };
 
-const list = async (schoolId, userId, roles, { limit = 20, offset = 0, unreadOnly = false } = {}) => {
+const listV1 = async (
+  schoolId,
+  userId,
+  roles,
+  { limit = 20, offset = 0, unreadOnly = false } = {},
+) => {
   const auds = audiencesForRoles(roles);
   const placeholders = auds.map(() => "?").join(",");
   const base = `
@@ -67,8 +82,55 @@ const list = async (schoolId, userId, roles, { limit = 20, offset = 0, unreadOnl
   return { rows, total: countRows[0]?.count || 0 };
 };
 
+const list = async (
+  schoolId,
+  userId,
+  roles,
+  { limit = 20, offset = 0, unreadOnly = false } = {},
+) => {
+  const auds = audiencesForRoles(roles);
+  const placeholders = auds.map(() => "?").join(",");
+
+  // Convert to numbers explicitly and ensure they're integers
+  const numLimit = parseInt(limit, 10);
+  const numOffset = parseInt(offset, 10);
+
+  const whereClause = `
+    WHERE n.school_id = ?
+      AND (n.expires_at IS NULL OR n.expires_at > NOW())
+      AND (n.user_id = ? OR (n.user_id IS NULL AND n.audience IN (${placeholders})))
+      ${unreadOnly ? "AND r.read_at IS NULL" : ""}
+  `;
+
+  const whereParams = [schoolId, userId, ...auds];
+
+  const rows = await query(
+    `SELECT n.*, r.read_at 
+     FROM notifications n
+     LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+     ${whereClause}
+     ORDER BY n.created_at DESC 
+     LIMIT ${numLimit} OFFSET ${numOffset}`,
+    [userId, ...whereParams],
+  );
+
+  const countRows = await query(
+    `SELECT COUNT(*) AS count 
+     FROM notifications n
+     LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+     ${whereClause}`,
+    [userId, ...whereParams],
+  );
+
+  return { rows, total: countRows[0]?.count || 0 };
+};
+
 const unreadCount = async (schoolId, userId, roles) => {
-  const { total } = await list(schoolId, userId, roles, { limit: 0, offset: 0, unreadOnly: true });
+  const { total } = await list(schoolId, userId, roles, {
+    limit: 0,
+    offset: 0,
+    unreadOnly: true,
+  });
   return total;
 };
 
@@ -98,10 +160,22 @@ const markAllRead = async (schoolId, userId, roles) => {
 };
 
 const remove = (id, schoolId) =>
-  query("DELETE FROM notifications WHERE id = ? AND school_id = ?", [id, schoolId]);
+  query("DELETE FROM notifications WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
 
 /* convenience for in-process emitters */
 const broadcast = (args) => create({ ...args, userId: null });
 const toUser = (userId, args) => create({ ...args, userId });
 
-module.exports = { create, list, unreadCount, markRead, markAllRead, remove, broadcast, toUser };
+module.exports = {
+  create,
+  list,
+  unreadCount,
+  markRead,
+  markAllRead,
+  remove,
+  broadcast,
+  toUser,
+};

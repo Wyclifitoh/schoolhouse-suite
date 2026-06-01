@@ -7,18 +7,50 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  useRcTemplates, useSaveRcTemplate, useDeleteRcTemplate,
-  useRcRuns, useCreateRcRun, usePublishRcRun,
+  useRcTemplates,
+  useSaveRcTemplate,
+  useDeleteRcTemplate,
+  useRcRuns,
+  useCreateRcRun,
+  usePublishRcRun,
+  useRcCards,
   useAssessmentsList,
+  useDownloadReportCardPdf,
+  useDownloadRunZip,
 } from "@/hooks/useAssessments";
 import { useGrades } from "@/hooks/useGrades";
-import { FileBadge, Plus, Send, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  FileBadge,
+  Plus,
+  Send,
+  Trash2,
+  Download,
+  FileText,
+  FolderArchive,
+  Eye,
+} from "lucide-react";
 
 export default function ReportCardsV2() {
   const { data: templates = [] } = useRcTemplates();
@@ -29,6 +61,8 @@ export default function ReportCardsV2() {
   const delTpl = useDeleteRcTemplate();
   const createRun = useCreateRcRun();
   const publish = usePublishRcRun();
+  const downloadZip = useDownloadRunZip();
+  const [viewRunId, setViewRunId] = useState<string | null>(null);
 
   const [tplName, setTplName] = useState("");
   const [tplKind, setTplKind] = useState<"CBC" | "844" | "HYBRID">("CBC");
@@ -55,7 +89,9 @@ export default function ReportCardsV2() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Templates */}
           <Card>
-            <CardHeader><CardTitle>Templates</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Templates</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
                 <div className="grid grid-cols-2 gap-2">
@@ -64,8 +100,13 @@ export default function ReportCardsV2() {
                     value={tplName}
                     onChange={(e) => setTplName(e.target.value)}
                   />
-                  <Select value={tplKind} onValueChange={(v: any) => setTplKind(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={tplKind}
+                    onValueChange={(v: any) => setTplKind(v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="CBC">CBC</SelectItem>
                       <SelectItem value="844">8-4-4</SelectItem>
@@ -93,7 +134,8 @@ export default function ReportCardsV2() {
                   onClick={() => {
                     saveTpl.mutate(
                       {
-                        name: tplName, kind: tplKind,
+                        name: tplName,
+                        kind: tplKind,
                         show_position: showPos,
                         show_band: showBand,
                         show_competencies: showComp,
@@ -120,25 +162,44 @@ export default function ReportCardsV2() {
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">
                         {t.name}
-                        {t.is_default && <Badge variant="outline" className="ml-1">default</Badge>}
+                        {t.is_default && (
+                          <Badge variant="outline" className="ml-1">
+                            default
+                          </Badge>
+                        )}
                       </TableCell>
-                      <TableCell><Badge>{t.kind}</Badge></TableCell>
+                      <TableCell>
+                        <Badge>{t.kind}</Badge>
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {[
                           t.show_position && "position",
                           t.show_band && "band",
                           t.show_competencies && "competencies",
-                        ].filter(Boolean).join(", ") || "minimal"}
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "minimal"}
                       </TableCell>
                       <TableCell>
-                        <Button size="icon" variant="ghost" onClick={() => delTpl.mutate(t.id)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => delTpl.mutate(t.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                   {!templates.length && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No templates yet.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center text-muted-foreground"
+                      >
+                        No templates yet.
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -147,27 +208,40 @@ export default function ReportCardsV2() {
 
           {/* Generate run */}
           <Card>
-            <CardHeader><CardTitle>Generate batch</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Generate batch</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
                 <Label className="text-xs">Assessment</Label>
                 <Select value={runAssess} onValueChange={setRunAssess}>
-                  <SelectTrigger><SelectValue placeholder="Choose assessment" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose assessment" />
+                  </SelectTrigger>
                   <SelectContent>
                     {assessments.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Class (optional)</Label>
-                <Select value={runGrade || "all"} onValueChange={(v) => setRunGrade(v === "all" ? "" : v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={runGrade || "all"}
+                  onValueChange={(v) => setRunGrade(v === "all" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All classes</SelectItem>
                     {grades.map((g: any) => (
-                      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -175,10 +249,14 @@ export default function ReportCardsV2() {
               <div className="space-y-2">
                 <Label className="text-xs">Template</Label>
                 <Select value={runTpl} onValueChange={setRunTpl}>
-                  <SelectTrigger><SelectValue placeholder="Default template" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Default template" />
+                  </SelectTrigger>
                   <SelectContent>
                     {templates.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -186,11 +264,13 @@ export default function ReportCardsV2() {
               <Button
                 className="w-full"
                 disabled={!runAssess || createRun.isPending}
-                onClick={() => createRun.mutate({
-                  assessment_id: runAssess,
-                  grade_id: runGrade || null,
-                  template_id: runTpl || null,
-                })}
+                onClick={() =>
+                  createRun.mutate({
+                    assessment_id: runAssess,
+                    grade_id: runGrade || null,
+                    template_id: runTpl || null,
+                  })
+                }
               >
                 <Plus className="h-4 w-4 mr-1" />
                 {createRun.isPending ? "Generating…" : "Generate report cards"}
@@ -203,7 +283,9 @@ export default function ReportCardsV2() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle>Recent runs</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Recent runs</CardTitle>
+          </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
@@ -219,40 +301,158 @@ export default function ReportCardsV2() {
               <TableBody>
                 {runs.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.assessment_name}</TableCell>
-                    <TableCell className="text-xs">{r.grade_name || "All"}</TableCell>
+                    <TableCell className="font-medium">
+                      {r.assessment_name}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {r.grade_name || "All"}
+                    </TableCell>
                     <TableCell>{r.total_cards}</TableCell>
                     <TableCell className="text-xs">
                       {new Date(r.generated_at).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={r.status === "published" ? "default" : "outline"}
+                        variant={
+                          r.status === "published" ? "default" : "outline"
+                        }
                       >
                         {r.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.status !== "published" && (
+                      <div className="flex justify-end gap-1">
                         <Button
                           size="sm"
-                          disabled={publish.isPending}
-                          onClick={() => publish.mutate(r.id)}
+                          variant="ghost"
+                          onClick={() => setViewRunId(r.id)}
                         >
-                          <Send className="h-4 w-4 mr-1" /> Publish to parents
+                          <Eye className="h-4 w-4 mr-1" /> View
                         </Button>
-                      )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={downloadZip.isPending || !r.total_cards}
+                          onClick={() => downloadZip.mutate({ runId: r.id })}
+                        >
+                          <FolderArchive className="h-4 w-4 mr-1" /> ZIP
+                        </Button>
+                        {r.status !== "published" && (
+                          <Button
+                            size="sm"
+                            disabled={publish.isPending}
+                            onClick={() => publish.mutate(r.id)}
+                          >
+                            <Send className="h-4 w-4 mr-1" /> Publish
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
                 {!runs.length && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No runs yet.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center text-muted-foreground"
+                    >
+                      No runs yet.
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </div>
+
+      <RunCardsDialog runId={viewRunId} onClose={() => setViewRunId(null)} />
     </DashboardLayout>
+  );
+}
+
+function RunCardsDialog({
+  runId,
+  onClose,
+}: {
+  runId: string | null;
+  onClose: () => void;
+}) {
+  const { data: cards = [] } = useRcCards(runId || undefined);
+  const dl = useDownloadReportCardPdf();
+  return (
+    <Dialog open={!!runId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Report cards in this run</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student</TableHead>
+                <TableHead>Adm #</TableHead>
+                <TableHead className="text-right">Mean %</TableHead>
+                <TableHead>AL</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(cards as any[]).map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium">
+                    {c.first_name} {c.last_name}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {c.admission_number}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {Number(c.percentage || 0).toFixed(1)}
+                  </TableCell>
+                  <TableCell>
+                    {c.overall_al ? (
+                      <Badge variant="outline">{c.overall_al}</Badge>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={c.published ? "default" : "outline"}>
+                      {c.published ? "published" : "draft"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={dl.isPending}
+                      onClick={() =>
+                        dl.mutate({
+                          cardId: c.id,
+                          name: `${c.first_name}_${c.last_name}_${c.admission_number}`,
+                        })
+                      }
+                    >
+                      <FileText className="h-4 w-4 mr-1" /> PDF
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!cards.length && (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground"
+                  >
+                    No cards.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

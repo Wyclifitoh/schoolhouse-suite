@@ -1,12 +1,11 @@
-const authService = require('./auth.service');
-const { success, error } = require('../../utils/response');
+const authService = require("./auth.service");
+const { success, error } = require("../../utils/response");
 
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return error(res, 'Email and password are required', 400);
-    }
+    if (!email || !password)
+      return error(res, "Email and password are required", 400);
     const result = await authService.login(email, password);
     return success(res, result);
   } catch (err) {
@@ -17,9 +16,8 @@ const login = async (req, res) => {
 const register = async (req, res) => {
   try {
     const { email, password, full_name, school_id, role } = req.body;
-    if (!email || !password || !full_name) {
-      return error(res, 'Email, password, and full_name are required', 400);
-    }
+    if (!email || !password || !full_name)
+      return error(res, "Email, password, and full_name are required", 400);
     const result = await authService.register({
       email,
       password,
@@ -35,8 +33,7 @@ const register = async (req, res) => {
 
 const me = async (req, res) => {
   try {
-    const result = await authService.me(req.user.id);
-    return success(res, result);
+    return success(res, await authService.me(req.user.id));
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
@@ -44,12 +41,28 @@ const me = async (req, res) => {
 
 const verifyPassword = async (req, res) => {
   try {
-    const { password } = req.body;
-    const result = await authService.verifyPassword(req.user.id, password);
+    const result = await authService.verifyPassword(
+      req.user.id,
+      req.body.password,
+    );
     return success(res, result);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
 };
 
-module.exports = { login, register, me, verifyPassword };
+const changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body || {};
+    const result = await authService.changePassword(
+      req.user.id,
+      current_password,
+      new_password,
+    );
+    return success(res, result);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+module.exports = { login, register, me, verifyPassword, changePassword };
