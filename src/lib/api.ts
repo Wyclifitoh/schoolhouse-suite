@@ -1,5 +1,5 @@
 const API_BASE =
-  import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+  import.meta.env.VITE_API_URL || "https://school.wikiteq.co.ke/api/v1";
 
 class ApiClient {
   private token: string | null = null;
