@@ -844,8 +844,8 @@ function apiBase() {
   return (import.meta as any).env?.VITE_API_URL || "/api";
 }
 async function downloadAuthed(path: string, filename: string) {
-  const token = localStorage.getItem("token");
-  const schoolId = localStorage.getItem("school_id") || "";
+  const token = localStorage.getItem("chuo-token");
+  const schoolId = localStorage.getItem("chuo-school-id") || "";
   const res = await fetch(`${apiBase()}${path}`, {
     headers: {
       Authorization: token ? `Bearer ${token}` : "",
