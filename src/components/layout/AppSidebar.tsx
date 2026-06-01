@@ -43,6 +43,7 @@ import {
   FileBadge,
   SlidersHorizontal,
   Archive,
+  BookOpenCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
@@ -187,6 +188,12 @@ const allNav = {
         url: "/assessments/settings",
         icon: SlidersHorizontal,
         roles: ADMIN_ROLES,
+      },
+      {
+        title: "Lesson Plans (CBE)",
+        url: "/lesson-plans",
+        icon: BookOpenCheck,
+        roles: ACADEMIC_ROLES,
       },
       {
         title: "Homework",

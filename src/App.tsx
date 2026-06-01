@@ -99,6 +99,10 @@ import TransportReports from "./pages/reports/TransportReports";
 import UserLogs from "./pages/reports/UserLogs";
 import AuditTrail from "./pages/reports/AuditTrail";
 
+// Lesson Plans (CBE)
+import LessonPlans from "./pages/lesson-plans/LessonPlans";
+import LessonPlanEditor from "./pages/lesson-plans/LessonPlanEditor";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -914,6 +918,32 @@ const App = () => (
                           ]}
                         >
                           <AuditTrail />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Lesson Plans (CBE) */}
+                    <Route
+                      path="/lesson-plans"
+                      element={
+                        <ProtectedRoute>
+                          <LessonPlans />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/lesson-plans/new"
+                      element={
+                        <ProtectedRoute>
+                          <LessonPlanEditor />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/lesson-plans/:id"
+                      element={
+                        <ProtectedRoute>
+                          <LessonPlanEditor />
                         </ProtectedRoute>
                       }
                     />
