@@ -40,8 +40,28 @@ const findById = async (id, schoolId) => {
   ]);
 };
 
-module.exports = {
-  create,
-  findAll,
-  findById,
+const update = async (id, schoolId, data) => {
+  const { name, description, is_active } = data;
+  await query(
+    `UPDATE departments SET name = ?, description = ?, is_active = COALESCE(?, is_active)
+     WHERE id = ? AND school_id = ?`,
+    [
+      name,
+      description,
+      typeof is_active === "boolean" ? (is_active ? 1 : 0) : null,
+      id,
+      schoolId,
+    ],
+  );
+  return { id, ...data };
 };
+
+const remove = async (id, schoolId) => {
+  await query(
+    `UPDATE departments SET is_active = 0 WHERE id = ? AND school_id = ?`,
+    [id, schoolId],
+  );
+  return { id, is_active: false };
+};
+
+module.exports = { create, findAll, findById, update, remove };

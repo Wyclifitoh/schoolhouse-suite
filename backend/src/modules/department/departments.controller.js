@@ -4,15 +4,11 @@ const { parsePagination } = require("../../utils/pagination");
 
 const create = async (req, res) => {
   try {
-    // Note: We use req.schoolId if your middleware populates it,
-    // otherwise we fallback to the body as per your request.
     const schoolId = req.schoolId || req.body.school_id;
-    const departmentData = {
+    const result = await svc.createDepartment({
       ...req.body,
       school_id: schoolId,
-    };
-
-    const result = await svc.createDepartment(departmentData);
+    });
     return success(res, result, 201);
   } catch (err) {
     return error(res, err.message, 500);
@@ -25,7 +21,6 @@ const list = async (req, res) => {
     const { rows, total } = await svc.listDepartments(req.schoolId, pagination);
     return paginated(res, rows, total, pagination.page, pagination.limit);
   } catch (err) {
-    console.error("Error listing departments:", err);
     return error(res, err.message, 500);
   }
 };
@@ -40,8 +35,26 @@ const getById = async (req, res) => {
   }
 };
 
-module.exports = {
-  create,
-  list,
-  getById,
+const update = async (req, res) => {
+  try {
+    const result = await svc.updateDepartment(
+      req.params.id,
+      req.schoolId,
+      req.body,
+    );
+    return success(res, result);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
+
+const remove = async (req, res) => {
+  try {
+    const result = await svc.deleteDepartment(req.params.id, req.schoolId);
+    return success(res, result);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+module.exports = { create, list, getById, update, remove };

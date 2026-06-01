@@ -57,4 +57,15 @@ router.use(
   "/notifications",
   require("../modules/notifications/notifications.routes"),
 );
+
+// HR module redesign (2026-05-31)
+router.use("/leaves", require("../modules/leaves/leaves.routes"));
+router.use("/ratings", require("../modules/ratings/ratings.routes"));
+router.use("/payroll", require("../modules/payroll/payroll.routes"));
+router.use(
+  "/staff-attendance",
+  require("../modules/staff-attendance/staff-attendance.routes"),
+);
+router.use("/timetable", require("../modules/timetable/timetable.routes"));
+
 module.exports = router;

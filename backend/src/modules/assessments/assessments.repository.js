@@ -6,14 +6,32 @@ const { query, queryOne, execute } = require("../../config/database");
 const { v4: uuid } = require("uuid");
 
 // ---------- LIST ----------
-exports.list = async (schoolId, { status, term_id, year_id, type_id, q } = {}) => {
+exports.list = async (
+  schoolId,
+  { status, term_id, year_id, type_id, q } = {},
+) => {
   const params = [schoolId];
   let where = "a.school_id=?";
-  if (status) { where += " AND a.status=?"; params.push(status); }
-  if (term_id) { where += " AND a.term_id=?"; params.push(term_id); }
-  if (year_id) { where += " AND a.academic_year_id=?"; params.push(year_id); }
-  if (type_id) { where += " AND a.assessment_type_id=?"; params.push(type_id); }
-  if (q) { where += " AND a.name LIKE ?"; params.push(`%${q}%`); }
+  if (status) {
+    where += " AND a.status=?";
+    params.push(status);
+  }
+  if (term_id) {
+    where += " AND a.term_id=?";
+    params.push(term_id);
+  }
+  if (year_id) {
+    where += " AND a.academic_year_id=?";
+    params.push(year_id);
+  }
+  if (type_id) {
+    where += " AND a.assessment_type_id=?";
+    params.push(type_id);
+  }
+  if (q) {
+    where += " AND a.name LIKE ?";
+    params.push(`%${q}%`);
+  }
 
   return query(
     `SELECT a.*, at.name AS type_name, at.code AS type_code, at.weight AS type_weight,
@@ -111,8 +129,14 @@ exports.update = async (id, schoolId, data) => {
   const fields = [];
   const values = [];
   for (const k of [
-    "name", "description", "start_date", "end_date",
-    "assessment_type_id", "academic_year_id", "term_id", "status",
+    "name",
+    "description",
+    "start_date",
+    "end_date",
+    "assessment_type_id",
+    "academic_year_id",
+    "term_id",
+    "status",
   ]) {
     if (data[k] !== undefined) {
       fields.push(`${k}=?`);
@@ -153,9 +177,7 @@ exports.publish = async (id, schoolId) => {
       `SELECT id FROM streams WHERE grade_id=? AND (is_active=1 OR is_active IS NULL)`,
       [grade_id],
     );
-    const targets = streams.length
-      ? streams.map((s) => s.id)
-      : [null]; // grade-only task when no streams
+    const targets = streams.length ? streams.map((s) => s.id) : [null]; // grade-only task when no streams
 
     for (const stream_id of targets) {
       // pick allocated teacher
@@ -180,7 +202,14 @@ exports.publish = async (id, schoolId) => {
         `INSERT INTO assessment_tasks
           (id, assessment_id, grade_id, stream_id, subject_id, teacher_id, status)
          VALUES (?,?,?,?,?,?, 'pending')`,
-        [uuid(), id, grade_id, stream_id, subject_id, teacher?.teacher_id || null],
+        [
+          uuid(),
+          id,
+          grade_id,
+          stream_id,
+          subject_id,
+          teacher?.teacher_id || null,
+        ],
       );
     }
   }
@@ -206,13 +235,28 @@ exports.setStatus = async (id, schoolId, status) => {
 };
 
 // ---------- TASKS ----------
-exports.listTasks = (schoolId, { assessment_id, teacher_id, status, grade_id } = {}) => {
+exports.listTasksV1 = (
+  schoolId,
+  { assessment_id, teacher_id, status, grade_id } = {},
+) => {
   const params = [schoolId];
   let where = "a.school_id=?";
-  if (assessment_id) { where += " AND t.assessment_id=?"; params.push(assessment_id); }
-  if (teacher_id) { where += " AND t.teacher_id=?"; params.push(teacher_id); }
-  if (status) { where += " AND t.status=?"; params.push(status); }
-  if (grade_id) { where += " AND t.grade_id=?"; params.push(grade_id); }
+  if (assessment_id) {
+    where += " AND t.assessment_id=?";
+    params.push(assessment_id);
+  }
+  if (teacher_id) {
+    where += " AND t.teacher_id=?";
+    params.push(teacher_id);
+  }
+  if (status) {
+    where += " AND t.status=?";
+    params.push(status);
+  }
+  if (grade_id) {
+    where += " AND t.grade_id=?";
+    params.push(grade_id);
+  }
   return query(
     `SELECT t.*, a.name AS assessment_name, a.status AS assessment_status,
             g.name AS grade_name, st.name AS stream_name,
@@ -234,8 +278,107 @@ exports.listTasks = (schoolId, { assessment_id, teacher_id, status, grade_id } =
   );
 };
 
+exports.listTasks = async (
+  schoolId,
+  { assessment_id, teacher_id, status, grade_id } = {},
+  user,
+) => {
+  const params = [schoolId];
+  let where = "a.school_id=?";
+
+  console.log("listTasks called with", {
+    schoolId,
+    assessment_id,
+    teacher_id,
+    status,
+    grade_id,
+    user,
+  });
+
+  console.log("User roles:", user?.roles);
+
+  let teacherId = teacher_id || null; // for admin override
+
+  // Extract role strings from role objects
+  const userRoles = (user?.roles || []).map((r) => {
+    // If role is an object with a 'role' property
+    if (typeof r === "object" && r.role) {
+      return r.role;
+    }
+    // If role is a string
+    if (typeof r === "string") {
+      return r;
+    }
+    return r;
+  });
+
+  console.log("Extracted user roles:", userRoles);
+
+  const isTeacher = userRoles.some((role) => role === "teacher");
+  console.log("Is teacher:", isTeacher);
+
+  if (isTeacher) {
+    console.log("Fetching teacher profile for user ID:", user.id);
+    const teacher = await queryOne(
+      `SELECT t.id FROM teachers t
+       JOIN staff s ON s.id = t.staff_id
+       WHERE s.user_id = ? AND s.school_id = ?`,
+      [user.id, schoolId],
+    );
+    console.log("Teacher found:", teacher);
+
+    if (!teacher) throw new Error("Teacher profile not found");
+    teacherId = teacher.id;
+    console.log("Setting teacherId filter to:", teacherId);
+  }
+
+  if (assessment_id) {
+    where += " AND t.assessment_id=?";
+    params.push(assessment_id);
+  }
+  if (teacherId) {
+    where += " AND t.teacher_id=?";
+    params.push(teacherId);
+  }
+  if (status) {
+    where += " AND t.status=?";
+    params.push(status);
+  }
+  if (grade_id) {
+    where += " AND t.grade_id=?";
+    params.push(grade_id);
+  }
+
+  console.log("Final where clause:", where);
+  console.log("Final params:", params);
+
+  return query(
+    `SELECT t.*, a.name AS assessment_name, a.status AS assessment_status,
+            g.name AS grade_name, st.name AS stream_name,
+            s.name AS subject_name, s.code AS subject_code,
+            CONCAT(COALESCE(sf.first_name,''),' ',COALESCE(sf.last_name,'')) AS teacher_name,
+            (SELECT COUNT(*) FROM students stu WHERE stu.current_grade_id = t.grade_id
+                AND (stu.current_stream_id <=> t.stream_id OR t.stream_id IS NULL)
+                AND stu.status = 'active') AS student_count,
+            (SELECT COUNT(*) FROM assessment_marks m WHERE m.task_id = t.id AND m.score IS NOT NULL) AS marked_count
+     FROM assessment_tasks t
+     JOIN assessments a ON a.id = t.assessment_id
+     JOIN grades g ON g.id = t.grade_id
+     JOIN subjects s ON s.id = t.subject_id
+     LEFT JOIN streams st ON st.id = t.stream_id
+     LEFT JOIN teachers te ON te.id = t.teacher_id
+     LEFT JOIN staff sf ON sf.id = te.staff_id
+     WHERE ${where}
+     ORDER BY a.created_at DESC, g.name, s.name`,
+    params,
+  );
+};
+
 exports.reassignTask = (id, teacher_id) =>
-  execute("UPDATE assessment_tasks SET teacher_id=? WHERE id=?", [teacher_id, id]);
+  execute("UPDATE assessment_tasks SET teacher_id=? WHERE id=?", [
+    teacher_id,
+    id,
+  ]);
 
 exports.setTaskStatus = (id, status) =>
   execute(

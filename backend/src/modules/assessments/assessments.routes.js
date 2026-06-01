@@ -59,10 +59,7 @@ router.post(
 router.put(
   "/bands/:id",
   h(async (req, res) =>
-    success(
-      res,
-      await cfg.upsertBand({ ...req.body, school_id: sid(req) }),
-    ),
+    success(res, await cfg.upsertBand({ ...req.body, school_id: sid(req) })),
   ),
 );
 router.delete(
@@ -116,10 +113,7 @@ router.post(
 router.put(
   "/competencies/:id",
   h(async (req, res) =>
-    success(
-      res,
-      await cfg.updateCompetency(req.params.id, sid(req), req.body),
-    ),
+    success(res, await cfg.updateCompetency(req.params.id, sid(req), req.body)),
   ),
 );
 router.delete(
@@ -223,45 +217,108 @@ router.delete(
 );
 
 // ============== ASSESSMENTS (CRUD + lifecycle) ==============
-router.get("/", h(async (req, res) => success(res, await assess.list(sid(req), req.query))));
-router.get("/:id", h(async (req, res) => {
-  const a = await assess.get(req.params.id, sid(req));
-  if (!a) return error(res, "Assessment not found", 404);
-  return success(res, a);
-}));
-router.post("/", h(async (req, res) =>
-  success(res, await assess.create({ ...req.body, school_id: sid(req), created_by: uid(req) }), 201)));
-router.put("/:id", h(async (req, res) =>
-  success(res, await assess.update(req.params.id, sid(req), req.body))));
-router.delete("/:id", h(async (req, res) => {
-  await assess.remove(req.params.id, sid(req));
-  return success(res, { deleted: true });
-}));
-router.post("/:id/publish", h(async (req, res) =>
-  success(res, await assess.publish(req.params.id, sid(req)))));
-router.post("/:id/status", h(async (req, res) =>
-  success(res, await assess.setStatus(req.params.id, sid(req), req.body.status))));
+router.get(
+  "/",
+  h(async (req, res) => success(res, await assess.list(sid(req), req.query))),
+);
+router.get(
+  "/:id",
+  h(async (req, res) => {
+    const a = await assess.get(req.params.id, sid(req));
+    if (!a) return error(res, "Assessment not found", 404);
+    return success(res, a);
+  }),
+);
+router.post(
+  "/",
+  h(async (req, res) =>
+    success(
+      res,
+      await assess.create({
+        ...req.body,
+        school_id: sid(req),
+        created_by: uid(req),
+      }),
+      201,
+    ),
+  ),
+);
+router.put(
+  "/:id",
+  h(async (req, res) =>
+    success(res, await assess.update(req.params.id, sid(req), req.body)),
+  ),
+);
+router.delete(
+  "/:id",
+  h(async (req, res) => {
+    await assess.remove(req.params.id, sid(req));
+    return success(res, { deleted: true });
+  }),
+);
+router.post(
+  "/:id/publish",
+  h(async (req, res) =>
+    success(res, await assess.publish(req.params.id, sid(req))),
+  ),
+);
+router.post(
+  "/:id/status",
+  h(async (req, res) =>
+    success(
+      res,
+      await assess.setStatus(req.params.id, sid(req), req.body.status),
+    ),
+  ),
+);
 
 // ============== TASKS ==============
-router.get("/tasks/list", h(async (req, res) =>
-  success(res, await assess.listTasks(sid(req), req.query))));
-router.post("/tasks/:id/reassign", h(async (req, res) => {
-  await assess.reassignTask(req.params.id, req.body.teacher_id);
-  return success(res, { ok: true });
-}));
-router.post("/tasks/:id/status", h(async (req, res) => {
-  await assess.setTaskStatus(req.params.id, req.body.status);
-  return success(res, { ok: true });
-}));
-router.get("/tasks/:id/roster", h(async (req, res) =>
-  success(res, await marks.roster(sid(req), req.params.id))));
-router.post("/tasks/:id/submit", h(async (req, res) =>
-  success(res, await marks.submitTask(sid(req), req.params.id))));
+router.get(
+  "/tasks/list",
+  h(async (req, res) =>
+    success(res, await assess.listTasks(sid(req), req.query, req.user)),
+  ),
+);
+router.post(
+  "/tasks/:id/reassign",
+  h(async (req, res) => {
+    await assess.reassignTask(req.params.id, req.body.teacher_id);
+    return success(res, { ok: true });
+  }),
+);
+router.post(
+  "/tasks/:id/status",
+  h(async (req, res) => {
+    await assess.setTaskStatus(req.params.id, req.body.status);
+    return success(res, { ok: true });
+  }),
+);
+router.get(
+  "/tasks/:id/roster",
+  h(async (req, res) =>
+    success(res, await marks.roster(sid(req), req.params.id)),
+  ),
+);
+router.post(
+  "/tasks/:id/submit",
+  h(async (req, res) =>
+    success(res, await marks.submitTask(sid(req), req.params.id)),
+  ),
+);
 
 // ============== MARKS ==============
-router.get("/marks", h(async (req, res) =>
-  success(res, await marks.list(sid(req), req.query))));
-router.post("/marks/bulk", h(async (req, res) =>
-  success(res, await marks.bulkSave(sid(req), { ...req.body, recorded_by: uid(req) }))));
+router.get(
+  "/marks",
+  h(async (req, res) => success(res, await marks.list(sid(req), req.query))),
+);
+router.post(
+  "/marks/bulk",
+  h(async (req, res) =>
+    success(
+      res,
+      await marks.bulkSave(sid(req), { ...req.body, recorded_by: uid(req) }),
+    ),
+  ),
+);
 
 module.exports = router;

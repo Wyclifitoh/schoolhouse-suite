@@ -22,7 +22,6 @@ exports.listSubjectAllocations = (schoolId, gradeId) => {
 };
 
 exports.allocateSubjects = async ({ school_id, grade_id, subject_ids }) => {
-  // replace all allocations for that grade
   await execute(
     "DELETE FROM subject_allocations WHERE school_id=? AND grade_id=?",
     [school_id, grade_id],
@@ -66,27 +65,43 @@ exports.listTeacherAllocations = (schoolId, { teacher_id, grade_id } = {}) => {
   }
   return query(
     `SELECT ta.id, ta.teacher_id, ta.subject_id, ta.grade_id, ta.stream_id, ta.is_active,
-            CONCAT(COALESCE(t.first_name,''),' ',COALESCE(t.last_name,'')) AS teacher_name,
-            s.name AS subject_name,
+            CONCAT(COALESCE(s.first_name,''),' ',COALESCE(s.last_name,'')) AS teacher_name,
+            s.email AS teacher_email,
+            sub.name AS subject_name,
             g.name AS grade_name,
             st.name AS stream_name
      FROM teacher_subject_allocations ta
-     JOIN teachers t ON t.id=ta.teacher_id
-     JOIN subjects s ON s.id=ta.subject_id
-     JOIN grades g ON g.id=ta.grade_id
-     LEFT JOIN streams st ON st.id=ta.stream_id
+     JOIN teachers t ON t.id = ta.teacher_id
+     JOIN staff s ON s.id = t.staff_id
+     JOIN subjects sub ON sub.id = ta.subject_id
+     JOIN grades g ON g.id = ta.grade_id
+     LEFT JOIN streams st ON st.id = ta.stream_id
      WHERE ${where}
-     ORDER BY teacher_name, g.name, s.name`,
+     ORDER BY teacher_name, g.name, sub.name`,
     params,
   );
 };
 
 exports.createTeacherAllocation = async (data) => {
+  // Verify teacher exists and belongs to the school
+  const teacher = await queryOne(
+    `SELECT t.id FROM teachers t 
+     JOIN staff s ON s.id = t.staff_id 
+     WHERE t.id = ? AND s.school_id = ?`,
+    [data.teacher_id, data.school_id],
+  );
+
+  if (!teacher) {
+    throw new Error(
+      `Teacher with ID ${data.teacher_id} not found in this school`,
+    );
+  }
+
   const id = uuid();
   await execute(
     `INSERT INTO teacher_subject_allocations (id, school_id, teacher_id, subject_id, grade_id, stream_id, is_active)
      VALUES (?,?,?,?,?,?,?)
-     ON DUPLICATE KEY UPDATE is_active=1`,
+     ON DUPLICATE KEY UPDATE is_active = VALUES(is_active)`,
     [
       id,
       data.school_id,
@@ -97,8 +112,20 @@ exports.createTeacherAllocation = async (data) => {
       data.is_active !== false ? 1 : 0,
     ],
   );
+
   return queryOne(
-    "SELECT * FROM teacher_subject_allocations WHERE teacher_id=? AND subject_id=? AND grade_id=? AND (stream_id<=>?)",
+    `SELECT ta.id, ta.teacher_id, ta.subject_id, ta.grade_id, ta.stream_id, ta.is_active,
+            CONCAT(COALESCE(s.first_name,''),' ',COALESCE(s.last_name,'')) AS teacher_name,
+            sub.name AS subject_name,
+            g.name AS grade_name,
+            st.name AS stream_name
+     FROM teacher_subject_allocations ta
+     JOIN teachers t ON t.id = ta.teacher_id
+     JOIN staff s ON s.id = t.staff_id
+     JOIN subjects sub ON sub.id = ta.subject_id
+     JOIN grades g ON g.id = ta.grade_id
+     LEFT JOIN streams st ON st.id = ta.stream_id
+     WHERE ta.teacher_id = ? AND ta.subject_id = ? AND ta.grade_id = ? AND (ta.stream_id <=> ?)`,
     [data.teacher_id, data.subject_id, data.grade_id, data.stream_id || null],
   );
 };
