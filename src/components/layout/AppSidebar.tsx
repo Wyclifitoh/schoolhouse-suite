@@ -25,6 +25,7 @@ import {
   ShoppingCart,
   Archive,
   FileText,
+  ChevronDown,
   BarChart3,
   ClipboardList,
   Settings,
