@@ -74,5 +74,6 @@ router.use(
   require("../modules/staff-attendance/staff-attendance.routes"),
 );
 router.use("/timetable", require("../modules/timetable/timetable.routes"));
+router.use("/homework", require("../modules/homework/homework.routes"));
 
 module.exports = router;
