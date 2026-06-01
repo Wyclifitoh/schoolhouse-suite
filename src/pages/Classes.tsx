@@ -80,6 +80,8 @@ const Classes = () => {
   // --- Add Class (Grade) Dialog ---
   const [classDialogOpen, setClassDialogOpen] = useState(false);
   const [classForm, setClassForm] = useState({ name: "", level: "primary" as string, curriculum_type: "CBC", order_index: "0", selectedStreams: [] as string[] });
+  // When adding a class we only show streams that are NOT already attached to another class
+  const availableStreamsForNewClass = (allStreams as any[]).filter((s: any) => !s.grade_id);
 
   const toggleStream = (streamId: string) => {
     setClassForm(f => ({
@@ -268,20 +270,24 @@ const Classes = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Select Streams for this Class * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
-                        {allStreams.length === 0 ? (
-                          <p className="text-xs text-warning bg-warning/10 p-2 rounded">No streams available. Create streams first in the Streams tab.</p>
+                        {availableStreamsForNewClass.length === 0 ? (
+                          <p className="text-xs text-warning bg-warning/10 p-2 rounded">
+                            No unassigned streams available. Create new streams in the Streams tab,
+                            or detach streams from existing classes first.
+                          </p>
                         ) : (
                           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
-                            {allStreams.map((s: any) => (
+                            {availableStreamsForNewClass.map((s: any) => (
                               <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
                                 <Checkbox checked={classForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleStream(s.id)} />
-                                {s.name}{s.grade_name ? <span className="text-xs text-muted-foreground">(in {s.grade_name})</span> : null}
+                                {s.name}
                               </label>
                             ))}
                           </div>
                         )}
+                        <p className="text-[11px] text-muted-foreground">Only unassigned streams appear here so you don't accidentally move a stream away from another class.</p>
                       </div>
-                      <Button className="w-full mt-2" onClick={handleCreateClass} disabled={createGrade.isPending || allStreams.length === 0}>
+                      <Button className="w-full mt-2" onClick={handleCreateClass} disabled={createGrade.isPending || availableStreamsForNewClass.length === 0}>
                         {createGrade.isPending ? "Creating..." : "Add Class"}
                       </Button>
                     </div>
@@ -354,14 +360,16 @@ const Classes = () => {
                 <div className="space-y-2">
                   <Label>Streams in this Class * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
-                    {(allStreams as any[]).map((s: any) => (
-                      <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                        <Checkbox checked={editForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleEditStream(s.id)} />
-                        {s.name}
-                        {s.grade_id && s.grade_id !== editingClass?.id && <span className="text-xs text-muted-foreground">(in {s.grade_name})</span>}
-                      </label>
-                    ))}
+                    {(allStreams as any[])
+                      .filter((s: any) => !s.grade_id || s.grade_id === editingClass?.id)
+                      .map((s: any) => (
+                        <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <Checkbox checked={editForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleEditStream(s.id)} />
+                          {s.name}
+                        </label>
+                      ))}
                   </div>
+                  <p className="text-[11px] text-muted-foreground">Showing this class's streams plus unassigned ones. Streams owned by other classes are hidden to prevent accidental moves.</p>
                 </div>
                 <Button className="w-full mt-2" onClick={handleUpdateClass} disabled={updateGrade.isPending}>
                   {updateGrade.isPending ? "Saving..." : "Save Changes"}
