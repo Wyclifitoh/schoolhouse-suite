@@ -55,22 +55,25 @@ exports.alDistribution = (schoolId, assessmentId) =>
     [schoolId, assessmentId],
   );
 
-exports.leaderboard = (schoolId, assessmentId, limit = 20) =>
-  query(
+exports.leaderboard = (schoolId, assessmentId, limit = 20) => {
+  const numLimit = parseInt(limit, 10);
+
+  return query(
     `SELECT r.student_id, r.percentage, r.mean_score, r.total_score, r.total_out_of,
             r.overall_al, r.overall_band, r.class_position,
             stu.first_name, stu.last_name, stu.admission_number,
             g.name AS grade_name, st.name AS stream_name
-       FROM assessment_results r
-       JOIN students stu ON stu.id=r.student_id
-       JOIN grades g ON g.id=r.grade_id
-       LEFT JOIN streams st ON st.id=r.stream_id
-       JOIN assessments a ON a.id=r.assessment_id
-      WHERE a.school_id=? AND r.assessment_id=?
-      ORDER BY r.percentage DESC
-      LIMIT ?`,
-    [schoolId, assessmentId, Number(limit) || 20],
+     FROM assessment_results r
+     JOIN students stu ON stu.id = r.student_id
+     JOIN grades g ON g.id = r.grade_id
+     LEFT JOIN streams st ON st.id = r.stream_id
+     JOIN assessments a ON a.id = r.assessment_id
+     WHERE a.school_id = ? AND r.assessment_id = ?
+     ORDER BY r.percentage DESC
+     LIMIT ${numLimit}`,
+    [schoolId, assessmentId],
   );
+};
 
 exports.gradeMeans = (schoolId, assessmentId) =>
   query(
