@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
