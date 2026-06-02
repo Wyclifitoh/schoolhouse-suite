@@ -243,6 +243,12 @@ const navConfig = {
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
+        title: "Report Templates",
+        url: "/assessments/templates",
+        icon: FileBadge,
+        roles: ADMIN_ROLES as AppRole[],
+      },
+      {
         title: "Analytics",
         url: "/analytics",
         icon: BarChart3,

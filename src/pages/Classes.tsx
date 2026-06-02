@@ -18,12 +18,14 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClasses, useStreams, useSubjects, useCreateGrade, useCreateStream, useCreateSubject, useUpdateStream, useDeleteStream, useDeleteGrade, useUpdateGrade, useUpdateSubject, useDeleteSubject } from "@/hooks/useClasses";
+import { useStudents } from "@/hooks/useStudents";
 import { useTerm } from "@/contexts/TermContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   School, Plus, BookOpen, Users, Clock, Wand2, Layers, Pencil, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMemo } from "react";
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -32,9 +34,28 @@ const Classes = () => {
   const { data: grades = [], isLoading: gradesLoading } = useClasses();
   const { data: allStreams = [], isLoading: streamsLoading } = useStreams();
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
+  const { data: students = [] } = useStudents({ status: "active" });
   const { currentAcademicYear } = useTerm();
   const { hasAnyRole } = useAuth();
   const canManage = hasAnyRole(["super_admin", "school_admin", "deputy_admin"] as any);
+
+  // Student counts per grade / per stream — for delete guards & UI hints
+  const studentsByGrade = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of students as any[]) {
+      const g = s.current_grade_id;
+      if (g) m.set(g, (m.get(g) || 0) + 1);
+    }
+    return m;
+  }, [students]);
+  const studentsByStream = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of students as any[]) {
+      const st = s.current_stream_id;
+      if (st) m.set(st, (m.get(st) || 0) + 1);
+    }
+    return m;
+  }, [students]);
 
   const createGrade = useCreateGrade();
   const updateGrade = useUpdateGrade();
@@ -80,8 +101,8 @@ const Classes = () => {
   // --- Add Class (Grade) Dialog ---
   const [classDialogOpen, setClassDialogOpen] = useState(false);
   const [classForm, setClassForm] = useState({ name: "", level: "primary" as string, curriculum_type: "CBC", order_index: "0", selectedStreams: [] as string[] });
-  // When adding a class we only show streams that are NOT already attached to another class
-  const availableStreamsForNewClass = (allStreams as any[]).filter((s: any) => !s.grade_id);
+  // Show ALL streams — a stream can belong to multiple classes; we just hint which class already owns it.
+  const availableStreamsForNewClass = allStreams as any[];
 
   const toggleStream = (streamId: string) => {
     setClassForm(f => ({
@@ -139,10 +160,25 @@ const Classes = () => {
     });
   };
   const handleDeleteClass = (c: any) => {
+    const studentCount = studentsByGrade.get(c.id) || 0;
+    if (studentCount > 0) {
+      toast.error(`Cannot delete "${c.name}" — it has ${studentCount} student(s) linked.`);
+      return;
+    }
     if (!confirm(`Delete class "${c.name}"? Attached streams will become unassigned.`)) return;
     // detach streams first
     (allStreams as any[]).filter((s: any) => s.grade_id === c.id).forEach((s: any) => updateStream.mutate({ id: s.id, data: { grade_id: null } as any }));
     deleteGrade.mutate(c.id);
+  };
+
+  const handleDeleteStream = (s: any) => {
+    const studentCount = studentsByStream.get(s.id) || 0;
+    if (studentCount > 0) {
+      toast.error(`Cannot delete stream "${s.name}" — it has ${studentCount} student(s) linked.`);
+      return;
+    }
+    if (!confirm(`Delete stream "${s.name}"?`)) return;
+    deleteStream.mutate(s.id);
   };
 
   // --- Add Subject Dialog ---
@@ -207,9 +243,10 @@ const Classes = () => {
                           {canManage && (
                             <div className="flex justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditStream(s)}><Pencil className="h-3.5 w-3.5" /></Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { if (confirm(`Delete stream "${s.name}"?`)) deleteStream.mutate(s.id); }}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteStream(s)}>
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
+
                             </div>
                           )}
                         </TableCell>
@@ -272,24 +309,25 @@ const Classes = () => {
                         <Label>Select Streams for this Class * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
                         {availableStreamsForNewClass.length === 0 ? (
                           <p className="text-xs text-warning bg-warning/10 p-2 rounded">
-                            No unassigned streams available. Create new streams in the Streams tab,
-                            or detach streams from existing classes first.
+                            No streams created yet — add streams in the Streams tab first.
                           </p>
                         ) : (
-                          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
                             {availableStreamsForNewClass.map((s: any) => (
                               <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
                                 <Checkbox checked={classForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleStream(s.id)} />
-                                {s.name}
+                                <span>{s.name}</span>
+                                {s.grade_name && <span className="text-[10px] text-muted-foreground">(in {s.grade_name})</span>}
                               </label>
                             ))}
                           </div>
                         )}
-                        <p className="text-[11px] text-muted-foreground">Only unassigned streams appear here so you don't accidentally move a stream away from another class.</p>
+                        <p className="text-[11px] text-muted-foreground">All streams are shown. A stream may be linked to more than one class.</p>
                       </div>
                       <Button className="w-full mt-2" onClick={handleCreateClass} disabled={createGrade.isPending || availableStreamsForNewClass.length === 0}>
                         {createGrade.isPending ? "Creating..." : "Add Class"}
                       </Button>
+
                     </div>
                   </DialogContent>
                 </Dialog>}
@@ -359,18 +397,20 @@ const Classes = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Streams in this Class * <span className="text-xs text-muted-foreground">(at least 1)</span></Label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
-                    {(allStreams as any[])
-                      .filter((s: any) => !s.grade_id || s.grade_id === editingClass?.id)
-                      .map((s: any) => (
-                        <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
-                          <Checkbox checked={editForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleEditStream(s.id)} />
-                          {s.name}
-                        </label>
-                      ))}
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                    {(allStreams as any[]).map((s: any) => (
+                      <label key={s.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Checkbox checked={editForm.selectedStreams.includes(s.id)} onCheckedChange={() => toggleEditStream(s.id)} />
+                        <span>{s.name}</span>
+                        {s.grade_name && s.grade_id !== editingClass?.id && (
+                          <span className="text-[10px] text-muted-foreground">(in {s.grade_name})</span>
+                        )}
+                      </label>
+                    ))}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Showing this class's streams plus unassigned ones. Streams owned by other classes are hidden to prevent accidental moves.</p>
+                  <p className="text-[11px] text-muted-foreground">All streams are shown — streams can belong to multiple classes.</p>
                 </div>
+
                 <Button className="w-full mt-2" onClick={handleUpdateClass} disabled={updateGrade.isPending}>
                   {updateGrade.isPending ? "Saving..." : "Save Changes"}
                 </Button>

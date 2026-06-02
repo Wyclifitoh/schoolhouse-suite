@@ -891,14 +891,22 @@ export function useDownloadAnalytics() {
     mutationFn: ({
       assessmentId,
       format,
+      filters,
     }: {
       assessmentId: string;
       format: "pdf" | "xlsx";
-    }) =>
-      downloadAuthed(
-        `/assessments/${assessmentId}/analytics/export.${format}`,
-        `analytics-${assessmentId}.${format}`,
-      ),
+      filters?: { grade_id?: string; stream_id?: string; subject_id?: string };
+    }) => {
+      const qp = new URLSearchParams();
+      if (filters?.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters?.stream_id) qp.set("stream_id", filters.stream_id);
+      if (filters?.subject_id) qp.set("subject_id", filters.subject_id);
+      const qs = qp.toString();
+      return downloadAuthed(
+        `/assessments/${assessmentId}/analytics/export.${format}${qs ? `?${qs}` : ""}`,
+        `analytics-${assessmentId}${qs ? "-filtered" : ""}.${format}`,
+      );
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }

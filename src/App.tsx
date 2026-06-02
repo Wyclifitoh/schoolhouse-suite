@@ -68,6 +68,7 @@ import AssessmentTasks from "./pages/assessments/AssessmentTasks";
 import AssessmentMarksEntry from "./pages/assessments/MarksEntry";
 import AssessmentResults from "./pages/assessments/Results";
 import AssessmentReportCards from "./pages/assessments/ReportCards";
+import AssessmentReportCardTemplates from "./pages/assessments/ReportCardTemplates";
 import AssessmentAnalytics from "./pages/assessments/Analytics";
 
 // Academic Module
@@ -342,6 +343,20 @@ const App = () => (
                           ]}
                         >
                           <AssessmentReportCards />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/assessments/templates"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "deputy_admin",
+                          ]}
+                        >
+                          <AssessmentReportCardTemplates />
                         </ProtectedRoute>
                       }
                     />
