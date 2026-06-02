@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/utils/date";
 
 const actionColor: Record<string, string> = {
   CREATE: "bg-success/10 text-success border-0",
@@ -57,7 +58,7 @@ const AuditTrail = () => {
             </TableRow></TableHeader>
             <TableBody>{auditData.map((a: any) => (
               <TableRow key={a.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">{a.created_at ? new Date(a.created_at).toLocaleString() : "—"}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{formatDateTime(a.created_at)}</TableCell>
                 <TableCell className="font-medium">{a.user_name || a.user_id || "System"}</TableCell>
                 <TableCell><Badge className={actionColor[a.action] || "bg-muted text-muted-foreground border-0"}>{a.action}</Badge></TableCell>
                 <TableCell>{a.entity_type}</TableCell>
@@ -85,7 +86,7 @@ const AuditTrail = () => {
                 </TableRow></TableHeader>
                 <TableBody>{financeData.map((a: any) => (
                   <TableRow key={a.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{a.created_at ? new Date(a.created_at).toLocaleString() : "—"}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{formatDateTime(a.created_at)}</TableCell>
                     <TableCell><Badge className={actionColor[a.action] || "bg-muted text-muted-foreground border-0"}>{a.action}</Badge></TableCell>
                     <TableCell className="font-medium">{a.student_name || "—"}</TableCell>
                     <TableCell className="text-right font-semibold">{a.amount_affected ? `KES ${Number(a.amount_affected).toLocaleString()}` : "—"}</TableCell>
