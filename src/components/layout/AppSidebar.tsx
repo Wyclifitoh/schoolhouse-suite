@@ -158,6 +158,12 @@ const navConfig = {
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
+        title: "Streams",
+        url: "/academics/streams",
+        icon: Layers,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
         title: "Subjects",
         url: "/subjects",
         icon: BookOpen,
@@ -205,6 +211,12 @@ const navConfig = {
         icon: PenTool,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
+      {
+        title: "Clubs & Societies",
+        url: "/clubs",
+        icon: Sparkles,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
     ],
   },
 
@@ -235,6 +247,12 @@ const navConfig = {
         url: "/report-cards",
         icon: FileBadge,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Report Templates",
+        url: "/assessments/templates",
+        icon: FileBadge,
+        roles: ADMIN_ROLES as AppRole[],
       },
       {
         title: "Analytics",

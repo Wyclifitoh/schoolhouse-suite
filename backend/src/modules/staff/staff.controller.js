@@ -71,4 +71,24 @@ const listTeachers = async (req, res) => {
   }
 };
 
-module.exports = { create, list, getById, update, remove, listTeachers };
+const bulkImport = async (req, res) => {
+  try {
+    const rows = req.body?.staff || req.body?.rows || [];
+    const result = await svc.bulkImportStaff(schoolOf(req), rows, {
+      schoolName: req.body?.school_name,
+    });
+    return success(res, result, 201);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+module.exports = {
+  create,
+  list,
+  getById,
+  update,
+  remove,
+  listTeachers,
+  bulkImport,
+};

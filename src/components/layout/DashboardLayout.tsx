@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { AppRole, useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { SessionBanner } from "@/components/layout/SessionBanner";
@@ -67,21 +67,23 @@ import {
 import { createPortal } from "react-dom";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
-const ADMIN_ROLES = ["super_admin", "school_admin", "deputy_admin"] as const;
-const FINANCE_ROLES = [...ADMIN_ROLES, "finance_officer"] as const;
+// const ADMIN_ROLES: AppRole[] = ["super_admin", "admin"];
+// const FINANCE_ROLES: AppRole[] = [...ADMIN_ROLES, "accountant"];
+// const ACADEMIC_ROLES: AppRole[] = [...ADMIN_ROLES, "teacher"];
+// const HR_ROLES: AppRole[] = [...ADMIN_ROLES, "manager"];
+// const FRONT_OFFICE_ROLES: AppRole[] = [...ADMIN_ROLES, "receptionist"];
+// const LIBRARY_ROLES: AppRole[] = [...ADMIN_ROLES, "librarian"];
+
+const ADMIN_ROLES = ["super_admin", "admin"] as const;
+const FINANCE_ROLES = [...ADMIN_ROLES, "accountant"] as const;
 const ACADEMIC_ROLES = [...ADMIN_ROLES, "teacher"] as const;
-const INVENTORY_ROLES = [
-  ...ADMIN_ROLES,
-  "store_manager",
-  "pos_attendant",
-] as const;
+const INVENTORY_ROLES = [...ADMIN_ROLES, "manager"] as const;
 const ALL_ROLES = [
   ...ADMIN_ROLES,
-  "finance_officer",
+  "accountant",
   "teacher",
-  "front_office",
-  "store_manager",
-  "pos_attendant",
+  "librarian",
+  "receptionist",
 ] as const;
 
 interface NavItem {
@@ -112,13 +114,13 @@ const navigationGroups: NavGroup[] = [
         title: "All Students",
         url: "/students",
         icon: GraduationCap,
-        roles: [...ADMIN_ROLES, "teacher", "front_office"],
+        roles: [...ADMIN_ROLES, "teacher", "receptionist", "front_office"],
       },
       {
         title: "Parents / Guardians",
         url: "/parents",
         icon: Users,
-        roles: [...ADMIN_ROLES, "front_office"],
+        roles: [...ADMIN_ROLES, "receptionist", "front_office"],
       },
       {
         title: "Student Promotion",
@@ -148,7 +150,7 @@ const navigationGroups: NavGroup[] = [
         title: "Collect Payment",
         url: "/payments",
         icon: CreditCard,
-        roles: [...FINANCE_ROLES, "front_office"],
+        roles: [...FINANCE_ROLES, "receptionist", "front_office"],
       },
       {
         title: "Excess Payments",
@@ -172,12 +174,6 @@ const navigationGroups: NavGroup[] = [
         title: "Classes",
         url: "/classes",
         icon: School,
-        roles: ACADEMIC_ROLES,
-      },
-      {
-        title: "Streams",
-        url: "/streams",
-        icon: Layers,
         roles: ACADEMIC_ROLES,
       },
       {

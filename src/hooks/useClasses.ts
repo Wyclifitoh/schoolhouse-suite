@@ -91,6 +91,88 @@ export function useStreams(gradeId?: string) {
   });
 }
 
+// Independent streams: one logical entry per unique stream NAME.
+// Backed by GET /streams. Use this in the Streams tab and Add/Edit Class form.
+export interface IndependentStreamRow {
+  id: string;
+  name: string;
+  description: string | null;
+  capacity: number | null;
+  grade_ids: string[];
+  grade_names: string[];
+}
+
+export function useIndependentStreams() {
+  return useQuery({
+    queryKey: ["streams-independent"],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>(`/streams`);
+        return (data?.data || data || []) as IndependentStreamRow[];
+      } catch {
+        return [] as IndependentStreamRow[];
+      }
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useCreateIndependentStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      description?: string | null;
+      capacity?: number | null;
+    }) => api.post<IndependentStreamRow>(`/streams`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams-independent"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream created");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateIndependentStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<IndependentStreamRow>;
+    }) => api.put(`/streams/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams-independent"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteIndependentStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/streams/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams-independent"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream deleted");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export async function attachStreamToGrade(streamId: string, gradeId: string) {
+  return api.post(`/streams/${streamId}/grades/${gradeId}`, {});
+}
+export async function detachStreamFromGrade(streamId: string, gradeId: string) {
+  return api.delete(`/streams/${streamId}/grades/${gradeId}`);
+}
+
 export function useCreateGrade() {
   const qc = useQueryClient();
   return useMutation({

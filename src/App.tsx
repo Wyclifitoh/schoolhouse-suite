@@ -41,6 +41,7 @@ import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
 import Examinations from "./pages/Examinations";
 import Classes from "./pages/Classes";
+import Streams from "./pages/academics/Streams";
 import Library from "./pages/Library";
 import Expenses from "./pages/Expenses";
 import Communication from "./pages/Communication";
@@ -68,6 +69,7 @@ import AssessmentTasks from "./pages/assessments/AssessmentTasks";
 import AssessmentMarksEntry from "./pages/assessments/MarksEntry";
 import AssessmentResults from "./pages/assessments/Results";
 import AssessmentReportCards from "./pages/assessments/ReportCards";
+import AssessmentReportCardTemplates from "./pages/assessments/ReportCardTemplates";
 import AssessmentAnalytics from "./pages/assessments/Analytics";
 
 // Academic Module
@@ -77,6 +79,8 @@ import AssignClassTeacher from "./pages/academics/AssignClassTeacher";
 import Subjects from "./pages/academics/Subjects";
 import SubjectAllocation from "./pages/academics/SubjectAllocation";
 import TeacherAllocation from "./pages/academics/TeacherAllocation";
+import Clubs from "./pages/academics/clubs/Clubs";
+import ClubDetail from "./pages/academics/clubs/ClubDetail";
 
 // HR Module
 import StaffDirectory from "./pages/StaffDirectory";
@@ -206,6 +210,16 @@ const App = () => (
                         </ProtectedRoute>
                       }
                     />
+
+                    <Route
+                      path="/streams"
+                      element={
+                        <ProtectedRoute>
+                          <Streams />
+                        </ProtectedRoute>
+                      }
+                    />
+
                     <Route
                       path="/subjects"
                       element={
@@ -272,6 +286,22 @@ const App = () => (
                         </ProtectedRoute>
                       }
                     />
+                    <Route
+                      path="/clubs"
+                      element={
+                        <ProtectedRoute>
+                          <Clubs />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/clubs/:id"
+                      element={
+                        <ProtectedRoute>
+                          <ClubDetail />
+                        </ProtectedRoute>
+                      }
+                    />
                     {/* Assessments (renamed from Examinations) */}
                     <Route
                       path="/assessments"
@@ -324,6 +354,20 @@ const App = () => (
                           ]}
                         >
                           <AssessmentReportCards />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/assessments/templates"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "deputy_admin",
+                          ]}
+                        >
+                          <AssessmentReportCardTemplates />
                         </ProtectedRoute>
                       }
                     />

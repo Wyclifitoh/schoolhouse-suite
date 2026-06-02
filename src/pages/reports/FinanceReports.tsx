@@ -36,6 +36,7 @@ import {
   usePaymentsReportData,
 } from "@/hooks/useReports";
 import { useClasses } from "@/hooks/useClasses";
+import { formatDate } from "@/utils/date";
 
 const formatKES = (a: number) => `KES ${Math.abs(a || 0).toLocaleString()}`;
 
@@ -439,7 +440,7 @@ const FinanceReports = () => {
                       <TableRow key={p.id}>
                         <TableCell className="text-muted-foreground">
                           {p.received_at
-                            ? new Date(p.received_at).toLocaleDateString()
+                            ? formatDate(p.received_at)
                             : "—"}
                         </TableCell>
                         <TableCell className="font-medium">
@@ -565,7 +566,7 @@ const FinanceReports = () => {
                       <TableRow key={e.id}>
                         <TableCell className="text-muted-foreground">
                           {e.expense_date
-                            ? new Date(e.expense_date).toLocaleDateString()
+                            ? formatDate(e.expense_date)
                             : "—"}
                         </TableCell>
                         <TableCell className="font-medium">{e.title}</TableCell>
@@ -702,7 +703,7 @@ const FinanceReports = () => {
                       <TableRow key={p.id}>
                         <TableCell className="text-muted-foreground">
                           {p.transaction_date
-                            ? new Date(p.transaction_date).toLocaleDateString()
+                            ? formatDate(p.transaction_date)
                             : "—"}
                         </TableCell>
                         <TableCell className="font-medium">
