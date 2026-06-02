@@ -36,6 +36,7 @@ import {
   usePaymentsReportData,
 } from "@/hooks/useReports";
 import { useClasses } from "@/hooks/useClasses";
+import { formatDate } from "@/utils/date";
 
 const formatKES = (a: number) => `KES ${Math.abs(a || 0).toLocaleString()}`;
 
