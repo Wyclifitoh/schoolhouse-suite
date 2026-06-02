@@ -315,6 +315,39 @@ const getExamReport = async (schoolId, filters = {}) => {
   }
 };
 
+const getHRReport = async (schoolId) => {
+  const [staff] = await db.query(
+    `SELECT s.*, d.name AS department_name, ds.name AS designation_name
+       FROM staff s
+       LEFT JOIN departments d ON s.department_id = d.id
+       LEFT JOIN designations ds ON s.designation_id = ds.id
+      WHERE s.school_id = ? ORDER BY s.first_name LIMIT 500`,
+    [schoolId],
+  );
+  const [leaves] = await db
+    .query(
+      `SELECT l.*, s.first_name, s.last_name FROM leaves l
+         LEFT JOIN staff s ON s.id = l.staff_id
+        WHERE l.school_id = ? ORDER BY l.created_at DESC LIMIT 200`,
+      [schoolId],
+    )
+    .catch(() => [[]]);
+  const [attendance] = await db
+    .query(
+      `SELECT * FROM staff_attendance WHERE school_id = ? ORDER BY date DESC LIMIT 200`,
+      [schoolId],
+    )
+    .catch(() => [[]]);
+  const totalStaff = staff.length;
+  const active = staff.filter((s) => s.status === "active").length;
+  return {
+    staff,
+    leaves,
+    attendance,
+    summary: { total: totalStaff, active, inactive: totalStaff - active },
+  };
+};
+
 module.exports = {
   getFinanceReport,
   getPaymentsReport,
