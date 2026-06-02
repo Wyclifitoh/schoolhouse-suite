@@ -6,60 +6,135 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Layers, Plus, Edit, Trash2, Users } from "lucide-react";
-import { useClasses, useStreams, useCreateStream, useDeleteStream, useUpdateStream, useStaff } from "@/hooks/useClasses";
-import { useTerm } from "@/contexts/TermContext";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Layers, Plus, Trash2, Users, Pencil } from "lucide-react";
+import {
+  useClasses,
+  useIndependentStreams,
+  useCreateIndependentStream,
+  useDeleteIndependentStream,
+  useUpdateIndependentStream,
+} from "@/hooks/useClasses";
 import { toast } from "sonner";
 
 const Streams = () => {
   const { data: grades = [] } = useClasses();
-  const { data: streams = [], isLoading } = useStreams();
-  const { data: staff = [] } = useStaff();
-  const { currentAcademicYear } = useTerm();
+  const { data: streams = [], isLoading } = useIndependentStreams();
 
-  const createStream = useCreateStream();
-  const deleteStream = useDeleteStream();
-  const updateStream = useUpdateStream();
+  const createStream = useCreateIndependentStream();
+  const deleteStream = useDeleteIndependentStream();
+  const updateStream = useUpdateIndependentStream();
 
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: "", grade_id: "", capacity: "40", class_teacher_id: "" });
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    capacity: "40",
+  });
+  const [editing, setEditing] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    capacity: "",
+  });
 
   const handleAdd = () => {
-    if (!form.name || !form.grade_id) { toast.error("Class and stream name are required"); return; }
-    if (!currentAcademicYear?.id) { toast.error("Set a current Academic Year in Settings first"); return; }
-    createStream.mutate({
-      name: form.name,
-      grade_id: form.grade_id,
-      capacity: form.capacity ? (parseInt(form.capacity) as any) : null,
-      class_teacher_id: form.class_teacher_id || null,
-      academic_year_id: currentAcademicYear.id,
-    } as any, {
-      onSuccess: () => { setShowAdd(false); setForm({ name: "", grade_id: "", capacity: "40", class_teacher_id: "" }); },
+    if (!form.name) {
+      toast.error("Stream name is required");
+      return;
+    }
+    createStream.mutate(
+      {
+        name: form.name,
+        description: form.description || null,
+        capacity: form.capacity ? parseInt(form.capacity) : null,
+      },
+      {
+        onSuccess: () => {
+          setShowAdd(false);
+          setForm({ name: "", description: "", capacity: "40" });
+        },
+      },
+    );
+  };
+
+  const openEdit = (s: any) => {
+    setEditing(s);
+    setEditForm({
+      name: s.name,
+      description: s.description || "",
+      capacity: s.capacity ? String(s.capacity) : "",
     });
   };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Delete this stream? Students assigned will lose this stream.")) deleteStream.mutate(id);
+  const handleSaveEdit = () => {
+    if (!editing) return;
+    updateStream.mutate(
+      {
+        id: editing.id,
+        data: {
+          name: editForm.name,
+          description: editForm.description || null,
+          capacity: editForm.capacity
+            ? (parseInt(editForm.capacity) as any)
+            : null,
+        } as any,
+      },
+      { onSuccess: () => setEditing(null) },
+    );
   };
 
-  const totalCapacity = streams.reduce((s: number, c: any) => s + (c.capacity || 0), 0);
+  const handleDelete = (s: any) => {
+    if (confirm(`Delete stream "${s.name}"? This removes it from all classes.`))
+      deleteStream.mutate(s.id);
+  };
+
+  const totalCapacity = (streams as any[]).reduce(
+    (sum: number, s: any) => sum + (s.capacity || 0),
+    0,
+  );
 
   return (
-    <DashboardLayout title="Streams / Sections" subtitle="Manage class streams and student distribution">
+    <DashboardLayout
+      title="Streams / Sections"
+      subtitle="Manage streams independently — attach them to classes from the Classes tab"
+    >
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-primary/5 border-primary/10"><CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{streams.length}</p><p className="text-xs text-muted-foreground">Total Streams</p>
-          </CardContent></Card>
-          <Card className="bg-success/5 border-success/10"><CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-success">{totalCapacity}</p><p className="text-xs text-muted-foreground">Total Capacity</p>
-          </CardContent></Card>
-          <Card className="bg-warning/5 border-warning/10"><CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-warning">{grades.length}</p><p className="text-xs text-muted-foreground">Classes</p>
-          </CardContent></Card>
+          <Card className="bg-primary/5 border-primary/10">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-primary">
+                {streams.length}
+              </p>
+              <p className="text-xs text-muted-foreground">Total Streams</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-success/5 border-success/10">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-success">{totalCapacity}</p>
+              <p className="text-xs text-muted-foreground">Total Capacity</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-warning/5 border-warning/10">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-warning">{grades.length}</p>
+              <p className="text-xs text-muted-foreground">Classes</p>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
@@ -69,67 +144,193 @@ const Streams = () => {
                 <Layers className="h-4 w-4 text-primary" /> All Streams
               </CardTitle>
               <Dialog open={showAdd} onOpenChange={setShowAdd}>
-                <DialogTrigger asChild><Button size="sm" disabled={grades.length === 0}><Plus className="h-4 w-4 mr-1.5" />Add Stream</Button></DialogTrigger>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Stream
+                  </Button>
+                </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Add Stream</DialogTitle></DialogHeader>
+                  <DialogHeader>
+                    <DialogTitle>Add Stream</DialogTitle>
+                  </DialogHeader>
                   <div className="grid gap-4 py-2">
-                    <div className="space-y-2"><Label>Class *</Label>
-                      <Select value={form.grade_id} onValueChange={v => setForm(p => ({ ...p, grade_id: v }))}>
-                        <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                        <SelectContent>{grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                    <div className="space-y-2">
+                      <Label>Stream Name *</Label>
+                      <Input
+                        value={form.name}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, name: e.target.value }))
+                        }
+                        placeholder="e.g. Blue, East, A"
+                      />
                     </div>
-                    <div className="space-y-2"><Label>Stream Name *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. East" /></div>
-                    <div className="space-y-2"><Label>Capacity</Label><Input type="number" value={form.capacity} onChange={e => setForm(p => ({ ...p, capacity: e.target.value }))} /></div>
-                    <div className="space-y-2"><Label>Class Teacher (optional)</Label>
-                      <Select value={form.class_teacher_id} onValueChange={v => setForm(p => ({ ...p, class_teacher_id: v }))}>
-                        <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
-                        <SelectContent>{(staff as any[]).map((t: any) => <SelectItem key={t.id} value={t.id}>{t.first_name} {t.last_name}</SelectItem>)}</SelectContent>
-                      </Select>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={form.description}
+                        onChange={(e) =>
+                          setForm((p) => ({
+                            ...p,
+                            description: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Capacity</Label>
+                      <Input
+                        type="number"
+                        value={form.capacity}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, capacity: e.target.value }))
+                        }
+                      />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-                    <Button onClick={handleAdd} disabled={createStream.isPending}>{createStream.isPending ? "Adding..." : "Add Stream"}</Button>
+                    <Button variant="outline" onClick={() => setShowAdd(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAdd}
+                      disabled={createStream.isPending}
+                    >
+                      {createStream.isPending ? "Adding..." : "Add Stream"}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
-            {grades.length === 0 && <p className="text-xs text-muted-foreground mt-1">Create a class first in Academics → Classes.</p>}
           </CardHeader>
           <CardContent className="p-0">
-            {isLoading ? <div className="p-6 space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div> :
-            streams.length === 0 ? <p className="text-center py-8 text-sm text-muted-foreground">No streams yet.</p> : (
+            {isLoading ? (
+              <div className="p-6 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : streams.length === 0 ? (
+              <p className="text-center py-8 text-sm text-muted-foreground">
+                No streams yet.
+              </p>
+            ) : (
               <Table>
-                <TableHeader><TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Class</TableHead>
-                  <TableHead className="font-semibold">Stream</TableHead>
-                  <TableHead className="font-semibold">Class Teacher</TableHead>
-                  <TableHead className="font-semibold">Capacity</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Stream</TableHead>
+                    <TableHead className="font-semibold">Description</TableHead>
+                    <TableHead className="font-semibold">
+                      Attached Classes
+                    </TableHead>
+                    <TableHead className="font-semibold">Capacity</TableHead>
+                    <TableHead className="font-semibold text-right">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {(streams as any[]).map((s: any) => {
-                    const teacher = (staff as any[]).find(t => t.id === s.class_teacher_id);
-                    return (
-                      <TableRow key={s.id}>
-                        <TableCell className="font-medium">{s.grade_name || "—"}</TableCell>
-                        <TableCell>{s.name}</TableCell>
-                        <TableCell>{teacher ? `${teacher.first_name} ${teacher.last_name}` : <span className="text-muted-foreground italic">Not assigned</span>}</TableCell>
-                        <TableCell><div className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-muted-foreground" />{s.capacity || "—"}</div></TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(s.id)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {(streams as any[]).map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">{s.name}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {s.description || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {(s.grade_names || []).length ? (
+                          <div className="flex gap-1 flex-wrap">
+                            {s.grade_names.map((n: string) => (
+                              <Badge key={n} variant="secondary">
+                                {n}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs italic">
+                            Unassigned
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          {s.capacity || "—"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(s)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDelete(s)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Stream</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label>Name *</Label>
+                <Input
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, description: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Capacity</Label>
+                <Input
+                  type="number"
+                  value={editForm.capacity}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, capacity: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                disabled={updateStream.isPending}
+              >
+                {updateStream.isPending ? "Saving..." : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

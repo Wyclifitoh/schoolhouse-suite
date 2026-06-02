@@ -12,6 +12,7 @@ const staffController = require("./staff.controller");
 // DELETE /staff/:id      -> remove
 router.get("/teachers", staffController.listTeachers);
 router.post("/", staffController.create);
+router.post("/bulk-import", staffController.bulkImport);
 router.get("/", staffController.list);
 router.get("/:id", staffController.getById);
 router.patch("/:id", staffController.update);

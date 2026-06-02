@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { formatDateTime } from "@/utils/date";
 
 const actionColor: Record<string, string> = {
   login: "bg-success/10 text-success border-0",
@@ -44,7 +45,7 @@ const UserLogs = () => {
             </TableRow></TableHeader>
             <TableBody>{userLogs.map((l: any) => (
               <TableRow key={l.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">{l.created_at ? new Date(l.created_at).toLocaleString() : l.timestamp}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{formatDateTime(l.created_at) || l.timestamp}</TableCell>
                 <TableCell className="font-medium">{l.user_name || l.user || "—"}</TableCell>
                 <TableCell>{l.role || "—"}</TableCell>
                 <TableCell><Badge className={actionColor[l.action] || "bg-muted text-muted-foreground border-0"}>{l.action}</Badge></TableCell>

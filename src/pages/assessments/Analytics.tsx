@@ -24,6 +24,7 @@ import {
   usePreviousAssessments,
   useAssessmentComparison,
 } from "@/hooks/useAssessments";
+import { useClasses, useStreams, useSubjects } from "@/hooks/useClasses";
 import { Button } from "@/components/ui/button";
 import {
   BarChart3,
@@ -34,6 +35,7 @@ import {
   FileSpreadsheet,
   ArrowUp,
   ArrowDown,
+  Filter,
 } from "lucide-react";
 
 const BAND_COLORS: Record<string, string> = {
@@ -52,12 +54,28 @@ export default function Analytics() {
   const [prevId, setPrevId] = useState<string>("");
   const { data: cmp } = useAssessmentComparison(assessmentId, prevId);
 
+  // --- Export filters ---
+  const { data: grades = [] } = useClasses();
+  const [exportGrade, setExportGrade] = useState<string>("all");
+  const { data: streams = [] } = useStreams(
+    exportGrade !== "all" ? exportGrade : undefined,
+  );
+  const { data: subjects = [] } = useSubjects();
+  const [exportStream, setExportStream] = useState<string>("all");
+  const [exportSubject, setExportSubject] = useState<string>("all");
+
+  const buildFilters = () => ({
+    grade_id: exportGrade !== "all" ? exportGrade : undefined,
+    stream_id: exportStream !== "all" ? exportStream : undefined,
+    subject_id: exportSubject !== "all" ? exportSubject : undefined,
+  });
+
   const overview = data?.overview;
-  const subjects = data?.subjects || [];
+  const subjectsData = data?.subjects || [];
   const bands = data?.bands || [];
   const leaderboard = data?.leaderboard || [];
-  const grades = data?.grades || [];
-  const streams = data?.streams || [];
+  const gradesData = data?.grades || [];
+  const streamsData = data?.streams || [];
   const bandTotal = bands.reduce((s, b) => s + Number(b.n || 0), 0) || 1;
 
   return (
@@ -91,22 +109,108 @@ export default function Analytics() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || dl.isPending}
-              onClick={() => dl.mutate({ assessmentId, format: "pdf" })}
-            >
-              <FileText className="h-4 w-4 mr-1" /> PDF
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || dl.isPending}
-              onClick={() => dl.mutate({ assessmentId, format: "xlsx" })}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
-            </Button>
           </div>
         </div>
+
+        {/* Export filters bar */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex items-center gap-1 text-sm font-medium mr-2">
+                <Filter className="h-4 w-4 text-muted-foreground" /> Export
+                filters
+              </div>
+              <div className="min-w-[160px]">
+                <label className="text-[11px] text-muted-foreground">
+                  Class / Grade
+                </label>
+                <Select
+                  value={exportGrade}
+                  onValueChange={(v) => {
+                    setExportGrade(v);
+                    setExportStream("all");
+                  }}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All classes</SelectItem>
+                    {(grades as any[]).map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-[160px]">
+                <label className="text-[11px] text-muted-foreground">
+                  Stream
+                </label>
+                <Select value={exportStream} onValueChange={setExportStream}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All streams</SelectItem>
+                    {(streams as any[]).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-[180px]">
+                <label className="text-[11px] text-muted-foreground">
+                  Subject
+                </label>
+                <Select value={exportSubject} onValueChange={setExportSubject}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All subjects</SelectItem>
+                    {(subjects as any[]).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || dl.isPending}
+                  onClick={() =>
+                    dl.mutate({
+                      assessmentId,
+                      format: "pdf",
+                      filters: buildFilters(),
+                    })
+                  }
+                >
+                  <FileText className="h-4 w-4 mr-1" /> PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || dl.isPending}
+                  onClick={() =>
+                    dl.mutate({
+                      assessmentId,
+                      format: "xlsx",
+                      filters: buildFilters(),
+                    })
+                  }
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {assessmentId && previous.length > 0 && (
           <Card>
@@ -332,7 +436,7 @@ export default function Analytics() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subjects.map((s: any) => (
+                  {subjectsData.map((s: any) => (
                     <TableRow key={s.subject_id}>
                       <TableCell className="font-medium">
                         {s.subject_name}
@@ -349,7 +453,7 @@ export default function Analytics() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!subjects.length && (
+                  {!subjectsData.length && (
                     <TableRow>
                       <TableCell
                         colSpan={4}
@@ -447,7 +551,7 @@ export default function Analytics() {
                 <div className="text-xs uppercase text-muted-foreground mb-1">
                   Grades
                 </div>
-                {grades.map((g: any) => (
+                {gradesData.map((g: any) => (
                   <div
                     key={g.grade_id}
                     className="flex justify-between text-sm py-1 border-b last:border-0"
@@ -458,7 +562,7 @@ export default function Analytics() {
                     </span>
                   </div>
                 ))}
-                {!grades.length && (
+                {!gradesData.length && (
                   <div className="text-xs text-muted-foreground">No data.</div>
                 )}
               </div>
@@ -466,7 +570,7 @@ export default function Analytics() {
                 <div className="text-xs uppercase text-muted-foreground mb-1">
                   Streams
                 </div>
-                {streams.map((s: any) => (
+                {streamsData.map((s: any) => (
                   <div
                     key={s.stream_id}
                     className="flex justify-between text-sm py-1 border-b last:border-0"
@@ -479,7 +583,7 @@ export default function Analytics() {
                     </span>
                   </div>
                 ))}
-                {!streams.length && (
+                {!streamsData.length && (
                   <div className="text-xs text-muted-foreground">No data.</div>
                 )}
               </div>

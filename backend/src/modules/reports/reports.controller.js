@@ -66,6 +66,13 @@ const examReport = async (req, res) => {
     return error(res, err.message, 500);
   }
 };
+const hrReport = async (req, res) => {
+  try {
+    return success(res, await svc.getHRReport(req.schoolId, buildFilters(req)));
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
 
 module.exports = {
   financeReport,
@@ -73,4 +80,5 @@ module.exports = {
   studentReport,
   attendanceReport,
   examReport,
+  hrReport,
 };
