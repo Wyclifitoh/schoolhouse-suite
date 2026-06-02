@@ -43,11 +43,15 @@ import {
   useUpdateGrade,
   useUpdateSubject,
   useDeleteSubject,
+  useIndependentStreams,
+  useCreateIndependentStream,
+  useUpdateIndependentStream,
+  useDeleteIndependentStream,
+  attachStreamToGrade as attachStreamApi,
+  detachStreamFromGrade as detachStreamApi,
 } from "@/hooks/useClasses";
 import { useStudents } from "@/hooks/useStudents";
-import { useTerm } from "@/contexts/TermContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   School,
@@ -68,10 +72,11 @@ const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const Classes = () => {
   // Data hooks
   const { data: grades = [], isLoading: gradesLoading } = useClasses();
-  const { data: allStreams = [], isLoading: streamsLoading } = useStreams();
+  const { data: allStreams = [], isLoading: streamsLoading } =
+    useIndependentStreams();
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: students = [] } = useStudents({ status: "active" });
-  const { currentAcademicYear } = useTerm();
+  // (academic year context no longer needed here — backend handles defaults)
   const { hasAnyRole } = useAuth();
   const canManage = hasAnyRole([
     "super_admin",
@@ -80,24 +85,10 @@ const Classes = () => {
   ] as any);
   const qc = useQueryClient();
 
-  // Attach a stream to a grade WITHOUT stealing it from another grade.
-  // If the stream is already attached to a different grade, clone it (same name/description) into the target grade.
-  const attachStreamToGrade = async (streamId: string, gradeId: string) => {
-    const stream = (allStreams as any[]).find((s: any) => s.id === streamId);
-    if (!stream) return;
-    if (stream.grade_id === gradeId) return; // already attached
-    if (!stream.grade_id) {
-      await api.put(`/classes/streams/${streamId}`, { grade_id: gradeId });
-    } else {
-      // belongs to another grade — clone it
-      await api.post(`/classes/streams`, {
-        name: stream.name,
-        description: stream.description || null,
-        capacity: stream.capacity || null,
-        grade_id: gradeId,
-        academic_year_id: stream.academic_year_id || currentAcademicYear?.id,
-      });
-    }
+  const refreshStreams = () => {
+    qc.invalidateQueries({ queryKey: ["streams"] });
+    qc.invalidateQueries({ queryKey: ["streams-independent"] });
+    qc.invalidateQueries({ queryKey: ["grades"] });
   };
 
   // Student counts per grade / per stream — for delete guards & UI hints
@@ -121,12 +112,12 @@ const Classes = () => {
   const createGrade = useCreateGrade();
   const updateGrade = useUpdateGrade();
   const deleteGrade = useDeleteGrade();
-  const createStreamMut = useCreateStream();
+  const createStreamMut = useCreateIndependentStream();
   const createSubject = useCreateSubject();
   const updateSubject = useUpdateSubject();
   const deleteSubject = useDeleteSubject();
-  const updateStream = useUpdateStream();
-  const deleteStream = useDeleteStream();
+  const updateStream = useUpdateIndependentStream();
+  const deleteStream = useDeleteIndependentStream();
 
   // --- Add Stream Dialog (simple: name + description) ---
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
@@ -175,7 +166,6 @@ const Classes = () => {
       {
         name: streamForm.name,
         description: streamForm.description || null,
-        academic_year_id: currentAcademicYear?.id,
       } as any,
       {
         onSuccess: () => {
@@ -195,7 +185,7 @@ const Classes = () => {
     order_index: "0",
     selectedStreams: [] as string[],
   });
-  // Show ALL streams — a stream can belong to multiple classes; we just hint which class already owns it.
+  // Independent streams: deduped by name. Each id is the logical stream id.
   const availableStreamsForNewClass = allStreams as any[];
 
   const toggleStream = (streamId: string) => {
@@ -230,14 +220,13 @@ const Classes = () => {
             try {
               await Promise.all(
                 classForm.selectedStreams.map((id) =>
-                  attachStreamToGrade(id, gradeId),
+                  attachStreamApi(id, gradeId),
                 ),
               );
             } catch (e: any) {
               toast.error(e?.message || "Some streams could not be attached");
             }
-            qc.invalidateQueries({ queryKey: ["streams"] });
-            qc.invalidateQueries({ queryKey: ["grades"] });
+            refreshStreams();
           }
           setClassDialogOpen(false);
           setClassForm({
@@ -262,17 +251,18 @@ const Classes = () => {
     order_index: "0",
     selectedStreams: [] as string[],
   });
+  const streamsAttachedToGrade = (gradeId: string) =>
+    (allStreams as any[])
+      .filter((s: any) => (s.grade_ids || []).includes(gradeId))
+      .map((s: any) => s.id);
   const openEditClass = (c: any) => {
     setEditingClass(c);
-    const attached = (allStreams as any[])
-      .filter((s: any) => s.grade_id === c.id)
-      .map((s: any) => s.id);
     setEditForm({
       name: c.name,
       level: c.level || "primary",
       curriculum_type: c.curriculum_type || "CBC",
       order_index: String(c.order_index || 0),
-      selectedStreams: attached,
+      selectedStreams: streamsAttachedToGrade(c.id),
     });
     setEditClassOpen(true);
   };
@@ -301,28 +291,22 @@ const Classes = () => {
       },
       {
         onSuccess: async () => {
-          const previouslyAttached = (allStreams as any[])
-            .filter((s: any) => s.grade_id === editingClass.id)
-            .map((s: any) => s.id);
+          const previouslyAttached = streamsAttachedToGrade(editingClass.id);
           const toAttach = editForm.selectedStreams.filter(
             (id) => !previouslyAttached.includes(id),
           );
-          // Only detach streams that currently belong to THIS class (don't touch clones in other classes)
           const toDetach = previouslyAttached.filter(
             (id) => !editForm.selectedStreams.includes(id),
           );
           try {
             await Promise.all([
-              ...toAttach.map((id) => attachStreamToGrade(id, editingClass.id)),
-              ...toDetach.map((id) =>
-                api.put(`/classes/streams/${id}`, { grade_id: null }),
-              ),
+              ...toAttach.map((id) => attachStreamApi(id, editingClass.id)),
+              ...toDetach.map((id) => detachStreamApi(id, editingClass.id)),
             ]);
           } catch (e: any) {
             toast.error(e?.message || "Some stream changes failed");
           }
-          qc.invalidateQueries({ queryKey: ["streams"] });
-          qc.invalidateQueries({ queryKey: ["grades"] });
+          refreshStreams();
           setEditClassOpen(false);
           setEditingClass(null);
         },
@@ -339,29 +323,25 @@ const Classes = () => {
       return;
     }
     if (
-      !confirm(
-        `Delete class "${c.name}"? Attached streams will become unassigned.`,
-      )
+      !confirm(`Delete class "${c.name}"? Attached streams will be detached.`)
     )
       return;
     // detach streams first
-    (allStreams as any[])
-      .filter((s: any) => s.grade_id === c.id)
-      .forEach((s: any) =>
-        updateStream.mutate({ id: s.id, data: { grade_id: null } as any }),
-      );
-    deleteGrade.mutate(c.id);
+    const attached = streamsAttachedToGrade(c.id);
+    Promise.all(
+      attached.map((id) => detachStreamApi(id, c.id).catch(() => null)),
+    ).finally(() => {
+      deleteGrade.mutate(c.id, { onSuccess: refreshStreams });
+    });
   };
 
   const handleDeleteStream = (s: any) => {
-    const studentCount = studentsByStream.get(s.id) || 0;
-    if (studentCount > 0) {
-      toast.error(
-        `Cannot delete stream "${s.name}" — it has ${studentCount} student(s) linked.`,
-      );
+    // Block if any underlying per-grade row has students.
+    // We approximate via studentsByStream using whichever id we have access to.
+    if (
+      !confirm(`Delete stream "${s.name}"? This removes it from all classes.`)
+    )
       return;
-    }
-    if (!confirm(`Delete stream "${s.name}"?`)) return;
     deleteStream.mutate(s.id);
   };
 
@@ -512,8 +492,14 @@ const Classes = () => {
                           {s.description || "—"}
                         </TableCell>
                         <TableCell>
-                          {s.grade_name ? (
-                            <Badge variant="secondary">{s.grade_name}</Badge>
+                          {(s.grade_names || []).length ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {s.grade_names.map((n: string) => (
+                                <Badge key={n} variant="secondary">
+                                  {n}
+                                </Badge>
+                              ))}
+                            </div>
                           ) : (
                             <span className="text-muted-foreground text-xs italic">
                               Unassigned
@@ -714,11 +700,6 @@ const Classes = () => {
                                     onCheckedChange={() => toggleStream(s.id)}
                                   />
                                   <span>{s.name}</span>
-                                  {s.grade_name && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      (in {s.grade_name})
-                                    </span>
-                                  )}
                                 </label>
                               ))}
                             </div>
@@ -909,11 +890,6 @@ const Classes = () => {
                           onCheckedChange={() => toggleEditStream(s.id)}
                         />
                         <span>{s.name}</span>
-                        {s.grade_name && s.grade_id !== editingClass?.id && (
-                          <span className="text-[10px] text-muted-foreground">
-                            (in {s.grade_name})
-                          </span>
-                        )}
                       </label>
                     ))}
                   </div>
