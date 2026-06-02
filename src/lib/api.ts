@@ -9,6 +9,7 @@ class ApiClient {
   setToken(token: string | null) {
     this.token = token;
   }
+  
   setSchoolId(id: string | null) {
     this.schoolId = id;
   }
