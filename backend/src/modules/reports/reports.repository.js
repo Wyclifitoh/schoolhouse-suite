@@ -321,4 +321,5 @@ module.exports = {
   getStudentReport,
   getAttendanceReport,
   getExamReport,
+  getHRReport,
 };
