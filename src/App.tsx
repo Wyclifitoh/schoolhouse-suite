@@ -41,6 +41,7 @@ import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
 import Examinations from "./pages/Examinations";
 import Classes from "./pages/Classes";
+import Streams from "./pages/academics/Streams";
 import Library from "./pages/Library";
 import Expenses from "./pages/Expenses";
 import Communication from "./pages/Communication";
@@ -209,6 +210,16 @@ const App = () => (
                         </ProtectedRoute>
                       }
                     />
+
+                    <Route
+                      path="/streams"
+                      element={
+                        <ProtectedRoute>
+                          <Streams />
+                        </ProtectedRoute>
+                      }
+                    />
+
                     <Route
                       path="/subjects"
                       element={

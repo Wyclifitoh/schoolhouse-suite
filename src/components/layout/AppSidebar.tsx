@@ -158,6 +158,12 @@ const navConfig = {
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
+        title: "Streams",
+        url: "/academics/streams",
+        icon: Layers,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
         title: "Subjects",
         url: "/subjects",
         icon: BookOpen,
