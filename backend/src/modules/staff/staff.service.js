@@ -50,11 +50,15 @@ const bulkImportStaff = async (schoolId, rows, { schoolName } = {}) => {
       role: row.role || "teacher",
       tsc_number: row.tsc_number || null,
       specialization: row.specialization || null,
-      is_class_teacher: row.is_class_teacher === "true" || row.is_class_teacher === true,
+      is_class_teacher:
+        row.is_class_teacher === "true" || row.is_class_teacher === true,
     };
 
     if (!payload.first_name || !payload.last_name) {
-      failed.push({ row: i + 1, message: "full_name (first + last) is required" });
+      failed.push({
+        row: i + 1,
+        message: "full_name (first + last) is required",
+      });
       continue;
     }
     if (!payload.email && !payload.phone) {

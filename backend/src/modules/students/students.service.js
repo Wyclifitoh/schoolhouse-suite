@@ -10,7 +10,13 @@ const { sendSms } = require("../../utils/notifier");
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12;
 
 // Fail-soft: create / reuse a parent portal account and SMS credentials.
-async function provisionParentPortal({ schoolId, parentId, phone, parentName, schoolName }) {
+async function provisionParentPortal({
+  schoolId,
+  parentId,
+  phone,
+  parentName,
+  schoolName,
+}) {
   if (!phone) return { ok: false, skipped: "no-phone" };
   try {
     // Check existing
@@ -39,8 +45,14 @@ async function provisionParentPortal({ schoolId, parentId, phone, parentName, sc
 }
 
 // Carry forward opening balance into the current term as a student_fees row.
-async function createOpeningBalanceFee({ schoolId, studentId, termId, amount }) {
-  if (!termId || !amount || Number(amount) <= 0) return { ok: false, skipped: true };
+async function createOpeningBalanceFee({
+  schoolId,
+  studentId,
+  termId,
+  amount,
+}) {
+  if (!termId || !amount || Number(amount) <= 0)
+    return { ok: false, skipped: true };
   try {
     await query(
       `INSERT INTO student_fees
@@ -215,7 +227,11 @@ const bulkImport = async (schoolId, rows) => {
     };
 
     // VALIDATION
-    if (!student.admission_number || !student.first_name || !student.last_name) {
+    if (
+      !student.admission_number ||
+      !student.first_name ||
+      !student.last_name
+    ) {
       failed.push({
         row: i + 1,
         admission_number: student.admission_number,
@@ -244,7 +260,10 @@ const bulkImport = async (schoolId, rows) => {
       const pParts = parentName.split(/\s+/);
       const pFirst = pParts[0] || parentName;
       const pLast = pParts.slice(1).join(" ") || pFirst;
-      let parent = await parentsRepository.findByPhone(schoolId, student.parent_phone);
+      let parent = await parentsRepository.findByPhone(
+        schoolId,
+        student.parent_phone,
+      );
       if (!parent) {
         parent = await parentsRepository.create({
           school_id: schoolId,

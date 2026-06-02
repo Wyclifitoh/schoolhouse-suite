@@ -83,4 +83,12 @@ const bulkImport = async (req, res) => {
   }
 };
 
-module.exports = { create, list, getById, update, remove, listTeachers, bulkImport };
+module.exports = {
+  create,
+  list,
+  getById,
+  update,
+  remove,
+  listTeachers,
+  bulkImport,
+};

@@ -295,10 +295,9 @@ const Expenses = () => {
   const saveCat = useMutation({
     mutationFn: async (data: any) => {
       if (editingCat) {
-        return api.put(`/finance/expense-categories/${editingCat.id}`, data);
-      } else {
-        return api.post("/finance/expense-categories", data);
+        return api.put(`/expenses/categories/${editingCat.id}`, data);
       }
+      return api.post("/expenses/categories", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expense-categories"] });
@@ -306,15 +305,25 @@ const Expenses = () => {
       setCatDialogOpen(false);
       setEditingCat(null);
     },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteCat = useMutation({
+    mutationFn: (id: string) => api.delete(`/expenses/categories/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expense-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      toast.success("Category deleted");
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
   const saveExp = useMutation({
     mutationFn: async (data: any) => {
       if (editingExp) {
-        return api.put(`/finance/expenses/${editingExp.id}`, data);
-      } else {
-        return api.post("/finance/expenses", data);
+        return api.put(`/expenses/${editingExp.id}`, data);
       }
+      return api.post("/expenses", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
@@ -322,17 +331,27 @@ const Expenses = () => {
       setExpDialogOpen(false);
       setEditingExp(null);
     },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteExp = useMutation({
+    mutationFn: (id: string) => api.delete(`/expenses/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      toast.success("Expense deleted");
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ["expense-categories", schoolId],
-    queryFn: () => api.get<any[]>("/finance/expense-categories"), // Clean Express API call
+    queryFn: () => api.get<any[]>("/expenses/categories"),
     enabled: !!schoolId,
   });
 
   const { data: expensesList = [] } = useQuery({
     queryKey: ["expenses", schoolId],
-    queryFn: () => api.get<any[]>("/finance/expenses"), // Clean Express API call
+    queryFn: () => api.get<any[]>("/expenses"),
     enabled: !!schoolId,
   });
 
@@ -348,9 +367,7 @@ const Expenses = () => {
   const filtered = expensesList.filter(
     (e: any) =>
       e.title.toLowerCase().includes(search.toLowerCase()) ||
-      (e.expense_categories?.name || "")
-        .toLowerCase()
-        .includes(search.toLowerCase()),
+      (e.category_name || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   // Calc spent per category
@@ -363,7 +380,7 @@ const Expenses = () => {
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/finance/expenses/${id}/status`, { status }),
+      api.patch(`/expenses/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense status updated");
@@ -656,14 +673,14 @@ const Expenses = () => {
                                   This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
-                              {/* <AlertDialogFooter>
+                              <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => deleteExp.mutate(e.id)}
                                 >
                                   Delete
                                 </AlertDialogAction>
-                              </AlertDialogFooter> */}
+                              </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
                         </div>
@@ -800,14 +817,14 @@ const Expenses = () => {
                                     unlinked.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                {/* <AlertDialogFooter>
+                                <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => deleteCat.mutate(c.id)}
                                   >
                                     Delete
                                   </AlertDialogAction>
-                                </AlertDialogFooter> */}
+                                </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
                           </div>

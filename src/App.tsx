@@ -77,6 +77,8 @@ import AssignClassTeacher from "./pages/academics/AssignClassTeacher";
 import Subjects from "./pages/academics/Subjects";
 import SubjectAllocation from "./pages/academics/SubjectAllocation";
 import TeacherAllocation from "./pages/academics/TeacherAllocation";
+import Clubs from "./pages/academics/clubs/Clubs";
+import ClubDetail from "./pages/academics/clubs/ClubDetail";
 
 // HR Module
 import StaffDirectory from "./pages/StaffDirectory";
@@ -269,6 +271,22 @@ const App = () => (
                           ]}
                         >
                           <TeacherAllocation />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/clubs"
+                      element={
+                        <ProtectedRoute>
+                          <Clubs />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/clubs/:id"
+                      element={
+                        <ProtectedRoute>
+                          <ClubDetail />
                         </ProtectedRoute>
                       }
                     />

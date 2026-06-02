@@ -205,6 +205,12 @@ const navConfig = {
         icon: PenTool,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
+      {
+        title: "Clubs & Societies",
+        url: "/clubs",
+        icon: Sparkles,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
     ],
   },
 
