@@ -1,6 +1,59 @@
 const studentsRepository = require("./students.repository");
 const parentsRepository = require("../parents/parents.repository");
 const { parsePagination } = require("../../utils/pagination");
+const { query, queryOne } = require("../../config/database");
+const { v4: uuidv4 } = require("uuid");
+const bcrypt = require("bcrypt");
+const { generateTempPassword } = require("../../utils/credentials");
+const { sendSms } = require("../../utils/notifier");
+
+const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12;
+
+// Fail-soft: create / reuse a parent portal account and SMS credentials.
+async function provisionParentPortal({ schoolId, parentId, phone, parentName, schoolName }) {
+  if (!phone) return { ok: false, skipped: "no-phone" };
+  try {
+    // Check existing
+    const existing = await queryOne(
+      "SELECT id FROM portal_accounts WHERE account_type='parent' AND identifier=? LIMIT 1",
+      [phone],
+    ).catch(() => null);
+    if (existing) return { ok: true, reused: true };
+
+    const pwd = generateTempPassword();
+    const hash = await bcrypt.hash(pwd, SALT_ROUNDS);
+    await query(
+      `INSERT INTO portal_accounts (id, school_id, account_type, identifier, parent_id, pin_hash, must_change_pin, is_active)
+       VALUES (?, ?, 'parent', ?, ?, ?, 1, 1)`,
+      [uuidv4(), schoolId, phone, parentId, hash],
+    );
+    await sendSms({
+      to: phone,
+      message: `Habari ${parentName || ""}, your ${schoolName || "school"} parent portal login: phone ${phone} password ${pwd}. Please change on first login.`,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("[student-import] portal provisioning failed:", err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+// Carry forward opening balance into the current term as a student_fees row.
+async function createOpeningBalanceFee({ schoolId, studentId, termId, amount }) {
+  if (!termId || !amount || Number(amount) <= 0) return { ok: false, skipped: true };
+  try {
+    await query(
+      `INSERT INTO student_fees
+         (id, school_id, student_id, term_id, fee_name, amount_due, amount_paid, brought_forward_amount, status, ledger_type, due_date, created_at)
+       VALUES (?, ?, ?, ?, 'Opening Balance (B/F)', ?, 0, ?, 'pending', 'fees', CURDATE(), NOW())`,
+      [uuidv4(), schoolId, studentId, termId, amount, amount],
+    );
+    return { ok: true };
+  } catch (err) {
+    console.error("[student-import] opening balance failed:", err.message);
+    return { ok: false, error: err.message };
+  }
+}
 
 const list = async (schoolId, queryParams) => {
   const { limit, offset, page } = parsePagination(queryParams);
@@ -123,10 +176,21 @@ const bulkImport = async (schoolId, rows) => {
     });
   }
 
-  const students = rows.map((row) => {
+  // Resolve school context (name + current term/year) for portal SMS + B/F.
+  const school = await queryOne(
+    "SELECT name, current_academic_year_id, current_term_id FROM schools WHERE id = ?",
+    [schoolId],
+  );
+
+  const created = [];
+  const failed = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || {};
     const fullName = String(row.full_name || row.name || "").trim();
     const parts = fullName.split(/\s+/).filter(Boolean);
-    return {
+
+    const student = {
       admission_number: row.admission_number || row.admission_no,
       first_name: row.first_name || parts[0] || "",
       middle_name:
@@ -139,30 +203,108 @@ const bulkImport = async (schoolId, rows) => {
       date_of_birth: row.date_of_birth || row.dob || null,
       grade: row.grade || null,
       stream: row.stream || null,
-      current_grade_id: row.current_grade_id || null,
-      current_stream_id: row.current_stream_id || null,
-      current_term_id: row.current_term_id || null,
+      current_grade_id: row.current_grade_id || row.grade_id || null,
+      current_stream_id: row.current_stream_id || row.stream_id || null,
+      current_term_id:
+        row.current_term_id || row.term_id || school?.current_term_id || null,
       admission_date:
         row.admission_date || new Date().toISOString().slice(0, 10),
       parent_name: row.parent_name || null,
       parent_phone: row.parent_phone || null,
       status: row.status || "active",
     };
-  });
 
-  const invalid = students.findIndex(
-    (s) => !s.admission_number || !s.first_name || !s.last_name,
-  );
-  if (invalid >= 0) {
-    throw Object.assign(
-      new Error(
-        `Row ${invalid + 1}: admission_number and student name are required`,
-      ),
-      { statusCode: 400 },
-    );
+    // VALIDATION
+    if (!student.admission_number || !student.first_name || !student.last_name) {
+      failed.push({
+        row: i + 1,
+        admission_number: student.admission_number,
+        message: "admission_number and student name are required",
+      });
+      continue;
+    }
+    if (!student.parent_name || !student.parent_phone) {
+      failed.push({
+        row: i + 1,
+        admission_number: student.admission_number,
+        message: "parent_name and parent_phone are required",
+      });
+      continue;
+    }
+
+    try {
+      // 1. Create student
+      const newStudent = await studentsRepository.create({
+        ...student,
+        school_id: schoolId,
+      });
+
+      // 2. Create / reuse parent
+      const parentName = student.parent_name.trim();
+      const pParts = parentName.split(/\s+/);
+      const pFirst = pParts[0] || parentName;
+      const pLast = pParts.slice(1).join(" ") || pFirst;
+      let parent = await parentsRepository.findByPhone(schoolId, student.parent_phone);
+      if (!parent) {
+        parent = await parentsRepository.create({
+          school_id: schoolId,
+          first_name: pFirst,
+          last_name: pLast,
+          phone: student.parent_phone,
+          email: row.parent_email || null,
+        });
+      }
+
+      // 3. Link student -> parent (idempotent)
+      try {
+        await query(
+          `INSERT IGNORE INTO student_parents (id, student_id, parent_id, relationship, is_primary_contact, is_fee_payer)
+           VALUES (?, ?, ?, 'guardian', 1, 1)`,
+          [uuidv4(), newStudent.id, parent.id],
+        );
+      } catch (e) {
+        console.error("[student-import] link parent failed:", e.message);
+      }
+
+      // 4. Provision parent portal + SMS (fail-soft)
+      const portal = await provisionParentPortal({
+        schoolId,
+        parentId: parent.id,
+        phone: student.parent_phone,
+        parentName,
+        schoolName: school?.name,
+      });
+
+      // 5. Opening balance carry-forward into current term (fail-soft)
+      const openingBalance =
+        row.opening_balance || row.balance_b_f || row.arrears || 0;
+      let bfStatus = null;
+      if (openingBalance && Number(openingBalance) > 0) {
+        bfStatus = await createOpeningBalanceFee({
+          schoolId,
+          studentId: newStudent.id,
+          termId: student.current_term_id,
+          amount: Number(openingBalance),
+        });
+      }
+
+      created.push({
+        id: newStudent.id,
+        admission_number: newStudent.admission_number,
+        parent_id: parent.id,
+        portal_provisioned: portal.ok,
+        opening_balance_applied: bfStatus?.ok || false,
+      });
+    } catch (err) {
+      failed.push({
+        row: i + 1,
+        admission_number: student.admission_number,
+        message: err.message,
+      });
+    }
   }
 
-  return studentsRepository.bulkCreate(schoolId, students);
+  return { created, failed, total: rows.length };
 };
 
 const update = async (id, schoolId, data) => {
