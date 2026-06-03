@@ -997,7 +997,7 @@ const Students = () => {
                     </DialogHeader>
                     <AdmissionForm
                       onClose={() => setAdmissionOpen(false)}
-                      onSuccess={() => refetch()}
+                      onSuccess={() => refetchAll()}
                     />
                   </DialogContent>
                 </Dialog>
@@ -1233,7 +1233,7 @@ const Students = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                                className="h-8 w-8"
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
