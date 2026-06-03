@@ -220,7 +220,7 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Streams",
-        url: "/academics/streams",
+        url: "/streams",
         icon: Layers,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
@@ -336,7 +336,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       {
         title: "Finance Dashboard",
-        url: "/finance/dashboard",
+        url: "/finance",
         icon: Banknote,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
       },
@@ -438,7 +438,7 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Staff Ratings",
-        url: "/staff-ratings",
+        url: "/ratings",
         icon: Star,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
       },
