@@ -38,6 +38,8 @@ import {
   useCreateStudent,
   useSoftDeleteStudent,
   useUpdateStudent,
+  useStudentsPaged,
+  useStudentsSummary,
   type StudentRow,
 } from "@/hooks/useStudents";
 import { useGrades, useStreams } from "@/hooks/useGrades";
@@ -792,11 +794,30 @@ const Students = () => {
     );
   };
 
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const {
-    data: allStudents = [],
+    data: paged,
     isLoading,
     refetch,
-  } = useStudents({ search: search || undefined });
+  } = useStudentsPaged({
+    search: search || undefined,
+    status: "active", // hide deactivated/inactive from main registry
+    gradeId:
+      gradeFilter !== "all"
+        ? undefined
+        : undefined, // grade filter applied client-side below (uses name)
+    page,
+    limit: pageSize,
+  });
+  const allStudents = paged?.data || [];
+  const totalStudents = paged?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / pageSize));
+  const { data: summary, refetch: refetchSummary } = useStudentsSummary();
+  const refetchAll = () => {
+    refetch();
+    refetchSummary();
+  };
   const { data: grades = [] } = useGrades();
   const selectedGrade = grades.find((g) => g.name === gradeFilter);
   const { data: streamsForGrade = [] } = useStreams(selectedGrade?.id);
@@ -808,7 +829,6 @@ const Students = () => {
       return false;
     return true;
   });
-  const activeCount = allStudents.filter((s) => s.status === "active").length;
 
   const handleRecordPayment = async () => {
     if (!paymentAmount || !paymentMethod || !paymentStudent) {
