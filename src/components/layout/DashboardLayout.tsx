@@ -317,6 +317,12 @@ const navigationGroups: NavGroup[] = [
         roles: ADMIN_ROLES,
       },
       {
+        title: "Remark Templates",
+        url: "/assessments/remark-bands",
+        icon: MessageSquare,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
         title: "Analytics",
         url: "/assessments/analytics",
         icon: BarChart3,
@@ -489,6 +495,12 @@ const navigationGroups: NavGroup[] = [
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
+      },
+      {
+        title: "Events Calendar",
+        url: "/events",
+        icon: Calendar,
+        roles: ALL_STAFF_ROLES,
       },
     ],
   },

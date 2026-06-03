@@ -74,6 +74,8 @@ import AssessmentResults from "./pages/assessments/Results";
 import AssessmentReportCards from "./pages/assessments/ReportCards";
 import AssessmentReportCardTemplates from "./pages/assessments/ReportCardTemplates";
 import AssessmentAnalytics from "./pages/assessments/Analytics";
+import AssessmentRemarkBands from "./pages/assessments/RemarkBands";
+import Events from "./pages/Events";
 
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
@@ -405,6 +407,22 @@ const App = () => (
                       element={
                         <ProtectedRoute>
                           <AssessmentAnalytics />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/assessments/remark-bands"
+                      element={
+                        <ProtectedRoute>
+                          <AssessmentRemarkBands />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/events"
+                      element={
+                        <ProtectedRoute>
+                          <Events />
                         </ProtectedRoute>
                       }
                     />
