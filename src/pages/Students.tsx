@@ -796,6 +796,10 @@ const Students = () => {
 
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const { data: grades = [] } = useGrades();
+  const selectedGrade = grades.find((g) => g.name === gradeFilter);
+  const { data: streamsForGrade = [] } = useStreams(selectedGrade?.id);
+  const softDelete = useSoftDeleteStudent();
   const {
     data: paged,
     isLoading,
@@ -821,10 +825,6 @@ const Students = () => {
     refetch();
     refetchSummary();
   };
-  const { data: grades = [] } = useGrades();
-  const selectedGrade = grades.find((g) => g.name === gradeFilter);
-  const { data: streamsForGrade = [] } = useStreams(selectedGrade?.id);
-  const softDelete = useSoftDeleteStudent();
 
   const filtered = allStudents.filter((s) => {
     if (gradeFilter !== "all" && s.grade !== gradeFilter) return false;
