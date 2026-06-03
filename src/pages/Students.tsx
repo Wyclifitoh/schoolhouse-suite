@@ -931,6 +931,16 @@ const Students = () => {
                 Student Registry
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
+                {canManageStudents && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/students/disabled")}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-1.5" />
+                    Disabled
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -939,7 +949,38 @@ const Students = () => {
                   <Upload className="h-4 w-4 mr-1.5" />
                   Import
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const params = new URLSearchParams();
+                      params.set("status", "active");
+                      if (search) params.set("search", search);
+                      const token = api.getToken();
+                      const schoolId = localStorage.getItem("chuo-school-id") || "";
+                      const base =
+                        (import.meta as any).env?.VITE_API_URL ||
+                        "https://chuoapi.wikiteq.co.ke/api/v1";
+                      const res = await fetch(`${base}/students/export?${params}`, {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "X-School-ID": schoolId,
+                        },
+                      });
+                      if (!res.ok) throw new Error("Export failed");
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Export failed");
+                    }
+                  }}
+                >
                   <Download className="h-4 w-4 mr-1.5" />
                   Export
                 </Button>
