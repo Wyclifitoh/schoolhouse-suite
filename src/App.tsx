@@ -562,7 +562,15 @@ const App = () => (
                     <Route
                       path="/student-fees/:studentId"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
                           <StudentFees />
                         </ProtectedRoute>
                       }
