@@ -36,6 +36,57 @@ export function useStudents(filters?: { status?: string; gradeId?: string; strea
   });
 }
 
+export interface StudentsPagedResult {
+  data: StudentRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export function useStudentsPaged(filters: {
+  status?: string;
+  gradeId?: string;
+  streamIds?: string[];
+  search?: string;
+  page?: number;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  const page = filters.page || 1;
+  const limit = filters.limit || 20;
+  return useQuery({
+    queryKey: ["students-paged", filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.status && filters.status !== "all") params.set("status", filters.status);
+      if (filters.gradeId) params.set("grade_id", filters.gradeId);
+      if (filters.streamIds && filters.streamIds.length)
+        params.set("stream_ids", filters.streamIds.join(","));
+      if (filters.search) params.set("search", filters.search);
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      const result = await api.get<any>(`/students?${params}`);
+      return {
+        data: result?.data || [],
+        total: Number(result?.total || 0),
+        page: Number(result?.page || page),
+        limit: Number(result?.limit || limit),
+      } as StudentsPagedResult;
+    },
+    enabled: filters.enabled !== false,
+  });
+}
+
+export function useStudentsSummary() {
+  return useQuery({
+    queryKey: ["students-summary"],
+    queryFn: () =>
+      api.get<{ total: number; active: number; inactive: number; graduated: number; transferred: number }>(
+        "/students/summary",
+      ),
+  });
+}
+
 export function useStudent(studentId: string | undefined) {
   return useQuery({
     queryKey: ["student", studentId],

@@ -24,6 +24,7 @@ import {
   CheckCircle, AlertTriangle, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDate } from "@/utils/date";
 
 const formatKES = (amount: number) => `KES ${Math.abs(amount).toLocaleString()}`;
 
@@ -158,7 +159,7 @@ const StudentProfile = () => {
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5"><GraduationCap className="h-4 w-4" />{student.grade || "N/A"} · {student.stream || "N/A"}</span>
                 <span className="flex items-center gap-1.5 font-mono text-xs">{student.admission_number}</span>
-                {student.admission_date && <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" />Joined {student.admission_date}</span>}
+                {student.admission_date && <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" />Joined {formatDate(student.admission_date)}</span>}
               </div>
               <div className="flex items-center gap-6 mt-2">
                 <div className="flex items-center gap-2">
@@ -217,7 +218,7 @@ const StudentProfile = () => {
                   <div className="space-y-3 text-sm">
                     {[
                       ["Gender", student.gender],
-                      ["Date of Birth", student.date_of_birth],
+                      ["Date of Birth", student.date_of_birth ? formatDate(student.date_of_birth) : null],
                       ["Religion", student.religion],
                       ["Nationality", student.nationality],
                       ["Special Needs", student.special_needs],
@@ -262,7 +263,7 @@ const StudentProfile = () => {
                       ["Admission No.", student.admission_number],
                       ["Grade", student.grade],
                       ["Stream", student.stream],
-                      ["Date Joined", student.admission_date],
+                      ["Date Joined", student.admission_date ? formatDate(student.admission_date) : null],
                       ["Status", student.status],
                       ["UPI", student.upi],
                     ].filter(([, val]) => val).map(([label, val]) => (

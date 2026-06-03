@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const c = require("./finance.controller");
+const statementController = require("./statement.controller");
 
 router.get("/fee-templates", c.getFeeTemplates);
 router.get("/fee-categories", c.getFeeCategories);
@@ -13,6 +14,7 @@ router.post("/fee-discounts", c.createFeeDiscount);
 router.get("/carry-forwards", c.getCarryForwards);
 router.get("/student-fees-list", c.getStudentFeesList);
 router.get("/student-fees/:studentId", c.getStudentFees);
+router.get("/student-fees/:studentId/statement", statementController.downloadStatement);
 router.get("/student-balance/:studentId", c.getStudentBalance);
 router.post("/student-fees", c.createStudentFee);
 router.get("/fee-assignments", c.getFeeAssignments);

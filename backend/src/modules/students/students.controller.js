@@ -78,6 +78,28 @@ const getSiblings = async (req, res) => {
   }
 };
 
+const summary = async (req, res) => {
+  try {
+    return success(res, await studentsService.getSummary(req.schoolId));
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+const exportCsv = async (req, res) => {
+  try {
+    const csv = await studentsService.exportCsv(req.schoolId, req.query);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="students-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    return res.send(csv);
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
 module.exports = {
   list,
   getById,
@@ -86,4 +108,6 @@ module.exports = {
   update,
   deactivate,
   getSiblings,
+  summary,
+  exportCsv,
 };

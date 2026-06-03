@@ -50,6 +50,7 @@ import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import Homework from "./pages/Homework";
 import StudentProfile from "./pages/StudentProfile";
+import DisabledStudents from "./pages/DisabledStudents";
 import FinanceAudit from "./pages/FinanceAudit";
 import FeeAdjustments from "./pages/FeeAdjustments";
 import Reconciliation from "./pages/Reconciliation";
@@ -173,6 +174,16 @@ const App = () => (
                       element={
                         <ProtectedRoute>
                           <Students />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/students/disabled"
+                      element={
+                        <ProtectedRoute
+                          roles={["super_admin", "school_admin", "admin"]}
+                        >
+                          <DisabledStudents />
                         </ProtectedRoute>
                       }
                     />
@@ -551,7 +562,15 @@ const App = () => (
                     <Route
                       path="/student-fees/:studentId"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
                           <StudentFees />
                         </ProtectedRoute>
                       }

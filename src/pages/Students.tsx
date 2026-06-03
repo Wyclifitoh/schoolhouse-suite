@@ -38,6 +38,8 @@ import {
   useCreateStudent,
   useSoftDeleteStudent,
   useUpdateStudent,
+  useStudentsPaged,
+  useStudentsSummary,
   type StudentRow,
 } from "@/hooks/useStudents";
 import { useGrades, useStreams } from "@/hooks/useGrades";
@@ -792,15 +794,37 @@ const Students = () => {
     );
   };
 
-  const {
-    data: allStudents = [],
-    isLoading,
-    refetch,
-  } = useStudents({ search: search || undefined });
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const { data: grades = [] } = useGrades();
   const selectedGrade = grades.find((g) => g.name === gradeFilter);
   const { data: streamsForGrade = [] } = useStreams(selectedGrade?.id);
   const softDelete = useSoftDeleteStudent();
+  const {
+    data: paged,
+    isLoading,
+    refetch,
+  } = useStudentsPaged({
+    search: search || undefined,
+    status: "active", // hide deactivated/inactive from main registry
+    gradeId: gradeFilter !== "all" ? selectedGrade?.id : undefined,
+    streamIds:
+      streamFilters.length > 0
+        ? streamsForGrade
+            .filter((s: any) => streamFilters.includes(s.name))
+            .map((s: any) => s.id)
+        : undefined,
+    page,
+    limit: pageSize,
+  });
+  const allStudents = paged?.data || [];
+  const totalStudents = paged?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / pageSize));
+  const { data: summary, refetch: refetchSummary } = useStudentsSummary();
+  const refetchAll = () => {
+    refetch();
+    refetchSummary();
+  };
 
   const filtered = allStudents.filter((s) => {
     if (gradeFilter !== "all" && s.grade !== gradeFilter) return false;
@@ -808,7 +832,6 @@ const Students = () => {
       return false;
     return true;
   });
-  const activeCount = allStudents.filter((s) => s.status === "active").length;
 
   const handleRecordPayment = async () => {
     if (!paymentAmount || !paymentMethod || !paymentStudent) {
@@ -866,7 +889,7 @@ const Students = () => {
                   Total
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {allStudents.length}
+                  {summary?.total ?? totalStudents}
                 </p>
               </div>
             </CardContent>
@@ -881,7 +904,7 @@ const Students = () => {
                   Active
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {activeCount}
+                  {summary?.active ?? 0}
                 </p>
               </div>
             </CardContent>
@@ -896,7 +919,7 @@ const Students = () => {
                   Inactive
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {allStudents.filter((s) => s.status === "inactive").length}
+                  {summary?.inactive ?? 0}
                 </p>
               </div>
             </CardContent>
@@ -911,6 +934,16 @@ const Students = () => {
                 Student Registry
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
+                {canManageStudents && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/students/disabled")}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-1.5" />
+                    Disabled
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -919,7 +952,38 @@ const Students = () => {
                   <Upload className="h-4 w-4 mr-1.5" />
                   Import
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const params = new URLSearchParams();
+                      params.set("status", "active");
+                      if (search) params.set("search", search);
+                      const token = api.getToken();
+                      const schoolId = localStorage.getItem("chuo-school-id") || "";
+                      const base =
+                        (import.meta as any).env?.VITE_API_URL ||
+                        "https://chuoapi.wikiteq.co.ke/api/v1";
+                      const res = await fetch(`${base}/students/export?${params}`, {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "X-School-ID": schoolId,
+                        },
+                      });
+                      if (!res.ok) throw new Error("Export failed");
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Export failed");
+                    }
+                  }}
+                >
                   <Download className="h-4 w-4 mr-1.5" />
                   Export
                 </Button>
@@ -936,7 +1000,7 @@ const Students = () => {
                     </DialogHeader>
                     <AdmissionForm
                       onClose={() => setAdmissionOpen(false)}
-                      onSuccess={() => refetch()}
+                      onSuccess={() => refetchAll()}
                     />
                   </DialogContent>
                 </Dialog>
@@ -1172,7 +1236,7 @@ const Students = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                                className="h-8 w-8"
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
@@ -1220,7 +1284,9 @@ const Students = () => {
                                           `Deactivate ${s.full_name || s.first_name}?`,
                                         )
                                       )
-                                        softDelete.mutate(s.id);
+                                        softDelete.mutate(s.id, {
+                                          onSuccess: () => refetchAll(),
+                                        });
                                     }}
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
@@ -1237,9 +1303,35 @@ const Students = () => {
                 </TableBody>
               </Table>
             </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              Showing {filtered.length} of {allStudents.length} students
-            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}
+                –{(page - 1) * pageSize + filtered.length} of {totalStudents} active students
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
