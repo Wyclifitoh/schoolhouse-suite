@@ -294,7 +294,7 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Assessment Tasks",
-        url: "/assessment/tasks",
+        url: "/assessments/tasks",
         icon: ListChecks,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
