@@ -39,7 +39,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileText, FileSpreadsheet } from "lucide-react";
+import { FileText, FileSpreadsheet, Printer } from "lucide-react";
+import { openReceiptPdf } from "@/hooks/useReceipt";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -55,7 +56,9 @@ const StudentFees = () => {
       try {
         const params = new URLSearchParams();
         if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
-        const data = await api.get<any>(`/finance/student-fees/${studentId}?${params}`);
+        const data = await api.get<any>(
+          `/finance/student-fees/${studentId}?${params}`,
+        );
         return (data?.data || data || []) as any[];
       } catch {
         return [];
@@ -320,15 +323,11 @@ const StudentFees = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => downloadStatement("pdf")}
-                >
+                <DropdownMenuItem onClick={() => downloadStatement("pdf")}>
                   <FileText className="h-4 w-4 mr-2" />
                   Download as PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => downloadStatement("excel")}
-                >
+                <DropdownMenuItem onClick={() => downloadStatement("excel")}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Download as Excel
                 </DropdownMenuItem>
@@ -647,13 +646,16 @@ const StudentFees = () => {
                   <TableHead className="font-semibold text-xs">
                     Status
                   </TableHead>
+                  <TableHead className="font-semibold text-xs w-20 text-right">
+                    Receipt
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paymentHistory.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center py-8 text-muted-foreground"
                     >
                       No payments recorded yet
@@ -703,13 +705,28 @@ const StudentFees = () => {
                               {p.status || "completed"}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              title="Print receipt"
+                              onClick={() =>
+                                openReceiptPdf(p.id).catch((e) =>
+                                  toast.error(e.message),
+                                )
+                              }
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                         {(allocs.length > 0 || unallocated > 0) && (
                           <TableRow
                             key={`${p.id}-alloc`}
                             className="bg-muted/20"
                           >
-                            <TableCell colSpan={5} className="py-2">
+                            <TableCell colSpan={6} className="py-2">
                               <div className="text-[11px] text-muted-foreground space-y-0.5 pl-4">
                                 {allocs.map((a: any) => (
                                   <div

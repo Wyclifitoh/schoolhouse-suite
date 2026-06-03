@@ -36,6 +36,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { openReceiptPdf } from "@/hooks/useReceipt";
 import { VoidPaymentDialog } from "@/components/finance/VoidPaymentDialog";
 import { format } from "date-fns";
 
@@ -250,7 +251,11 @@ const Payments = () => {
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => toast.success("Receipt printed")}
+                            onClick={() =>
+                              openReceiptPdf(p.id).catch((e) =>
+                                toast.error(e.message),
+                              )
+                            }
                           >
                             <Printer className="h-4 w-4 mr-2" />
                             Print Receipt
