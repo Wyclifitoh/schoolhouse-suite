@@ -886,7 +886,7 @@ const Students = () => {
                   Total
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {allStudents.length}
+                  {summary?.total ?? totalStudents}
                 </p>
               </div>
             </CardContent>
@@ -901,7 +901,7 @@ const Students = () => {
                   Active
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {activeCount}
+                  {summary?.active ?? 0}
                 </p>
               </div>
             </CardContent>
@@ -916,7 +916,7 @@ const Students = () => {
                   Inactive
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {allStudents.filter((s) => s.status === "inactive").length}
+                  {summary?.inactive ?? 0}
                 </p>
               </div>
             </CardContent>
