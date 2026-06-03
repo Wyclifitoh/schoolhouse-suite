@@ -1298,9 +1298,35 @@ const Students = () => {
                 </TableBody>
               </Table>
             </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              Showing {filtered.length} of {allStudents.length} students
-            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}
+                –{(page - 1) * pageSize + filtered.length} of {totalStudents} active students
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
