@@ -76,8 +76,9 @@ export function usePayments(filters?: {
   method?: string;
   search?: string;
 }) {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["payments", filters],
+    queryKey: ["payments", selectedTerm?.id, filters],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.status && filters.status !== "all")
