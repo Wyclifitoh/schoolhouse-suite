@@ -294,19 +294,19 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Assessment Tasks",
-        url: "/assessment-tasks",
+        url: "/assessment/tasks",
         icon: ListChecks,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
         title: "Results",
-        url: "/results",
+        url: "/assessments/results",
         icon: CheckSquare,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
         title: "Report Cards",
-        url: "/report-cards",
+        url: "/assessments/report-cards",
         icon: FileBadge,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
@@ -318,7 +318,7 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Analytics",
-        url: "/analytics",
+        url: "/assessments/analytics",
         icon: BarChart3,
         roles: [
           ...ADMIN_ROLES,
