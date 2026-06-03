@@ -561,7 +561,7 @@ const StudentFees = () => {
                           {f.term_name || "—"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {f.due_date || "—"}
+                          {f.due_date ? formatDate(f.due_date) : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge className={statusColor(f.status)}>
@@ -676,7 +676,7 @@ const StudentFees = () => {
                       <Fragment key={p.id}>
                         <TableRow key={p.id}>
                           <TableCell className="text-sm text-muted-foreground">
-                            {p.received_at || p.created_at || "—"}
+                            {formatDateTime(p.received_at || p.created_at)}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
                             {p.reference_number || p.mpesa_receipt || "—"}
@@ -782,7 +782,7 @@ const StudentFees = () => {
                   allocationHistory.map((a: any) => (
                     <TableRow key={a.id}>
                       <TableCell className="text-sm text-muted-foreground">
-                        {a.received_at || a.allocated_at || "—"}
+                        {formatDateTime(a.received_at || a.allocated_at)}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {a.fee_name || "Fee item"}
