@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useTerm } from "@/contexts/TermContext";
 
 // Finance report data
 export function useFinanceReportData(filters?: { classId?: string; startDate?: string; endDate?: string }) {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["reports", "finance", filters],
+    queryKey: ["reports", "finance", selectedTerm?.id, filters],
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.classId) params.set("class_id", filters.classId);
@@ -18,8 +20,9 @@ export function useFinanceReportData(filters?: { classId?: string; startDate?: s
 
 // Student report data
 export function useStudentReportData(filters?: { classId?: string; year?: string }) {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["reports", "students", filters],
+    queryKey: ["reports", "students", selectedTerm?.id, filters],
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.classId) params.set("class_id", filters.classId);
@@ -32,8 +35,9 @@ export function useStudentReportData(filters?: { classId?: string; year?: string
 
 // Attendance report data
 export function useAttendanceReportData(filters?: { classId?: string; month?: string }) {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["reports", "attendance", filters],
+    queryKey: ["reports", "attendance", selectedTerm?.id, filters],
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.classId) params.set("class_id", filters.classId);
@@ -46,8 +50,9 @@ export function useAttendanceReportData(filters?: { classId?: string; month?: st
 
 // Exam report data  
 export function useExamReportData(filters?: { examId?: string }) {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["reports", "exams", filters],
+    queryKey: ["reports", "exams", selectedTerm?.id, filters],
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.examId) params.set("exam_id", filters.examId);
@@ -59,16 +64,18 @@ export function useExamReportData(filters?: { examId?: string }) {
 
 // HR report data
 export function useHRReportData() {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["reports", "hr"],
+    queryKey: ["reports", "hr", selectedTerm?.id],
     queryFn: () => api.get<any>("/reports/hr"),
   });
 }
 
 // Payments data for reports
 export function usePaymentsReportData(filters?: { startDate?: string; endDate?: string; method?: string }) {
+  const { selectedTerm } = useTerm();
   return useQuery({
-    queryKey: ["reports", "payments", filters],
+    queryKey: ["reports", "payments", selectedTerm?.id, filters],
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.startDate) params.set("start_date", filters.startDate);
