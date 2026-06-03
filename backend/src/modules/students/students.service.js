@@ -82,6 +82,46 @@ const list = async (schoolId, queryParams) => {
   return { data: rows, total, page, limit };
 };
 
+const getSummary = async (schoolId) => {
+  const rows = await query(
+    `SELECT status, COUNT(*) AS count FROM students WHERE school_id = ? GROUP BY status`,
+    [schoolId],
+  );
+  const summary = { total: 0, active: 0, inactive: 0, graduated: 0, transferred: 0 };
+  for (const r of rows) {
+    const s = String(r.status || "").toLowerCase();
+    summary.total += Number(r.count) || 0;
+    if (summary[s] !== undefined) summary[s] = Number(r.count) || 0;
+  }
+  return summary;
+};
+
+const exportCsv = async (schoolId, queryParams = {}) => {
+  const { rows } = await studentsRepository.findAll(schoolId, {
+    limit: 10000,
+    offset: 0,
+    search: queryParams.search,
+    status: queryParams.status,
+    gradeId: queryParams.grade_id,
+    streamIds: queryParams.stream_ids
+      ? String(queryParams.stream_ids).split(",").filter(Boolean)
+      : undefined,
+  });
+  const headers = [
+    "admission_number","first_name","middle_name","last_name","gender",
+    "date_of_birth","grade","stream","parent_name","parent_phone",
+    "admission_date","status",
+  ];
+  const esc = (v) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  };
+  const lines = [headers.join(",")];
+  for (const r of rows) lines.push(headers.map((h) => esc(r[h])).join(","));
+  return lines.join("\n");
+};
+
 const getById = async (id, schoolId) => {
   const student = await studentsRepository.findById(id, schoolId);
   if (!student)
@@ -350,4 +390,6 @@ module.exports = {
   update,
   deactivate,
   getSiblings,
+  getSummary,
+  exportCsv,
 };
