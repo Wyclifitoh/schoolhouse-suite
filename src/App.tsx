@@ -36,6 +36,8 @@ import ExcessPayments from "./pages/ExcessPayments";
 import UnallocatedPayments from "./pages/UnallocatedPayments";
 import FeeReminders from "./pages/FeeReminders";
 import Parents from "./pages/Parents";
+import ParentProfile from "./pages/ParentProfile";
+import StaffProfile from "./pages/StaffProfile";
 import Attendance from "./pages/Attendance";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
@@ -200,6 +202,22 @@ const App = () => (
                       element={
                         <ProtectedRoute>
                           <Parents />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/parents/:id"
+                      element={
+                        <ProtectedRoute>
+                          <ParentProfile />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/staff/:id"
+                      element={
+                        <ProtectedRoute>
+                          <StaffProfile />
                         </ProtectedRoute>
                       }
                     />

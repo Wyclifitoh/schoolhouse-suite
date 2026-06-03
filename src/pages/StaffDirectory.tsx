@@ -8,24 +8,51 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Search, Plus, UserCircle, Edit, Eye, Trash2, Mail, Phone, KeyRound,
+  Search,
+  Plus,
+  UserCircle,
+  Edit,
+  Eye,
+  Trash2,
+  Mail,
+  Phone,
+  KeyRound,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -149,7 +176,11 @@ export default function StaffDirectory() {
       toast({ title: "Staff added", description: msg });
     },
     onError: (err: any) =>
-      toast({ title: "Error", description: err.message || "Failed to add staff", variant: "destructive" }),
+      toast({
+        title: "Error",
+        description: err.message || "Failed to add staff",
+        variant: "destructive",
+      }),
   });
 
   const updateStaffMutation = useMutation({
@@ -161,7 +192,11 @@ export default function StaffDirectory() {
       toast({ title: "Staff updated" });
     },
     onError: (err: any) =>
-      toast({ title: "Error", description: err.message, variant: "destructive" }),
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
   });
 
   const deleteStaffMutation = useMutation({
@@ -172,13 +207,17 @@ export default function StaffDirectory() {
       toast({ title: "Staff removed" });
     },
     onError: (err: any) =>
-      toast({ title: "Error", description: err.message, variant: "destructive" }),
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
   });
 
   const openEdit = (s: any) => {
     setForm({
       ...emptyForm,
-      ...Object.fromEntries(Object.keys(emptyForm).map(k => [k, s[k] ?? ""])),
+      ...Object.fromEntries(Object.keys(emptyForm).map((k) => [k, s[k] ?? ""])),
       salary: s.salary?.toString() || "",
       role: s.role || "teacher",
       status: s.status || "active",
@@ -186,11 +225,13 @@ export default function StaffDirectory() {
     setEditStaff(s);
   };
 
-  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   const filtered = staffList.filter((s: any) => {
-    const matchesSearch = `${s.first_name} ${s.last_name} ${s.employee_number} ${s.email}`
-      .toLowerCase().includes(search.toLowerCase());
+    const matchesSearch =
+      `${s.first_name} ${s.last_name} ${s.employee_number} ${s.email}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
     const matchesRole = roleFilter === "all" || s.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -203,38 +244,100 @@ export default function StaffDirectory() {
         <TabsTrigger value="basic">Basic</TabsTrigger>
         <TabsTrigger value="employment">Employment</TabsTrigger>
         <TabsTrigger value="statutory">Statutory & Bank</TabsTrigger>
-        <TabsTrigger value="teacher" disabled={!isTeacher}>Teacher</TabsTrigger>
+        <TabsTrigger value="teacher" disabled={!isTeacher}>
+          Teacher
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="basic" className="space-y-3 mt-4">
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Employee # *</Label><Input value={form.employee_number} onChange={e => set("employee_number", e.target.value)} placeholder="EMP-001" /></div>
+          <div>
+            <Label>Employee # *</Label>
+            <Input
+              value={form.employee_number}
+              onChange={(e) => set("employee_number", e.target.value)}
+              placeholder="EMP-001"
+            />
+          </div>
           <div>
             <Label>Role *</Label>
-            <Select value={form.role} onValueChange={v => set("role", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select value={form.role} onValueChange={(v) => set("role", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {STAFF_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                {STAFF_ROLES.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <div><Label>First Name *</Label><Input value={form.first_name} onChange={e => set("first_name", e.target.value)} /></div>
-          <div><Label>Last Name *</Label><Input value={form.last_name} onChange={e => set("last_name", e.target.value)} /></div>
-          <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => set("email", e.target.value)} /></div>
-          <div><Label>Phone</Label><Input value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="2547XXXXXXXX" /></div>
+          <div>
+            <Label>First Name *</Label>
+            <Input
+              value={form.first_name}
+              onChange={(e) => set("first_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Last Name *</Label>
+            <Input
+              value={form.last_name}
+              onChange={(e) => set("last_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              placeholder="2547XXXXXXXX"
+            />
+          </div>
           <div>
             <Label>Gender</Label>
-            <Select value={form.gender} onValueChange={v => set("gender", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{GENDERS.map(g => <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>)}</SelectContent>
+            <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {GENDERS.map((g) => (
+                  <SelectItem key={g} value={g} className="capitalize">
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
-          <div><Label>Date of Birth</Label><Input type="date" value={form.date_of_birth} onChange={e => set("date_of_birth", e.target.value)} /></div>
+          <div>
+            <Label>Date of Birth</Label>
+            <Input
+              type="date"
+              value={form.date_of_birth}
+              onChange={(e) => set("date_of_birth", e.target.value)}
+            />
+          </div>
         </div>
-        <div><Label>Address</Label><Textarea value={form.address} onChange={e => set("address", e.target.value)} /></div>
+        <div>
+          <Label>Address</Label>
+          <Textarea
+            value={form.address}
+            onChange={(e) => set("address", e.target.value)}
+          />
+        </div>
         <p className="text-xs text-muted-foreground border-l-2 border-primary/40 pl-3 py-1 bg-muted/30 rounded">
-          <KeyRound className="h-3 w-3 inline mr-1" />
-          A login account is created automatically. A temporary password will be sent via email + SMS.
+          <KeyRound className="h-3 w-3 inline mr-1" />A login account is created
+          automatically. A temporary password will be sent via email + SMS.
         </p>
       </TabsContent>
 
@@ -242,26 +345,76 @@ export default function StaffDirectory() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Department</Label>
-            <Select value={form.department_id} onValueChange={v => set("department_id", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{departments.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+            <Select
+              value={form.department_id}
+              onValueChange={(v) => set("department_id", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
             <Label>Designation</Label>
-            <Select value={form.designation_id} onValueChange={v => set("designation_id", v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>{designations.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+            <Select
+              value={form.designation_id}
+              onValueChange={(v) => set("designation_id", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {designations.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
-          <div><Label>Join Date</Label><Input type="date" value={form.join_date} onChange={e => set("join_date", e.target.value)} /></div>
-          <div><Label>Basic Salary (KES)</Label><Input type="number" value={form.salary} onChange={e => set("salary", e.target.value)} /></div>
-          <div><Label>Qualification</Label><Input value={form.qualification} onChange={e => set("qualification", e.target.value)} /></div>
+          <div>
+            <Label>Join Date</Label>
+            <Input
+              type="date"
+              value={form.join_date}
+              onChange={(e) => set("join_date", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Basic Salary (KES)</Label>
+            <Input
+              type="number"
+              value={form.salary}
+              onChange={(e) => set("salary", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Qualification</Label>
+            <Input
+              value={form.qualification}
+              onChange={(e) => set("qualification", e.target.value)}
+            />
+          </div>
           <div>
             <Label>Status</Label>
-            <Select value={form.status} onValueChange={v => set("status", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+            <Select value={form.status} onValueChange={(v) => set("status", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         </div>
@@ -269,51 +422,140 @@ export default function StaffDirectory() {
 
       <TabsContent value="statutory" className="space-y-3 mt-4">
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>National ID</Label><Input value={form.id_number} onChange={e => set("id_number", e.target.value)} /></div>
-          <div><Label>KRA PIN</Label><Input value={form.kra_pin} onChange={e => set("kra_pin", e.target.value)} /></div>
-          <div><Label>NHIF / SHIF #</Label><Input value={form.nhif_number} onChange={e => set("nhif_number", e.target.value)} /></div>
-          <div><Label>NSSF #</Label><Input value={form.nssf_number} onChange={e => set("nssf_number", e.target.value)} /></div>
-          <div><Label>Bank Name</Label><Input value={form.bank_name} onChange={e => set("bank_name", e.target.value)} /></div>
-          <div><Label>Bank Account</Label><Input value={form.bank_account} onChange={e => set("bank_account", e.target.value)} /></div>
+          <div>
+            <Label>National ID</Label>
+            <Input
+              value={form.id_number}
+              onChange={(e) => set("id_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>KRA PIN</Label>
+            <Input
+              value={form.kra_pin}
+              onChange={(e) => set("kra_pin", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>NHIF / SHIF #</Label>
+            <Input
+              value={form.nhif_number}
+              onChange={(e) => set("nhif_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>NSSF #</Label>
+            <Input
+              value={form.nssf_number}
+              onChange={(e) => set("nssf_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Bank Name</Label>
+            <Input
+              value={form.bank_name}
+              onChange={(e) => set("bank_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Bank Account</Label>
+            <Input
+              value={form.bank_account}
+              onChange={(e) => set("bank_account", e.target.value)}
+            />
+          </div>
         </div>
       </TabsContent>
 
       <TabsContent value="teacher" className="space-y-3 mt-4">
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>TSC Number</Label><Input value={form.tsc_number} onChange={e => set("tsc_number", e.target.value)} /></div>
-          <div><Label>Specialization</Label><Input value={form.specialization} onChange={e => set("specialization", e.target.value)} placeholder="e.g. Mathematics / Physics" /></div>
+          <div>
+            <Label>TSC Number</Label>
+            <Input
+              value={form.tsc_number}
+              onChange={(e) => set("tsc_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Specialization</Label>
+            <Input
+              value={form.specialization}
+              onChange={(e) => set("specialization", e.target.value)}
+              placeholder="e.g. Mathematics / Physics"
+            />
+          </div>
         </div>
-        <div><Label>Bio</Label><Textarea value={form.bio} onChange={e => set("bio", e.target.value)} /></div>
+        <div>
+          <Label>Bio</Label>
+          <Textarea
+            value={form.bio}
+            onChange={(e) => set("bio", e.target.value)}
+          />
+        </div>
       </TabsContent>
     </Tabs>
   );
 
   const headlineStats = [
     { label: "Total Staff", value: staffList.length },
-    { label: "Active", value: staffList.filter((s: any) => s.status === "active").length },
-    { label: "Teachers", value: staffList.filter((s: any) => s.role === "teacher").length },
-    { label: "Departments", value: new Set(staffList.map((s: any) => s.department_id).filter(Boolean)).size },
+    {
+      label: "Active",
+      value: staffList.filter((s: any) => s.status === "active").length,
+    },
+    {
+      label: "Teachers",
+      value: staffList.filter((s: any) => s.role === "teacher").length,
+    },
+    {
+      label: "Departments",
+      value: new Set(staffList.map((s: any) => s.department_id).filter(Boolean))
+        .size,
+    },
   ];
 
   return (
-    <DashboardLayout title="Staff Directory" subtitle="Manage your school workforce">
+    <DashboardLayout
+      title="Staff Directory"
+      subtitle="Manage your school workforce"
+    >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">All staff members across the 7 canonical roles.</p>
-          <Dialog open={isAddOpen} onOpenChange={(o) => { setIsAddOpen(o); if (!o) { setForm({ ...emptyForm }); setTab("basic"); } }}>
+          <p className="text-sm text-muted-foreground">
+            All staff members across the 7 canonical roles.
+          </p>
+          <Dialog
+            open={isAddOpen}
+            onOpenChange={(o) => {
+              setIsAddOpen(o);
+              if (!o) {
+                setForm({ ...emptyForm });
+                setTab("basic");
+              }
+            }}
+          >
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />Add Staff</Button>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Staff
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Add New Staff Member</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Add New Staff Member</DialogTitle>
+              </DialogHeader>
               {StaffForm}
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+                  Cancel
+                </Button>
                 <Button
                   onClick={() => addStaffMutation.mutate()}
                   disabled={
-                    !form.employee_number || !form.first_name || !form.last_name ||
-                    (!form.email && !form.phone) || addStaffMutation.isPending
+                    !form.employee_number ||
+                    !form.first_name ||
+                    !form.last_name ||
+                    (!form.email && !form.phone) ||
+                    addStaffMutation.isPending
                   }
                 >
                   {addStaffMutation.isPending ? "Saving…" : "Save Staff"}
@@ -324,24 +566,37 @@ export default function StaffDirectory() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {headlineStats.map(s => (
-            <Card key={s.label}><CardContent className="pt-6">
-              <div className="text-2xl font-bold">{s.value}</div>
-              <p className="text-sm text-muted-foreground">{s.label}</p>
-            </CardContent></Card>
+          {headlineStats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{s.value}</div>
+                <p className="text-sm text-muted-foreground">{s.label}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
 
         <div className="flex gap-3 items-center flex-wrap">
           <div className="relative max-w-md flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search staff..." className="pl-10" value={search} onChange={e => setSearch(e.target.value)} />
+            <Input
+              placeholder="Search staff..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              {STAFF_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+              {STAFF_ROLES.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -363,39 +618,94 @@ export default function StaffDirectory() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8">Loading…</TableCell></TableRow>
-                ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No staff found</TableCell></TableRow>
-                ) : filtered.map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-mono text-sm">{s.employee_number}</TableCell>
-                    <TableCell>
-                      <div className="font-medium flex items-center gap-2">
-                        {s.first_name} {s.last_name}
-                        {s.must_change_password ? (
-                          <Badge variant="outline" className="text-xs"><KeyRound className="h-3 w-3 mr-1" />Pending password</Badge>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell><Badge variant="outline" className="capitalize">{s.role?.replace(/_/g, " ")}</Badge></TableCell>
-                    <TableCell>{s.department_name || "—"}</TableCell>
-                    <TableCell>{s.designation_name || "—"}</TableCell>
-                    <TableCell className="text-xs">
-                      {s.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" />{s.email}</div>}
-                      {s.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" />{s.phone}</div>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={s.status === "active" ? "default" : "secondary"} className="capitalize">{s.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => setViewStaff(s)}><Eye className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleteStaff(s)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      Loading…
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      No staff found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-mono text-sm">
+                        {s.employee_number}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium flex items-center gap-2">
+                          {s.first_name} {s.last_name}
+                          {s.must_change_password ? (
+                            <Badge variant="outline" className="text-xs">
+                              <KeyRound className="h-3 w-3 mr-1" />
+                              Pending password
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {s.role?.replace(/_/g, " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{s.department_name || "—"}</TableCell>
+                      <TableCell>{s.designation_name || "—"}</TableCell>
+                      <TableCell className="text-xs">
+                        {s.email && (
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {s.email}
+                          </div>
+                        )}
+                        {s.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {s.phone}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            s.status === "active" ? "default" : "secondary"
+                          }
+                          className="capitalize"
+                        >
+                          {s.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={`/staff/${s.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEdit(s)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteStaff(s)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -404,14 +714,23 @@ export default function StaffDirectory() {
         {/* View */}
         <Dialog open={!!viewStaff} onOpenChange={() => setViewStaff(null)}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Staff Details</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Staff Details</DialogTitle>
+            </DialogHeader>
             {viewStaff && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center"><UserCircle className="h-8 w-8 text-primary" /></div>
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserCircle className="h-8 w-8 text-primary" />
+                  </div>
                   <div>
-                    <h3 className="text-lg font-semibold">{viewStaff.first_name} {viewStaff.last_name}</h3>
-                    <p className="text-sm text-muted-foreground">{viewStaff.employee_number} · {viewStaff.role?.replace(/_/g, " ")}</p>
+                    <h3 className="text-lg font-semibold">
+                      {viewStaff.first_name} {viewStaff.last_name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {viewStaff.employee_number} ·{" "}
+                      {viewStaff.role?.replace(/_/g, " ")}
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -420,7 +739,12 @@ export default function StaffDirectory() {
                     ["Phone", viewStaff.phone],
                     ["Department", viewStaff.department_name],
                     ["Designation", viewStaff.designation_name],
-                    ["Salary", viewStaff.salary ? `KES ${Number(viewStaff.salary).toLocaleString()}` : "—"],
+                    [
+                      "Salary",
+                      viewStaff.salary
+                        ? `KES ${Number(viewStaff.salary).toLocaleString()}`
+                        : "—",
+                    ],
                     ["Join Date", viewStaff.join_date],
                     ["Gender", viewStaff.gender],
                     ["National ID", viewStaff.id_number],
@@ -430,7 +754,10 @@ export default function StaffDirectory() {
                     ["TSC Number", viewStaff.tsc_number],
                     ["Specialization", viewStaff.specialization],
                   ].map(([k, v]) => (
-                    <div key={k as string}><span className="text-muted-foreground">{k}:</span> {v || "—"}</div>
+                    <div key={k as string}>
+                      <span className="text-muted-foreground">{k}:</span>{" "}
+                      {v || "—"}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -439,13 +766,30 @@ export default function StaffDirectory() {
         </Dialog>
 
         {/* Edit */}
-        <Dialog open={!!editStaff} onOpenChange={(o) => { if (!o) { setEditStaff(null); setForm({ ...emptyForm }); } }}>
+        <Dialog
+          open={!!editStaff}
+          onOpenChange={(o) => {
+            if (!o) {
+              setEditStaff(null);
+              setForm({ ...emptyForm });
+            }
+          }}
+        >
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Edit Staff Member</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Edit Staff Member</DialogTitle>
+            </DialogHeader>
             {StaffForm}
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setEditStaff(null)}>Cancel</Button>
-              <Button onClick={() => editStaff && updateStaffMutation.mutate(editStaff.id)} disabled={updateStaffMutation.isPending}>
+              <Button variant="outline" onClick={() => setEditStaff(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  editStaff && updateStaffMutation.mutate(editStaff.id)
+                }
+                disabled={updateStaffMutation.isPending}
+              >
                 {updateStaffMutation.isPending ? "Saving…" : "Save Changes"}
               </Button>
             </div>
@@ -453,17 +797,30 @@ export default function StaffDirectory() {
         </Dialog>
 
         {/* Delete confirmation */}
-        <AlertDialog open={!!deleteStaff} onOpenChange={(o) => { if (!o) setDeleteStaff(null); }}>
+        <AlertDialog
+          open={!!deleteStaff}
+          onOpenChange={(o) => {
+            if (!o) setDeleteStaff(null);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Remove staff?</AlertDialogTitle>
               <AlertDialogDescription>
-                {deleteStaff?.first_name} {deleteStaff?.last_name} will be removed from this school. The linked login account will remain (revoke separately).
+                {deleteStaff?.first_name} {deleteStaff?.last_name} will be
+                removed from this school. The linked login account will remain
+                (revoke separately).
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteStaff && deleteStaffMutation.mutate(deleteStaff.id)}>Remove</AlertDialogAction>
+              <AlertDialogAction
+                onClick={() =>
+                  deleteStaff && deleteStaffMutation.mutate(deleteStaff.id)
+                }
+              >
+                Remove
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
