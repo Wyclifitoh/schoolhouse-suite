@@ -32,6 +32,14 @@ import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
+import { formatDate, formatDateTime } from "@/utils/date";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -265,10 +273,28 @@ const StudentFees = () => {
             Back
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="h-3.5 w-3.5 mr-1" />
-              Statement
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Statement
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => downloadStatement("pdf")}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => downloadStatement("excel")}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Download as Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="sm"
               onClick={() => {
