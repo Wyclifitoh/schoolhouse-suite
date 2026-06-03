@@ -803,10 +803,13 @@ const Students = () => {
   } = useStudentsPaged({
     search: search || undefined,
     status: "active", // hide deactivated/inactive from main registry
-    gradeId:
-      gradeFilter !== "all"
-        ? undefined
-        : undefined, // grade filter applied client-side below (uses name)
+    gradeId: gradeFilter !== "all" ? selectedGrade?.id : undefined,
+    streamIds:
+      streamFilters.length > 0
+        ? streamsForGrade
+            .filter((s: any) => streamFilters.includes(s.name))
+            .map((s: any) => s.id)
+        : undefined,
     page,
     limit: pageSize,
   });
