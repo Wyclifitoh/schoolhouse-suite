@@ -449,31 +449,49 @@ router.get(
   ),
 );
 
-// Analytics exports — PDF & Excel
-async function gatherAnalytics(schoolId, assessmentId) {
+// Analytics exports — PDF & Excel (with optional grade/stream/subject filters)
+function extractFilters(q) {
+  return {
+    grade_id: q.grade_id || undefined,
+    stream_id: q.stream_id || undefined,
+    subject_id: q.subject_id || undefined,
+  };
+}
+
+async function gatherAnalytics(schoolId, assessmentId, filters = {}) {
   const [overview, subjects, bands, levels, leaderboard, grades, streams] =
     await Promise.all([
-      analytics.overview(schoolId, assessmentId),
-      analytics.subjectMeans(schoolId, assessmentId),
-      analytics.bandDistribution(schoolId, assessmentId),
-      analytics.alDistribution(schoolId, assessmentId),
-      analytics.leaderboard(schoolId, assessmentId, 50),
-      analytics.gradeMeans(schoolId, assessmentId),
-      analytics.streamMeans(schoolId, assessmentId),
+      analytics.overview(schoolId, assessmentId, filters),
+      analytics.subjectMeans(schoolId, assessmentId, filters),
+      analytics.bandDistribution(schoolId, assessmentId, filters),
+      analytics.alDistribution(schoolId, assessmentId, filters),
+      analytics.leaderboard(schoolId, assessmentId, 50, filters),
+      analytics.gradeMeans(schoolId, assessmentId, filters),
+      analytics.streamMeans(schoolId, assessmentId, filters),
     ]);
-  return { overview, subjects, bands, levels, leaderboard, grades, streams };
+  return {
+    overview,
+    subjects,
+    bands,
+    levels,
+    leaderboard,
+    grades,
+    streams,
+    filters,
+  };
 }
 router.get(
   "/:id/analytics/export.pdf",
   h(async (req, res) => {
     const schoolId = sid(req);
+    const filters = extractFilters(req.query);
     const [school, assessment, data] = await Promise.all([
       loadSchool(schoolId),
       queryOne("SELECT * FROM assessments WHERE id=? AND school_id=?", [
         req.params.id,
         schoolId,
       ]),
-      gatherAnalytics(schoolId, req.params.id),
+      gatherAnalytics(schoolId, req.params.id, filters),
     ]);
     if (!assessment) return error(res, "Assessment not found", 404);
     res.setHeader("Content-Type", "application/pdf");
@@ -488,13 +506,14 @@ router.get(
   "/:id/analytics/export.xlsx",
   h(async (req, res) => {
     const schoolId = sid(req);
+    const filters = extractFilters(req.query);
     const [school, assessment, data] = await Promise.all([
       loadSchool(schoolId),
       queryOne("SELECT * FROM assessments WHERE id=? AND school_id=?", [
         req.params.id,
         schoolId,
       ]),
-      gatherAnalytics(schoolId, req.params.id),
+      gatherAnalytics(schoolId, req.params.id, filters),
     ]);
     if (!assessment) return error(res, "Assessment not found", 404);
     const wb = await pdfSvc.buildAnalyticsXlsx({ school, assessment, data });

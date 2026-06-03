@@ -12,7 +12,9 @@ const create = async (req, res) => {
       rated_by: req.user.id,
     });
     return success(res, row, 201);
-  } catch (err) { return error(res, err.message, 400); }
+  } catch (err) {
+    return error(res, err.message, 400);
+  }
 };
 
 const list = async (req, res) => {
@@ -20,19 +22,26 @@ const list = async (req, res) => {
     const pagination = parsePagination(req.query);
     const { rows, total } = await repo.listAll(schoolOf(req), pagination);
     return paginated(res, rows, total, pagination.page, pagination.limit);
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 const listForStaff = async (req, res) => {
   try {
     const rows = await repo.listForStaff(schoolOf(req), req.params.staffId);
     return success(res, rows);
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 const remove = async (req, res) => {
-  try { return success(res, await repo.remove(req.params.id, schoolOf(req))); }
-  catch (err) { return error(res, err.message, 500); }
+  try {
+    return success(res, await repo.remove(req.params.id, schoolOf(req)));
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 module.exports = { create, list, listForStaff, remove };

@@ -1,64 +1,53 @@
-const attendanceRepository = require("./attendance.repository");
 const repo = require("./attendance.repository");
 
-const getClassAttendance = (classId, schoolId, date, session) =>
-  repo.findByClassAndDate(classId, schoolId, date, session);
+const getClassAttendance = (classId, schoolId, date) =>
+  repo.findByClassAndDate(classId, schoolId, date);
 
-const markAttendance = (data, session) => repo.upsert(data, session);
+const markAttendance = (data) => repo.upsert(data);
 
-const bulkMarkAttendance = async (records, session) => {
+const bulkMarkAttendance = async (records) => {
   const out = [];
-  for (const r of records) out.push(await repo.upsert(r, session));
+  for (const r of records) out.push(await repo.upsert(r));
   return out;
 };
 
-const getStudentAttendance = async (studentId, schoolId, pagination) => {
-  return attendanceRepository.getStudentAttendance(
-    studentId,
-    schoolId,
-    pagination,
-  );
-};
+const getStudentAttendance = (studentId, schoolId, pagination) =>
+  repo.getStudentAttendance(studentId, schoolId, pagination);
 
 const getDailyRegister = async ({ schoolId, date, gradeId }) => {
   if (!schoolId || !date) {
-    throw new Error(
-      "Missing structural payload: schoolId and date are required.",
-    );
+    throw new Error("schoolId and date are required.");
   }
-  return await attendanceRepository.getAttendanceRegister(
-    schoolId,
-    date,
-    gradeId,
-  );
+  return repo.getAttendanceRegister(schoolId, date, gradeId);
 };
 
 const saveDailyAttendance = async ({ schoolId, date, records, markedBy }) => {
-  if (!schoolId || !date || !Array.isArray(records) || records.length === 0) {
-    throw new Error("Invalid payload processing structural bulk save.");
+  if (!schoolId || !date || !Array.isArray(records)) {
+    throw new Error("Invalid payload — schoolId, date and records[] required.");
   }
-
-  const formattedRecords = records.map((record) => ({
+  if (records.length === 0) {
+    return { success: true, message: "No records to save.", count: 0 };
+  }
+  const formatted = records.map((r) => ({
     school_id: schoolId,
-    student_id: record.student_id,
-    date: date,
-    status: record.status ?? "present",
-    remarks: record.remarks ?? null,
-    marked_by: markedBy ?? null,
+    student_id: r.student_id,
+    date,
+    status: r.status || "present",
+    remarks: r.remarks ?? null,
+    marked_by: markedBy,
   }));
-
-  const rowsInserted =
-    await attendanceRepository.bulkSaveAttendance(formattedRecords);
-
+  const affected = await repo.bulkSaveAttendance(formatted);
   return {
     success: true,
-    message: `Successfully registered attendance context for ${rowsInserted} students.`,
-    count: rowsInserted,
+    message: `Saved attendance for ${records.length} student(s).`,
+    count: affected,
   };
 };
 
-// const getStudentAttendance = (studentId, schoolId, pagination, session) =>
-//   repo.getStudentAttendance(studentId, schoolId, pagination, session);
+const getMonthlySummary = ({ schoolId, year, month, gradeId }) =>
+  repo.getMonthlySummary(schoolId, year, month, gradeId);
+
+const deleteAttendance = (id, schoolId) => repo.deleteAttendance(id, schoolId);
 
 module.exports = {
   getClassAttendance,
@@ -67,4 +56,6 @@ module.exports = {
   getStudentAttendance,
   getDailyRegister,
   saveDailyAttendance,
+  getMonthlySummary,
+  deleteAttendance,
 };

@@ -8,6 +8,7 @@ const list = async (req, res) => {
       await paymentsService.list(req.schoolId, req.query, req.session),
     );
   } catch (err) {
+    console.error("Error in paymentsController.list:", err);
     return error(res, err.message, err.statusCode || 500);
   }
 };
