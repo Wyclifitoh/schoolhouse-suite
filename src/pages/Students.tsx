@@ -1281,7 +1281,9 @@ const Students = () => {
                                           `Deactivate ${s.full_name || s.first_name}?`,
                                         )
                                       )
-                                        softDelete.mutate(s.id);
+                                        softDelete.mutate(s.id, {
+                                          onSuccess: () => refetchAll(),
+                                        });
                                     }}
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
