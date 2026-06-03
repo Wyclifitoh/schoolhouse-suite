@@ -181,7 +181,7 @@ const App = () => (
                       path="/students/disabled"
                       element={
                         <ProtectedRoute
-                          roles={["super_admin", "school_admin", "admin"]}
+                          roles={["super_admin", "manager", "admin"]}
                         >
                           <DisabledStudents />
                         </ProtectedRoute>

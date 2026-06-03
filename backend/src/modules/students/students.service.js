@@ -87,7 +87,13 @@ const getSummary = async (schoolId) => {
     `SELECT status, COUNT(*) AS count FROM students WHERE school_id = ? GROUP BY status`,
     [schoolId],
   );
-  const summary = { total: 0, active: 0, inactive: 0, graduated: 0, transferred: 0 };
+  const summary = {
+    total: 0,
+    active: 0,
+    inactive: 0,
+    graduated: 0,
+    transferred: 0,
+  };
   for (const r of rows) {
     const s = String(r.status || "").toLowerCase();
     summary.total += Number(r.count) || 0;
@@ -108,9 +114,18 @@ const exportCsv = async (schoolId, queryParams = {}) => {
       : undefined,
   });
   const headers = [
-    "admission_number","first_name","middle_name","last_name","gender",
-    "date_of_birth","grade","stream","parent_name","parent_phone",
-    "admission_date","status",
+    "admission_number",
+    "first_name",
+    "middle_name",
+    "last_name",
+    "gender",
+    "date_of_birth",
+    "grade",
+    "stream",
+    "parent_name",
+    "parent_phone",
+    "admission_date",
+    "status",
   ];
   const esc = (v) => {
     if (v === null || v === undefined) return "";
