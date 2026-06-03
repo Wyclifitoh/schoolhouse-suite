@@ -235,6 +235,45 @@ const StudentFees = () => {
     setAdjustmentFee(null);
   };
 
+  const downloadStatement = async (format: "pdf" | "excel") => {
+    if (!studentId) return;
+    try {
+      const token = api.getToken();
+      const schoolId = localStorage.getItem("chuo-school-id") || "";
+      const base =
+        (import.meta as any).env?.VITE_API_URL ||
+        "https://chuoapi.wikiteq.co.ke/api/v1";
+      const params = new URLSearchParams();
+      params.set("format", format);
+      if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
+      const res = await fetch(
+        `${base}/finance/student-fees/${studentId}/statement?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-School-ID": schoolId,
+          },
+        },
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || "Download failed");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fee-statement-${student?.admission_number || studentId}.${
+        format === "excel" ? "xlsx" : "pdf"
+      }`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Statement downloaded`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to download statement");
+    }
+  };
+
   const statusColor = (s: string) => {
     const lower = (s || "").toLowerCase();
     if (lower === "paid") return "bg-green-500/10 text-green-600 border-0";
