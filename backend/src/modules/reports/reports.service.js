@@ -5,5 +5,6 @@ const getPaymentsReport = (schoolId, filters) => repo.getPaymentsReport(schoolId
 const getStudentReport = (schoolId, filters) => repo.getStudentReport(schoolId, filters);
 const getAttendanceReport = (schoolId, filters) => repo.getAttendanceReport(schoolId, filters);
 const getExamReport = (schoolId, filters) => repo.getExamReport(schoolId, filters);
+const getHRReport = (schoolId, filters) => repo.getHRReport(schoolId, filters);
 
-module.exports = { getFinanceReport, getPaymentsReport, getStudentReport, getAttendanceReport, getExamReport };
+module.exports = { getFinanceReport, getPaymentsReport, getStudentReport, getAttendanceReport, getExamReport, getHRReport };
