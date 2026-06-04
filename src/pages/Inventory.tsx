@@ -952,6 +952,42 @@ export const CategoriesOverview = () => {
 
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* add category button */}
+      <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Category Name"
+              value={catForm.name}
+              onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+            />
+            <Input
+              placeholder="Description"
+              value={catForm.description}
+              onChange={(e) =>
+                setCatForm({ ...catForm, description: e.target.value })
+              }
+            />
+            <Button className="w-full" onClick={() => addCatMutation.mutate()}>
+              Save Category
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-muted p-4 cursor-pointer hover:bg-accent transition-colors">
+        <Plus className="h-5 w-5 text-muted-foreground" />
+      </div>
+
       {categories.map((cat: any) => (
         <Card key={cat.id} className="glass-card-hover">
           <CardContent className="p-5">
