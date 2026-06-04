@@ -57,6 +57,7 @@ import FinanceAudit from "./pages/FinanceAudit";
 import FeeAdjustments from "./pages/FeeAdjustments";
 import Reconciliation from "./pages/Reconciliation";
 import Archives from "./pages/Archives";
+import BroughtForwardBalances from "./pages/finance/BroughtForwardBalances";
 
 // Exam Module v2
 import MarksEntry from "./pages/exams/MarksEntry";
@@ -700,6 +701,22 @@ const App = () => (
                           ]}
                         >
                           <FinanceAudit />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/finance/brought-forward"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
+                          <BroughtForwardBalances />
                         </ProtectedRoute>
                       }
                     />

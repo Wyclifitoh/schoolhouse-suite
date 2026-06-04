@@ -251,8 +251,10 @@ const Finance = () => {
                       <TableCell className="font-semibold">{formatKES(fs.amount)}</TableCell>
                       <TableCell>{fs.grade_name || <span className="text-muted-foreground">All</span>}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{fs.due_date || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        {canManage && (
+                       <TableCell className="text-right">
+                        {fs.is_system ? (
+                          <Badge variant="outline" className="text-xs">System</Badge>
+                        ) : canManage && (
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingStruct(fs); setEditStructOpen(true); }}>
                               <Edit className="h-3.5 w-3.5" />

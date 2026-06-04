@@ -45,6 +45,7 @@ import {
   Shield,
   Activity,
 } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -287,6 +288,12 @@ const navConfig = {
         title: "Fee Assignment",
         url: "/fee-assignment",
         icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Brought Forward Balances",
+        url: "/finance/brought-forward",
+        icon: ArrowUpRight,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
       },
       {
