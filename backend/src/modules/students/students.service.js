@@ -6,6 +6,8 @@ const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt");
 const { generateTempPassword } = require("../../utils/credentials");
 const { sendSms } = require("../../utils/notifier");
+const { parseExcelDate } = require("../../utils/dateParse");
+const prevBalance = require("../finance/previous-balance.service");
 
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12;
 
@@ -44,25 +46,29 @@ async function provisionParentPortal({
   }
 }
 
-// Carry forward opening balance into the current term as a student_fees row.
-async function createOpeningBalanceFee({
+// Carry the imported Previous Balance into the current term using the protected
+// Previous Balance system fee structure. Idempotent — re-imports update instead
+// of duplicating.
+async function applyImportedPreviousBalance({
   schoolId,
   studentId,
   termId,
+  academicYearId,
   amount,
 }) {
   if (!termId || !amount || Number(amount) <= 0)
     return { ok: false, skipped: true };
   try {
-    await query(
-      `INSERT INTO student_fees
-         (id, school_id, student_id, term_id, fee_name, amount_due, amount_paid, brought_forward_amount, status, ledger_type, due_date, created_at)
-       VALUES (?, ?, ?, ?, 'Opening Balance (B/F)', ?, 0, ?, 'pending', 'fees', CURDATE(), NOW())`,
-      [uuidv4(), schoolId, studentId, termId, amount, amount],
-    );
+    await prevBalance.upsertStudentAssignment({
+      schoolId,
+      studentId,
+      termId,
+      academicYearId,
+      amount: Number(amount),
+    });
     return { ok: true };
   } catch (err) {
-    console.error("[student-import] opening balance failed:", err.message);
+    console.error("[student-import] previous balance failed:", err.message);
     return { ok: false, error: err.message };
   }
 }
@@ -267,7 +273,7 @@ const bulkImport = async (schoolId, rows) => {
         row.last_name ||
         (parts.length > 1 ? parts[parts.length - 1] : parts[0] || ""),
       gender: row.gender || null,
-      date_of_birth: row.date_of_birth || row.dob || null,
+      date_of_birth: parseExcelDate(row.date_of_birth || row.dob || null),
       grade: row.grade || null,
       stream: row.stream || null,
       current_grade_id: row.current_grade_id || row.grade_id || null,
@@ -275,7 +281,8 @@ const bulkImport = async (schoolId, rows) => {
       current_term_id:
         row.current_term_id || row.term_id || school?.current_term_id || null,
       admission_date:
-        row.admission_date || new Date().toISOString().slice(0, 10),
+        parseExcelDate(row.admission_date) ||
+        new Date().toISOString().slice(0, 10),
       parent_name: row.parent_name || null,
       parent_phone: row.parent_phone || null,
       status: row.status || "active",
@@ -351,13 +358,18 @@ const bulkImport = async (schoolId, rows) => {
 
       // 5. Opening balance carry-forward into current term (fail-soft)
       const openingBalance =
-        row.opening_balance || row.balance_b_f || row.arrears || 0;
+        row.previous_balance ||
+        row.opening_balance ||
+        row.balance_b_f ||
+        row.arrears ||
+        0;
       let bfStatus = null;
       if (openingBalance && Number(openingBalance) > 0) {
-        bfStatus = await createOpeningBalanceFee({
+        bfStatus = await applyImportedPreviousBalance({
           schoolId,
           studentId: newStudent.id,
           termId: student.current_term_id,
+          academicYearId: school?.current_academic_year_id || null,
           amount: Number(openingBalance),
         });
       }
@@ -367,7 +379,7 @@ const bulkImport = async (schoolId, rows) => {
         admission_number: newStudent.admission_number,
         parent_id: parent.id,
         portal_provisioned: portal.ok,
-        opening_balance_applied: bfStatus?.ok || false,
+        previous_balance_applied: bfStatus?.ok || false,
       });
     } catch (err) {
       failed.push({
