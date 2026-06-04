@@ -939,27 +939,20 @@ export const SupplierManagement = () => {
 // ===== CATEGORIES =====
 export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
-
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
   const [isCatOpen, setIsCatOpen] = useState(false);
-
   const [catForm, setCatForm] = useState({ name: "", description: "" });
 
   const addCatMutation = useMutation({
     mutationFn: () =>
       api.post("/inventory/categories", { ...catForm, school_id: schoolId }),
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
-
       setIsCatOpen(false);
-
       setCatForm({ name: "", description: "" });
-
       toast({ title: "Category added successfully" });
     },
-
     onError: (err: any) =>
       toast({
         title: "Error",
@@ -970,69 +963,80 @@ export const CategoriesOverview = () => {
 
   const { data: categories = [] } = useQuery({
     queryKey: ["inventory-categories", schoolId],
-
     queryFn: () => api.get<any[]>("/inventory/categories"),
-
     enabled: !!schoolId,
   });
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* add category button */}
-      <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Category
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Category</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Input
-              placeholder="Category Name"
-              value={catForm.name}
-              onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-            />
-            <Input
-              placeholder="Description"
-              value={catForm.description}
-              onChange={(e) =>
-                setCatForm({ ...catForm, description: e.target.value })
-              }
-            />
-            <Button className="w-full" onClick={() => addCatMutation.mutate()}>
-              Save Category
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Categories</h2>
+        <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Category
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-muted p-4 cursor-pointer hover:bg-accent transition-colors">
-        <Plus className="h-5 w-5 text-muted-foreground" />
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Category</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input
+                placeholder="Category Name"
+                value={catForm.name}
+                onChange={(e) =>
+                  setCatForm({ ...catForm, name: e.target.value })
+                }
+              />
+              <Input
+                placeholder="Description"
+                value={catForm.description}
+                onChange={(e) =>
+                  setCatForm({ ...catForm, description: e.target.value })
+                }
+              />
+              <Button
+                className="w-full"
+                onClick={() => addCatMutation.mutate()}
+                disabled={addCatMutation.isPending}
+              >
+                {addCatMutation.isPending ? "Saving..." : "Save Category"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {categories.map((cat: any) => (
-        <Card key={cat.id} className="glass-card-hover">
-          <CardContent className="p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-              <Tag className="h-6 w-6" />
-            </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Add category card */}
+        <div
+          className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
+          onClick={() => setIsCatOpen(true)}
+        >
+          <Plus className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">Add New Category</p>
+        </div>
 
-            <h4 className="font-bold text-foreground text-lg">{cat.name}</h4>
-
-            <p className="text-sm text-muted-foreground">
-              {cat.description || "No description"}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+        {/* Categories list */}
+        {categories.map((cat: any) => (
+          <Card key={cat.id} className="glass-card-hover">
+            <CardContent className="p-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
+                <Tag className="h-6 w-6" />
+              </div>
+              <h4 className="font-bold text-foreground text-lg">{cat.name}</h4>
+              <p className="text-sm text-muted-foreground">
+                {cat.description || "No description"}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 };
-
 // ===== MAIN =====
 
 const Inventory = () => {
