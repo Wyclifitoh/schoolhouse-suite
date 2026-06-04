@@ -12,7 +12,9 @@ export interface LessonPlan {
   subject_id: string;
   grade_id: string;
   stream_id: string | null;
-  teacher_id: string;
+  teacher_id: string | null;
+  staff_id: string | null;
+  created_by_user_id: string | null;
   timetable_entry_id: string | null;
   lesson_date: string;
   start_time: string | null;
@@ -65,14 +67,39 @@ export interface CoverageReport {
     strand_name: string;
     total: number;
     covered: number;
-    sub_strands: Array<{ id: string; name: string; expected: number; done: number; pct: number }>;
+    sub_strands: Array<{
+      id: string;
+      name: string;
+      expected: number;
+      done: number;
+      pct: number;
+    }>;
   }>;
 }
 
 export interface LessonPlanDashboard {
-  totals: { total: number; drafts: number; published: number; delivered: number };
-  upcoming: Array<{ id: string; lesson_date: string; start_time: string | null; lesson_title: string | null; subject_name: string; grade_name: string; stream_name?: string }>;
-  compliance: Array<{ teacher_id: string; name: string; plans: number; published: number }>;
+  totals: {
+    total: number;
+    drafts: number;
+    published: number;
+    delivered: number;
+  };
+  upcoming: Array<{
+    id: string;
+    lesson_date: string;
+    start_time: string | null;
+    lesson_title: string | null;
+    subject_name: string;
+    grade_name: string;
+    stream_name?: string;
+  }>;
+  compliance: Array<{
+    staff_id?: string;
+    teacher_id?: string;
+    name: string;
+    plans: number;
+    published: number;
+  }>;
 }
 
 export interface SubStrand {
@@ -100,11 +127,18 @@ export interface LessonPlanTemplate {
   is_global: number | boolean;
 }
 
-export interface PageMeta { total: number; page: number; limit: number; totalPages: number }
+export interface PageMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 const qs = (p: Record<string, any>) => {
   const s = new URLSearchParams();
-  Object.entries(p).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") s.set(k, String(v)); });
+  Object.entries(p).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") s.set(k, String(v));
+  });
   return s.toString();
 };
 
@@ -127,7 +161,9 @@ export function useLessonPlansPaginated(filters: Record<string, any> = {}) {
     queryKey: ["lesson-plans-paginated", filters],
     queryFn: async () => {
       const path = `/lesson-plans?${qs(filters)}`;
-      const url = (import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1") + path;
+      const url =
+        (import.meta.env.VITE_API_URL ||
+          "https://chuoapi.wikiteq.co.ke/api/v1") + path;
       const headers: Record<string, string> = {};
       const token = localStorage.getItem("chuo-token");
       const schoolId = localStorage.getItem("chuo-school-id");
@@ -139,8 +175,12 @@ export function useLessonPlansPaginated(filters: Record<string, any> = {}) {
       if (tm) headers["X-Term-Id"] = tm;
       const r = await fetch(url, { headers });
       const json = await r.json();
-      if (!r.ok || json.success === false) throw new Error(json?.error?.message || "Failed");
-      return { rows: (json.data || []) as LessonPlan[], pagination: json.pagination as PageMeta };
+      if (!r.ok || json.success === false)
+        throw new Error(json?.error?.message || "Failed");
+      return {
+        rows: (json.data || []) as LessonPlan[],
+        pagination: json.pagination as PageMeta,
+      };
     },
   });
 }
@@ -157,8 +197,9 @@ export function useSaveLessonPlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (d: Partial<LessonPlan> & { id?: string }) =>
-      d.id ? api.put<LessonPlan>(`/lesson-plans/${d.id}`, d)
-           : api.post<LessonPlan>("/lesson-plans", d),
+      d.id
+        ? api.put<LessonPlan>(`/lesson-plans/${d.id}`, d)
+        : api.post<LessonPlan>("/lesson-plans", d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lesson-plans"] });
       qc.invalidateQueries({ queryKey: ["lesson-plans-paginated"] });
@@ -186,8 +227,12 @@ export function useCreateLessonFromTimetable() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (timetableEntryId: string) =>
-      api.post<LessonPlan>(`/lesson-plans/from-timetable/${timetableEntryId}`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["lesson-plans-paginated"] }),
+      api.post<LessonPlan>(
+        `/lesson-plans/from-timetable/${timetableEntryId}`,
+        {},
+      ),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["lesson-plans-paginated"] }),
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -208,8 +253,13 @@ export function useDuplicateLessonPlan() {
 export function useSetLessonStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action }: { id: string; action: "publish" | "deliver" | "unpublish" }) =>
-      api.post<LessonPlan>(`/lesson-plans/${id}/${action}`, {}),
+    mutationFn: ({
+      id,
+      action,
+    }: {
+      id: string;
+      action: "publish" | "deliver" | "unpublish";
+    }) => api.post<LessonPlan>(`/lesson-plans/${id}/${action}`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lesson-plans-paginated"] });
       qc.invalidateQueries({ queryKey: ["lesson-plan-dashboard"] });
@@ -221,7 +271,8 @@ export function useSetLessonStatus() {
 }
 
 export async function downloadLessonPlanPdf(id: string) {
-  const base = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+  const base =
+    import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
   const token = localStorage.getItem("chuo-token");
   const schoolId = localStorage.getItem("chuo-school-id");
   const r = await fetch(`${base}/lesson-plans/${id}/pdf`, {
@@ -230,19 +281,29 @@ export async function downloadLessonPlanPdf(id: string) {
       ...(schoolId ? { "X-School-ID": schoolId } : {}),
     },
   });
-  if (!r.ok) { toast.error("Failed to download PDF"); return; }
+  if (!r.ok) {
+    toast.error("Failed to download PDF");
+    return;
+  }
   const blob = await r.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `lesson-plan-${id}.pdf`; a.click();
+  a.href = url;
+  a.download = `lesson-plan-${id}.pdf`;
+  a.click();
   URL.revokeObjectURL(url);
 }
 
 // ------------- Coverage / dashboard -------------
-export function useLessonCoverage(filters: { subject_id?: string; grade_id?: string; term_id?: string }) {
+export function useLessonCoverage(filters: {
+  subject_id?: string;
+  grade_id?: string;
+  term_id?: string;
+}) {
   return useQuery({
     queryKey: ["lesson-plan-coverage", filters],
-    queryFn: () => api.get<CoverageReport>(`/lesson-plans/coverage?${qs(filters)}`),
+    queryFn: () =>
+      api.get<CoverageReport>(`/lesson-plans/coverage?${qs(filters)}`),
     enabled: !!filters.subject_id && !!filters.grade_id,
   });
 }
@@ -251,6 +312,26 @@ export function useLessonPlanDashboard() {
   return useQuery({
     queryKey: ["lesson-plan-dashboard"],
     queryFn: () => api.get<LessonPlanDashboard>(`/lesson-plans/dashboard`),
+  });
+}
+
+// ------------- Roster (auto-fill class population) -------------
+export interface LessonRoster {
+  boys: number;
+  girls: number;
+  total: number;
+}
+export function useLessonRoster(filters: {
+  grade_id?: string;
+  stream_id?: string;
+}) {
+  return useQuery({
+    queryKey: ["lesson-roster", filters],
+    queryFn: async () =>
+      unwrap(
+        await api.get(`/lesson-plans/roster?${qs(filters)}`),
+      ) as LessonRoster,
+    enabled: !!(filters.grade_id || filters.stream_id),
   });
 }
 
@@ -264,10 +345,13 @@ export interface Strand {
   description: string | null;
 }
 
-export function useStrands(filters: { subject_id?: string; grade_id?: string } = {}) {
+export function useStrands(
+  filters: { subject_id?: string; grade_id?: string } = {},
+) {
   return useQuery({
     queryKey: ["strands", filters],
-    queryFn: async () => unwrap(await api.get(`/lesson-plans/strands?${qs(filters)}`)) as Strand[],
+    queryFn: async () =>
+      unwrap(await api.get(`/lesson-plans/strands?${qs(filters)}`)) as Strand[],
     enabled: !!(filters.subject_id || filters.grade_id),
   });
 }
@@ -276,7 +360,10 @@ export function useSaveStrand() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (d: Partial<Strand>) => api.post(`/lesson-plans/strands`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["strands"] }); toast.success("Strand saved"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strands"] });
+      toast.success("Strand saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -285,16 +372,24 @@ export function useDeleteStrand() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/lesson-plans/strands/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["strands"] }); toast.success("Deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strands"] });
+      toast.success("Deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 
 // ------------- Sub-strands -------------
-export function useSubStrands(filters: { strand_id?: string; subject_id?: string; grade_id?: string } = {}) {
+export function useSubStrands(
+  filters: { strand_id?: string; subject_id?: string; grade_id?: string } = {},
+) {
   return useQuery({
     queryKey: ["sub-strands", filters],
-    queryFn: async () => unwrap(await api.get(`/lesson-plans/sub-strands?${qs(filters)}`)) as SubStrand[],
+    queryFn: async () =>
+      unwrap(
+        await api.get(`/lesson-plans/sub-strands?${qs(filters)}`),
+      ) as SubStrand[],
   });
 }
 
@@ -302,9 +397,13 @@ export function useSaveSubStrand() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (d: Partial<SubStrand> & { id?: string }) =>
-      d.id ? api.put(`/lesson-plans/sub-strands/${d.id}`, d)
-           : api.post(`/lesson-plans/sub-strands`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["sub-strands"] }); toast.success("Saved"); },
+      d.id
+        ? api.put(`/lesson-plans/sub-strands/${d.id}`, d)
+        : api.post(`/lesson-plans/sub-strands`, d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sub-strands"] });
+      toast.success("Saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -313,16 +412,24 @@ export function useDeleteSubStrand() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/lesson-plans/sub-strands/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["sub-strands"] }); toast.success("Deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sub-strands"] });
+      toast.success("Deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 
 // ------------- Templates -------------
-export function useLessonPlanTemplates(filters: { subject_id?: string; grade_id?: string } = {}) {
+export function useLessonPlanTemplates(
+  filters: { subject_id?: string; grade_id?: string } = {},
+) {
   return useQuery({
     queryKey: ["lesson-plan-templates", filters],
-    queryFn: async () => unwrap(await api.get(`/lesson-plans/templates?${qs(filters)}`)) as LessonPlanTemplate[],
+    queryFn: async () =>
+      unwrap(
+        await api.get(`/lesson-plans/templates?${qs(filters)}`),
+      ) as LessonPlanTemplate[],
   });
 }
 
@@ -330,9 +437,13 @@ export function useSaveLessonPlanTemplate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (d: Partial<LessonPlanTemplate> & { id?: string }) =>
-      d.id ? api.put(`/lesson-plans/templates/${d.id}`, d)
-           : api.post(`/lesson-plans/templates`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lesson-plan-templates"] }); toast.success("Template saved"); },
+      d.id
+        ? api.put(`/lesson-plans/templates/${d.id}`, d)
+        : api.post(`/lesson-plans/templates`, d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lesson-plan-templates"] });
+      toast.success("Template saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -341,7 +452,10 @@ export function useDeleteLessonPlanTemplate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/lesson-plans/templates/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["lesson-plan-templates"] }); toast.success("Deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lesson-plan-templates"] });
+      toast.success("Deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
