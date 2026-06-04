@@ -475,7 +475,7 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Notices",
-        url: "/notices",
+        url: "/communication/noticeboard",
         icon: BellRing,
         roles: [
           ...ADMIN_ROLES,
@@ -485,7 +485,7 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "SMS",
-        url: "/sms",
+        url: "/communication/sms",
         icon: MessageSquare,
         roles: [
           ...ADMIN_ROLES,
@@ -495,13 +495,19 @@ const navigationGroups: NavGroup[] = [
       },
       {
         title: "Email",
-        url: "/email",
+        url: "/communication/email",
         icon: Mail,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
+      },
+      {
+        title: "Messaging Templates",
+        url: "/communication/templates",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
       },
       {
         title: "Events Calendar",
