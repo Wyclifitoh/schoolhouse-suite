@@ -36,15 +36,18 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { BulkPaymentImportDialog } from "@/components/payments/BulkPaymentImportDialog";
 import { openReceiptPdf } from "@/hooks/useReceipt";
 import { VoidPaymentDialog } from "@/components/finance/VoidPaymentDialog";
 import { format } from "date-fns";
+import { Upload } from "lucide-react";
 
 const formatKES = (n: number) => `KES ${n.toLocaleString()}`;
 
 const Payments = () => {
   const [search, setSearch] = useState("");
   const [showRecordPayment, setShowRecordPayment] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [showVoidPayment, setShowVoidPayment] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
 
@@ -160,6 +163,14 @@ const Payments = () => {
               <Button variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-1.5" />
                 Export
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBulkImport(true)}
+              >
+                <Upload className="h-4 w-4 mr-1.5" />
+                Bulk Import
               </Button>
               <Button size="sm" onClick={() => setShowRecordPayment(true)}>
                 <Plus className="h-4 w-4 mr-1.5" />
@@ -289,6 +300,10 @@ const Payments = () => {
         onOpenChange={setShowRecordPayment}
         onSubmit={handleRecordPayment}
         isSubmitting={recordPayment.isPending}
+      />
+      <BulkPaymentImportDialog
+        open={showBulkImport}
+        onOpenChange={setShowBulkImport}
       />
       <VoidPaymentDialog
         open={showVoidPayment}

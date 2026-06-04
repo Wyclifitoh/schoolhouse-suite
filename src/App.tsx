@@ -109,6 +109,25 @@ import TransportReports from "./pages/reports/TransportReports";
 import UserLogs from "./pages/reports/UserLogs";
 import AuditTrail from "./pages/reports/AuditTrail";
 
+// Designations (split from Departments)
+import Designations from "./pages/Designations";
+
+// Split communication pages
+import CommunicationSms from "./pages/communication/SmsPage";
+import CommunicationEmail from "./pages/communication/EmailPage";
+import CommunicationNoticeboard from "./pages/communication/NoticeboardPage";
+import CommunicationTemplates from "./pages/communication/TemplatesPage";
+import CommunicationSmsLog from "./pages/communication/SmsLogPage";
+import CommunicationEmailLog from "./pages/communication/EmailLogPage";
+
+// Split inventory pages
+import InventoryCatalog from "./pages/inventory/CatalogPage";
+import InventorySell from "./pages/inventory/SellPage";
+import InventoryHistory from "./pages/inventory/HistoryPage";
+import InventorySuppliers from "./pages/inventory/SuppliersPage";
+import InventoryPurchaseOrders from "./pages/inventory/PurchaseOrdersPage";
+import InventoryCategories from "./pages/inventory/CategoriesPage";
+
 // Lesson Plans (CBE)
 import LessonPlans from "./pages/lesson-plans/LessonPlans";
 import LessonPlanEditor from "./pages/lesson-plans/LessonPlanEditor";
@@ -1060,6 +1079,141 @@ const App = () => (
                       element={
                         <ProtectedRoute>
                           <LessonPlanEditor />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Top-level shortcuts for audit + user logs */}
+                    <Route
+                      path="/audit-trail"
+                      element={
+                        <ProtectedRoute>
+                          <AuditTrail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/user-logs"
+                      element={
+                        <ProtectedRoute>
+                          <UserLogs />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Designations (split from Departments) */}
+                    <Route
+                      path="/designations"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "deputy_admin",
+                            "admin",
+                          ]}
+                        >
+                          <Designations />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Communication subpages */}
+                    <Route
+                      path="/communication/sms"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationSms />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/email"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationEmail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/noticeboard"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationNoticeboard />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/templates"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationTemplates />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/sms-log"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationSmsLog />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/email-log"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationEmailLog />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Inventory subpages */}
+                    <Route
+                      path="/inventory/catalog"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryCatalog />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/sell"
+                      element={
+                        <ProtectedRoute>
+                          <InventorySell />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/history"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryHistory />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/suppliers"
+                      element={
+                        <ProtectedRoute>
+                          <InventorySuppliers />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/purchase-orders"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryPurchaseOrders />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/categories"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryCategories />
                         </ProtectedRoute>
                       }
                     />

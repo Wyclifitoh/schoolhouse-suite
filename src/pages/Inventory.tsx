@@ -127,7 +127,7 @@ const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
 
 // ===== STATS =====
 
-const StoreStats = () => {
+export const StoreStats = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
 
@@ -193,7 +193,7 @@ const StoreStats = () => {
 
 // ===== PRODUCT CATALOG =====
 
-const ProductCatalog = () => {
+export const ProductCatalog = () => {
   const { currentSchool } = useSchool();
 
   const schoolId = currentSchool?.id;
@@ -495,7 +495,7 @@ const ProductCatalog = () => {
 
 // ===== SELL TO STUDENT =====
 
-const SellToStudent = () => {
+export const SellToStudent = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -770,7 +770,7 @@ const SellToStudent = () => {
 
 // ===== SALES HISTORY =====
 
-const SalesHistory = () => {
+export const SalesHistory = () => {
   const { currentSchool } = useSchool();
 
   const schoolId = currentSchool?.id;
@@ -837,7 +837,7 @@ const SalesHistory = () => {
 };
 
 // ===== SUPPLIERS =====
-const SupplierManagement = () => {
+export const SupplierManagement = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
@@ -937,7 +937,7 @@ const SupplierManagement = () => {
 };
 
 // ===== CATEGORIES =====
-const CategoriesOverview = () => {
+export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
 
   const schoolId = currentSchool?.id;
@@ -1009,115 +1009,64 @@ const Inventory = () => {
   return (
     <DashboardLayout
       title="School Store"
-      subtitle="Uniforms, books, supplies — sales, restocking & procurement"
+      subtitle="Overview — manage catalog, sales, suppliers, and orders from dedicated pages"
     >
-      <div className="flex justify-end mb-4 gap-2">
-        <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="rounded-lg">
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Category
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Category</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Category Name</Label>
-
-                <Input
-                  value={catForm.name}
-                  onChange={(e) =>
-                    setCatForm((p) => ({ ...p, name: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-
-                <Textarea
-                  value={catForm.description}
-                  onChange={(e) =>
-                    setCatForm((p) => ({ ...p, description: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                className="w-full"
-                onClick={() => addCatMutation.mutate()}
-                disabled={addCatMutation.isPending}
-              >
-                Save Category
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
       <StoreStats />
 
-      <Tabs defaultValue="catalog" className="space-y-4">
-        <TabsList className="tab-modern flex-wrap h-auto gap-1">
-          <TabsTrigger value="catalog" className="gap-1.5 rounded-lg">
-            <ShoppingBag className="h-3.5 w-3.5" />
-            Catalog
-          </TabsTrigger>
-          <TabsTrigger value="sell" className="gap-1.5 rounded-lg">
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Sell
-          </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5 rounded-lg">
-            <Receipt className="h-3.5 w-3.5" />
-            Sales
-          </TabsTrigger>
-
-          {/* Ensure these triggers exist */}
-          <TabsTrigger value="suppliers" className="gap-1.5 rounded-lg">
-            <Truck className="h-3.5 w-3.5" />
-            Suppliers
-          </TabsTrigger>
-          <TabsTrigger value="purchase-orders" className="gap-1.5 rounded-lg">
-            <FileText className="h-3.5 w-3.5" />
-            Purchase Orders
-          </TabsTrigger>
-
-          <TabsTrigger value="categories" className="gap-1.5 rounded-lg">
-            <Tag className="h-3.5 w-3.5" />
-            Categories
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="catalog">
-          <ProductCatalog />
-        </TabsContent>
-        <TabsContent value="sell">
-          <SellToStudent />
-        </TabsContent>
-        <TabsContent value="history">
-          <SalesHistory />
-        </TabsContent>
-
-        {/* Call your "unused" components here */}
-        <TabsContent value="suppliers">
-          <SupplierManagement />
-        </TabsContent>
-
-        <TabsContent value="purchase-orders">
-          <PurchaseOrders />
-        </TabsContent>
-
-        <TabsContent value="categories">
-          <CategoriesOverview />
-        </TabsContent>
-      </Tabs>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+        {[
+          {
+            title: "Catalog",
+            desc: "Browse and manage products",
+            icon: ShoppingBag,
+            to: "/inventory/catalog",
+          },
+          {
+            title: "Sell",
+            desc: "Sell items to a student",
+            icon: ShoppingCart,
+            to: "/inventory/sell",
+          },
+          {
+            title: "Sales History",
+            desc: "View past sales",
+            icon: Receipt,
+            to: "/inventory/history",
+          },
+          {
+            title: "Suppliers",
+            desc: "Manage suppliers",
+            icon: Truck,
+            to: "/inventory/suppliers",
+          },
+          {
+            title: "Purchase Orders",
+            desc: "Create & track POs",
+            icon: FileText,
+            to: "/inventory/purchase-orders",
+          },
+          {
+            title: "Categories",
+            desc: "Organise product categories",
+            icon: Tag,
+            to: "/inventory/categories",
+          },
+        ].map((c) => (
+          <a
+            key={c.to}
+            href={c.to}
+            className="rounded-xl border bg-card p-4 hover:bg-accent transition-colors flex items-start gap-3"
+          >
+            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+              <c.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold">{c.title}</p>
+              <p className="text-sm text-muted-foreground">{c.desc}</p>
+            </div>
+          </a>
+        ))}
+      </div>
     </DashboardLayout>
   );
 };
