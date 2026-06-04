@@ -78,5 +78,13 @@ router.use(
 );
 router.use("/timetable", require("../modules/timetable/timetable.routes"));
 router.use("/homework", require("../modules/homework/homework.routes"));
+router.use("/events", require("../modules/events/events.routes"));
+
+// Boot the in-process reminder scheduler (idempotent)
+try {
+  require("../modules/events/reminder-scheduler").start();
+} catch (e) {
+  console.warn("[events] scheduler boot failed:", e.message);
+}
 
 module.exports = router;

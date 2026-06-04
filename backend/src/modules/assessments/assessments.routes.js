@@ -139,6 +139,9 @@ router.delete(
   }),
 );
 
+// ============== SUBJECT REMARK BANDS (auto-fill remarks) ==============
+router.use("/remark-bands", require("./remark-bands.routes"));
+
 // ============== RUBRICS ==============
 router.get(
   "/rubrics",
@@ -364,15 +367,44 @@ router.post(
     success(res, await results.recomputePositions(sid(req), req.params.id)),
   ),
 );
+// Only admins / managers / academics can approve/publish/revoke results.
+// Teachers may submit (move to pending_review) only.
+const APPROVAL_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "school_admin",
+  "deputy_admin",
+  "manager",
+  "academic",
+]);
+function userRoles(req) {
+  const list = Array.isArray(req.user?.roles)
+    ? req.user.roles.map((r) => r.role || r).filter(Boolean)
+    : [];
+  if (req.user?.role) list.push(req.user.role);
+  return list;
+}
 router.post(
   "/:id/results/bulk-status",
   h(async (req, res) => {
+    const roles = userRoles(req);
+    const status = req.body?.status;
+    const isApprovalAction = ["approved", "published", "revoked"].includes(
+      status,
+    );
+    if (isApprovalAction && !roles.some((r) => APPROVAL_ROLES.has(r))) {
+      return error(
+        res,
+        "Only admins or managers can approve, publish or revoke results.",
+        403,
+      );
+    }
     const out = await results.bulkSetStatus(sid(req), req.params.id, {
       ...req.body,
       actor_id: uid(req),
     });
     // Auto-generate report cards when results are published
-    if (req.body?.status === "published") {
+    if (status === "published") {
       try {
         await reportCards.createRun({
           school_id: sid(req),

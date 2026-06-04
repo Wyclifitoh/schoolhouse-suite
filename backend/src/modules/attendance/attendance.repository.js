@@ -134,9 +134,10 @@ const bulkSaveAttendance = async (records) => {
 
 const getMonthlySummary = async (schoolId, year, month, gradeId) => {
   const start = `${year}-${String(month).padStart(2, "0")}-01`;
-  const end = `${year}-${String(month).padStart(2, "0")}-31`;
-  const params = [schoolId, start, end];
-  let where = "s.school_id = ? AND a.date BETWEEN ? AND ?";
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  const params = [start, end, schoolId];
+  let where = "s.school_id = ? AND s.status = 'active'";
   if (gradeId && gradeId !== "all") {
     where += " AND s.current_grade_id = ?";
     params.push(gradeId);
@@ -153,12 +154,13 @@ const getMonthlySummary = async (schoolId, year, month, gradeId) => {
         SUM(CASE WHEN a.status='excused' THEN 1 ELSE 0 END) AS excused_days,
         COUNT(a.id) AS total_marked
        FROM students s
-       LEFT JOIN student_attendance a ON a.student_id = s.id
+       LEFT JOIN student_attendance a
+         ON a.student_id = s.id AND a.date BETWEEN ? AND ?
        LEFT JOIN grades g  ON g.id  = s.current_grade_id
        LEFT JOIN streams st ON st.id = s.current_stream_id
       WHERE ${where}
       GROUP BY s.id, s.first_name, s.last_name, s.admission_number, g.name, st.name
-      ORDER BY g.name, s.first_name`,
+      ORDER BY g.name, st.name, s.first_name`,
     params,
   );
 };

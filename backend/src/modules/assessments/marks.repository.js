@@ -1,9 +1,12 @@
 // =============================================================================
 // ASSESSMENT MARKS REPOSITORY — Phase 2
-// Bulk entry with automatic score -> Achievement Level + Band conversion.
+// Bulk entry with automatic score -> Achievement Level + Band conversion,
+// auto-status (present when score present) and auto-remarks (from configured
+// subject_remark_bands).
 // =============================================================================
 const { query, queryOne, execute } = require("../../config/database");
 const { v4: uuid } = require("uuid");
+const remarkBands = require("./remark-bands.repository");
 
 // Convert raw score (relative to out_of) into the school's AL + band + points.
 async function scoreToAL(schoolId, score, outOf) {
@@ -132,6 +135,18 @@ exports.bulkSave = async (
     throw new Error("Assessment is locked");
   }
 
+  // Look up the student's grade for grade-scoped remarks
+  const studentIds = [...new Set(items.map((i) => i.student_id))];
+  const studentGrades = new Map();
+  if (studentIds.length) {
+    const ph = studentIds.map(() => "?").join(",");
+    const rows = await query(
+      `SELECT id, current_grade_id FROM students WHERE id IN (${ph})`,
+      studentIds,
+    );
+    rows.forEach((r) => studentGrades.set(r.id, r.current_grade_id));
+  }
+
   const saved = [];
   for (const it of items) {
     const outOf = Number(it.out_of) || 100;
@@ -140,6 +155,35 @@ exports.bulkSave = async (
         ? null
         : Number(it.score);
     const al = await scoreToAL(schoolId, score, outOf);
+
+    // Auto-status: present when score given, pending when cleared
+    // (caller may override with explicit absent/exempted/transferred_*)
+    const explicitStatus =
+      it.status && !["pending", "present"].includes(it.status);
+    const status = explicitStatus
+      ? it.status
+      : score !== null
+        ? "present"
+        : "pending";
+
+    // Auto-remarks: only when score present, status is present, and no manual remark
+    let remarks = it.remarks;
+    if (
+      (remarks == null || remarks === "") &&
+      score !== null &&
+      status === "present"
+    ) {
+      const pct = outOf > 0 ? (score / outOf) * 100 : 0;
+      try {
+        remarks = await remarkBands.resolveRemark(schoolId, {
+          subject_id: it.subject_id,
+          grade_id: studentGrades.get(it.student_id) || null,
+          pct,
+        });
+      } catch (e) {
+        // non-fatal — leave remarks empty
+      }
+    }
 
     const existing = await queryOne(
       `SELECT id FROM assessment_marks
@@ -161,8 +205,8 @@ exports.bulkSave = async (
           al?.code || null,
           al?.band_code || null,
           al?.points ?? null,
-          it.status || (score !== null ? "present" : "pending"),
-          it.remarks || null,
+          status,
+          remarks || null,
           recorded_by || null,
           existing.id,
         ],
@@ -186,8 +230,8 @@ exports.bulkSave = async (
           al?.code || null,
           al?.band_code || null,
           al?.points ?? null,
-          it.status || (score !== null ? "present" : "pending"),
-          it.remarks || null,
+          status,
+          remarks || null,
           recorded_by || null,
         ],
       );
