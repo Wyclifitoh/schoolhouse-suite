@@ -290,6 +290,12 @@ const navConfig = {
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
       },
       {
+        title: "Brought Forward Balances",
+        url: "/finance/brought-forward",
+        icon: ArrowUpRight,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
         title: "Payments",
         url: "/payments",
         icon: Wallet,
