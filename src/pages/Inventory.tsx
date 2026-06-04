@@ -941,6 +941,32 @@ export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
 
   const schoolId = currentSchool?.id;
+  const queryClient = useQueryClient();
+  const [isCatOpen, setIsCatOpen] = useState(false);
+
+  const [catForm, setCatForm] = useState({ name: "", description: "" });
+
+  const addCatMutation = useMutation({
+    mutationFn: () =>
+      api.post("/inventory/categories", { ...catForm, school_id: schoolId }),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
+
+      setIsCatOpen(false);
+
+      setCatForm({ name: "", description: "" });
+
+      toast({ title: "Category added successfully" });
+    },
+
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
 
   const { data: categories = [] } = useQuery({
     queryKey: ["inventory-categories", schoolId],
