@@ -45,6 +45,7 @@ import {
   Shield,
   Activity,
 } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
