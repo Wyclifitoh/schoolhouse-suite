@@ -52,6 +52,11 @@ const findFeeStructures = async (schoolId) => {
 };
 
 const createFeeStructure = async (schoolId, data) => {
+  if (data && (data.system_code || data.is_system)) {
+    const err = new Error("System fee structures cannot be created manually");
+    err.statusCode = 403;
+    throw err;
+  }
   const id = uuidv4();
   await query(
     `INSERT INTO fee_structures (id, school_id, name, fee_category_id, academic_year_id, amount, grade_id, term_id, due_date)
@@ -72,6 +77,15 @@ const createFeeStructure = async (schoolId, data) => {
 };
 
 const updateFeeStructure = async (id, schoolId, data) => {
+  const existing = await queryOne(
+    "SELECT is_system FROM fee_structures WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  ).catch(() => null);
+  if (existing && existing.is_system) {
+    const err = new Error("This is a system-managed fee structure and cannot be edited");
+    err.statusCode = 403;
+    throw err;
+  }
   const allowed = [
     "name",
     "fee_category_id",
@@ -99,6 +113,15 @@ const updateFeeStructure = async (id, schoolId, data) => {
 };
 
 const deleteFeeStructure = async (id, schoolId) => {
+  const existing = await queryOne(
+    "SELECT is_system FROM fee_structures WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  ).catch(() => null);
+  if (existing && existing.is_system) {
+    const err = new Error("This is a system-managed fee structure and cannot be deleted");
+    err.statusCode = 403;
+    throw err;
+  }
   await query("DELETE FROM fee_structures WHERE id = ? AND school_id = ?", [
     id,
     schoolId,
