@@ -82,7 +82,9 @@ const updateFeeStructure = async (id, schoolId, data) => {
     [id, schoolId],
   ).catch(() => null);
   if (existing && existing.is_system) {
-    const err = new Error("This is a system-managed fee structure and cannot be edited");
+    const err = new Error(
+      "This is a system-managed fee structure and cannot be edited",
+    );
     err.statusCode = 403;
     throw err;
   }
@@ -118,7 +120,9 @@ const deleteFeeStructure = async (id, schoolId) => {
     [id, schoolId],
   ).catch(() => null);
   if (existing && existing.is_system) {
-    const err = new Error("This is a system-managed fee structure and cannot be deleted");
+    const err = new Error(
+      "This is a system-managed fee structure and cannot be deleted",
+    );
     err.statusCode = 403;
     throw err;
   }

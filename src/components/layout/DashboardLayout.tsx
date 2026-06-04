@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  ArrowUpRight,
   Download,
   FileText,
   GraduationCap,
@@ -350,6 +351,12 @@ const navigationGroups: NavGroup[] = [
         title: "Fee Assignment",
         url: "/fee-assignment",
         icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Brought Forward Balances",
+        url: "/finance/brought-forward",
+        icon: ArrowUpRight,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
       },
       {
