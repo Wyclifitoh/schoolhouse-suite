@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -68,6 +69,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 import { useSchool } from "@/contexts/SchoolContext";
@@ -942,8 +945,12 @@ export const CategoriesOverview = () => {
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
   const [isCatOpen, setIsCatOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [catForm, setCatForm] = useState({ name: "", description: "" });
 
+  // Add category mutation
   const addCatMutation = useMutation({
     mutationFn: () =>
       api.post("/inventory/categories", { ...catForm, school_id: schoolId }),
@@ -961,11 +968,65 @@ export const CategoriesOverview = () => {
       }),
   });
 
+  // Update category mutation
+  const updateCatMutation = useMutation({
+    mutationFn: () =>
+      api.put(`/inventory/categories/${selectedCategory?.id}`, {
+        name: catForm.name,
+        description: catForm.description,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
+      setIsEditOpen(false);
+      setSelectedCategory(null);
+      setCatForm({ name: "", description: "" });
+      toast({ title: "Category updated successfully" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  // Delete category mutation
+  const deleteCatMutation = useMutation({
+    mutationFn: () =>
+      api.delete(`/inventory/categories/${selectedCategory?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
+      setIsDeleteOpen(false);
+      setSelectedCategory(null);
+      toast({ title: "Category deleted successfully" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
   const { data: categories = [] } = useQuery({
     queryKey: ["inventory-categories", schoolId],
     queryFn: () => api.get<any[]>("/inventory/categories"),
     enabled: !!schoolId,
   });
+
+  const handleEdit = (category: any) => {
+    setSelectedCategory(category);
+    setCatForm({
+      name: category.name,
+      description: category.description || "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleDelete = (category: any) => {
+    setSelectedCategory(category);
+    setIsDeleteOpen(true);
+  };
 
   return (
     <>
@@ -1000,7 +1061,7 @@ export const CategoriesOverview = () => {
               <Button
                 className="w-full"
                 onClick={() => addCatMutation.mutate()}
-                disabled={addCatMutation.isPending}
+                disabled={addCatMutation.isPending || !catForm.name}
               >
                 {addCatMutation.isPending ? "Saving..." : "Save Category"}
               </Button>
@@ -1021,7 +1082,7 @@ export const CategoriesOverview = () => {
 
         {/* Categories list */}
         {categories.map((cat: any) => (
-          <Card key={cat.id} className="glass-card-hover">
+          <Card key={cat.id} className="glass-card-hover group relative">
             <CardContent className="p-5">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
                 <Tag className="h-6 w-6" />
@@ -1030,10 +1091,102 @@ export const CategoriesOverview = () => {
               <p className="text-sm text-muted-foreground">
                 {cat.description || "No description"}
               </p>
+
+              {/* Action buttons */}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleEdit(cat)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(cat)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Category Name"
+              value={catForm.name}
+              onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+            />
+            <Input
+              placeholder="Description"
+              value={catForm.description}
+              onChange={(e) =>
+                setCatForm({ ...catForm, description: e.target.value })
+              }
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => updateCatMutation.mutate()}
+                disabled={updateCatMutation.isPending || !catForm.name}
+              >
+                {updateCatMutation.isPending
+                  ? "Updating..."
+                  : "Update Category"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{selectedCategory?.name}"? This
+              action cannot be undone. Items in this category will become
+              uncategorized.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setIsDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => deleteCatMutation.mutate()}
+              disabled={deleteCatMutation.isPending}
+            >
+              {deleteCatMutation.isPending ? "Deleting..." : "Delete Category"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
