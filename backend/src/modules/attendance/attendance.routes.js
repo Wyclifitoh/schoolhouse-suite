@@ -1,12 +1,12 @@
-const router = require('express').Router();
-const attendanceController = require('./attendance.controller');
+const router = require("express").Router();
+const c = require("./attendance.controller");
 
-router.get('/class/:classId', attendanceController.getByClass);
-router.post('/', attendanceController.mark);
-router.post('/bulk', attendanceController.bulkMark);
-router.get('/student/:studentId', attendanceController.getByStudent);
-
-router.get("/", attendanceController.getRegister);
-router.post("/bulk", attendanceController.submitAttendance);
+router.get("/", c.getRegister);
+router.get("/summary", c.getSummary);
+router.get("/class/:classId", c.getByClass);
+router.get("/student/:studentId", c.getByStudent);
+router.post("/", c.mark);
+router.post("/bulk", c.submitAttendance);
+router.delete("/:id", c.removeAttendance);
 
 module.exports = router;

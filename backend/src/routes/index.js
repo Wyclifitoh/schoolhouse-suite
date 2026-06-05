@@ -31,6 +31,7 @@ router.use("/users", require("../modules/users/users.routes"));
 router.use("/students", require("../modules/students/students.routes"));
 router.use("/parents", require("../modules/parents/parents.routes"));
 router.use("/classes", require("../modules/classes/classes.routes"));
+router.use("/streams", require("../modules/streams/streams.routes"));
 router.use("/finance", require("../modules/finance/finance.routes"));
 router.use("/payments", require("../modules/payments/payments.routes"));
 router.use("/attendance", require("../modules/attendance/attendance.routes"));
@@ -60,6 +61,8 @@ router.use(
   "/notifications",
   require("../modules/notifications/notifications.routes"),
 );
+router.use("/expenses", require("../modules/expenses/expenses.routes"));
+router.use("/clubs", require("../modules/clubs/clubs.routes"));
 router.use(
   "/lesson-plans",
   require("../modules/lesson-plans/lesson-plans.routes"),
@@ -75,5 +78,13 @@ router.use(
 );
 router.use("/timetable", require("../modules/timetable/timetable.routes"));
 router.use("/homework", require("../modules/homework/homework.routes"));
+router.use("/events", require("../modules/events/events.routes"));
+
+// Boot the in-process reminder scheduler (idempotent)
+try {
+  require("../modules/events/reminder-scheduler").start();
+} catch (e) {
+  console.warn("[events] scheduler boot failed:", e.message);
+}
 
 module.exports = router;

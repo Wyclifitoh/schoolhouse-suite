@@ -45,6 +45,7 @@ import {
   Shield,
   Activity,
 } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -255,6 +256,12 @@ const navConfig = {
         roles: ADMIN_ROLES as AppRole[],
       },
       {
+        title: "Remark Templates",
+        url: "/assessments/remark-bands",
+        icon: MessageSquare,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
         title: "Analytics",
         url: "/analytics",
         icon: BarChart3,
@@ -281,6 +288,12 @@ const navConfig = {
         title: "Fee Assignment",
         url: "/fee-assignment",
         icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Brought Forward Balances",
+        url: "/finance/brought-forward",
+        icon: ArrowUpRight,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
       },
       {
@@ -424,6 +437,12 @@ const navConfig = {
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
+      },
+      {
+        title: "Events Calendar",
+        url: "/events",
+        icon: Calendar,
+        roles: ALL_STAFF_ROLES,
       },
     ],
   },

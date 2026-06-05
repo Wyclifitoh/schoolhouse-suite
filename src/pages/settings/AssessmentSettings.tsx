@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -116,7 +111,10 @@ function TypesTab() {
                 <Input
                   value={editing?.code || ""}
                   onChange={(e) =>
-                    setEditing({ ...editing!, code: e.target.value.toUpperCase() })
+                    setEditing({
+                      ...editing!,
+                      code: e.target.value.toUpperCase(),
+                    })
                   }
                   placeholder="CAT"
                 />
@@ -549,6 +547,14 @@ function CompetenciesTab() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        <strong className="text-foreground">Where these are used:</strong> CBC
+        competencies you define here power per-student competency ratings on
+        report cards (Strengths &amp; Areas to Improve), the Competency Strands
+        panel on student result details, and rubrics that teachers attach to
+        observation tasks. A student inherits a competency rating for every task
+        tagged with that competency.
+      </div>
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>

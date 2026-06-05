@@ -17,7 +17,10 @@ const overview = async (schoolId, { subject_id, grade_id, term_id }) => {
   let covSql = `SELECT sub_strand_id, COUNT(*) AS c
        FROM lesson_plan_coverage
       WHERE school_id = ? AND subject_id = ? AND grade_id = ?`;
-  if (term_id) { covSql += " AND term_id = ?"; covParams.push(term_id); }
+  if (term_id) {
+    covSql += " AND term_id = ?";
+    covParams.push(term_id);
+  }
   covSql += " GROUP BY sub_strand_id";
   const covRows = await query(covSql, covParams);
   const covMap = new Map(covRows.map((r) => [r.sub_strand_id, Number(r.c)]));
@@ -29,15 +32,22 @@ const overview = async (schoolId, { subject_id, grade_id, term_id }) => {
     if (done >= ss.expected_lessons) totalCovered++;
     if (!byStrand.has(ss.strand_id)) {
       byStrand.set(ss.strand_id, {
-        strand_id: ss.strand_id, strand_name: ss.strand_name,
-        sub_strands: [], total: 0, covered: 0,
+        strand_id: ss.strand_id,
+        strand_name: ss.strand_name,
+        sub_strands: [],
+        total: 0,
+        covered: 0,
       });
     }
     const bucket = byStrand.get(ss.strand_id);
     bucket.sub_strands.push({
-      id: ss.id, name: ss.name,
-      expected: ss.expected_lessons, done, pct: ss.expected_lessons
-        ? Math.min(100, Math.round((done / ss.expected_lessons) * 100)) : 0,
+      id: ss.id,
+      name: ss.name,
+      expected: ss.expected_lessons,
+      done,
+      pct: ss.expected_lessons
+        ? Math.min(100, Math.round((done / ss.expected_lessons) * 100))
+        : 0,
     });
     bucket.total++;
     if (done >= ss.expected_lessons) bucket.covered++;
@@ -46,16 +56,27 @@ const overview = async (schoolId, { subject_id, grade_id, term_id }) => {
   return {
     total_sub_strands: subStrands.length,
     covered: totalCovered,
-    pct: subStrands.length ? Math.round((totalCovered / subStrands.length) * 100) : 0,
+    pct: subStrands.length
+      ? Math.round((totalCovered / subStrands.length) * 100)
+      : 0,
     by_strand: Array.from(byStrand.values()),
   };
 };
 
-const dashboard = async (schoolId, { teacher_id, term_id } = {}) => {
+const dashboard = async (schoolId, { staff_id, teacher_id, term_id } = {}) => {
   const where = ["school_id = ?"];
   const params = [schoolId];
-  if (teacher_id) { where.push("teacher_id = ?"); params.push(teacher_id); }
-  if (term_id) { where.push("term_id = ?"); params.push(term_id); }
+  if (staff_id) {
+    where.push("staff_id = ?");
+    params.push(staff_id);
+  } else if (teacher_id) {
+    where.push("teacher_id = ?");
+    params.push(teacher_id);
+  }
+  if (term_id) {
+    where.push("term_id = ?");
+    params.push(term_id);
+  }
   const w = where.join(" AND ");
 
   const totals = await queryOne(
@@ -64,7 +85,8 @@ const dashboard = async (schoolId, { teacher_id, term_id } = {}) => {
        SUM(status='draft') AS drafts,
        SUM(status='published') AS published,
        SUM(status='delivered') AS delivered
-     FROM lesson_plans WHERE ${w}`, params,
+     FROM lesson_plans WHERE ${w}`,
+    params,
   );
 
   const upcoming = await query(
@@ -79,16 +101,17 @@ const dashboard = async (schoolId, { teacher_id, term_id } = {}) => {
     params,
   );
 
+  // Compliance now keyed by staff (any role can plan lessons).
   const compliance = await query(
-    `SELECT t.id AS teacher_id,
+    `SELECT s.id AS staff_id,
             CONCAT_WS(' ', s.first_name, s.last_name) AS name,
             COUNT(lp.id) AS plans,
             SUM(lp.status IN ('published','delivered')) AS published
-       FROM teachers t
-       JOIN staff s ON s.id = t.staff_id
-       LEFT JOIN lesson_plans lp ON lp.teacher_id = t.id AND lp.school_id = ?
-      WHERE t.school_id = ?
-      GROUP BY t.id, name
+       FROM staff s
+       LEFT JOIN lesson_plans lp ON lp.staff_id = s.id AND lp.school_id = ?
+      WHERE s.school_id = ?
+      GROUP BY s.id, name
+      HAVING plans > 0
       ORDER BY plans DESC LIMIT 20`,
     [schoolId, schoolId],
   );

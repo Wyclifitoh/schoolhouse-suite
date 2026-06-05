@@ -139,6 +139,9 @@ router.delete(
   }),
 );
 
+// ============== SUBJECT REMARK BANDS (auto-fill remarks) ==============
+router.use("/remark-bands", require("./remark-bands.routes"));
+
 // ============== RUBRICS ==============
 router.get(
   "/rubrics",
@@ -364,15 +367,44 @@ router.post(
     success(res, await results.recomputePositions(sid(req), req.params.id)),
   ),
 );
+// Only admins / managers / academics can approve/publish/revoke results.
+// Teachers may submit (move to pending_review) only.
+const APPROVAL_ROLES = new Set([
+  "super_admin",
+  "admin",
+  "school_admin",
+  "deputy_admin",
+  "manager",
+  "academic",
+]);
+function userRoles(req) {
+  const list = Array.isArray(req.user?.roles)
+    ? req.user.roles.map((r) => r.role || r).filter(Boolean)
+    : [];
+  if (req.user?.role) list.push(req.user.role);
+  return list;
+}
 router.post(
   "/:id/results/bulk-status",
   h(async (req, res) => {
+    const roles = userRoles(req);
+    const status = req.body?.status;
+    const isApprovalAction = ["approved", "published", "revoked"].includes(
+      status,
+    );
+    if (isApprovalAction && !roles.some((r) => APPROVAL_ROLES.has(r))) {
+      return error(
+        res,
+        "Only admins or managers can approve, publish or revoke results.",
+        403,
+      );
+    }
     const out = await results.bulkSetStatus(sid(req), req.params.id, {
       ...req.body,
       actor_id: uid(req),
     });
     // Auto-generate report cards when results are published
-    if (req.body?.status === "published") {
+    if (status === "published") {
       try {
         await reportCards.createRun({
           school_id: sid(req),
@@ -449,31 +481,49 @@ router.get(
   ),
 );
 
-// Analytics exports — PDF & Excel
-async function gatherAnalytics(schoolId, assessmentId) {
+// Analytics exports — PDF & Excel (with optional grade/stream/subject filters)
+function extractFilters(q) {
+  return {
+    grade_id: q.grade_id || undefined,
+    stream_id: q.stream_id || undefined,
+    subject_id: q.subject_id || undefined,
+  };
+}
+
+async function gatherAnalytics(schoolId, assessmentId, filters = {}) {
   const [overview, subjects, bands, levels, leaderboard, grades, streams] =
     await Promise.all([
-      analytics.overview(schoolId, assessmentId),
-      analytics.subjectMeans(schoolId, assessmentId),
-      analytics.bandDistribution(schoolId, assessmentId),
-      analytics.alDistribution(schoolId, assessmentId),
-      analytics.leaderboard(schoolId, assessmentId, 50),
-      analytics.gradeMeans(schoolId, assessmentId),
-      analytics.streamMeans(schoolId, assessmentId),
+      analytics.overview(schoolId, assessmentId, filters),
+      analytics.subjectMeans(schoolId, assessmentId, filters),
+      analytics.bandDistribution(schoolId, assessmentId, filters),
+      analytics.alDistribution(schoolId, assessmentId, filters),
+      analytics.leaderboard(schoolId, assessmentId, 50, filters),
+      analytics.gradeMeans(schoolId, assessmentId, filters),
+      analytics.streamMeans(schoolId, assessmentId, filters),
     ]);
-  return { overview, subjects, bands, levels, leaderboard, grades, streams };
+  return {
+    overview,
+    subjects,
+    bands,
+    levels,
+    leaderboard,
+    grades,
+    streams,
+    filters,
+  };
 }
 router.get(
   "/:id/analytics/export.pdf",
   h(async (req, res) => {
     const schoolId = sid(req);
+    const filters = extractFilters(req.query);
     const [school, assessment, data] = await Promise.all([
       loadSchool(schoolId),
       queryOne("SELECT * FROM assessments WHERE id=? AND school_id=?", [
         req.params.id,
         schoolId,
       ]),
-      gatherAnalytics(schoolId, req.params.id),
+      gatherAnalytics(schoolId, req.params.id, filters),
     ]);
     if (!assessment) return error(res, "Assessment not found", 404);
     res.setHeader("Content-Type", "application/pdf");
@@ -488,13 +538,14 @@ router.get(
   "/:id/analytics/export.xlsx",
   h(async (req, res) => {
     const schoolId = sid(req);
+    const filters = extractFilters(req.query);
     const [school, assessment, data] = await Promise.all([
       loadSchool(schoolId),
       queryOne("SELECT * FROM assessments WHERE id=? AND school_id=?", [
         req.params.id,
         schoolId,
       ]),
-      gatherAnalytics(schoolId, req.params.id),
+      gatherAnalytics(schoolId, req.params.id, filters),
     ]);
     if (!assessment) return error(res, "Assessment not found", 404);
     const wb = await pdfSvc.buildAnalyticsXlsx({ school, assessment, data });

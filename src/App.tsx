@@ -36,6 +36,8 @@ import ExcessPayments from "./pages/ExcessPayments";
 import UnallocatedPayments from "./pages/UnallocatedPayments";
 import FeeReminders from "./pages/FeeReminders";
 import Parents from "./pages/Parents";
+import ParentProfile from "./pages/ParentProfile";
+import StaffProfile from "./pages/StaffProfile";
 import Attendance from "./pages/Attendance";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
@@ -50,10 +52,12 @@ import ParentPortal from "./pages/ParentPortal";
 import StudentPanel from "./pages/StudentPanel";
 import Homework from "./pages/Homework";
 import StudentProfile from "./pages/StudentProfile";
+import DisabledStudents from "./pages/DisabledStudents";
 import FinanceAudit from "./pages/FinanceAudit";
 import FeeAdjustments from "./pages/FeeAdjustments";
 import Reconciliation from "./pages/Reconciliation";
 import Archives from "./pages/Archives";
+import BroughtForwardBalances from "./pages/finance/BroughtForwardBalances";
 
 // Exam Module v2
 import MarksEntry from "./pages/exams/MarksEntry";
@@ -71,6 +75,8 @@ import AssessmentResults from "./pages/assessments/Results";
 import AssessmentReportCards from "./pages/assessments/ReportCards";
 import AssessmentReportCardTemplates from "./pages/assessments/ReportCardTemplates";
 import AssessmentAnalytics from "./pages/assessments/Analytics";
+import AssessmentRemarkBands from "./pages/assessments/RemarkBands";
+import Events from "./pages/Events";
 
 // Academic Module
 import ClassTimetable from "./pages/academics/ClassTimetable";
@@ -102,6 +108,25 @@ import LibraryReports from "./pages/reports/LibraryReports";
 import TransportReports from "./pages/reports/TransportReports";
 import UserLogs from "./pages/reports/UserLogs";
 import AuditTrail from "./pages/reports/AuditTrail";
+
+// Designations (split from Departments)
+import Designations from "./pages/Designations";
+
+// Split communication pages
+import CommunicationSms from "./pages/communication/SmsPage";
+import CommunicationEmail from "./pages/communication/EmailPage";
+import CommunicationNoticeboard from "./pages/communication/NoticeboardPage";
+import CommunicationTemplates from "./pages/communication/TemplatesPage";
+import CommunicationSmsLog from "./pages/communication/SmsLogPage";
+import CommunicationEmailLog from "./pages/communication/EmailLogPage";
+
+// Split inventory pages
+import InventoryCatalog from "./pages/inventory/CatalogPage";
+import InventorySell from "./pages/inventory/SellPage";
+import InventoryHistory from "./pages/inventory/HistoryPage";
+import InventorySuppliers from "./pages/inventory/SuppliersPage";
+import InventoryPurchaseOrders from "./pages/inventory/PurchaseOrdersPage";
+import InventoryCategories from "./pages/inventory/CategoriesPage";
 
 // Lesson Plans (CBE)
 import LessonPlans from "./pages/lesson-plans/LessonPlans";
@@ -177,6 +202,16 @@ const App = () => (
                       }
                     />
                     <Route
+                      path="/students/disabled"
+                      element={
+                        <ProtectedRoute
+                          roles={["super_admin", "manager", "admin"]}
+                        >
+                          <DisabledStudents />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/students/:studentId"
                       element={
                         <ProtectedRoute>
@@ -189,6 +224,22 @@ const App = () => (
                       element={
                         <ProtectedRoute>
                           <Parents />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/parents/:id"
+                      element={
+                        <ProtectedRoute>
+                          <ParentProfile />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/staff/:id"
+                      element={
+                        <ProtectedRoute>
+                          <StaffProfile />
                         </ProtectedRoute>
                       }
                     />
@@ -380,6 +431,22 @@ const App = () => (
                       }
                     />
                     <Route
+                      path="/assessments/remark-bands"
+                      element={
+                        <ProtectedRoute>
+                          <AssessmentRemarkBands />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/events"
+                      element={
+                        <ProtectedRoute>
+                          <Events />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
                       path="/assessments/:id"
                       element={
                         <ProtectedRoute>
@@ -551,7 +618,15 @@ const App = () => (
                     <Route
                       path="/student-fees/:studentId"
                       element={
-                        <ProtectedRoute>
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
                           <StudentFees />
                         </ProtectedRoute>
                       }
@@ -645,6 +720,22 @@ const App = () => (
                           ]}
                         >
                           <FinanceAudit />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/finance/brought-forward"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
+                          <BroughtForwardBalances />
                         </ProtectedRoute>
                       }
                     />
@@ -988,6 +1079,141 @@ const App = () => (
                       element={
                         <ProtectedRoute>
                           <LessonPlanEditor />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Top-level shortcuts for audit + user logs */}
+                    <Route
+                      path="/audit-trail"
+                      element={
+                        <ProtectedRoute>
+                          <AuditTrail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/user-logs"
+                      element={
+                        <ProtectedRoute>
+                          <UserLogs />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Designations (split from Departments) */}
+                    <Route
+                      path="/designations"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "deputy_admin",
+                            "admin",
+                          ]}
+                        >
+                          <Designations />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Communication subpages */}
+                    <Route
+                      path="/communication/sms"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationSms />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/email"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationEmail />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/noticeboard"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationNoticeboard />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/templates"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationTemplates />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/sms-log"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationSmsLog />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/communication/email-log"
+                      element={
+                        <ProtectedRoute>
+                          <CommunicationEmailLog />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Inventory subpages */}
+                    <Route
+                      path="/inventory/catalog"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryCatalog />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/sell"
+                      element={
+                        <ProtectedRoute>
+                          <InventorySell />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/history"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryHistory />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/suppliers"
+                      element={
+                        <ProtectedRoute>
+                          <InventorySuppliers />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/purchase-orders"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryPurchaseOrders />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/inventory/categories"
+                      element={
+                        <ProtectedRoute>
+                          <InventoryCategories />
                         </ProtectedRoute>
                       }
                     />

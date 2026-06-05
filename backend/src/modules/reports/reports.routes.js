@@ -7,5 +7,7 @@ router.get("/students", ctrl.studentReport);
 router.get("/attendance", ctrl.attendanceReport);
 router.get("/exams", ctrl.examReport);
 router.get("/hr", ctrl.hrReport);
+router.get("/audit-trail", ctrl.auditTrail);
+router.get("/user-logs", ctrl.userLogs);
 
 module.exports = router;

@@ -44,7 +44,7 @@ interface BulkImportDialogProps {
 }
 
 const STUDENT_CSV_HEADERS =
-  "full_name,admission_number,gender,dob,parent_name,parent_phone,parent_email,opening_balance";
+  "full_name,admission_number,gender,dob,parent_name,parent_phone,parent_email,previous_balance";
 const STAFF_CSV_HEADERS =
   "full_name,employee_number,email,phone,role,gender,date_of_joining,department_id,designation_id,salary,tsc_number,specialization";
 

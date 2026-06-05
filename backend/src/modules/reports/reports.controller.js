@@ -1,10 +1,7 @@
 const svc = require("./reports.service");
+const repo = require("./reports.repository");
 const { success, error } = require("../../utils/response");
 
-/**
- * Build the report filter from req.query, defaulting to the active session
- * unless the caller explicitly opts out with `?range=all`.
- */
 const buildFilters = (req) => {
   const f = { ...req.query };
   const range = (req.query.range || "").toLowerCase();
@@ -16,69 +13,33 @@ const buildFilters = (req) => {
   return f;
 };
 
-const financeReport = async (req, res) => {
+const wrap = (fn) => async (req, res) => {
   try {
-    return success(
-      res,
-      await svc.getFinanceReport(req.schoolId, buildFilters(req)),
-    );
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
-};
-const paymentsReport = async (req, res) => {
-  try {
-    return success(
-      res,
-      await svc.getPaymentsReport(req.schoolId, buildFilters(req)),
-    );
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
-};
-const studentReport = async (req, res) => {
-  try {
-    return success(
-      res,
-      await svc.getStudentReport(req.schoolId, buildFilters(req)),
-    );
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
-};
-const attendanceReport = async (req, res) => {
-  try {
-    return success(
-      res,
-      await svc.getAttendanceReport(req.schoolId, buildFilters(req)),
-    );
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
-};
-const examReport = async (req, res) => {
-  try {
-    return success(
-      res,
-      await svc.getExamReport(req.schoolId, buildFilters(req)),
-    );
-  } catch (err) {
-    return error(res, err.message, 500);
-  }
-};
-const hrReport = async (req, res) => {
-  try {
-    return success(res, await svc.getHRReport(req.schoolId, buildFilters(req)));
+    return success(res, await fn(req.schoolId, buildFilters(req)));
   } catch (err) {
     return error(res, err.message, 500);
   }
 };
 
 module.exports = {
-  financeReport,
-  paymentsReport,
-  studentReport,
-  attendanceReport,
-  examReport,
-  hrReport,
+  financeReport: wrap(svc.getFinanceReport),
+  paymentsReport: wrap(svc.getPaymentsReport),
+  studentReport: wrap(svc.getStudentReport),
+  attendanceReport: wrap(svc.getAttendanceReport),
+  examReport: wrap(svc.getExamReport),
+  hrReport: wrap(svc.getHRReport),
+  auditTrail: async (req, res) => {
+    try {
+      return success(res, await repo.getAuditTrail(req.schoolId, req.query));
+    } catch (err) {
+      return error(res, err.message, 500);
+    }
+  },
+  userLogs: async (req, res) => {
+    try {
+      return success(res, await repo.getUserLogs(req.schoolId, req.query));
+    } catch (err) {
+      return error(res, err.message, 500);
+    }
+  },
 };
