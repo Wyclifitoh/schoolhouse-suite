@@ -31,6 +31,7 @@ const getByClass = async (req, res) => {
       req.params.classId,
       req.schoolId,
       date,
+      req.session,
     );
     return success(res, records);
   } catch (err) {
@@ -40,11 +41,14 @@ const getByClass = async (req, res) => {
 
 const mark = async (req, res) => {
   try {
-    const result = await attendanceService.markAttendance({
-      ...req.body,
-      school_id: req.schoolId,
-      marked_by: req.user?.id,
-    });
+    const result = await attendanceService.markAttendance(
+      {
+        ...req.body,
+        school_id: req.schoolId,
+        marked_by: req.user?.id,
+      },
+      req.session,
+    );
     return success(res, result, 201);
   } catch (err) {
     return error(res, err.message, 500);
@@ -58,6 +62,7 @@ const getByStudent = async (req, res) => {
       req.params.studentId,
       req.schoolId,
       pagination,
+      req.session,
     );
     return paginated(res, rows, total, pagination.page, pagination.limit);
   } catch (err) {
@@ -73,6 +78,7 @@ const getRegister = async (req, res) => {
       schoolId: req.schoolId,
       date,
       gradeId,
+      session: req.session,
     });
     return success(res, data);
   } catch (err) {
@@ -94,6 +100,7 @@ const submitAttendance = async (req, res) => {
       date,
       records,
       markedBy,
+      session: req.session,
     });
     return res.status(201).json(result);
   } catch (err) {

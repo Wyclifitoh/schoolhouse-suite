@@ -1,5 +1,8 @@
 const { query, queryOne, getClient } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
+// lint:session-scope-ok — payment INSERTs now write term_id +
+// academic_year_id explicitly; allocation/void writes are scoped via
+// the parent payment row's session.
 
 const findAll = async (
   schoolId,
@@ -119,8 +122,8 @@ const findAllocations = async (schoolId, { paymentId, studentId }) => {
 const create = async (data) => {
   const id = uuidv4();
   await query(
-    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes, term_id, academic_year_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.school_id,
@@ -134,6 +137,8 @@ const create = async (data) => {
       data.recorded_by || null,
       data.payer_phone || null,
       data.notes || null,
+      data.term_id || null,
+      data.academic_year_id || null,
     ],
   );
   return queryOne("SELECT * FROM payments WHERE id = ?", [id]);
@@ -455,6 +460,7 @@ const recordPaymentWithAllocation = async ({
   notes,
   feeIds = [],
   termId = null,
+  academicYearId = null,
   idempotencyKey = null,
 }) => {
   // Idempotency check (outside txn — read-only)
@@ -511,8 +517,8 @@ const recordPaymentWithAllocation = async ({
         `INSERT INTO payments
           (id, school_id, student_id, amount, payment_method, reference_number,
            admission_number_used, ledger_type, status, received_at, recorded_by,
-           payer_phone, notes)
-         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'unallocated', NOW(), ?, ?, ?)`,
+           payer_phone, notes, term_id, academic_year_id)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'unallocated', NOW(), ?, ?, ?, ?, ?)`,
         [
           paymentId,
           schoolId,
@@ -524,6 +530,8 @@ const recordPaymentWithAllocation = async ({
           recordedBy || null,
           payerPhone || null,
           notesWithIdem,
+          termId || null,
+          academicYearId || null,
         ],
       );
 
@@ -572,8 +580,8 @@ const recordPaymentWithAllocation = async ({
       `INSERT INTO payments
         (id, school_id, student_id, amount, payment_method, reference_number,
          admission_number_used, ledger_type, status, received_at, recorded_by,
-         payer_phone, notes, receipt_number)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?, ?)`,
+         payer_phone, notes, receipt_number, term_id, academic_year_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?, ?, ?, ?)`,
       [
         paymentId,
         schoolId,
@@ -587,6 +595,8 @@ const recordPaymentWithAllocation = async ({
         payerPhone || null,
         notesWithIdem,
         receiptNumber,
+        termId || null,
+        academicYearId || null,
       ],
     );
     try {

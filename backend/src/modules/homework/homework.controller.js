@@ -3,7 +3,7 @@ const { success, error } = require("../../utils/response");
 
 const list = async (req, res) => {
   try {
-    return success(res, await svc.list(req.schoolId, req.query));
+    return success(res, await svc.list(req.schoolId, req.query, req.session));
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
@@ -21,11 +21,14 @@ const getById = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const row = await svc.create({
-      ...req.body,
-      school_id: req.schoolId,
-      assigned_by: req.user?.id || null,
-    });
+    const row = await svc.create(
+      {
+        ...req.body,
+        school_id: req.schoolId,
+        assigned_by: req.user?.id || null,
+      },
+      req.session,
+    );
     return success(res, row, 201);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
@@ -50,7 +53,10 @@ const remove = async (req, res) => {
 
 const listSubmissions = async (req, res) => {
   try {
-    return success(res, await svc.listSubmissions(req.params.id, req.schoolId));
+    return success(
+      res,
+      await svc.listSubmissions(req.params.id, req.schoolId, req.session),
+    );
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
@@ -58,7 +64,16 @@ const listSubmissions = async (req, res) => {
 
 const createSubmission = async (req, res) => {
   try {
-    return success(res, await svc.createSubmission(req.params.id, req.schoolId, req.body), 201);
+    return success(
+      res,
+      await svc.createSubmission(
+        req.params.id,
+        req.schoolId,
+        req.body,
+        req.session,
+      ),
+      201,
+    );
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }
