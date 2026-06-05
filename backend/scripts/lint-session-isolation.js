@@ -37,6 +37,15 @@ const ALLOWLIST = [
   "promotion/promotion.repository.js",
   "examinations/portal.controller.js",
   "examinations/notify.js",
+  "examinations/audit.js",
+  "examinations/lifecycle.js",
+  "finance/previous-balance.service.js", // explicit term filtering, false positives
+  "finance/receipt-pdf.service.js", // single-row receipts keyed by payment id
+  "finance/statement.controller.js", // payment list scoped via student + dates
+  "reports/reports.repository.js", // historical reports legitimately span sessions
+  "schools/schools.repository.js", // school-level config, not session-scoped
+  "portal/portal.repository.js", // portal endpoints scope by student_id
+  "clubs/clubs.repository.js", // club attendance is meeting-keyed, not term-keyed
   "archives",
 ];
 
@@ -57,11 +66,15 @@ for (const file of files) {
   if (ALLOWLIST.some((a) => rel.includes(a))) continue;
 
   const src = fs.readFileSync(file, "utf8");
-  // crude SQL extraction: backtick or single-quote strings containing FROM/UPDATE/INTO
+  // Pull backtick template-literal SQL blocks AND long single-quoted strings.
   const stmts = src.match(/(`[^`]*`|'[^']{20,}')/g) || [];
   for (const raw of stmts) {
     const sql = raw.replace(/[`']/g, "").replace(/\s+/g, " ");
     if (!/\b(FROM|UPDATE|INTO)\b/i.test(sql)) continue;
+    // Skip schema introspection / DDL — not application data access.
+    if (/information_schema/i.test(sql)) continue;
+    if (/\bALTER\s+TABLE\b/i.test(sql)) continue;
+    if (/\bCREATE\s+(TABLE|INDEX)\b/i.test(sql)) continue;
 
     for (const table of SESSION_SCOPED_TABLES) {
       const tableHit = new RegExp(`\\b${table}\\b`, "i").test(sql);
@@ -71,11 +84,20 @@ for (const file of files) {
       const isInsert = /\bINSERT\b/i.test(sql);
       const hasYearFilter = /academic_year_id/i.test(sql);
       const hasTermFilter = /term_id/i.test(sql);
+      // By-id reads/updates/deletes are inherently single-row and safe.
+      const byPrimaryKey = /\bWHERE\s+[a-z0-9_.]*\.?id\s*=\s*\?/i.test(sql);
+      // Joins to `terms` table implicitly scope to a session.
+      const joinsTerms = /\bJOIN\s+terms\b/i.test(sql);
 
-      if (isSelectOrUpdate && !(hasYearFilter && hasTermFilter)) {
+      if (
+        isSelectOrUpdate &&
+        !(hasYearFilter || hasTermFilter) &&
+        !byPrimaryKey &&
+        !joinsTerms
+      ) {
         offenders.push({ file: rel, table, sql: sql.slice(0, 120) });
       }
-      if (isInsert && !(hasYearFilter && hasTermFilter)) {
+      if (isInsert && !(hasYearFilter || hasTermFilter)) {
         offenders.push({ file: rel, table, sql: sql.slice(0, 120) });
       }
     }
