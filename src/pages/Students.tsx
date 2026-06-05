@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,10 +40,12 @@ import {
   useUpdateStudent,
   useStudentsPaged,
   useStudentsSummary,
+  useStudentParents,
+  useNextAdmissionNumber,
   type StudentRow,
 } from "@/hooks/useStudents";
 import { useGrades, useStreams } from "@/hooks/useGrades";
-import { useParents } from "@/hooks/useParents";
+import { useParents, useUpdateParent } from "@/hooks/useParents";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDate } from "@/utils/date";
 import {
@@ -100,10 +102,17 @@ const AdmissionForm = ({
   const { data: grades = [] } = useGrades();
   const [selectedGradeId, setSelectedGradeId] = useState("");
   const { data: streams = [] } = useStreams(selectedGradeId || undefined);
+  const { data: nextAdmissionNumber } = useNextAdmissionNumber();
 
   // Form state
   const [form, setForm] = useState<Record<string, any>>({});
   const set = (k: string, v: any) => setForm((prev) => ({ ...prev, [k]: v }));
+
+  useEffect(() => {
+    if (nextAdmissionNumber && !form.admission_number) {
+      setForm((prev) => ({ ...prev, admission_number: nextAdmissionNumber }));
+    }
+  }, [nextAdmissionNumber]);
 
   // Sibling detection
   const [siblingCheck, setSiblingCheck] = useState<{
@@ -730,6 +739,362 @@ const AdmissionForm = ({
   );
 };
 
+/* ─── Edit Student Dialog ─── */
+const EditStudentDialog = ({
+  student,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  student: StudentRow | null;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onSuccess: () => void;
+}) => {
+  const [activeTab, setActiveTab] = useState("student");
+  const [form, setForm] = useState<Record<string, any>>({});
+  const updateStudent = useUpdateStudent();
+  const updateParent = useUpdateParent();
+
+  const { data: parents, isLoading: parentsLoading } = useStudentParents(
+    student?.id,
+  );
+  const [parentForms, setParentForms] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (student && open) {
+      setForm({
+        first_name: student.first_name || "",
+        middle_name: student.middle_name || "",
+        last_name: student.last_name || "",
+        admission_number: student.admission_number || "",
+        gender: student.gender || "",
+        date_of_birth: student.date_of_birth || "",
+        parent_name: student.parent_name || "",
+        parent_phone: student.parent_phone || "",
+        status: student.status || "active",
+      });
+      setActiveTab("student");
+    }
+  }, [student, open]);
+
+  useEffect(() => {
+    if (parents && open) {
+      const pForms: Record<string, any> = {};
+      parents.forEach((p) => {
+        pForms[p.id] = {
+          first_name: p.first_name || "",
+          last_name: p.last_name || "",
+          phone: p.phone || "",
+          email: p.email || "",
+          occupation: p.occupation || "",
+          id_number: p.id_number || "",
+        };
+      });
+      setParentForms(pForms);
+    }
+  }, [parents, open]);
+
+  const handleSave = async () => {
+    if (!student) return;
+    if (!form.first_name || !form.last_name || !form.admission_number) {
+      toast.error("First name, last name and admission number required");
+      return;
+    }
+
+    try {
+      // 1. Update Student
+      await updateStudent.mutateAsync({ id: student.id, data: form as any });
+
+      // 2. Update Parents (if any changed)
+      if (parents && parents.length > 0) {
+        const parentPromises = parents.map((p) => {
+          const pData = parentForms[p.id];
+          if (!pData) return Promise.resolve();
+          return updateParent.mutateAsync({ id: p.id, data: pData });
+        });
+        await Promise.all(parentPromises);
+      }
+
+      onSuccess();
+      onOpenChange(false);
+    } catch (err: any) {
+      // Errors handled by mutations
+    }
+  };
+
+  if (!student) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Student</DialogTitle>
+        </DialogHeader>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="student">Student Details</TabsTrigger>
+            <TabsTrigger value="parents">Parents / Guardians</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="student" className="space-y-4 mt-4">
+            <div className="grid gap-3 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">First Name *</Label>
+                  <Input
+                    className="h-9"
+                    value={form.first_name || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, first_name: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Middle Name</Label>
+                  <Input
+                    className="h-9"
+                    value={form.middle_name || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, middle_name: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Last Name *</Label>
+                  <Input
+                    className="h-9"
+                    value={form.last_name || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, last_name: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Adm. No. *</Label>
+                  <Input
+                    className="h-9"
+                    value={form.admission_number || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, admission_number: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Gender</Label>
+                  <Select
+                    value={form.gender || ""}
+                    onValueChange={(v) => setForm({ ...form, gender: v })}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Date of Birth</Label>
+                  <Input
+                    type="date"
+                    className="h-9"
+                    value={form.date_of_birth || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, date_of_birth: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Parent / Guardian Name</Label>
+                  <Input
+                    className="h-9"
+                    value={form.parent_name || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, parent_name: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Parent Phone</Label>
+                  <Input
+                    className="h-9"
+                    value={form.parent_phone || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, parent_phone: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Status</Label>
+                <Select
+                  value={form.status || "active"}
+                  onValueChange={(v) => setForm({ ...form, status: v })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="graduated">Graduated</SelectItem>
+                    <SelectItem value="transferred">Transferred</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="parents" className="space-y-4 mt-4">
+            {parentsLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : parents && parents.length > 0 ? (
+              <div className="space-y-6">
+                {parents.map((p) => (
+                  <div
+                    key={p.id}
+                    className="grid gap-3 p-4 border rounded-md relative pt-6"
+                  >
+                    <div className="absolute -top-3 left-3 bg-background px-1 text-xs font-semibold text-muted-foreground border rounded-full shadow-sm">
+                      {p.relationship === "father"
+                        ? "Father"
+                        : p.relationship === "mother"
+                          ? "Mother"
+                          : "Guardian"}{" "}
+                      {p.is_primary ? "(Primary)" : ""}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">First Name</Label>
+                        <Input
+                          className="h-9"
+                          value={parentForms[p.id]?.first_name || ""}
+                          onChange={(e) =>
+                            setParentForms((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev[p.id],
+                                first_name: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Last Name</Label>
+                        <Input
+                          className="h-9"
+                          value={parentForms[p.id]?.last_name || ""}
+                          onChange={(e) =>
+                            setParentForms((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev[p.id],
+                                last_name: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Phone</Label>
+                        <Input
+                          className="h-9"
+                          value={parentForms[p.id]?.phone || ""}
+                          onChange={(e) =>
+                            setParentForms((prev) => ({
+                              ...prev,
+                              [p.id]: { ...prev[p.id], phone: e.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Email</Label>
+                        <Input
+                          className="h-9"
+                          value={parentForms[p.id]?.email || ""}
+                          onChange={(e) =>
+                            setParentForms((prev) => ({
+                              ...prev,
+                              [p.id]: { ...prev[p.id], email: e.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Occupation</Label>
+                        <Input
+                          className="h-9"
+                          value={parentForms[p.id]?.occupation || ""}
+                          onChange={(e) =>
+                            setParentForms((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev[p.id],
+                                occupation: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">ID Number</Label>
+                        <Input
+                          className="h-9"
+                          value={parentForms[p.id]?.id_number || ""}
+                          onChange={(e) =>
+                            setParentForms((prev) => ({
+                              ...prev,
+                              [p.id]: {
+                                ...prev[p.id],
+                                id_number: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-sm text-muted-foreground border rounded-md border-dashed">
+                No parent/guardian records found for this student.
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={updateStudent.isPending || updateParent.isPending}
+          >
+            {updateStudent.isPending || updateParent.isPending
+              ? "Saving..."
+              : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 /* ─── Main Students Page ─── */
 const Students = () => {
   const navigate = useNavigate();
@@ -745,7 +1110,6 @@ const Students = () => {
   const [paymentRef, setPaymentRef] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentRow | null>(null);
-  const [editForm, setEditForm] = useState<Record<string, any>>({});
   const { hasAnyRole } = useAuth();
   const canManageStudents = hasAnyRole([
     "super_admin",
@@ -759,39 +1123,10 @@ const Students = () => {
     "accountant",
     "finance_officer",
   ] as any);
-  const updateStudent = useUpdateStudent();
 
   const openEdit = (s: StudentRow) => {
     setEditingStudent(s);
-    setEditForm({
-      first_name: s.first_name || "",
-      middle_name: s.middle_name || "",
-      last_name: s.last_name || "",
-      admission_number: s.admission_number || "",
-      gender: s.gender || "",
-      date_of_birth: s.date_of_birth || "",
-      parent_name: s.parent_name || "",
-      parent_phone: s.parent_phone || "",
-      status: s.status || "active",
-    });
     setEditOpen(true);
-  };
-
-  const handleEditSave = () => {
-    if (!editingStudent) return;
-    if (!editForm.first_name || !editForm.last_name || !editForm.admission_number) {
-      toast.error("First name, last name and admission number required");
-      return;
-    }
-    updateStudent.mutate(
-      { id: editingStudent.id, data: editForm as any },
-      {
-        onSuccess: () => {
-          setEditOpen(false);
-          setEditingStudent(null);
-        },
-      },
-    );
   };
 
   const [page, setPage] = useState(1);
@@ -961,16 +1296,20 @@ const Students = () => {
                       params.set("status", "active");
                       if (search) params.set("search", search);
                       const token = api.getToken();
-                      const schoolId = localStorage.getItem("chuo-school-id") || "";
+                      const schoolId =
+                        localStorage.getItem("chuo-school-id") || "";
                       const base =
                         (import.meta as any).env?.VITE_API_URL ||
                         "https://chuoapi.wikiteq.co.ke/api/v1";
-                      const res = await fetch(`${base}/students/export?${params}`, {
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                          "X-School-ID": schoolId,
+                      const res = await fetch(
+                        `${base}/students/export?${params}`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                            "X-School-ID": schoolId,
+                          },
                         },
-                      });
+                      );
                       if (!res.ok) throw new Error("Export failed");
                       const blob = await res.blob();
                       const url = URL.createObjectURL(blob);
@@ -1305,8 +1644,9 @@ const Students = () => {
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
               <p className="text-sm text-muted-foreground">
-                Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}
-                –{(page - 1) * pageSize + filtered.length} of {totalStudents} active students
+                Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}–
+                {(page - 1) * pageSize + filtered.length} of {totalStudents}{" "}
+                active students
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -1343,145 +1683,14 @@ const Students = () => {
       />
 
       {/* Edit Student Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Edit Student</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">First Name *</Label>
-                <Input
-                  className="h-9"
-                  value={editForm.first_name || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, first_name: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Middle Name</Label>
-                <Input
-                  className="h-9"
-                  value={editForm.middle_name || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, middle_name: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Last Name *</Label>
-                <Input
-                  className="h-9"
-                  value={editForm.last_name || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, last_name: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Adm. No. *</Label>
-                <Input
-                  className="h-9"
-                  value={editForm.admission_number || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({
-                      ...f,
-                      admission_number: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Gender</Label>
-                <Select
-                  value={editForm.gender || ""}
-                  onValueChange={(v) =>
-                    setEditForm((f) => ({ ...f, gender: v }))
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Date of Birth</Label>
-                <Input
-                  type="date"
-                  className="h-9"
-                  value={editForm.date_of_birth || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({
-                      ...f,
-                      date_of_birth: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Parent / Guardian Name</Label>
-                <Input
-                  className="h-9"
-                  value={editForm.parent_name || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, parent_name: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Parent Phone</Label>
-                <Input
-                  className="h-9"
-                  value={editForm.parent_phone || ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, parent_phone: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Status</Label>
-              <Select
-                value={editForm.status || "active"}
-                onValueChange={(v) =>
-                  setEditForm((f) => ({ ...f, status: v }))
-                }
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="graduated">Graduated</SelectItem>
-                  <SelectItem value="transferred">Transferred</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditSave}
-              disabled={updateStudent.isPending}
-            >
-              {updateStudent.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditStudentDialog
+        student={editingStudent}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSuccess={() => {
+          refetchAll();
+        }}
+      />
 
       {/* Quick Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

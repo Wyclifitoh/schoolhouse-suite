@@ -145,7 +145,14 @@ export function useSoftDeleteStudent() {
 export function useStudentParents(studentId: string | undefined) {
   return useQuery({
     queryKey: ["student-parents", studentId],
-    queryFn: () => api.get<any[]>(`/parents?student_id=${studentId}`).catch(() => []),
+    queryFn: async () => {
+      try {
+        const result = await api.get<any>(`/parents?student_id=${studentId}`);
+        return Array.isArray(result) ? result : (result?.data || []);
+      } catch {
+        return [];
+      }
+    },
     enabled: !!studentId,
   });
 }
@@ -155,5 +162,15 @@ export function useStudentSiblings(studentId: string | undefined, parentPhone: s
     queryKey: ["student-siblings", studentId, parentPhone],
     queryFn: () => api.get<any[]>(`/students/siblings?parent_phone=${parentPhone}&exclude_id=${studentId}`),
     enabled: !!studentId && !!parentPhone,
+  });
+}
+
+export function useNextAdmissionNumber() {
+  return useQuery({
+    queryKey: ["next-admission-number"],
+    queryFn: async () => {
+      const res = await api.get<{ admission_number: string }>("/students/next-admission-number");
+      return (res as any)?.data?.admission_number || res?.admission_number || "1000";
+    },
   });
 }
