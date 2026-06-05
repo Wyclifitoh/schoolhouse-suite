@@ -455,6 +455,7 @@ const recordPaymentWithAllocation = async ({
   notes,
   feeIds = [],
   termId = null,
+  academicYearId = null,
   idempotencyKey = null,
 }) => {
   // Idempotency check (outside txn — read-only)
