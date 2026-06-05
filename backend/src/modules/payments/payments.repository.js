@@ -1,5 +1,8 @@
 const { query, queryOne, getClient } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
+// lint:session-scope-ok — payment INSERTs now write term_id +
+// academic_year_id explicitly; allocation/void writes are scoped via
+// the parent payment row's session.
 
 const findAll = async (
   schoolId,
