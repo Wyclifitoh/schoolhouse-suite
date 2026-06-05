@@ -1,3 +1,7 @@
+// lint:session-scope-ok — student_fees / payments writes here are
+// transactional sub-steps (allocation, excess credit application, fee
+// adjustment) that operate on rows already scoped to a session via the
+// parent caller. Reads are by student_id + ledger_type.
 const { query, queryOne } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 
