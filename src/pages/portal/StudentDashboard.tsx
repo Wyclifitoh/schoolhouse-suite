@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PortalLayout } from "@/components/portal/PortalLayout";
+import { studentNav } from "@/components/portal/portalNav";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,7 @@ const StudentDashboard = () => {
           : "Student Dashboard"
       }
       subtitle="Your academic results, attendance and fees"
+      nav={studentNav}
     >
       {!student ? (
         <Skeleton className="h-40 w-full" />

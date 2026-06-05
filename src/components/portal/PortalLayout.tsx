@@ -1,17 +1,26 @@
 import { ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { School, LogOut, User } from "lucide-react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { School, LogOut, User, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePortalAuth } from "@/contexts/PortalAuthContext";
+import { cn } from "@/lib/utils";
+
+export interface PortalNavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+}
 
 export function PortalLayout({
   children,
   title,
   subtitle,
+  nav,
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  nav?: PortalNavItem[];
 }) {
   const { account, logout } = usePortalAuth();
   const navigate = useNavigate();
@@ -48,6 +57,32 @@ export function PortalLayout({
             </Button>
           </div>
         </div>
+        {nav && nav.length > 0 && (
+          <div className="border-t bg-background">
+            <div className="max-w-6xl mx-auto px-2 sm:px-6 overflow-x-auto">
+              <nav className="flex gap-1 min-w-max">
+                {nav.map((n) => (
+                  <NavLink
+                    key={n.to}
+                    to={n.to}
+                    end
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap",
+                        isActive
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+                      )
+                    }
+                  >
+                    <n.icon className="h-3.5 w-3.5" />
+                    {n.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          </div>
+        )}
       </header>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         <div className="mb-5">
