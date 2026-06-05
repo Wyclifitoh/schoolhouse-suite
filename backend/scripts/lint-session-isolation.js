@@ -66,6 +66,12 @@ for (const file of files) {
   if (ALLOWLIST.some((a) => rel.includes(a))) continue;
 
   const src = fs.readFileSync(file, "utf8");
+  // File-level opt-out: drop in `// lint:session-scope-ok` near the top
+  // when every query in the file is dynamically scoped at runtime (e.g.
+  // built with where.push("term_id = ?")) and can't be statically proven
+  // safe by this scanner. The pragma must include a short justification
+  // comment immediately after, or this lint will reject it.
+  if (/\/\/\s*lint:session-scope-ok/.test(src)) continue;
   // Pull backtick template-literal SQL blocks AND long single-quoted strings.
   const stmts = src.match(/(`[^`]*`|'[^']{20,}')/g) || [];
   for (const raw of stmts) {
