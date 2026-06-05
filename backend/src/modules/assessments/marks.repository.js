@@ -179,6 +179,7 @@ exports.bulkSave = async (
           subject_id: it.subject_id,
           grade_id: studentGrades.get(it.student_id) || null,
           pct,
+          level_code: al?.code || null,
         });
       } catch (e) {
         // non-fatal — leave remarks empty

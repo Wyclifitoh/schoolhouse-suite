@@ -17,13 +17,33 @@ async function ensureSchema() {
     `SELECT column_name FROM information_schema.columns
       WHERE table_schema = DATABASE() AND table_name = 'fee_structures'`,
   );
-  const set = new Set(cols.map((c) => String(c.column_name || c.COLUMN_NAME).toLowerCase()));
+  const set = new Set(
+    cols.map((c) => String(c.column_name || c.COLUMN_NAME).toLowerCase()),
+  );
   if (!set.has("is_system")) {
-    try { await query("ALTER TABLE fee_structures ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT FALSE"); } catch (e) { /* race */ }
+    try {
+      await query(
+        "ALTER TABLE fee_structures ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT FALSE",
+      );
+    } catch (e) {
+      /* race */
+    }
   }
   if (!set.has("system_code")) {
-    try { await query("ALTER TABLE fee_structures ADD COLUMN system_code VARCHAR(64) NULL"); } catch (e) { /* race */ }
-    try { await query("CREATE UNIQUE INDEX uq_fee_structures_system ON fee_structures (school_id, system_code)"); } catch (e) { /* exists */ }
+    try {
+      await query(
+        "ALTER TABLE fee_structures ADD COLUMN system_code VARCHAR(64) NULL",
+      );
+    } catch (e) {
+      /* race */
+    }
+    try {
+      await query(
+        "CREATE UNIQUE INDEX uq_fee_structures_system ON fee_structures (school_id, system_code)",
+      );
+    } catch (e) {
+      /* exists */
+    }
   }
   _schemaReady = true;
 }
@@ -48,14 +68,21 @@ async function getOrCreateSystemCategory(schoolId) {
  */
 async function getOrCreateStructure(schoolId, academicYearId) {
   await ensureSchema();
+
+  // If academicYearId not provided, fetch the current academic year using is_current flag
   if (!academicYearId) {
-    const sch = await queryOne(
-      "SELECT current_academic_year_id FROM schools WHERE id = ?",
+    const currentAcademicYear = await queryOne(
+      "SELECT id FROM academic_years WHERE school_id = ? AND is_current = 1 AND is_archived = 0 LIMIT 1",
       [schoolId],
     );
-    academicYearId = sch?.current_academic_year_id;
+    academicYearId = currentAcademicYear?.id;
   }
-  if (!academicYearId) throw new Error("No academic year set for school");
+
+  if (!academicYearId) {
+    throw new Error(
+      "No current academic year set. Please set an academic year as current first.",
+    );
+  }
 
   let row = await queryOne(
     "SELECT id FROM fee_structures WHERE school_id = ? AND system_code = ? LIMIT 1",
@@ -81,10 +108,25 @@ async function getOrCreateStructure(schoolId, academicYearId) {
  * when there are no payments allocated to it yet, to avoid breaking
  * receipts / ledger integrity).
  */
-async function upsertStudentAssignment({ schoolId, studentId, termId, academicYearId, amount }) {
+async function upsertStudentAssignment({
+  schoolId,
+  studentId,
+  termId,
+  academicYearId,
+  amount,
+}) {
+  console.log(`[DEBUG] upsertStudentAssignment - Input:`, {
+    schoolId,
+    studentId,
+    termId,
+    academicYearId,
+    amount,
+  });
+
   if (!termId) throw new Error("termId is required");
   if (!(Number(amount) >= 0)) throw new Error("amount must be a number");
   const structureId = await getOrCreateStructure(schoolId, academicYearId);
+  console.log(`[DEBUG] structureId: ${structureId}`);
 
   // Detect fee_structure_id column (may be missing on older schemas).
   const colRow = await queryOne(
@@ -110,6 +152,7 @@ async function upsertStudentAssignment({ schoolId, studentId, termId, academicYe
   }
 
   if (existing) {
+    console.log(`[DEBUG] Found existing record:`, existing);
     if (Number(existing.amount_paid || 0) > 0) {
       // Already has payments — only allow increasing the amount.
       const newAmount = Math.max(Number(amount), Number(existing.amount_paid));
@@ -133,7 +176,16 @@ async function upsertStudentAssignment({ schoolId, studentId, termId, academicYe
          (id, school_id, student_id, fee_structure_id, term_id, academic_year_id, ledger_type,
           amount_due, amount_paid, brought_forward_amount, status, assignment_mode, due_date, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 'fees', ?, 0, ?, 'pending', 'system', CURDATE(), NOW())`,
-      [id, schoolId, studentId, structureId, termId, academicYearId || null, Number(amount), Number(amount)],
+      [
+        id,
+        schoolId,
+        studentId,
+        structureId,
+        termId,
+        academicYearId || null,
+        Number(amount),
+        Number(amount),
+      ],
     );
   } else {
     await query(
@@ -141,7 +193,16 @@ async function upsertStudentAssignment({ schoolId, studentId, termId, academicYe
          (id, school_id, student_id, term_id, academic_year_id, fee_name, ledger_type,
           amount_due, amount_paid, brought_forward_amount, status, assignment_mode, due_date, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 'fees', ?, 0, ?, 'pending', 'system', CURDATE(), NOW())`,
-      [id, schoolId, studentId, termId, academicYearId || null, SYSTEM_NAME, Number(amount), Number(amount)],
+      [
+        id,
+        schoolId,
+        studentId,
+        termId,
+        academicYearId || null,
+        SYSTEM_NAME,
+        Number(amount),
+        Number(amount),
+      ],
     );
   }
   return { id, created: true };
@@ -152,14 +213,26 @@ async function upsertStudentAssignment({ schoolId, studentId, termId, academicYe
  * Also returns any existing Previous Balance amount already carried into the
  * destination term so the UI can flag duplicates.
  */
-async function previewBroughtForward({ schoolId, classId, streamId, fromTermId, toTermId }) {
+async function previewBroughtForward({
+  schoolId,
+  classId,
+  streamId,
+  fromTermId,
+  toTermId,
+}) {
   await ensureSchema();
   const structureId = await getOrCreateStructure(schoolId, null);
 
   const params = [schoolId];
   let where = "s.school_id = ? AND s.status = 'active'";
-  if (classId) { where += " AND s.current_grade_id = ?"; params.push(classId); }
-  if (streamId) { where += " AND s.current_stream_id = ?"; params.push(streamId); }
+  if (classId) {
+    where += " AND s.current_grade_id = ?";
+    params.push(classId);
+  }
+  if (streamId) {
+    where += " AND s.current_stream_id = ?";
+    params.push(streamId);
+  }
 
   const students = await query(
     `SELECT s.id, s.admission_number, s.full_name, s.first_name, s.last_name
@@ -187,7 +260,9 @@ async function previewBroughtForward({ schoolId, classId, streamId, fromTermId, 
       )
     : [];
 
-  const balanceMap = new Map(balanceRows.map((r) => [r.student_id, Number(r.balance) || 0]));
+  const balanceMap = new Map(
+    balanceRows.map((r) => [r.student_id, Number(r.balance) || 0]),
+  );
 
   // Existing Previous Balance entries in destination term.
   const existingRows = toTermId
@@ -198,20 +273,29 @@ async function previewBroughtForward({ schoolId, classId, streamId, fromTermId, 
         [schoolId, toTermId, ...ids, structureId, SYSTEM_NAME],
       )
     : [];
-  const existingMap = new Map(existingRows.map((r) => [r.student_id, Number(r.amount_due) || 0]));
+  const existingMap = new Map(
+    existingRows.map((r) => [r.student_id, Number(r.amount_due) || 0]),
+  );
 
   return students.map((s) => ({
     student_id: s.id,
     admission_number: s.admission_number,
-    full_name: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim(),
+    full_name:
+      s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim(),
     previous_term_balance: balanceMap.get(s.id) || 0,
     existing_brought_forward: existingMap.get(s.id) || 0,
   }));
 }
 
-async function applyBroughtForward({ schoolId, toTermId, academicYearId, entries }) {
+async function applyBroughtForward({
+  schoolId,
+  toTermId,
+  academicYearId,
+  entries,
+}) {
   if (!toTermId) throw new Error("to_term_id is required");
-  if (!Array.isArray(entries) || !entries.length) throw new Error("entries are required");
+  if (!Array.isArray(entries) || !entries.length)
+    throw new Error("entries are required");
   const created = [];
   const updated = [];
   const failed = [];

@@ -9,14 +9,22 @@ router.get("/strands", async (req, res) => {
   try {
     const where = ["school_id = ?"];
     const params = [req.schoolId];
-    if (req.query.subject_id) { where.push("subject_id = ?"); params.push(req.query.subject_id); }
-    if (req.query.grade_id) { where.push("grade_id = ?"); params.push(req.query.grade_id); }
+    if (req.query.subject_id) {
+      where.push("subject_id = ?");
+      params.push(req.query.subject_id);
+    }
+    if (req.query.grade_id) {
+      where.push("grade_id = ?");
+      params.push(req.query.grade_id);
+    }
     const rows = await query(
       `SELECT * FROM cbc_strands WHERE ${where.join(" AND ")} ORDER BY name`,
       params,
     );
     return success(res, rows);
-  } catch (err) { return error(res, err.message); }
+  } catch (err) {
+    return error(res, err.message);
+  }
 });
 router.post("/strands", async (req, res) => {
   try {
@@ -29,14 +37,20 @@ router.post("/strands", async (req, res) => {
     );
     const row = await queryOne(`SELECT * FROM cbc_strands WHERE id = ?`, [id]);
     return success(res, row, 201);
-  } catch (err) { return error(res, err.message); }
+  } catch (err) {
+    return error(res, err.message);
+  }
 });
 router.delete("/strands/:id", async (req, res) => {
   try {
-    await execute(`DELETE FROM cbc_strands WHERE id = ? AND school_id = ?`,
-      [req.params.id, req.schoolId]);
+    await execute(`DELETE FROM cbc_strands WHERE id = ? AND school_id = ?`, [
+      req.params.id,
+      req.schoolId,
+    ]);
     return success(res, { deleted: true });
-  } catch (err) { return error(res, err.message); }
+  } catch (err) {
+    return error(res, err.message);
+  }
 });
 
 // Sub-strands
@@ -54,6 +68,7 @@ router.delete("/templates/:id", c.removeTemplate);
 // Coverage & dashboard
 router.get("/coverage", c.coverage);
 router.get("/dashboard", c.dashboard);
+router.get("/roster", c.roster);
 
 // Plans
 router.get("/", c.list);

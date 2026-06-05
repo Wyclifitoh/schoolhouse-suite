@@ -69,7 +69,8 @@ router.post("/brought-forward/apply", async (req, res) => {
     const data = await prevBalance.applyBroughtForward({
       schoolId: req.schoolId,
       toTermId: req.body?.to_term_id || req.session?.termId || null,
-      academicYearId: req.body?.academic_year_id || req.session?.academicYearId || null,
+      academicYearId:
+        req.body?.academic_year_id || req.session?.academicYearId || null,
       entries: req.body?.entries || [],
     });
     return success(res, data, 201);
