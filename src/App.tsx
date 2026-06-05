@@ -21,6 +21,16 @@ import Unauthorized from "./pages/Unauthorized";
 // Portal pages
 import ParentDashboard from "./pages/portal/ParentDashboard";
 import StudentDashboard from "./pages/portal/StudentDashboard";
+import {
+  ParentResults,
+  ParentAttendance,
+  ParentFees,
+  ParentProfilePage,
+  StudentResults,
+  StudentAttendance,
+  StudentFees as PortalStudentFees,
+  StudentProfilePage,
+} from "./pages/portal/PortalPages";
 
 // Dashboard pages
 import Index from "./pages/Index";
@@ -180,6 +190,70 @@ const App = () => (
                       element={
                         <PortalProtectedRoute allow={["student"]}>
                           <StudentDashboard />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/parent/results"
+                      element={
+                        <PortalProtectedRoute allow={["parent"]}>
+                          <ParentResults />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/parent/attendance"
+                      element={
+                        <PortalProtectedRoute allow={["parent"]}>
+                          <ParentAttendance />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/parent/fees"
+                      element={
+                        <PortalProtectedRoute allow={["parent"]}>
+                          <ParentFees />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/parent/profile"
+                      element={
+                        <PortalProtectedRoute allow={["parent"]}>
+                          <ParentProfilePage />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/student/results"
+                      element={
+                        <PortalProtectedRoute allow={["student"]}>
+                          <StudentResults />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/student/attendance"
+                      element={
+                        <PortalProtectedRoute allow={["student"]}>
+                          <StudentAttendance />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/student/fees"
+                      element={
+                        <PortalProtectedRoute allow={["student"]}>
+                          <PortalStudentFees />
+                        </PortalProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/portal/student/profile"
+                      element={
+                        <PortalProtectedRoute allow={["student"]}>
+                          <StudentProfilePage />
                         </PortalProtectedRoute>
                       }
                     />

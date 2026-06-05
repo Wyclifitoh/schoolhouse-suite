@@ -261,7 +261,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const hasRole = (role: AppRole) => roles.some((r) => r.role === role);
+  // Role aliases: canonical (2026 redesign) and legacy roles are equivalent.
+  // This ensures users with the canonical role (e.g. "accountant") can access
+  // routes that were originally guarded with the legacy name (e.g. "finance_officer").
+  const ROLE_ALIASES: Record<string, AppRole[]> = {
+    accountant: ["finance_officer"],
+    finance_officer: ["accountant"],
+    admin: ["school_admin"],
+    school_admin: ["admin"],
+    receptionist: ["front_office"],
+    front_office: ["receptionist"],
+    manager: ["deputy_admin"],
+    deputy_admin: ["manager"],
+  };
+  const hasRole = (role: AppRole) => {
+    if (roles.some((r) => r.role === role)) return true;
+    const aliases = ROLE_ALIASES[role] || [];
+    return aliases.some((a) => roles.some((r) => r.role === a));
+  };
   const hasAnyRole = (checkRoles: AppRole[]) =>
     checkRoles.some((r) => hasRole(r));
   const getRoleLabel = (role: string) => ROLE_LABELS[role] || role;
