@@ -512,8 +512,8 @@ const recordPaymentWithAllocation = async ({
         `INSERT INTO payments
           (id, school_id, student_id, amount, payment_method, reference_number,
            admission_number_used, ledger_type, status, received_at, recorded_by,
-           payer_phone, notes)
-         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'unallocated', NOW(), ?, ?, ?)`,
+           payer_phone, notes, term_id, academic_year_id)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'unallocated', NOW(), ?, ?, ?, ?, ?)`,
         [
           paymentId,
           schoolId,
@@ -525,6 +525,8 @@ const recordPaymentWithAllocation = async ({
           recordedBy || null,
           payerPhone || null,
           notesWithIdem,
+          termId || null,
+          academicYearId || null,
         ],
       );
 
@@ -573,8 +575,8 @@ const recordPaymentWithAllocation = async ({
       `INSERT INTO payments
         (id, school_id, student_id, amount, payment_method, reference_number,
          admission_number_used, ledger_type, status, received_at, recorded_by,
-         payer_phone, notes, receipt_number)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?, ?)`,
+         payer_phone, notes, receipt_number, term_id, academic_year_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?, ?, ?, ?)`,
       [
         paymentId,
         schoolId,
@@ -588,6 +590,8 @@ const recordPaymentWithAllocation = async ({
         payerPhone || null,
         notesWithIdem,
         receiptNumber,
+        termId || null,
+        academicYearId || null,
       ],
     );
     try {
