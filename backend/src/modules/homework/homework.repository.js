@@ -21,7 +21,10 @@ const findAll = async (schoolId, params = {}, session) => {
 };
 
 const findById = (id, schoolId) =>
-  queryOne("SELECT * FROM homework WHERE id = ? AND school_id = ?", [id, schoolId]);
+  queryOne("SELECT * FROM homework WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
 
 const create = async (data, session) => {
   data = stampSession(data, session);
@@ -66,8 +69,14 @@ const update = async (id, schoolId, data) => {
 };
 
 const remove = async (id, schoolId) => {
-  await query("DELETE FROM homework_submissions WHERE homework_id = ? AND school_id = ?", [id, schoolId]);
-  await query("DELETE FROM homework WHERE id = ? AND school_id = ?", [id, schoolId]);
+  await query(
+    "DELETE FROM homework_submissions WHERE homework_id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  await query("DELETE FROM homework WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
   return { id };
 };
 
@@ -126,13 +135,19 @@ const updateSubmission = async (id, schoolId, data) => {
     fields.push("evaluated_at = NOW()");
   }
   if (!fields.length)
-    return queryOne("SELECT * FROM homework_submissions WHERE id = ? AND school_id = ?", [id, schoolId]);
+    return queryOne(
+      "SELECT * FROM homework_submissions WHERE id = ? AND school_id = ?",
+      [id, schoolId],
+    );
   values.push(id, schoolId);
   await query(
     `UPDATE homework_submissions SET ${fields.join(", ")}, updated_at = NOW() WHERE id = ? AND school_id = ?`,
     values,
   );
-  return queryOne("SELECT * FROM homework_submissions WHERE id = ? AND school_id = ?", [id, schoolId]);
+  return queryOne(
+    "SELECT * FROM homework_submissions WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  );
 };
 
 module.exports = {

@@ -37,7 +37,10 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    return success(res, await svc.update(req.params.id, req.schoolId, req.body));
+    return success(
+      res,
+      await svc.update(req.params.id, req.schoolId, req.body),
+    );
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);
   }

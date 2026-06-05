@@ -1,11 +1,15 @@
 const repo = require("./homework.repository");
 
-const list = (schoolId, query, session) => repo.findAll(schoolId, query, session);
+const list = (schoolId, query, session) =>
+  repo.findAll(schoolId, query, session);
 const getById = (id, schoolId) => repo.findById(id, schoolId);
 
 const create = async (data, session) => {
   if (!data.title || !data.subject || !data.class_name || !data.due_date) {
-    throw Object.assign(new Error("title, subject, class_name and due_date are required"), { statusCode: 400 });
+    throw Object.assign(
+      new Error("title, subject, class_name and due_date are required"),
+      { statusCode: 400 },
+    );
   }
   return repo.create(data, session);
 };
