@@ -119,8 +119,8 @@ const findAllocations = async (schoolId, { paymentId, studentId }) => {
 const create = async (data) => {
   const id = uuidv4();
   await query(
-    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes, term_id, academic_year_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.school_id,
@@ -134,6 +134,8 @@ const create = async (data) => {
       data.recorded_by || null,
       data.payer_phone || null,
       data.notes || null,
+      data.term_id || null,
+      data.academic_year_id || null,
     ],
   );
   return queryOne("SELECT * FROM payments WHERE id = ?", [id]);
