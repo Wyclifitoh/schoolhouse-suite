@@ -105,13 +105,32 @@ const FeeReminders = () => {
         /* ignore */
       }
 
-      // Students with balances from backend (already aggregated)
-      const list = await api.get<any[]>("/finance/student-fees-list");
-      const rows: StudentWithBalance[] = (list || [])
+      // Students with balances from backend
+      const response = await api.get<any>("/finance/student-fees-list");
+
+      // Extract the rows array from the response structure
+      // Response structure: { success: true, data: { rows: [...], total: 25 } }
+      let studentsData = [];
+      if (response?.data?.rows && Array.isArray(response.data.rows)) {
+        studentsData = response.data.rows;
+      } else if (response?.rows && Array.isArray(response.rows)) {
+        studentsData = response.rows;
+      } else if (Array.isArray(response)) {
+        studentsData = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        studentsData = response.data;
+      } else {
+        studentsData = [];
+      }
+
+      console.log("Students data:", studentsData); // Debug log
+
+      const rows: StudentWithBalance[] = studentsData
         .filter((s: any) => Number(s.balance || 0) > 0)
         .map((s: any) => {
           const total = Number(s.total_fee || 0);
           const paid = Number(s.paid || 0);
+          const balance = Number(s.balance || 0);
           return {
             id: s.id,
             full_name:
@@ -120,20 +139,22 @@ const FeeReminders = () => {
             admission_number: s.admission_number,
             parent_phone: s.parent_phone || "N/A",
             parent_name: s.parent_name || "Parent",
-            grade_name: s.grade || "—",
+            grade_name: s.grade || s.grade_name || "—",
             total_fee: total,
-            paid,
-            total_balance: Number(s.balance || 0),
+            paid: paid,
+            total_balance: balance,
             percent_paid: total > 0 ? Math.round((paid / total) * 100) : 0,
             fee_count: Number(s.fee_count || 0),
             overdue_count: Number(s.overdue_count || 0),
           };
         })
         .sort((a, b) => b.total_balance - a.total_balance);
+
       setStudents(rows);
     } catch (err: any) {
       console.error("Failed to fetch student balances", err);
-      toast.error("Failed to load student balances");
+      toast.error(err.message || "Failed to load student balances");
+      setStudents([]);
     } finally {
       setLoading(false);
     }
