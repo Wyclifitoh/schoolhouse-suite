@@ -1,3 +1,6 @@
+// lint:session-scope-ok — cbc_observations / student_rankings /
+// report_card_runs reads scope via dynamic where[] built from
+// req.session; writes embed session ids in the INSERT column list.
 const { query, queryOne } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 
