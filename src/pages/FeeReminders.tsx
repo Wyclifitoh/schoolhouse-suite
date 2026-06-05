@@ -132,6 +132,7 @@ const FeeReminders = () => {
         .sort((a, b) => b.total_balance - a.total_balance);
       setStudents(rows);
     } catch (err: any) {
+      console.error("Failed to fetch student balances", err);
       toast.error("Failed to load student balances");
     } finally {
       setLoading(false);
