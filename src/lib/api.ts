@@ -1,5 +1,4 @@
-const API_BASE =
-  import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4040/api/v1";
 
 class ApiClient {
   private token: string | null = null;
@@ -10,6 +9,7 @@ class ApiClient {
   setToken(token: string | null) {
     this.token = token;
   }
+  
   setSchoolId(id: string | null) {
     this.schoolId = id;
   }
