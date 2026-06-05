@@ -1,5 +1,6 @@
 const { query, queryOne } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
+const { sessionFilterSql, stampSession } = require("../../utils/sessionScope");
 
 /**
  * Student attendance lives in `student_attendance` and is uniquely keyed by
@@ -7,19 +8,21 @@ const { v4: uuidv4 } = require("uuid");
  * normally upserted, but the bulk endpoint accepts the full roster too.
  */
 
-const findByClassAndDate = async (classId, schoolId, date) => {
+const findByClassAndDate = async (classId, schoolId, date, session) => {
   // classId here is treated as a grade_id (frontend sends grade id)
+  const sf = sessionFilterSql("a", session);
   return query(
     `SELECT a.*, CONCAT(s.first_name, ' ', COALESCE(s.last_name, '')) AS student_name
        FROM student_attendance a
        JOIN students s ON s.id = a.student_id
-      WHERE s.current_grade_id = ? AND a.school_id = ? AND a.date = ?
+      WHERE s.current_grade_id = ? AND a.school_id = ? AND a.date = ?${sf.sql}
       ORDER BY s.first_name`,
-    [classId, schoolId, date],
+    [classId, schoolId, date, ...sf.params],
   );
 };
 
-const upsert = async (data) => {
+const upsert = async (data, session) => {
+  data = stampSession(data, session);
   const existing = await queryOne(
     "SELECT id FROM student_attendance WHERE student_id = ? AND date = ?",
     [data.student_id, data.date],
@@ -27,9 +30,17 @@ const upsert = async (data) => {
   if (existing) {
     await query(
       `UPDATE student_attendance
-          SET status = ?, remarks = ?, marked_by = ?
+          SET status = ?, remarks = ?, marked_by = ?,
+              term_id = COALESCE(term_id, ?), academic_year_id = COALESCE(academic_year_id, ?)
         WHERE id = ?`,
-      [data.status, data.remarks || null, data.marked_by || null, existing.id],
+      [
+        data.status,
+        data.remarks || null,
+        data.marked_by || null,
+        data.term_id || null,
+        data.academic_year_id || null,
+        existing.id,
+      ],
     );
     return queryOne("SELECT * FROM student_attendance WHERE id = ?", [
       existing.id,
@@ -38,8 +49,8 @@ const upsert = async (data) => {
   const id = uuidv4();
   await query(
     `INSERT INTO student_attendance
-       (id, school_id, student_id, date, status, remarks, marked_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (id, school_id, student_id, date, status, remarks, marked_by, term_id, academic_year_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.school_id,
@@ -48,27 +59,35 @@ const upsert = async (data) => {
       data.status,
       data.remarks || null,
       data.marked_by || null,
+      data.term_id || null,
+      data.academic_year_id || null,
     ],
   );
   return queryOne("SELECT * FROM student_attendance WHERE id = ?", [id]);
 };
 
-const getStudentAttendance = async (studentId, schoolId, { limit, offset }) => {
+const getStudentAttendance = async (
+  studentId,
+  schoolId,
+  { limit, offset, session } = {},
+) => {
+  const sf = sessionFilterSql("", session);
   const rows = await query(
     `SELECT * FROM student_attendance
-      WHERE student_id = ? AND school_id = ?
+      WHERE student_id = ? AND school_id = ?${sf.sql}
       ORDER BY date DESC LIMIT ? OFFSET ?`,
-    [studentId, schoolId, limit, offset],
+    [studentId, schoolId, ...sf.params, limit, offset],
   );
   const countRows = await query(
     `SELECT COUNT(*) AS count FROM student_attendance
-      WHERE student_id = ? AND school_id = ?`,
-    [studentId, schoolId],
+      WHERE student_id = ? AND school_id = ?${sf.sql}`,
+    [studentId, schoolId, ...sf.params],
   );
   return { rows, total: Number(countRows[0]?.count || 0) };
 };
 
-const getAttendanceRegister = async (schoolId, date, gradeId) => {
+const getAttendanceRegister = async (schoolId, date, gradeId, session) => {
+  const sf = sessionFilterSql("a", session);
   let sql = `
     SELECT
       s.id AS student_id,
@@ -87,12 +106,12 @@ const getAttendanceRegister = async (schoolId, date, gradeId) => {
       CASE WHEN a.id IS NOT NULL THEN 1 ELSE 0 END AS is_marked
     FROM students s
     LEFT JOIN student_attendance a
-      ON a.student_id = s.id AND a.date = ? AND a.school_id = s.school_id
+      ON a.student_id = s.id AND a.date = ? AND a.school_id = s.school_id${sf.sql.replace(/^ AND /, " AND ")}
     LEFT JOIN grades g ON g.id = s.current_grade_id
     LEFT JOIN streams st ON st.id = s.current_stream_id
     WHERE s.school_id = ? AND s.status = 'active'
   `;
-  const params = [date, schoolId];
+  const params = [date, ...sf.params, schoolId];
   if (gradeId && gradeId !== "all") {
     sql += " AND s.current_grade_id = ?";
     params.push(gradeId);
@@ -106,27 +125,34 @@ const getAttendanceRegister = async (schoolId, date, gradeId) => {
  * Records that don't change can still safely be sent — ON DUPLICATE KEY UPDATE
  * just refreshes status/remarks/marked_by.
  */
-const bulkSaveAttendance = async (records) => {
+const bulkSaveAttendance = async (records, session) => {
   if (!records || records.length === 0) return 0;
 
-  const values = records.map((r) => [
-    uuidv4(),
-    r.school_id,
-    r.student_id,
-    r.date,
-    r.status || "present",
-    r.remarks || null,
-    r.marked_by || null,
-  ]);
+  const values = records.map((r) => {
+    const s = stampSession(r, session);
+    return [
+      uuidv4(),
+      s.school_id,
+      s.student_id,
+      s.date,
+      s.status || "present",
+      s.remarks || null,
+      s.marked_by || null,
+      s.term_id || null,
+      s.academic_year_id || null,
+    ];
+  });
 
   const sql = `
     INSERT INTO student_attendance
-      (id, school_id, student_id, date, status, remarks, marked_by)
+      (id, school_id, student_id, date, status, remarks, marked_by, term_id, academic_year_id)
     VALUES ?
     ON DUPLICATE KEY UPDATE
       status = VALUES(status),
       remarks = VALUES(remarks),
-      marked_by = VALUES(marked_by)
+      marked_by = VALUES(marked_by),
+      term_id = COALESCE(term_id, VALUES(term_id)),
+      academic_year_id = COALESCE(academic_year_id, VALUES(academic_year_id))
   `;
   const result = await query(sql, [values]);
   return result.affectedRows;
