@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -268,7 +269,12 @@ const AudiencePicker = ({
 };
 
 /* ============= OVERVIEW ============= */
-const Overview = ({ goto }: { goto: (tab: string) => void }) => {
+export const Overview = ({ goto }: { goto?: (tab: string) => void }) => {
+  const navigate = useNavigate();
+  const go = (tab: string) => {
+    if (goto) goto(tab);
+    else navigate(`/communication/${tab}`);
+  };
   const { data: smsLogs = [] } = useSmsLog();
   const { data: emailLogs = [] } = useEmailLog();
 
@@ -378,23 +384,19 @@ const Overview = ({ goto }: { goto: (tab: string) => void }) => {
           <CardTitle className="text-base">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => goto("sms")}>
+          <Button size="sm" onClick={() => go("sms")}>
             <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
             Send SMS
           </Button>
-          <Button size="sm" variant="outline" onClick={() => goto("email")}>
+          <Button size="sm" variant="outline" onClick={() => go("email")}>
             <Mail className="h-3.5 w-3.5 mr-1.5" />
             Send Email
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => goto("noticeboard")}
-          >
+          <Button size="sm" variant="outline" onClick={() => go("noticeboard")}>
             <Megaphone className="h-3.5 w-3.5 mr-1.5" />
             New Notice
           </Button>
-          <Button size="sm" variant="outline" onClick={() => goto("templates")}>
+          <Button size="sm" variant="outline" onClick={() => go("templates")}>
             <FileText className="h-3.5 w-3.5 mr-1.5" />
             Manage Templates
           </Button>
@@ -405,7 +407,7 @@ const Overview = ({ goto }: { goto: (tab: string) => void }) => {
 };
 
 /* ============= SMS COMPOSER ============= */
-const SmsComposer = () => {
+export const SmsComposer = () => {
   const [audience, setAudience] = useState<Audience>({
     type: "parents",
     relationship: "all",
@@ -553,7 +555,7 @@ const SmsComposer = () => {
 };
 
 /* ============= EMAIL COMPOSER ============= */
-const EmailComposer = () => {
+export const EmailComposer = () => {
   const [audience, setAudience] = useState<Audience>({
     type: "parents",
     relationship: "all",
@@ -664,7 +666,7 @@ const EmailComposer = () => {
 };
 
 /* ============= LOGS ============= */
-const LogTable = ({ kind }: { kind: "sms" | "email" }) => {
+export const LogTable = ({ kind }: { kind: "sms" | "email" }) => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [page, setPage] = useState(0);
@@ -871,7 +873,7 @@ const emptyTpl: Partial<SmsTemplate> = {
   category: "",
   is_active: true,
 };
-const TemplatesTab = () => {
+export const TemplatesTab = () => {
   const [search, setSearch] = useState("");
   const { data: templates = [], isLoading } = useSmsTemplates({
     search: search || undefined,
@@ -1128,7 +1130,7 @@ const emptyNotice: Partial<Notice> = {
   status: "draft",
   pinned: false,
 };
-const NoticeboardTab = () => {
+export const NoticeboardTab = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { data: notices = [], isLoading } = useNotices({
@@ -1443,70 +1445,14 @@ const NoticeboardTab = () => {
   );
 };
 
-/* ============= ROOT ============= */
+/* ============= ROOT (Overview only — other tabs live in dedicated pages) ============= */
 const Communication = () => {
-  const [tab, setTab] = useState("overview");
   return (
     <DashboardLayout
       title="Communication"
-      subtitle="Messaging, templates, and noticeboard"
+      subtitle="Messaging, templates, and noticeboard overview"
     >
-      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-        <div className="overflow-x-auto">
-          <TabsList className="bg-muted/50 p-1 inline-flex">
-            <TabsTrigger value="overview" className="gap-1.5">
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="sms" className="gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              SMS
-            </TabsTrigger>
-            <TabsTrigger value="email" className="gap-1.5">
-              <Mail className="h-3.5 w-3.5" />
-              Email
-            </TabsTrigger>
-            <TabsTrigger value="noticeboard" className="gap-1.5">
-              <Megaphone className="h-3.5 w-3.5" />
-              Noticeboard
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" />
-              SMS Templates
-            </TabsTrigger>
-            <TabsTrigger value="sms-log" className="gap-1.5">
-              <History className="h-3.5 w-3.5" />
-              SMS Logs
-            </TabsTrigger>
-            <TabsTrigger value="email-log" className="gap-1.5">
-              <History className="h-3.5 w-3.5" />
-              Email Logs
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="overview">
-          <Overview goto={setTab} />
-        </TabsContent>
-        <TabsContent value="sms">
-          <SmsComposer />
-        </TabsContent>
-        <TabsContent value="email">
-          <EmailComposer />
-        </TabsContent>
-        <TabsContent value="noticeboard">
-          <NoticeboardTab />
-        </TabsContent>
-        <TabsContent value="templates">
-          <TemplatesTab />
-        </TabsContent>
-        <TabsContent value="sms-log">
-          <LogTable kind="sms" />
-        </TabsContent>
-        <TabsContent value="email-log">
-          <LogTable kind="email" />
-        </TabsContent>
-      </Tabs>
+      <Overview />
     </DashboardLayout>
   );
 };

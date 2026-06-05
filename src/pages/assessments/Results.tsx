@@ -5,10 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
   useAssessmentsList,
@@ -18,8 +27,17 @@ import {
   useRecomputeResultPositions,
   type ResultStatus,
 } from "@/hooks/useAssessments";
+import { useGrades, useStreams } from "@/hooks/useGrades";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  ClipboardCheck, RefreshCw, ListChecks, CheckCircle2, Send, Undo2, Trophy,
+  ClipboardCheck,
+  RefreshCw,
+  ListChecks,
+  CheckCircle2,
+  Send,
+  Undo2,
+  Trophy,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,15 +49,38 @@ const STATUS_COLORS: Record<ResultStatus, string> = {
   revoked: "bg-destructive/15 text-destructive",
 };
 
+const APPROVER_ROLES = [
+  "super_admin",
+  "admin",
+  "school_admin",
+  "deputy_admin",
+  "manager",
+];
+
 export default function Results() {
+  const { hasAnyRole } = useAuth();
+  const canApprove = hasAnyRole(APPROVER_ROLES as any);
+
   const { data: assessments = [] } = useAssessmentsList();
+  const { data: grades = [] } = useGrades();
   const [assessmentId, setAssessmentId] = useState<string>("");
+  const [gradeId, setGradeId] = useState<string>("");
+  const [streamId, setStreamId] = useState<string>("");
+  const { data: streams = [] } = useStreams(gradeId || undefined);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  const filters = useMemo(() => {
+    const f: Record<string, string> = {};
+    if (statusFilter) f.status = statusFilter;
+    if (gradeId) f.grade_id = gradeId;
+    if (streamId) f.stream_id = streamId;
+    return f;
+  }, [statusFilter, gradeId, streamId]);
+
   const { data: results = [], isLoading } = useAssessmentResults(
     assessmentId,
-    statusFilter ? { status: statusFilter } : {},
+    filters,
   );
   const compute = useComputeResults();
   const positions = useRecomputeResultPositions();
@@ -58,6 +99,11 @@ export default function Results() {
   const doStatus = (status: ResultStatus) => {
     if (!assessmentId) return;
     if (!selected.size) return toast.error("Select at least one result");
+    if (["approved", "published", "revoked"].includes(status) && !canApprove) {
+      return toast.error(
+        "Only admins or managers can approve, publish or revoke.",
+      );
+    }
     setStatus.mutate(
       { assessment_id: assessmentId, ids: Array.from(selected), status },
       { onSuccess: () => setSelected(new Set()) },
@@ -71,7 +117,9 @@ export default function Results() {
       results.reduce((sum, r) => sum + Number(r.percentage || 0), 0) /
       results.length;
     totals.published = results.filter((r) => r.status === "published").length;
-    totals.pending = results.filter((r) => r.status === "pending_review").length;
+    totals.pending = results.filter(
+      (r) => r.status === "pending_review",
+    ).length;
     return totals;
   }, [results]);
 
@@ -88,10 +136,20 @@ export default function Results() {
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[240px]">
-              <label className="text-xs text-muted-foreground">Assessment</label>
-              <Select value={assessmentId} onValueChange={(v) => { setAssessmentId(v); setSelected(new Set()); }}>
-                <SelectTrigger><SelectValue placeholder="Choose assessment" /></SelectTrigger>
+            <div className="min-w-[220px]">
+              <label className="text-xs text-muted-foreground">
+                Assessment
+              </label>
+              <Select
+                value={assessmentId}
+                onValueChange={(v) => {
+                  setAssessmentId(v);
+                  setSelected(new Set());
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose assessment" />
+                </SelectTrigger>
                 <SelectContent>
                   {assessments.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
@@ -101,10 +159,63 @@ export default function Results() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="min-w-[160px]">
+              <label className="text-xs text-muted-foreground">Class</label>
+              <Select
+                value={gradeId || "all"}
+                onValueChange={(v) => {
+                  setGradeId(v === "all" ? "" : v);
+                  setStreamId("");
+                  setSelected(new Set());
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All classes</SelectItem>
+                  {grades.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[160px]">
+              <label className="text-xs text-muted-foreground">Stream</label>
+              <Select
+                value={streamId || "all"}
+                onValueChange={(v) => {
+                  setStreamId(v === "all" ? "" : v);
+                  setSelected(new Set());
+                }}
+                disabled={!gradeId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={gradeId ? "All streams" : "Pick class"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All streams</SelectItem>
+                  {streams.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-xs text-muted-foreground">Status</label>
-              <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <Select
+                value={statusFilter || "all"}
+                onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="pending_review">Pending review</SelectItem>
@@ -120,7 +231,7 @@ export default function Results() {
               onClick={() => compute.mutate(assessmentId)}
             >
               <RefreshCw className="h-4 w-4 mr-1" />
-              {compute.isPending ? "Computing…" : "Compute results"}
+              {compute.isPending ? "Computing…" : "Compute"}
             </Button>
             <Button
               variant="outline"
@@ -132,12 +243,32 @@ export default function Results() {
           </div>
         </div>
 
+        {!canApprove && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            Teachers can submit results for review. Approving &amp; publishing
+            is restricted to admins and managers.
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Students", value: summary.count, icon: ListChecks },
-            { label: "Mean %", value: summary.mean ? summary.mean.toFixed(1) : "—", icon: Trophy },
-            { label: "Pending review", value: summary.pending, icon: ClipboardCheck },
-            { label: "Published", value: summary.published, icon: CheckCircle2 },
+            {
+              label: "Mean %",
+              value: summary.mean ? summary.mean.toFixed(1) : "—",
+              icon: Trophy,
+            },
+            {
+              label: "Pending review",
+              value: summary.pending,
+              icon: ClipboardCheck,
+            },
+            {
+              label: "Published",
+              value: summary.published,
+              icon: CheckCircle2,
+            },
           ].map((c, i) => (
             <Card key={i}>
               <CardContent className="p-4 flex items-center justify-between">
@@ -156,26 +287,40 @@ export default function Results() {
             <CardTitle>Results roster</CardTitle>
             <div className="flex flex-wrap gap-2">
               <Button
-                size="sm" variant="outline"
-                disabled={!selected.size || setStatus.isPending}
-                onClick={() => doStatus("approved")}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
-              </Button>
-              <Button
                 size="sm"
+                variant="outline"
                 disabled={!selected.size || setStatus.isPending}
-                onClick={() => doStatus("published")}
+                onClick={() => doStatus("pending_review")}
               >
-                <Send className="h-4 w-4 mr-1" /> Publish
+                <Send className="h-4 w-4 mr-1" /> Submit for review
               </Button>
-              <Button
-                size="sm" variant="ghost"
-                disabled={!selected.size || setStatus.isPending}
-                onClick={() => doStatus("revoked")}
-              >
-                <Undo2 className="h-4 w-4 mr-1" /> Revoke
-              </Button>
+              {canApprove && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!selected.size || setStatus.isPending}
+                    onClick={() => doStatus("approved")}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!selected.size || setStatus.isPending}
+                    onClick={() => doStatus("published")}
+                  >
+                    <Send className="h-4 w-4 mr-1" /> Publish
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={!selected.size || setStatus.isPending}
+                    onClick={() => doStatus("revoked")}
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" /> Revoke
+                  </Button>
+                </>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -186,7 +331,9 @@ export default function Results() {
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={(v) =>
-                        setSelected(v ? new Set(results.map((r) => r.id)) : new Set())
+                        setSelected(
+                          v ? new Set(results.map((r) => r.id)) : new Set(),
+                        )
                       }
                     />
                   </TableHead>
@@ -210,29 +357,43 @@ export default function Results() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{r.class_position ?? i + 1}</Badge>
+                      <Badge variant="outline">
+                        {r.class_position ?? i + 1}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{r.first_name} {r.last_name}</div>
-                      <div className="text-xs text-muted-foreground">{r.admission_number}</div>
+                      <div className="font-medium">
+                        {r.first_name} {r.last_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {r.admission_number}
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs">
-                      {r.grade_name}{r.stream_name ? ` · ${r.stream_name}` : ""}
+                      {r.grade_name}
+                      {r.stream_name ? ` · ${r.stream_name}` : ""}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {Number(r.total_score).toFixed(0)} / {Number(r.total_out_of).toFixed(0)}
+                      {Number(r.total_score).toFixed(0)} /{" "}
+                      {Number(r.total_out_of).toFixed(0)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {Number(r.percentage || 0).toFixed(1)}
                     </TableCell>
                     <TableCell>
-                      {r.overall_al ? <Badge variant="outline">{r.overall_al}</Badge> : "—"}
+                      {r.overall_al ? (
+                        <Badge variant="outline">{r.overall_al}</Badge>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell>
                       {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}
                     </TableCell>
                     <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}
+                      >
                         {r.status.replace("_", " ")}
                       </span>
                     </TableCell>
@@ -240,12 +401,15 @@ export default function Results() {
                 ))}
                 {!results.length && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                    <TableCell
+                      colSpan={9}
+                      className="text-center text-muted-foreground py-10"
+                    >
                       {!assessmentId
                         ? "Select an assessment to view results."
                         : isLoading
-                        ? "Loading…"
-                        : "No results yet — click Compute results."}
+                          ? "Loading…"
+                          : "No results yet — click Compute."}
                     </TableCell>
                   </TableRow>
                 )}

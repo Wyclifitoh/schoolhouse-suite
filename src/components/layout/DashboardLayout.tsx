@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  ArrowUpRight,
   Download,
   FileText,
   GraduationCap,
@@ -38,10 +39,31 @@ import {
   User,
   Shield,
   Timer,
+  LayoutDashboard,
+  TrendingUp,
+  Banknote,
+  Percent,
+  Scale,
+  Accessibility,
+  DollarSign,
+  Star,
+  BellRing,
+  Mail,
+  ShoppingCart,
+  ArchiveIcon,
+  BookOpenCheck,
+  PenTool,
+  UserCog,
+  TableProperties,
+  FileBadge,
+  CheckSquare,
+  ListChecks,
+  Sparkles,
+  Activity,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { AppRole, useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { SessionBanner } from "@/components/layout/SessionBanner";
@@ -67,22 +89,55 @@ import {
 import { createPortal } from "react-dom";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
-const ADMIN_ROLES = ["super_admin", "school_admin", "deputy_admin"] as const;
-const FINANCE_ROLES = [...ADMIN_ROLES, "finance_officer"] as const;
-const ACADEMIC_ROLES = [...ADMIN_ROLES, "teacher"] as const;
-const INVENTORY_ROLES = [
-  ...ADMIN_ROLES,
-  "store_manager",
-  "pos_attendant",
-] as const;
-const ALL_ROLES = [
-  ...ADMIN_ROLES,
-  "finance_officer",
+// Role-based access helpers - IMPLEMENTED
+const SUPER_ADMIN_ROLES: AppRole[] = ["super_admin"];
+const ADMIN_ROLES: AppRole[] = ["super_admin", "admin"];
+const MANAGER_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
+const TEACHER_ROLES: AppRole[] = ["super_admin", "admin", "teacher"];
+const ACCOUNTANT_ROLES: AppRole[] = ["super_admin", "admin", "accountant"];
+const RECEPTIONIST_ROLES: AppRole[] = ["super_admin", "admin", "receptionist"];
+const LIBRARIAN_ROLES: AppRole[] = ["super_admin", "admin", "librarian"];
+
+// Combined role helpers for common access patterns
+const ALL_STAFF_ROLES: AppRole[] = [
+  "super_admin",
+  "admin",
+  "manager",
   "teacher",
-  "front_office",
-  "store_manager",
-  "pos_attendant",
-] as const;
+  "accountant",
+  "receptionist",
+  "librarian",
+];
+const ACADEMIC_STAFF_ROLES: AppRole[] = ["super_admin", "admin", "teacher"];
+const FINANCE_STAFF_ROLES: AppRole[] = ["super_admin", "admin", "accountant"];
+const HR_STAFF_ROLES: AppRole[] = ["super_admin", "admin", "manager"];
+
+// Future modules (commented out until implemented)
+// const TRANSPORT_ROLES: AppRole[] = ["super_admin", "admin", "transport_manager"];
+// const HOSTEL_ROLES: AppRole[] = ["super_admin", "admin", "hostel_manager"];
+// const CLINIC_ROLES: AppRole[] = ["super_admin", "admin", "nurse"];
+// const DISCIPLINE_ROLES: AppRole[] = ["super_admin", "admin", "discipline_officer"];
+// const VISITOR_ROLES: AppRole[] = ["super_admin", "admin", "security"];
+// const ALUMNI_ROLES: AppRole[] = ["super_admin", "admin", "alumni_officer"];
+
+// const ADMIN_ROLES: AppRole[] = ["super_admin", "admin"];
+// const FINANCE_ROLES: AppRole[] = [...ADMIN_ROLES, "accountant"];
+// const ACADEMIC_ROLES: AppRole[] = [...ADMIN_ROLES, "teacher"];
+// const HR_ROLES: AppRole[] = [...ADMIN_ROLES, "manager"];
+// const FRONT_OFFICE_ROLES: AppRole[] = [...ADMIN_ROLES, "receptionist"];
+// const LIBRARY_ROLES: AppRole[] = [...ADMIN_ROLES, "librarian"];
+
+// const ADMIN_ROLES = ["super_admin", "admin"] as const;
+// const FINANCE_ROLES = [...ADMIN_ROLES, "accountant"] as const;
+// const ACADEMIC_ROLES = [...ADMIN_ROLES, "teacher"] as const;
+// const INVENTORY_ROLES = [...ADMIN_ROLES, "manager"] as const;
+// const ALL_ROLES = [
+//   ...ADMIN_ROLES,
+//   "accountant",
+//   "teacher",
+//   "librarian",
+//   "receptionist",
+// ] as const;
 
 interface NavItem {
   title: string;
@@ -97,73 +152,63 @@ interface NavGroup {
 }
 
 const navigationGroups: NavGroup[] = [
+  // Dashboard
   {
     label: "Dashboard",
-    icon: Home,
+    icon: LayoutDashboard,
     items: [
-      { title: "Dashboard", url: "/dashboard", icon: Home, roles: ALL_ROLES },
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+        roles: ALL_STAFF_ROLES,
+      },
     ],
   },
+
+  // Student Management
   {
-    label: "Student Info",
+    label: "Student Management",
     icon: GraduationCap,
     items: [
       {
-        title: "All Students",
+        title: "Students",
         url: "/students",
         icon: GraduationCap,
-        roles: [...ADMIN_ROLES, "teacher", "front_office"],
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
       },
       {
-        title: "Parents / Guardians",
+        title: "Disabled Students",
+        url: "/students/disabled",
+        icon: Accessibility,
+        roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
+      },
+      {
+        title: "Parents",
         url: "/parents",
         icon: Users,
-        roles: [...ADMIN_ROLES, "front_office"],
+        roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
       },
       {
-        title: "Student Promotion",
+        title: "Attendance",
+        url: "/attendance",
+        icon: Calendar,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Promotion",
         url: "/promotion",
-        icon: UserCheck,
+        icon: TrendingUp,
         roles: ADMIN_ROLES,
       },
     ],
   },
-  {
-    label: "Fee Collection",
-    icon: Wallet,
-    items: [
-      {
-        title: "Fee Dashboard",
-        url: "/finance",
-        icon: Wallet,
-        roles: FINANCE_ROLES,
-      },
-      {
-        title: "Fee Assignment",
-        url: "/fee-assignment",
-        icon: Receipt,
-        roles: FINANCE_ROLES,
-      },
-      {
-        title: "Collect Payment",
-        url: "/payments",
-        icon: CreditCard,
-        roles: [...FINANCE_ROLES, "front_office"],
-      },
-      {
-        title: "Excess Payments",
-        url: "/excess-payments",
-        icon: Wallet,
-        roles: FINANCE_ROLES,
-      },
-      {
-        title: "Fee Reminders",
-        url: "/fee-reminders",
-        icon: Bell,
-        roles: FINANCE_ROLES,
-      },
-    ],
-  },
+
+  // Academics
   {
     label: "Academics",
     icon: BookOpen,
@@ -172,31 +217,31 @@ const navigationGroups: NavGroup[] = [
         title: "Classes",
         url: "/classes",
         icon: School,
-        roles: ACADEMIC_ROLES,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
         title: "Streams",
         url: "/streams",
         icon: Layers,
-        roles: ACADEMIC_ROLES,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
         title: "Subjects",
         url: "/subjects",
         icon: BookOpen,
-        roles: ACADEMIC_ROLES,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
-        title: "Timetable",
-        url: "/class-timetable",
-        icon: Calendar,
-        roles: ACADEMIC_ROLES,
+        title: "Subject Allocation",
+        url: "/subject-allocation",
+        icon: Layers,
+        roles: ADMIN_ROLES,
       },
       {
-        title: "Teacher Timetable",
-        url: "/teacher-timetable",
-        icon: Calendar,
-        roles: ACADEMIC_ROLES,
+        title: "Teacher Allocation",
+        url: "/teacher-allocation",
+        icon: UserCog,
+        roles: ADMIN_ROLES,
       },
       {
         title: "Assign Class Teacher",
@@ -204,99 +249,276 @@ const navigationGroups: NavGroup[] = [
         icon: UserCheck,
         roles: ADMIN_ROLES,
       },
-    ],
-  },
-  {
-    label: "Examinations",
-    icon: ClipboardList,
-    items: [
       {
-        title: "Exam Management",
-        url: "/examinations",
-        icon: ClipboardList,
-        roles: ACADEMIC_ROLES,
+        title: "Class Timetable",
+        url: "/class-timetable",
+        icon: TableProperties,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Teacher Timetable",
+        url: "/teacher-timetable",
+        icon: Clock,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Lesson Plans (CBE)",
+        url: "/lesson-plans",
+        icon: BookOpenCheck,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Homework",
+        url: "/homework",
+        icon: PenTool,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Clubs & Societies",
+        url: "/clubs",
+        icon: Sparkles,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
     ],
   },
+
+  // Assessments & Reports
   {
-    label: "Attendance",
-    icon: Clipboard,
+    label: "Assessments & Reports",
+    icon: FileBadge,
     items: [
       {
-        title: "Student Attendance",
-        url: "/attendance",
+        title: "Assessments",
+        url: "/assessments",
         icon: ClipboardList,
-        roles: ACADEMIC_ROLES,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
-        title: "Staff Attendance",
-        url: "/staff-attendance",
-        icon: Clipboard,
+        title: "Assessment Tasks",
+        url: "/assessments/tasks",
+        icon: ListChecks,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Results",
+        url: "/assessments/results",
+        icon: CheckSquare,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Report Cards",
+        url: "/assessments/report-cards",
+        icon: FileBadge,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Report Templates",
+        url: "/assessments/templates",
+        icon: FileBadge,
         roles: ADMIN_ROLES,
       },
+      {
+        title: "Remark Templates",
+        url: "/assessments/remark-bands",
+        icon: MessageSquare,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Analytics",
+        url: "/assessments/analytics",
+        icon: BarChart3,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...MANAGER_ROLES,
+        ] as AppRole[],
+      },
     ],
   },
+
+  // Finance
   {
-    label: "Human Resource",
+    label: "Finance",
+    icon: Banknote,
+    items: [
+      {
+        title: "Finance Dashboard",
+        url: "/finance",
+        icon: Banknote,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Fee Assignment",
+        url: "/fee-assignment",
+        icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Brought Forward Balances",
+        url: "/finance/brought-forward",
+        icon: ArrowUpRight,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Payments",
+        url: "/payments",
+        icon: Wallet,
+        roles: [
+          ...ADMIN_ROLES,
+          ...ACCOUNTANT_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Fee Discounts",
+        url: "/fee-discounts",
+        icon: Percent,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Excess Payments",
+        url: "/excess-payments",
+        icon: TrendingUp,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Unallocated Payments",
+        url: "/unallocated-payments",
+        icon: Archive,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Fee Adjustments",
+        url: "/fee-adjustments",
+        icon: Scale,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Fee Reminders",
+        url: "/fee-reminders",
+        icon: Bell,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Expenses",
+        url: "/expenses",
+        icon: Wallet,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+    ],
+  },
+
+  // Human Resources
+  {
+    label: "Human Resources",
     icon: Briefcase,
     items: [
       {
         title: "Staff Directory",
         url: "/staff-directory",
-        icon: Briefcase,
-        roles: ADMIN_ROLES,
+        icon: Users,
+        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
       },
       {
         title: "Departments",
         url: "/departments",
         icon: Building2,
+        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+      },
+      {
+        title: "Designations",
+        url: "/designations",
+        icon: UserCog,
         roles: ADMIN_ROLES,
+      },
+      {
+        title: "Staff Attendance",
+        url: "/staff-attendance",
+        icon: Calendar,
+        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
       },
       {
         title: "Leave Management",
         url: "/leave-management",
-        icon: Calendar,
+        icon: Clock,
+        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+      },
+      {
+        title: "Payroll",
+        url: "/payroll",
+        icon: DollarSign,
         roles: ADMIN_ROLES,
       },
-      { title: "Payroll", url: "/payroll", icon: Wallet, roles: FINANCE_ROLES },
-    ],
-  },
-  {
-    label: "Expense",
-    icon: Receipt,
-    items: [
       {
-        title: "Expenses",
-        url: "/expenses",
-        icon: Receipt,
-        roles: FINANCE_ROLES,
+        title: "Staff Ratings",
+        url: "/ratings",
+        icon: Star,
+        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
       },
     ],
   },
+
+  // Communication
   {
     label: "Communication",
     icon: MessageSquare,
     items: [
       {
-        title: "Notice Board",
+        title: "Communication",
         url: "/communication",
         icon: MessageSquare,
-        roles: [...ADMIN_ROLES, "teacher", "front_office"],
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
       },
-    ],
-  },
-  {
-    label: "Homework",
-    icon: FileText,
-    items: [
       {
-        title: "Homework",
-        url: "/homework",
+        title: "Notices",
+        url: "/communication/noticeboard",
+        icon: BellRing,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "SMS",
+        url: "/communication/sms",
+        icon: MessageSquare,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Email",
+        url: "/communication/email",
+        icon: Mail,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Messaging Templates",
+        url: "/communication/templates",
         icon: FileText,
-        roles: ACADEMIC_ROLES,
+        roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
+      },
+      {
+        title: "Events Calendar",
+        url: "/events",
+        icon: Calendar,
+        roles: ALL_STAFF_ROLES,
       },
     ],
   },
+
+  // Library
   {
     label: "Library",
     icon: Library,
@@ -305,91 +527,155 @@ const navigationGroups: NavGroup[] = [
         title: "Library",
         url: "/library",
         icon: Library,
-        roles: [...ADMIN_ROLES, "teacher"],
+        roles: [...ADMIN_ROLES, ...LIBRARIAN_ROLES] as AppRole[],
       },
     ],
   },
+
+  // Inventory & Store
   {
-    label: "Inventory",
+    label: "Inventory & Store",
     icon: Package,
     items: [
       {
-        title: "Store & POS",
+        title: "Overview",
         url: "/inventory",
         icon: Package,
-        roles: INVENTORY_ROLES,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Catalog",
+        url: "/inventory/catalog",
+        icon: Package,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Categories",
+        url: "/inventory/categories",
+        icon: Layers,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Make Sale",
+        url: "/inventory/sell",
+        icon: CreditCard,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Sales History",
+        url: "/inventory/history",
+        icon: Clipboard,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Suppliers",
+        url: "/inventory/suppliers",
+        icon: Truck,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Purchase Orders",
+        url: "/inventory/purchase-orders",
+        icon: ShoppingCart,
+        roles: ADMIN_ROLES,
       },
     ],
   },
+
+  // Reports
   {
     label: "Reports",
     icon: BarChart3,
     items: [
       {
-        title: "Finance Reports",
-        url: "/reports/finance",
-        icon: Wallet,
-        roles: FINANCE_ROLES,
-      },
-      {
         title: "Student Reports",
         url: "/reports/students",
         icon: GraduationCap,
-        roles: ACADEMIC_ROLES,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...MANAGER_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Assessment Reports",
+        url: "/reports/assessments",
+        icon: FileBadge,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...MANAGER_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Finance Reports",
+        url: "/reports/finance",
+        icon: Banknote,
+        roles: [
+          ...ADMIN_ROLES,
+          ...ACCOUNTANT_ROLES,
+          ...MANAGER_ROLES,
+        ] as AppRole[],
       },
       {
         title: "Attendance Reports",
         url: "/reports/attendance",
-        icon: ClipboardList,
-        roles: ACADEMIC_ROLES,
-      },
-      {
-        title: "Exam Reports",
-        url: "/reports/examinations",
-        icon: Award,
-        roles: ACADEMIC_ROLES,
+        icon: Calendar,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...MANAGER_ROLES,
+        ] as AppRole[],
       },
       {
         title: "HR Reports",
         url: "/reports/hr",
         icon: Briefcase,
-        roles: ADMIN_ROLES,
+        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
       },
       {
         title: "Library Reports",
         url: "/reports/library",
         icon: Library,
-        roles: ADMIN_ROLES,
+        roles: [...ADMIN_ROLES, ...LIBRARIAN_ROLES] as AppRole[],
       },
       {
         title: "Audit Trail",
-        url: "/reports/audit-trail",
-        icon: ScrollText,
+        url: "/audit-trail",
+        icon: Shield,
         roles: ADMIN_ROLES,
       },
       {
         title: "User Logs",
-        url: "/reports/user-logs",
-        icon: Clock,
+        url: "/user-logs",
+        icon: Activity,
+        roles: ADMIN_ROLES,
+      },
+    ],
+  },
+
+  // Administration
+  {
+    label: "Administration",
+    icon: Settings,
+    items: [
+      {
+        title: "Academic Settings",
+        url: "/settings/academic",
+        icon: BookOpen,
         roles: ADMIN_ROLES,
       },
       {
         title: "Archives",
         url: "/archives",
-        icon: Archive,
+        icon: ArchiveIcon,
         roles: ADMIN_ROLES,
       },
-    ],
-  },
-  {
-    label: "Settings",
-    icon: Settings,
-    items: [
       {
-        title: "Settings",
-        url: "/settings",
+        title: "System Settings",
+        url: "/settings/system",
         icon: Settings,
-        roles: ADMIN_ROLES,
+        roles: SUPER_ADMIN_ROLES,
       },
     ],
   },

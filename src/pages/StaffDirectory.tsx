@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,225 +34,503 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Search,
   Plus,
   UserCircle,
-  Mail,
-  Phone,
-  Building2,
   Edit,
   Eye,
+  Trash2,
+  Mail,
+  Phone,
+  KeyRound,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
-const ROLES = [
-  "Manager",
-  "Teacher",
-  "Accountant",
-  "Librarian",
-  "Receptionist",
-  "Super Admin",
-  "Admin",
+// HR 2026 — canonical 7 staff roles
+const STAFF_ROLES = [
+  { value: "super_admin", label: "Super Admin" },
+  { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "accountant", label: "Accountant" },
+  { value: "librarian", label: "Librarian" },
+  { value: "teacher", label: "Teacher" },
+  { value: "receptionist", label: "Receptionist" },
 ];
-const GENDERS = ["Male", "Female"];
-const MARITAL_STATUSES = [
-  "Single",
-  "Married",
-  "Widowed",
-  "Separated",
-  "Not Specified",
-];
-const CONTRACT_TYPES = ["Permanent", "Probation"];
+
+const GENDERS = ["male", "female"];
+const STATUSES = ["active", "inactive", "terminated"];
+
+const emptyForm = {
+  employee_number: "",
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  gender: "",
+  date_of_birth: "",
+  join_date: "",
+  department_id: "",
+  designation_id: "",
+  qualification: "",
+  salary: "",
+  address: "",
+  id_number: "",
+  kra_pin: "",
+  nhif_number: "",
+  nssf_number: "",
+  bank_name: "",
+  bank_account: "",
+  role: "teacher",
+  status: "active",
+  // teacher extras
+  tsc_number: "",
+  specialization: "",
+  bio: "",
+};
 
 export default function StaffDirectory() {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [viewStaff, setViewStaff] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("basic");
-
-  const [form, setForm] = useState({
-    staff_id_number: "",
-    first_name: "",
-    last_name: "",
-    father_name: "",
-    mother_name: "",
-    email: "",
-    gender: "",
-    date_of_birth: "",
-    date_of_joining: "",
-    phone: "",
-    id_number: "",
-    kra_pin: "",
-    emergency_contact: "",
-    marital_status: "not_specified",
-    address: "",
-    permanent_address: "",
-    qualification: "",
-    work_experience: "",
-    note: "",
-    department_id: "",
-    designation_id: "",
-    role: "",
-    epf_no: "",
-    basic_salary: "",
-    contract_type: "permanent",
-    work_shift: "",
-    work_location: "",
-    medical_leave_quota: "12",
-    paternity_leave_quota: "14",
-    maternity_leave_quota: "90",
-    other_leave_quota: "10",
-    account_title: "",
-    bank_account_number: "",
-    bank_name: "",
-    ifsc_code: "",
-    bank_branch_name: "",
-    facebook_url: "",
-    twitter_url: "",
-    linkedin_url: "",
-    instagram_url: "",
-  });
+  const [editStaff, setEditStaff] = useState<any>(null);
+  const [deleteStaff, setDeleteStaff] = useState<any>(null);
+  const [tab, setTab] = useState("basic");
+  const [form, setForm] = useState({ ...emptyForm });
 
   const { data: staffList = [], isLoading } = useQuery({
     queryKey: ["staff", schoolId],
-    queryFn: async () => {
-      const rows = await api.get<any[]>("/staff");
-      return rows || [];
-    },
+    queryFn: () => api.get<any[]>("/staff"),
     enabled: !!schoolId,
   });
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", schoolId],
-    queryFn: async () => {
-      const rows = await api.get<any[]>("/departments");
-      return rows || [];
-    },
+    queryFn: () => api.get<any[]>("/departments"),
     enabled: !!schoolId,
   });
 
   const { data: designations = [] } = useQuery({
     queryKey: ["designations", schoolId],
-    queryFn: async () => {
-      const rows = await api.get<any[]>("/designations");
-      return rows || [];
-    },
+    queryFn: () => api.get<any[]>("/designations"),
     enabled: !!schoolId,
   });
 
+  const buildPayload = () => ({
+    employee_number: form.employee_number,
+    first_name: form.first_name,
+    last_name: form.last_name,
+    email: form.email || null,
+    phone: form.phone || null,
+    gender: form.gender || null,
+    date_of_birth: form.date_of_birth || null,
+    join_date: form.join_date || null,
+    department_id: form.department_id || null,
+    designation_id: form.designation_id || null,
+    qualification: form.qualification || null,
+    salary: form.salary ? parseFloat(form.salary) : 0,
+    address: form.address || null,
+    id_number: form.id_number || null,
+    kra_pin: form.kra_pin || null,
+    nhif_number: form.nhif_number || null,
+    nssf_number: form.nssf_number || null,
+    bank_name: form.bank_name || null,
+    bank_account: form.bank_account || null,
+    role: form.role,
+    status: form.status,
+    tsc_number: form.tsc_number || null,
+    specialization: form.specialization || null,
+    bio: form.bio || null,
+    school_name: currentSchool?.name,
+  });
+
   const addStaffMutation = useMutation({
-    mutationFn: async () => {
-      if (!schoolId) throw new Error("No school selected");
-
-      const payload = {
-        school_id: schoolId,
-        employee_number: form.staff_id_number,
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email || null,
-        phone: form.phone || null,
-        gender: form.gender || null,
-        date_of_birth: form.date_of_birth || null,
-        join_date: form.date_of_joining || null,
-        department_id: form.department_id || null,
-        designation_id: form.designation_id || null,
-        qualification: form.qualification || null,
-        salary: form.basic_salary ? parseFloat(form.basic_salary) : 0,
-        address: form.address || null,
-        id_number: form.id_number || null,
-        kra_pin: form.kra_pin || null,
-        bank_name: form.bank_name || null,
-        bank_account: form.bank_account_number || null,
-        status: "active",
-        role: form.role || null,
-      };
-
-      return api.post("/staff", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["staff"] });
+    mutationFn: () => api.post<any>("/staff", buildPayload()),
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ["staff"] });
       setIsAddOpen(false);
-      if (typeof resetForm === "function") resetForm();
-      toast({ title: "Staff member added successfully" });
+      setForm({ ...emptyForm });
+      setTab("basic");
+      const c = data?.credentials_sent;
+      const channels: string[] = [];
+      if (c?.email?.ok) channels.push("Email");
+      if (c?.sms?.ok) channels.push("SMS");
+      const msg = c
+        ? channels.length
+          ? `Login credentials sent via ${channels.join(" + ")}`
+          : "Staff created. Credentials delivery failed — share manually."
+        : "Staff created (existing user re-linked).";
+      toast({ title: "Staff added", description: msg });
     },
     onError: (err: any) =>
       toast({
         title: "Error",
-        description: err.message || "Failed to add staff member",
+        description: err.message || "Failed to add staff",
         variant: "destructive",
       }),
   });
 
-  const resetForm = () => {
+  const updateStaffMutation = useMutation({
+    mutationFn: (id: string) => api.patch(`/staff/${id}`, buildPayload()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      setEditStaff(null);
+      setForm({ ...emptyForm });
+      toast({ title: "Staff updated" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/staff/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      setDeleteStaff(null);
+      toast({ title: "Staff removed" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const openEdit = (s: any) => {
     setForm({
-      staff_id_number: "",
-      first_name: "",
-      last_name: "",
-      father_name: "",
-      mother_name: "",
-      email: "",
-      gender: "",
-      date_of_birth: "",
-      date_of_joining: "",
-      phone: "",
-      id_number: "",
-      kra_pin: "",
-      emergency_contact: "",
-      marital_status: "not_specified",
-      address: "",
-      permanent_address: "",
-      qualification: "",
-      work_experience: "",
-      note: "",
-      department_id: "",
-      designation_id: "",
-      role: "",
-      epf_no: "",
-      basic_salary: "",
-      contract_type: "permanent",
-      work_shift: "",
-      work_location: "",
-      medical_leave_quota: "12",
-      paternity_leave_quota: "14",
-      maternity_leave_quota: "90",
-      other_leave_quota: "10",
-      account_title: "",
-      bank_account_number: "",
-      bank_name: "",
-      ifsc_code: "",
-      bank_branch_name: "",
-      facebook_url: "",
-      twitter_url: "",
-      linkedin_url: "",
-      instagram_url: "",
+      ...emptyForm,
+      ...Object.fromEntries(Object.keys(emptyForm).map((k) => [k, s[k] ?? ""])),
+      salary: s.salary?.toString() || "",
+      role: s.role || "teacher",
+      status: s.status || "active",
     });
-    setActiveTab("basic");
+    setEditStaff(s);
   };
 
-  const filtered = staffList.filter((s: any) =>
-    `${s.first_name} ${s.last_name} ${s.staff_id_number} ${s.email}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const filtered = staffList.filter((s: any) => {
+    const matchesSearch =
+      `${s.first_name} ${s.last_name} ${s.employee_number} ${s.email}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
+    const matchesRole = roleFilter === "all" || s.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
+  const isTeacher = form.role === "teacher";
+
+  const StaffForm = (
+    <Tabs value={tab} onValueChange={setTab}>
+      <TabsList className="grid grid-cols-4 w-full">
+        <TabsTrigger value="basic">Basic</TabsTrigger>
+        <TabsTrigger value="employment">Employment</TabsTrigger>
+        <TabsTrigger value="statutory">Statutory & Bank</TabsTrigger>
+        <TabsTrigger value="teacher" disabled={!isTeacher}>
+          Teacher
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="basic" className="space-y-3 mt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Employee # *</Label>
+            <Input
+              value={form.employee_number}
+              onChange={(e) => set("employee_number", e.target.value)}
+              placeholder="EMP-001"
+            />
+          </div>
+          <div>
+            <Label>Role *</Label>
+            <Select value={form.role} onValueChange={(v) => set("role", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STAFF_ROLES.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>First Name *</Label>
+            <Input
+              value={form.first_name}
+              onChange={(e) => set("first_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Last Name *</Label>
+            <Input
+              value={form.last_name}
+              onChange={(e) => set("last_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              placeholder="2547XXXXXXXX"
+            />
+          </div>
+          <div>
+            <Label>Gender</Label>
+            <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {GENDERS.map((g) => (
+                  <SelectItem key={g} value={g} className="capitalize">
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Date of Birth</Label>
+            <Input
+              type="date"
+              value={form.date_of_birth}
+              onChange={(e) => set("date_of_birth", e.target.value)}
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Address</Label>
+          <Textarea
+            value={form.address}
+            onChange={(e) => set("address", e.target.value)}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground border-l-2 border-primary/40 pl-3 py-1 bg-muted/30 rounded">
+          <KeyRound className="h-3 w-3 inline mr-1" />A login account is created
+          automatically. A temporary password will be sent via email + SMS.
+        </p>
+      </TabsContent>
+
+      <TabsContent value="employment" className="space-y-3 mt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Department</Label>
+            <Select
+              value={form.department_id}
+              onValueChange={(v) => set("department_id", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Designation</Label>
+            <Select
+              value={form.designation_id}
+              onValueChange={(v) => set("designation_id", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {designations.map((d: any) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Join Date</Label>
+            <Input
+              type="date"
+              value={form.join_date}
+              onChange={(e) => set("join_date", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Basic Salary (KES)</Label>
+            <Input
+              type="number"
+              value={form.salary}
+              onChange={(e) => set("salary", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Qualification</Label>
+            <Input
+              value={form.qualification}
+              onChange={(e) => set("qualification", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Select value={form.status} onValueChange={(v) => set("status", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="statutory" className="space-y-3 mt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>National ID</Label>
+            <Input
+              value={form.id_number}
+              onChange={(e) => set("id_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>KRA PIN</Label>
+            <Input
+              value={form.kra_pin}
+              onChange={(e) => set("kra_pin", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>NHIF / SHIF #</Label>
+            <Input
+              value={form.nhif_number}
+              onChange={(e) => set("nhif_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>NSSF #</Label>
+            <Input
+              value={form.nssf_number}
+              onChange={(e) => set("nssf_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Bank Name</Label>
+            <Input
+              value={form.bank_name}
+              onChange={(e) => set("bank_name", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Bank Account</Label>
+            <Input
+              value={form.bank_account}
+              onChange={(e) => set("bank_account", e.target.value)}
+            />
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="teacher" className="space-y-3 mt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>TSC Number</Label>
+            <Input
+              value={form.tsc_number}
+              onChange={(e) => set("tsc_number", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Specialization</Label>
+            <Input
+              value={form.specialization}
+              onChange={(e) => set("specialization", e.target.value)}
+              placeholder="e.g. Mathematics / Physics"
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Bio</Label>
+          <Textarea
+            value={form.bio}
+            onChange={(e) => set("bio", e.target.value)}
+          />
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 
-  const updateField = (key: string, value: string) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const headlineStats = [
+    { label: "Total Staff", value: staffList.length },
+    {
+      label: "Active",
+      value: staffList.filter((s: any) => s.status === "active").length,
+    },
+    {
+      label: "Teachers",
+      value: staffList.filter((s: any) => s.role === "teacher").length,
+    },
+    {
+      label: "Departments",
+      value: new Set(staffList.map((s: any) => s.department_id).filter(Boolean))
+        .size,
+    },
+  ];
 
   return (
-    <DashboardLayout title="Staff Directory">
+    <DashboardLayout
+      title="Staff Directory"
+      subtitle="Manage your school workforce"
+    >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-muted-foreground">Manage all staff members</p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            All staff members across the 7 canonical roles.
+          </p>
           <Dialog
             open={isAddOpen}
             onOpenChange={(o) => {
               setIsAddOpen(o);
-              if (!o) resetForm();
+              if (!o) {
+                setForm({ ...emptyForm });
+                setTab("basic");
+              }
             }}
           >
             <DialogTrigger asChild>
@@ -262,461 +539,11 @@ export default function StaffDirectory() {
                 Add Staff
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Staff Member</DialogTitle>
               </DialogHeader>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-6 w-full">
-                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                  <TabsTrigger value="payroll">Payroll</TabsTrigger>
-                  <TabsTrigger value="leaves">Leaves</TabsTrigger>
-                  <TabsTrigger value="bank">Bank Details</TabsTrigger>
-                  <TabsTrigger value="social">Social</TabsTrigger>
-                  <TabsTrigger value="other">Other</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="basic" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Staff ID *</Label>
-                      <Input
-                        value={form.staff_id_number}
-                        onChange={(e) =>
-                          updateField("staff_id_number", e.target.value)
-                        }
-                        placeholder="e.g. STF-001"
-                      />
-                    </div>
-                    <div>
-                      <Label>Role *</Label>
-                      <Select
-                        value={form.role}
-                        onValueChange={(v) => updateField("role", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ROLES.map((r) => (
-                            <SelectItem
-                              key={r}
-                              value={r.toLowerCase().replace(/ /g, "_")}
-                            >
-                              {r}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Department</Label>
-                      <Select
-                        value={form.department_id}
-                        onValueChange={(v) => updateField("department_id", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {departments.map((d: any) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Designation</Label>
-                      <Select
-                        value={form.designation_id}
-                        onValueChange={(v) => updateField("designation_id", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {designations.map((d: any) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>First Name *</Label>
-                      <Input
-                        value={form.first_name}
-                        onChange={(e) =>
-                          updateField("first_name", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Last Name</Label>
-                      <Input
-                        value={form.last_name}
-                        onChange={(e) =>
-                          updateField("last_name", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Father Name</Label>
-                      <Input
-                        value={form.father_name}
-                        onChange={(e) =>
-                          updateField("father_name", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Mother Name</Label>
-                      <Input
-                        value={form.mother_name}
-                        onChange={(e) =>
-                          updateField("mother_name", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={form.email}
-                        onChange={(e) => updateField("email", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label>Gender *</Label>
-                      <Select
-                        value={form.gender}
-                        onValueChange={(v) => updateField("gender", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {GENDERS.map((g) => (
-                            <SelectItem key={g} value={g.toLowerCase()}>
-                              {g}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Date of Birth</Label>
-                      <Input
-                        type="date"
-                        value={form.date_of_birth}
-                        onChange={(e) =>
-                          updateField("date_of_birth", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Date of Joining</Label>
-                      <Input
-                        type="date"
-                        value={form.date_of_joining}
-                        onChange={(e) =>
-                          updateField("date_of_joining", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Phone</Label>
-                      <Input
-                        value={form.phone}
-                        onChange={(e) => updateField("phone", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label>Emergency Contact</Label>
-                      <Input
-                        value={form.emergency_contact}
-                        onChange={(e) =>
-                          updateField("emergency_contact", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Marital Status</Label>
-                      <Select
-                        value={form.marital_status}
-                        onValueChange={(v) => updateField("marital_status", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MARITAL_STATUSES.map((s) => (
-                            <SelectItem
-                              key={s}
-                              value={s.toLowerCase().replace(/ /g, "_")}
-                            >
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Address</Label>
-                    <Textarea
-                      value={form.address}
-                      onChange={(e) => updateField("address", e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label>Permanent Address</Label>
-                    <Textarea
-                      value={form.permanent_address}
-                      onChange={(e) =>
-                        updateField("permanent_address", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Qualification</Label>
-                    <Input
-                      value={form.qualification}
-                      onChange={(e) =>
-                        updateField("qualification", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Work Experience</Label>
-                    <Input
-                      value={form.work_experience}
-                      onChange={(e) =>
-                        updateField("work_experience", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Note</Label>
-                    <Textarea
-                      value={form.note}
-                      onChange={(e) => updateField("note", e.target.value)}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="payroll" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>EPF No.</Label>
-                      <Input
-                        value={form.epf_no}
-                        onChange={(e) => updateField("epf_no", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label>Basic Salary</Label>
-                      <Input
-                        type="number"
-                        value={form.basic_salary}
-                        onChange={(e) =>
-                          updateField("basic_salary", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>KRA PIN</Label>
-                      <Input
-                        type="number"
-                        value={form.kra_pin}
-                        onChange={(e) => updateField("kra_pin", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label>Contract Type</Label>
-                      <Select
-                        value={form.contract_type}
-                        onValueChange={(v) => updateField("contract_type", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CONTRACT_TYPES.map((c) => (
-                            <SelectItem key={c} value={c.toLowerCase()}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Work Shift</Label>
-                      <Input
-                        value={form.work_shift}
-                        onChange={(e) =>
-                          updateField("work_shift", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Work Location</Label>
-                      <Input
-                        value={form.work_location}
-                        onChange={(e) =>
-                          updateField("work_location", e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="leaves" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Medical Leave (days)</Label>
-                      <Input
-                        type="number"
-                        value={form.medical_leave_quota}
-                        onChange={(e) =>
-                          updateField("medical_leave_quota", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Paternity Leave (days)</Label>
-                      <Input
-                        type="number"
-                        value={form.paternity_leave_quota}
-                        onChange={(e) =>
-                          updateField("paternity_leave_quota", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Maternity Leave (days)</Label>
-                      <Input
-                        type="number"
-                        value={form.maternity_leave_quota}
-                        onChange={(e) =>
-                          updateField("maternity_leave_quota", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Other Leave (days)</Label>
-                      <Input
-                        type="number"
-                        value={form.other_leave_quota}
-                        onChange={(e) =>
-                          updateField("other_leave_quota", e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="bank" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Account Title</Label>
-                      <Input
-                        value={form.account_title}
-                        onChange={(e) =>
-                          updateField("account_title", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Bank Account Number</Label>
-                      <Input
-                        value={form.bank_account_number}
-                        onChange={(e) =>
-                          updateField("bank_account_number", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Bank Name</Label>
-                      <Input
-                        value={form.bank_name}
-                        onChange={(e) =>
-                          updateField("bank_name", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>IFSC Code</Label>
-                      <Input
-                        value={form.ifsc_code}
-                        onChange={(e) =>
-                          updateField("ifsc_code", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Bank Branch Name</Label>
-                      <Input
-                        value={form.bank_branch_name}
-                        onChange={(e) =>
-                          updateField("bank_branch_name", e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="social" className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Facebook URL</Label>
-                      <Input
-                        value={form.facebook_url}
-                        onChange={(e) =>
-                          updateField("facebook_url", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Twitter URL</Label>
-                      <Input
-                        value={form.twitter_url}
-                        onChange={(e) =>
-                          updateField("twitter_url", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>LinkedIn URL</Label>
-                      <Input
-                        value={form.linkedin_url}
-                        onChange={(e) =>
-                          updateField("linkedin_url", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Instagram URL</Label>
-                      <Input
-                        value={form.instagram_url}
-                        onChange={(e) =>
-                          updateField("instagram_url", e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="other" className="space-y-4 mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Documents can be uploaded after creating the staff record.
-                  </p>
-                </TabsContent>
-              </Tabs>
-
+              {StaffForm}
               <div className="flex justify-end gap-2 mt-4">
                 <Button variant="outline" onClick={() => setIsAddOpen(false)}>
                   Cancel
@@ -724,88 +551,76 @@ export default function StaffDirectory() {
                 <Button
                   onClick={() => addStaffMutation.mutate()}
                   disabled={
-                    !form.staff_id_number ||
+                    !form.employee_number ||
                     !form.first_name ||
+                    !form.last_name ||
+                    (!form.email && !form.phone) ||
                     addStaffMutation.isPending
                   }
                 >
-                  {addStaffMutation.isPending ? "Saving..." : "Save Staff"}
+                  {addStaffMutation.isPending ? "Saving…" : "Save Staff"}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{staffList.length}</div>
-              <p className="text-sm text-muted-foreground">Total Staff</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">
-                {staffList.filter((s: any) => s.status === "active").length}
-              </div>
-              <p className="text-sm text-muted-foreground">Active</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">
-                {staffList.filter((s: any) => s.role === "teacher").length}
-              </div>
-              <p className="text-sm text-muted-foreground">Teachers</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">
-                {
-                  new Set(
-                    staffList.map((s: any) => s.department_id).filter(Boolean),
-                  ).size
-                }
-              </div>
-              <p className="text-sm text-muted-foreground">Departments</p>
-            </CardContent>
-          </Card>
+          {headlineStats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{s.value}</div>
+                <p className="text-sm text-muted-foreground">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search staff..."
-            className="pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="relative max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search staff..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {STAFF_ROLES.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Staff Table */}
         <Card>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Staff ID</TableHead>
+                  <TableHead>Employee #</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Designation</TableHead>
-                  <TableHead>Phone</TableHead>
+                  <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
-                      Loading...
+                      Loading…
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
@@ -818,40 +633,75 @@ export default function StaffDirectory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((staff: any) => (
-                    <TableRow key={staff.id}>
+                  filtered.map((s: any) => (
+                    <TableRow key={s.id}>
                       <TableCell className="font-mono text-sm">
-                        {staff.employee_number}
+                        {s.employee_number}
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {staff.first_name} {staff.last_name}
+                      <TableCell>
+                        <div className="font-medium flex items-center gap-2">
+                          {s.first_name} {s.last_name}
+                          {s.must_change_password ? (
+                            <Badge variant="outline" className="text-xs">
+                              <KeyRound className="h-3 w-3 mr-1" />
+                              Pending password
+                            </Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="capitalize">
-                          {staff.role?.replace(/_/g, " ")}
+                          {s.role?.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell>{staff.department_name || "—"}</TableCell>
-                      <TableCell>{staff.designation_name || "—"}</TableCell>
-                      <TableCell>{staff.phone || "—"}</TableCell>
+                      <TableCell>{s.department_name || "—"}</TableCell>
+                      <TableCell>{s.designation_name || "—"}</TableCell>
+                      <TableCell className="text-xs">
+                        {s.email && (
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {s.email}
+                          </div>
+                        )}
+                        {s.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {s.phone}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={
-                            staff.status === "active" ? "default" : "secondary"
+                            s.status === "active" ? "default" : "secondary"
                           }
                           className="capitalize"
                         >
-                          {staff.status}
+                          {s.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setViewStaff(staff)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={`/staff/${s.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEdit(s)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteStaff(s)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -861,7 +711,7 @@ export default function StaffDirectory() {
           </CardContent>
         </Card>
 
-        {/* View Staff Dialog */}
+        {/* View */}
         <Dialog open={!!viewStaff} onOpenChange={() => setViewStaff(null)}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -878,49 +728,102 @@ export default function StaffDirectory() {
                       {viewStaff.first_name} {viewStaff.last_name}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {viewStaff.staff_id_number} ·{" "}
+                      {viewStaff.employee_number} ·{" "}
                       {viewStaff.role?.replace(/_/g, " ")}
                     </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Email:</span>{" "}
-                    {viewStaff.email || "—"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Phone:</span>{" "}
-                    {viewStaff.phone || "—"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Department:</span>{" "}
-                    {viewStaff.departments?.name || "—"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Designation:</span>{" "}
-                    {viewStaff.designations?.name || "—"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Contract:</span>{" "}
-                    {viewStaff.contract_type || "—"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Salary:</span> KES{" "}
-                    {viewStaff.basic_salary?.toLocaleString() || "0"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Date Joined:</span>{" "}
-                    {viewStaff.date_of_joining || "—"}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Gender:</span>{" "}
-                    {viewStaff.gender || "—"}
-                  </div>
+                  {[
+                    ["Email", viewStaff.email],
+                    ["Phone", viewStaff.phone],
+                    ["Department", viewStaff.department_name],
+                    ["Designation", viewStaff.designation_name],
+                    [
+                      "Salary",
+                      viewStaff.salary
+                        ? `KES ${Number(viewStaff.salary).toLocaleString()}`
+                        : "—",
+                    ],
+                    ["Join Date", viewStaff.join_date],
+                    ["Gender", viewStaff.gender],
+                    ["National ID", viewStaff.id_number],
+                    ["KRA PIN", viewStaff.kra_pin],
+                    ["Bank", viewStaff.bank_name],
+                    ["Bank Account", viewStaff.bank_account],
+                    ["TSC Number", viewStaff.tsc_number],
+                    ["Specialization", viewStaff.specialization],
+                  ].map(([k, v]) => (
+                    <div key={k as string}>
+                      <span className="text-muted-foreground">{k}:</span>{" "}
+                      {v || "—"}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Edit */}
+        <Dialog
+          open={!!editStaff}
+          onOpenChange={(o) => {
+            if (!o) {
+              setEditStaff(null);
+              setForm({ ...emptyForm });
+            }
+          }}
+        >
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Staff Member</DialogTitle>
+            </DialogHeader>
+            {StaffForm}
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setEditStaff(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  editStaff && updateStaffMutation.mutate(editStaff.id)
+                }
+                disabled={updateStaffMutation.isPending}
+              >
+                {updateStaffMutation.isPending ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete confirmation */}
+        <AlertDialog
+          open={!!deleteStaff}
+          onOpenChange={(o) => {
+            if (!o) setDeleteStaff(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove staff?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteStaff?.first_name} {deleteStaff?.last_name} will be
+                removed from this school. The linked login account will remain
+                (revoke separately).
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
+                  deleteStaff && deleteStaffMutation.mutate(deleteStaff.id)
+                }
+              >
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

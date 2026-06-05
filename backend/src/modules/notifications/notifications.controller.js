@@ -11,35 +11,63 @@ const rolesOf = (req) =>
 const list = async (req, res) => {
   try {
     const pg = parsePagination(req.query);
-    const { rows, total } = await repo.list(schoolOf(req), req.user.id, rolesOf(req), {
-      limit: pg.limit,
-      offset: pg.offset,
-      unreadOnly: req.query.unread === "true",
-    });
+    const { rows, total } = await repo.list(
+      schoolOf(req),
+      req.user.id,
+      rolesOf(req),
+      {
+        limit: pg.limit,
+        offset: pg.offset,
+        unreadOnly: req.query.unread === "true",
+      },
+    );
     return paginated(res, rows, total, pg.page, pg.limit);
-  } catch (e) { return error(res, e.message, 500); }
+  } catch (e) {
+    console.error("Error listing notifications:", e);
+    return error(res, e.message, 500);
+  }
 };
 
 const unreadCount = async (req, res) => {
   try {
-    const count = await repo.unreadCount(schoolOf(req), req.user.id, rolesOf(req));
+    const count = await repo.unreadCount(
+      schoolOf(req),
+      req.user.id,
+      rolesOf(req),
+    );
     return success(res, { count });
-  } catch (e) { return error(res, e.message, 500); }
+  } catch (e) {
+    console.error("Error fetching unread count:", e);
+    return error(res, e.message, 500);
+  }
 };
 
 const markRead = async (req, res) => {
-  try { return success(res, await repo.markRead(req.user.id, req.params.id)); }
-  catch (e) { return error(res, e.message, 500); }
+  try {
+    return success(res, await repo.markRead(req.user.id, req.params.id));
+  } catch (e) {
+    return error(res, e.message, 500);
+  }
 };
 
 const markAllRead = async (req, res) => {
-  try { return success(res, await repo.markAllRead(schoolOf(req), req.user.id, rolesOf(req))); }
-  catch (e) { return error(res, e.message, 500); }
+  try {
+    return success(
+      res,
+      await repo.markAllRead(schoolOf(req), req.user.id, rolesOf(req)),
+    );
+  } catch (e) {
+    return error(res, e.message, 500);
+  }
 };
 
 const remove = async (req, res) => {
-  try { await repo.remove(req.params.id, schoolOf(req)); return success(res, { id: req.params.id }); }
-  catch (e) { return error(res, e.message, 500); }
+  try {
+    await repo.remove(req.params.id, schoolOf(req));
+    return success(res, { id: req.params.id });
+  } catch (e) {
+    return error(res, e.message, 500);
+  }
 };
 
 module.exports = { list, unreadCount, markRead, markAllRead, remove };

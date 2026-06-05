@@ -1,13 +1,20 @@
 const { query, queryOne, getClient } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
+// lint:session-scope-ok — payment INSERTs now write term_id +
+// academic_year_id explicitly; allocation/void writes are scoped via
+// the parent payment row's session.
 
 const findAll = async (
   schoolId,
   { limit, offset, status, method, studentId, sortBy, sortDir, session = {} },
 ) => {
+  const limitNum = parseInt(limit, 10) || 20;
+  const offsetNum = parseInt(offset, 10) || 0;
+
   let sql = `SELECT p.*, s.full_name as student_name, s.admission_number 
              FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.school_id = ?`;
   const params = [schoolId];
+
   if (status && status !== "all") {
     sql += " AND p.status = ?";
     params.push(status);
@@ -20,6 +27,7 @@ const findAll = async (
     sql += " AND p.student_id = ?";
     params.push(studentId);
   }
+
   // Session isolation: include legacy rows where the column is still NULL,
   // but otherwise restrict to the active academic year + term.
   if (session.academicYearId) {
@@ -30,10 +38,19 @@ const findAll = async (
     sql += " AND (p.term_id = ? OR p.term_id IS NULL)";
     params.push(session.termId);
   }
-  const countSql = sql.replace(
+
+  // Build count SQL (remove ORDER BY and LIMIT/OFFSET)
+  let countSql = sql;
+  // Remove ORDER BY clause for count query
+  const orderByIndex = countSql.toUpperCase().indexOf(" ORDER BY ");
+  if (orderByIndex !== -1) {
+    countSql = countSql.substring(0, orderByIndex);
+  }
+  countSql = countSql.replace(
     /SELECT p\.\*.*?FROM/,
     "SELECT COUNT(*) as count FROM",
   );
+
   const sortable = {
     received_at: "p.received_at",
     amount: "p.amount",
@@ -41,14 +58,18 @@ const findAll = async (
     payment_method: "p.payment_method",
     student_name: "s.full_name",
   };
+
   const col = sortable[sortBy] || "p.received_at";
   const dir = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
-  sql += ` ORDER BY ${col} ${dir} LIMIT ? OFFSET ?`;
-  params.push(limit, offset);
+
+  // Use template literals for LIMIT and OFFSET to avoid quoting issues
+  sql += ` ORDER BY ${col} ${dir} LIMIT ${limitNum} OFFSET ${offsetNum}`;
+
   const [rows, countRows] = await Promise.all([
     query(sql, params),
-    query(countSql, params.slice(0, -2)),
+    query(countSql, params),
   ]);
+
   return { rows, total: countRows[0]?.count || 0 };
 };
 
@@ -66,7 +87,7 @@ const findUnallocated = async (schoolId, { limit = 100 } = {}) => {
         AND (p.status = 'unallocated' OR p.student_id IS NULL)
       ORDER BY p.received_at DESC
       LIMIT ?`,
-    [schoolId, Number(limit)],
+    [schoolId, parseInt(limit, 10)],
   );
 };
 
@@ -101,8 +122,8 @@ const findAllocations = async (schoolId, { paymentId, studentId }) => {
 const create = async (data) => {
   const id = uuidv4();
   await query(
-    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO payments (id, school_id, student_id, amount, payment_method, reference_number, ledger_type, status, received_at, recorded_by, payer_phone, notes, term_id, academic_year_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.school_id,
@@ -116,6 +137,8 @@ const create = async (data) => {
       data.recorded_by || null,
       data.payer_phone || null,
       data.notes || null,
+      data.term_id || null,
+      data.academic_year_id || null,
     ],
   );
   return queryOne("SELECT * FROM payments WHERE id = ?", [id]);
@@ -437,6 +460,7 @@ const recordPaymentWithAllocation = async ({
   notes,
   feeIds = [],
   termId = null,
+  academicYearId = null,
   idempotencyKey = null,
 }) => {
   // Idempotency check (outside txn — read-only)
@@ -493,8 +517,8 @@ const recordPaymentWithAllocation = async ({
         `INSERT INTO payments
           (id, school_id, student_id, amount, payment_method, reference_number,
            admission_number_used, ledger_type, status, received_at, recorded_by,
-           payer_phone, notes)
-         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'unallocated', NOW(), ?, ?, ?)`,
+           payer_phone, notes, term_id, academic_year_id)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'unallocated', NOW(), ?, ?, ?, ?, ?)`,
         [
           paymentId,
           schoolId,
@@ -506,6 +530,8 @@ const recordPaymentWithAllocation = async ({
           recordedBy || null,
           payerPhone || null,
           notesWithIdem,
+          termId || null,
+          academicYearId || null,
         ],
       );
 
@@ -554,8 +580,8 @@ const recordPaymentWithAllocation = async ({
       `INSERT INTO payments
         (id, school_id, student_id, amount, payment_method, reference_number,
          admission_number_used, ledger_type, status, received_at, recorded_by,
-         payer_phone, notes, receipt_number)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?, ?)`,
+         payer_phone, notes, receipt_number, term_id, academic_year_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), ?, ?, ?, ?, ?, ?)`,
       [
         paymentId,
         schoolId,
@@ -569,6 +595,8 @@ const recordPaymentWithAllocation = async ({
         payerPhone || null,
         notesWithIdem,
         receiptNumber,
+        termId || null,
+        academicYearId || null,
       ],
     );
     try {

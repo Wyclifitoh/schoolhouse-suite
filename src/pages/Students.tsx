@@ -37,10 +37,15 @@ import {
   useStudents,
   useCreateStudent,
   useSoftDeleteStudent,
+  useUpdateStudent,
+  useStudentsPaged,
+  useStudentsSummary,
   type StudentRow,
 } from "@/hooks/useStudents";
 import { useGrades, useStreams } from "@/hooks/useGrades";
 import { useParents } from "@/hooks/useParents";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDate } from "@/utils/date";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -738,16 +743,88 @@ const Students = () => {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentRef, setPaymentRef] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<StudentRow | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const { hasAnyRole } = useAuth();
+  const canManageStudents = hasAnyRole([
+    "super_admin",
+    "admin",
+    "school_admin",
+  ] as any);
+  const canViewFees = hasAnyRole([
+    "super_admin",
+    "admin",
+    "school_admin",
+    "accountant",
+    "finance_officer",
+  ] as any);
+  const updateStudent = useUpdateStudent();
 
-  const {
-    data: allStudents = [],
-    isLoading,
-    refetch,
-  } = useStudents({ search: search || undefined });
+  const openEdit = (s: StudentRow) => {
+    setEditingStudent(s);
+    setEditForm({
+      first_name: s.first_name || "",
+      middle_name: s.middle_name || "",
+      last_name: s.last_name || "",
+      admission_number: s.admission_number || "",
+      gender: s.gender || "",
+      date_of_birth: s.date_of_birth || "",
+      parent_name: s.parent_name || "",
+      parent_phone: s.parent_phone || "",
+      status: s.status || "active",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEditSave = () => {
+    if (!editingStudent) return;
+    if (!editForm.first_name || !editForm.last_name || !editForm.admission_number) {
+      toast.error("First name, last name and admission number required");
+      return;
+    }
+    updateStudent.mutate(
+      { id: editingStudent.id, data: editForm as any },
+      {
+        onSuccess: () => {
+          setEditOpen(false);
+          setEditingStudent(null);
+        },
+      },
+    );
+  };
+
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const { data: grades = [] } = useGrades();
   const selectedGrade = grades.find((g) => g.name === gradeFilter);
   const { data: streamsForGrade = [] } = useStreams(selectedGrade?.id);
   const softDelete = useSoftDeleteStudent();
+  const {
+    data: paged,
+    isLoading,
+    refetch,
+  } = useStudentsPaged({
+    search: search || undefined,
+    status: "active", // hide deactivated/inactive from main registry
+    gradeId: gradeFilter !== "all" ? selectedGrade?.id : undefined,
+    streamIds:
+      streamFilters.length > 0
+        ? streamsForGrade
+            .filter((s: any) => streamFilters.includes(s.name))
+            .map((s: any) => s.id)
+        : undefined,
+    page,
+    limit: pageSize,
+  });
+  const allStudents = paged?.data || [];
+  const totalStudents = paged?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / pageSize));
+  const { data: summary, refetch: refetchSummary } = useStudentsSummary();
+  const refetchAll = () => {
+    refetch();
+    refetchSummary();
+  };
 
   const filtered = allStudents.filter((s) => {
     if (gradeFilter !== "all" && s.grade !== gradeFilter) return false;
@@ -755,7 +832,6 @@ const Students = () => {
       return false;
     return true;
   });
-  const activeCount = allStudents.filter((s) => s.status === "active").length;
 
   const handleRecordPayment = async () => {
     if (!paymentAmount || !paymentMethod || !paymentStudent) {
@@ -813,7 +889,7 @@ const Students = () => {
                   Total
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {allStudents.length}
+                  {summary?.total ?? totalStudents}
                 </p>
               </div>
             </CardContent>
@@ -828,7 +904,7 @@ const Students = () => {
                   Active
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {activeCount}
+                  {summary?.active ?? 0}
                 </p>
               </div>
             </CardContent>
@@ -843,7 +919,7 @@ const Students = () => {
                   Inactive
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-foreground">
-                  {allStudents.filter((s) => s.status === "inactive").length}
+                  {summary?.inactive ?? 0}
                 </p>
               </div>
             </CardContent>
@@ -858,6 +934,16 @@ const Students = () => {
                 Student Registry
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
+                {canManageStudents && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/students/disabled")}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-1.5" />
+                    Disabled
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -866,7 +952,38 @@ const Students = () => {
                   <Upload className="h-4 w-4 mr-1.5" />
                   Import
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const params = new URLSearchParams();
+                      params.set("status", "active");
+                      if (search) params.set("search", search);
+                      const token = api.getToken();
+                      const schoolId = localStorage.getItem("chuo-school-id") || "";
+                      const base =
+                        (import.meta as any).env?.VITE_API_URL ||
+                        "https://chuoapi.wikiteq.co.ke/api/v1";
+                      const res = await fetch(`${base}/students/export?${params}`, {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "X-School-ID": schoolId,
+                        },
+                      });
+                      if (!res.ok) throw new Error("Export failed");
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Export failed");
+                    }
+                  }}
+                >
                   <Download className="h-4 w-4 mr-1.5" />
                   Export
                 </Button>
@@ -883,7 +1000,7 @@ const Students = () => {
                     </DialogHeader>
                     <AdmissionForm
                       onClose={() => setAdmissionOpen(false)}
-                      onSuccess={() => refetch()}
+                      onSuccess={() => refetchAll()}
                     />
                   </DialogContent>
                 </Dialog>
@@ -1119,7 +1236,7 @@ const Students = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                                className="h-8 w-8"
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
@@ -1131,31 +1248,52 @@ const Students = () => {
                                 <Eye className="h-4 w-4 mr-2" />
                                 View Profile
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  navigate(`/student-fees/${s.id}`)
-                                }
-                              >
-                                <Wallet className="h-4 w-4 mr-2" />
-                                Fees & Payments
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setPaymentStudent(s);
-                                  setShowPaymentDialog(true);
-                                }}
-                              >
-                                <CreditCard className="h-4 w-4 mr-2" />
-                                Collect Payment
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => softDelete.mutate(s.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Deactivate
-                              </DropdownMenuItem>
+                              {canViewFees && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    navigate(`/student-fees/${s.id}`)
+                                  }
+                                >
+                                  <Wallet className="h-4 w-4 mr-2" />
+                                  Fees & Payments
+                                </DropdownMenuItem>
+                              )}
+                              {canViewFees && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setPaymentStudent(s);
+                                    setShowPaymentDialog(true);
+                                  }}
+                                >
+                                  <CreditCard className="h-4 w-4 mr-2" />
+                                  Collect Payment
+                                </DropdownMenuItem>
+                              )}
+                              {canManageStudents && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => openEdit(s)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => {
+                                      if (
+                                        confirm(
+                                          `Deactivate ${s.full_name || s.first_name}?`,
+                                        )
+                                      )
+                                        softDelete.mutate(s.id, {
+                                          onSuccess: () => refetchAll(),
+                                        });
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Deactivate
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -1165,9 +1303,35 @@ const Students = () => {
                 </TableBody>
               </Table>
             </div>
-            <p className="text-sm text-muted-foreground mt-3">
-              Showing {filtered.length} of {allStudents.length} students
-            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {filtered.length === 0 ? 0 : (page - 1) * pageSize + 1}
+                –{(page - 1) * pageSize + filtered.length} of {totalStudents} active students
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1177,6 +1341,147 @@ const Students = () => {
         onOpenChange={setBulkImportOpen}
         type="students"
       />
+
+      {/* Edit Student Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">First Name *</Label>
+                <Input
+                  className="h-9"
+                  value={editForm.first_name || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, first_name: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Middle Name</Label>
+                <Input
+                  className="h-9"
+                  value={editForm.middle_name || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, middle_name: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Last Name *</Label>
+                <Input
+                  className="h-9"
+                  value={editForm.last_name || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, last_name: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Adm. No. *</Label>
+                <Input
+                  className="h-9"
+                  value={editForm.admission_number || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      admission_number: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Gender</Label>
+                <Select
+                  value={editForm.gender || ""}
+                  onValueChange={(v) =>
+                    setEditForm((f) => ({ ...f, gender: v }))
+                  }
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Date of Birth</Label>
+                <Input
+                  type="date"
+                  className="h-9"
+                  value={editForm.date_of_birth || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      date_of_birth: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Parent / Guardian Name</Label>
+                <Input
+                  className="h-9"
+                  value={editForm.parent_name || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, parent_name: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Parent Phone</Label>
+                <Input
+                  className="h-9"
+                  value={editForm.parent_phone || ""}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, parent_phone: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Status</Label>
+              <Select
+                value={editForm.status || "active"}
+                onValueChange={(v) =>
+                  setEditForm((f) => ({ ...f, status: v }))
+                }
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="graduated">Graduated</SelectItem>
+                  <SelectItem value="transferred">Transferred</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={updateStudent.isPending}
+            >
+              {updateStudent.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quick Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

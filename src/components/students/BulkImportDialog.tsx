@@ -44,9 +44,9 @@ interface BulkImportDialogProps {
 }
 
 const STUDENT_CSV_HEADERS =
-  "full_name,admission_no,gender,dob,grade,stream,parent_name,parent_phone,parent_email,category";
+  "full_name,admission_number,gender,dob,parent_name,parent_phone,parent_email,previous_balance";
 const STAFF_CSV_HEADERS =
-  "full_name,employee_id,email,phone,department,designation,date_of_joining";
+  "full_name,employee_number,email,phone,role,gender,date_of_joining,department_id,designation_id,salary,tsc_number,specialization";
 
 export function BulkImportDialog({
   open,
@@ -71,14 +71,18 @@ export function BulkImportDialog({
   const headers = type === "students" ? STUDENT_CSV_HEADERS : STAFF_CSV_HEADERS;
 
   const importMutation = useMutation({
-    mutationFn: (students: Record<string, string>[]) =>
-      api.post<any>("/students/bulk-import", { students }),
+    mutationFn: (records: Record<string, string>[]) =>
+      type === "students"
+        ? api.post<any>("/students/bulk-import", { students: records })
+        : api.post<any>("/staff/bulk-import", { staff: records }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({
+        queryKey: [type === "students" ? "students" : "staff"],
+      });
       const created = result?.created?.length ?? 0;
       const failed = result?.failed?.length ?? 0;
       toast.success(
-        `${created} students imported${failed ? `, ${failed} failed` : ""}`,
+        `${created} ${type} imported${failed ? `, ${failed} failed` : ""}`,
       );
       onOpenChange(false);
       setFile(null);
@@ -132,9 +136,21 @@ export function BulkImportDialog({
 
       const errs: string[] = [];
       rows.forEach((row, i) => {
-        if (!row[0]) errs.push(`Row ${i + 2}: Missing name`);
-        if (type === "students" && !row[1])
-          errs.push(`Row ${i + 2}: Missing admission number`);
+        const mapped = Object.fromEntries(
+          fileHeaders.map((h, idx) => [h, row[idx] || ""]),
+        );
+        if (!mapped.full_name && !row[0])
+          errs.push(`Row ${i + 2}: Missing name`);
+        if (type === "students") {
+          if (!mapped.admission_number && !mapped.admission_no)
+            errs.push(`Row ${i + 2}: Missing admission number`);
+          if (!mapped.parent_name)
+            errs.push(`Row ${i + 2}: Missing parent name`);
+          if (!mapped.parent_phone)
+            errs.push(`Row ${i + 2}: Missing parent phone`);
+        }
+        if (type === "staff" && !mapped.email && !mapped.phone)
+          errs.push(`Row ${i + 2}: Email or phone is required`);
       });
       setErrors(errs);
     };
@@ -165,20 +181,20 @@ export function BulkImportDialog({
       toast.error("Please fix errors before importing");
       return;
     }
-    if (type !== "students") {
-      toast.error("Staff import backend endpoint is not available yet");
-      return;
-    }
 
-    importMutation.mutate(
-      allRows.map((row) => ({
-        ...row,
-        grade: row.grade || selectedGrade?.name || "",
-        stream: row.stream || selectedStream?.name || "",
-        grade_id: gradeId,
-        stream_id: streamId,
-      })),
-    );
+    if (type === "students") {
+      importMutation.mutate(
+        allRows.map((row) => ({
+          ...row,
+          grade: row.grade || selectedGrade?.name || "",
+          stream: row.stream || selectedStream?.name || "",
+          current_grade_id: gradeId,
+          current_stream_id: streamId,
+        })),
+      );
+    } else {
+      importMutation.mutate(allRows);
+    }
   };
 
   return (

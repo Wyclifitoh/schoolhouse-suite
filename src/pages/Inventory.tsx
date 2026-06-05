@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -68,6 +69,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 import { useSchool } from "@/contexts/SchoolContext";
@@ -127,7 +130,7 @@ const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
 
 // ===== STATS =====
 
-const StoreStats = () => {
+export const StoreStats = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
 
@@ -193,7 +196,7 @@ const StoreStats = () => {
 
 // ===== PRODUCT CATALOG =====
 
-const ProductCatalog = () => {
+export const ProductCatalog = () => {
   const { currentSchool } = useSchool();
 
   const schoolId = currentSchool?.id;
@@ -495,7 +498,7 @@ const ProductCatalog = () => {
 
 // ===== SELL TO STUDENT =====
 
-const SellToStudent = () => {
+export const SellToStudent = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -770,7 +773,7 @@ const SellToStudent = () => {
 
 // ===== SALES HISTORY =====
 
-const SalesHistory = () => {
+export const SalesHistory = () => {
   const { currentSchool } = useSchool();
 
   const schoolId = currentSchool?.id;
@@ -837,7 +840,7 @@ const SalesHistory = () => {
 };
 
 // ===== SUPPLIERS =====
-const SupplierManagement = () => {
+export const SupplierManagement = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
@@ -937,40 +940,256 @@ const SupplierManagement = () => {
 };
 
 // ===== CATEGORIES =====
-const CategoriesOverview = () => {
+export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
-
   const schoolId = currentSchool?.id;
+  const queryClient = useQueryClient();
+  const [isCatOpen, setIsCatOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [catForm, setCatForm] = useState({ name: "", description: "" });
+
+  // Add category mutation
+  const addCatMutation = useMutation({
+    mutationFn: () =>
+      api.post("/inventory/categories", { ...catForm, school_id: schoolId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
+      setIsCatOpen(false);
+      setCatForm({ name: "", description: "" });
+      toast({ title: "Category added successfully" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  // Update category mutation
+  const updateCatMutation = useMutation({
+    mutationFn: () =>
+      api.put(`/inventory/categories/${selectedCategory?.id}`, {
+        name: catForm.name,
+        description: catForm.description,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
+      setIsEditOpen(false);
+      setSelectedCategory(null);
+      setCatForm({ name: "", description: "" });
+      toast({ title: "Category updated successfully" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  // Delete category mutation
+  const deleteCatMutation = useMutation({
+    mutationFn: () =>
+      api.delete(`/inventory/categories/${selectedCategory?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-categories"] });
+      setIsDeleteOpen(false);
+      setSelectedCategory(null);
+      toast({ title: "Category deleted successfully" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
 
   const { data: categories = [] } = useQuery({
     queryKey: ["inventory-categories", schoolId],
-
     queryFn: () => api.get<any[]>("/inventory/categories"),
-
     enabled: !!schoolId,
   });
 
+  const handleEdit = (category: any) => {
+    setSelectedCategory(category);
+    setCatForm({
+      name: category.name,
+      description: category.description || "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleDelete = (category: any) => {
+    setSelectedCategory(category);
+    setIsDeleteOpen(true);
+  };
+
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {categories.map((cat: any) => (
-        <Card key={cat.id} className="glass-card-hover">
-          <CardContent className="p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-              <Tag className="h-6 w-6" />
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Categories</h2>
+        <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Category
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Category</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input
+                placeholder="Category Name"
+                value={catForm.name}
+                onChange={(e) =>
+                  setCatForm({ ...catForm, name: e.target.value })
+                }
+              />
+              <Input
+                placeholder="Description"
+                value={catForm.description}
+                onChange={(e) =>
+                  setCatForm({ ...catForm, description: e.target.value })
+                }
+              />
+              <Button
+                className="w-full"
+                onClick={() => addCatMutation.mutate()}
+                disabled={addCatMutation.isPending || !catForm.name}
+              >
+                {addCatMutation.isPending ? "Saving..." : "Save Category"}
+              </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-            <h4 className="font-bold text-foreground text-lg">{cat.name}</h4>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Add category card */}
+        <div
+          className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
+          onClick={() => setIsCatOpen(true)}
+        >
+          <Plus className="h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">Add New Category</p>
+        </div>
 
-            <p className="text-sm text-muted-foreground">
-              {cat.description || "No description"}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+        {/* Categories list */}
+        {categories.map((cat: any) => (
+          <Card key={cat.id} className="glass-card-hover group relative">
+            <CardContent className="p-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
+                <Tag className="h-6 w-6" />
+              </div>
+              <h4 className="font-bold text-foreground text-lg">{cat.name}</h4>
+              <p className="text-sm text-muted-foreground">
+                {cat.description || "No description"}
+              </p>
+
+              {/* Action buttons */}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleEdit(cat)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(cat)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Category Name"
+              value={catForm.name}
+              onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+            />
+            <Input
+              placeholder="Description"
+              value={catForm.description}
+              onChange={(e) =>
+                setCatForm({ ...catForm, description: e.target.value })
+              }
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => updateCatMutation.mutate()}
+                disabled={updateCatMutation.isPending || !catForm.name}
+              >
+                {updateCatMutation.isPending
+                  ? "Updating..."
+                  : "Update Category"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{selectedCategory?.name}"? This
+              action cannot be undone. Items in this category will become
+              uncategorized.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setIsDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => deleteCatMutation.mutate()}
+              disabled={deleteCatMutation.isPending}
+            >
+              {deleteCatMutation.isPending ? "Deleting..." : "Delete Category"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
-
 // ===== MAIN =====
 
 const Inventory = () => {
@@ -1009,115 +1228,64 @@ const Inventory = () => {
   return (
     <DashboardLayout
       title="School Store"
-      subtitle="Uniforms, books, supplies — sales, restocking & procurement"
+      subtitle="Overview — manage catalog, sales, suppliers, and orders from dedicated pages"
     >
-      <div className="flex justify-end mb-4 gap-2">
-        <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="rounded-lg">
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Category
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Category</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Category Name</Label>
-
-                <Input
-                  value={catForm.name}
-                  onChange={(e) =>
-                    setCatForm((p) => ({ ...p, name: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-
-                <Textarea
-                  value={catForm.description}
-                  onChange={(e) =>
-                    setCatForm((p) => ({ ...p, description: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                className="w-full"
-                onClick={() => addCatMutation.mutate()}
-                disabled={addCatMutation.isPending}
-              >
-                Save Category
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
       <StoreStats />
 
-      <Tabs defaultValue="catalog" className="space-y-4">
-        <TabsList className="tab-modern flex-wrap h-auto gap-1">
-          <TabsTrigger value="catalog" className="gap-1.5 rounded-lg">
-            <ShoppingBag className="h-3.5 w-3.5" />
-            Catalog
-          </TabsTrigger>
-          <TabsTrigger value="sell" className="gap-1.5 rounded-lg">
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Sell
-          </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5 rounded-lg">
-            <Receipt className="h-3.5 w-3.5" />
-            Sales
-          </TabsTrigger>
-
-          {/* Ensure these triggers exist */}
-          <TabsTrigger value="suppliers" className="gap-1.5 rounded-lg">
-            <Truck className="h-3.5 w-3.5" />
-            Suppliers
-          </TabsTrigger>
-          <TabsTrigger value="purchase-orders" className="gap-1.5 rounded-lg">
-            <FileText className="h-3.5 w-3.5" />
-            Purchase Orders
-          </TabsTrigger>
-
-          <TabsTrigger value="categories" className="gap-1.5 rounded-lg">
-            <Tag className="h-3.5 w-3.5" />
-            Categories
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="catalog">
-          <ProductCatalog />
-        </TabsContent>
-        <TabsContent value="sell">
-          <SellToStudent />
-        </TabsContent>
-        <TabsContent value="history">
-          <SalesHistory />
-        </TabsContent>
-
-        {/* Call your "unused" components here */}
-        <TabsContent value="suppliers">
-          <SupplierManagement />
-        </TabsContent>
-
-        <TabsContent value="purchase-orders">
-          <PurchaseOrders />
-        </TabsContent>
-
-        <TabsContent value="categories">
-          <CategoriesOverview />
-        </TabsContent>
-      </Tabs>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+        {[
+          {
+            title: "Catalog",
+            desc: "Browse and manage products",
+            icon: ShoppingBag,
+            to: "/inventory/catalog",
+          },
+          {
+            title: "Sell",
+            desc: "Sell items to a student",
+            icon: ShoppingCart,
+            to: "/inventory/sell",
+          },
+          {
+            title: "Sales History",
+            desc: "View past sales",
+            icon: Receipt,
+            to: "/inventory/history",
+          },
+          {
+            title: "Suppliers",
+            desc: "Manage suppliers",
+            icon: Truck,
+            to: "/inventory/suppliers",
+          },
+          {
+            title: "Purchase Orders",
+            desc: "Create & track POs",
+            icon: FileText,
+            to: "/inventory/purchase-orders",
+          },
+          {
+            title: "Categories",
+            desc: "Organise product categories",
+            icon: Tag,
+            to: "/inventory/categories",
+          },
+        ].map((c) => (
+          <a
+            key={c.to}
+            href={c.to}
+            className="rounded-xl border bg-card p-4 hover:bg-accent transition-colors flex items-start gap-3"
+          >
+            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+              <c.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold">{c.title}</p>
+              <p className="text-sm text-muted-foreground">{c.desc}</p>
+            </div>
+          </a>
+        ))}
+      </div>
     </DashboardLayout>
   );
 };

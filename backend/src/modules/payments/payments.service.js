@@ -81,22 +81,8 @@ const record = async (schoolId, body, userId) => {
   });
   // Stamp the active session onto the payment row so reports + filters work.
   // Done post-insert to avoid touching every conditional INSERT branch.
-  if (result?.payment?.id && (body.academic_year_id || body.term_id)) {
-    try {
-      const { query } = require("../../config/database");
-      await query(
-        "UPDATE payments SET academic_year_id = COALESCE(?, academic_year_id), term_id = COALESCE(?, term_id) WHERE id = ? AND school_id = ?",
-        [
-          body.academic_year_id || null,
-          body.term_id || null,
-          result.payment.id,
-          schoolId,
-        ],
-      );
-    } catch {
-      /* non-fatal */
-    }
-  }
+  // term_id / academic_year_id are now persisted at INSERT time inside
+  // recordPaymentWithAllocation — no post-update needed.
   return result;
 };
 

@@ -1,8 +1,10 @@
 const router = require("express").Router();
-const departmentsController = require("./departments.controller");
+const c = require("./departments.controller");
 
-router.post("/", departmentsController.create);
-router.get("/", departmentsController.list);
-router.get("/:id", departmentsController.getById);
+router.post("/", c.create);
+router.get("/", c.list);
+router.get("/:id", c.getById);
+router.put("/:id", c.update);
+router.delete("/:id", c.remove);
 
 module.exports = router;

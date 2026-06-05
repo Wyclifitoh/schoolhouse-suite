@@ -378,8 +378,8 @@ const Dashboard = () => {
   const { primaryRole, hasAnyRole, getRoleLabel } = useAuth();
   const roleLabel = primaryRole ? getRoleLabel(primaryRole) : "User";
 
-  const isAdmin = hasAnyRole(["super_admin", "school_admin", "deputy_admin"]);
-  const isFinance = hasAnyRole(["finance_officer"]);
+  const isAdmin = hasAnyRole(["super_admin", "admin", "manager"]);
+  const isFinance = hasAnyRole(["accountant"]);
   const isTeacher = hasAnyRole(["teacher"]);
 
   return (

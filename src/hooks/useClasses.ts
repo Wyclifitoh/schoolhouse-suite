@@ -3,23 +3,60 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 export interface GradeRow {
-  id: string; name: string; level: string; order_index: number; curriculum_type: string;
+  id: string;
+  name: string;
+  level: string;
+  order_index: number;
+  curriculum_type: string;
 }
 
 export interface StreamRow {
-  id: string; name: string; description?: string | null; grade_id: string | null; grade_name: string | null; capacity: number | null; class_teacher_id: string | null;
+  id: string;
+  name: string;
+  description?: string | null;
+  grade_id: string | null;
+  grade_name: string | null;
+  capacity: number | null;
+  class_teacher_id: string | null;
 }
 
 export interface SubjectRow {
-  id: string; name: string; code: string; description: string | null;
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
 }
 
 export interface StaffRow {
-  id: string; first_name: string; last_name: string; employee_number: string; email: string; phone: string; status: string;
+  id: string;
+  first_name: string;
+  last_name: string;
+  employee_number: string;
+  email: string;
+  phone: string;
+  status: string;
+}
+
+export interface TeacherRow {
+  teacher_id: string;
+  staff_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  employee_number: string;
+  tsc_number: string | null;
+  specialization: string | null;
+  is_class_teacher: boolean;
+  status: string;
 }
 
 export interface DepartmentRow {
-  id: string; name: string; description: string | null; head_staff_id: string | null; is_active: boolean;
+  id: string;
+  name: string;
+  description: string | null;
+  head_staff_id: string | null;
+  is_active: boolean;
 }
 
 // Classes hook returns grades for backward compatibility
@@ -30,7 +67,9 @@ export function useClasses() {
       try {
         const data = await api.get<any>("/classes/grades");
         return (data?.data || data || []) as GradeRow[];
-      } catch { return [] as GradeRow[]; }
+      } catch {
+        return [] as GradeRow[];
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -44,17 +83,105 @@ export function useStreams(gradeId?: string) {
         const params = gradeId ? `?grade_id=${gradeId}` : "";
         const data = await api.get<any>(`/classes/streams${params}`);
         return (data?.data || data || []) as StreamRow[];
-      } catch { return [] as StreamRow[]; }
+      } catch {
+        return [] as StreamRow[];
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
 }
 
+// Independent streams: one logical entry per unique stream NAME.
+// Backed by GET /streams. Use this in the Streams tab and Add/Edit Class form.
+export interface IndependentStreamRow {
+  id: string;
+  name: string;
+  description: string | null;
+  capacity: number | null;
+  grade_ids: string[];
+  grade_names: string[];
+}
+
+export function useIndependentStreams() {
+  return useQuery({
+    queryKey: ["streams-independent"],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>(`/streams`);
+        return (data?.data || data || []) as IndependentStreamRow[];
+      } catch {
+        return [] as IndependentStreamRow[];
+      }
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useCreateIndependentStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      description?: string | null;
+      capacity?: number | null;
+    }) => api.post<IndependentStreamRow>(`/streams`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams-independent"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream created");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateIndependentStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<IndependentStreamRow>;
+    }) => api.put(`/streams/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams-independent"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useDeleteIndependentStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/streams/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams-independent"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream deleted");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export async function attachStreamToGrade(streamId: string, gradeId: string) {
+  return api.post(`/streams/${streamId}/grades/${gradeId}`, {});
+}
+export async function detachStreamFromGrade(streamId: string, gradeId: string) {
+  return api.delete(`/streams/${streamId}/grades/${gradeId}`);
+}
+
 export function useCreateGrade() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<GradeRow>) => api.post<GradeRow>("/classes/grades", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["grades"] }); toast.success("Grade created!"); },
+    mutationFn: (data: Partial<GradeRow>) =>
+      api.post<GradeRow>("/classes/grades", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["grades"] });
+      toast.success("Grade created!");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -62,8 +189,12 @@ export function useCreateGrade() {
 export function useCreateStream() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<StreamRow & { academic_year_id: string }>) => api.post<StreamRow>("/classes/streams", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Stream created!"); },
+    mutationFn: (data: Partial<StreamRow & { academic_year_id: string }>) =>
+      api.post<StreamRow>("/classes/streams", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream created!");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -75,7 +206,9 @@ export function useSubjects() {
       try {
         const data = await api.get<any>("/classes/subjects");
         return (data?.data || data || []) as SubjectRow[];
-      } catch { return [] as SubjectRow[]; }
+      } catch {
+        return [] as SubjectRow[];
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -84,8 +217,12 @@ export function useSubjects() {
 export function useCreateSubject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<SubjectRow>) => api.post<SubjectRow>("/classes/subjects", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); toast.success("Subject created!"); },
+    mutationFn: (data: Partial<SubjectRow>) =>
+      api.post<SubjectRow>("/classes/subjects", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subjects"] });
+      toast.success("Subject created!");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -93,8 +230,12 @@ export function useCreateSubject() {
 export function useUpdateSubject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<SubjectRow> }) => api.put<SubjectRow>(`/classes/subjects/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); toast.success("Subject updated!"); },
+    mutationFn: ({ id, data }: { id: string; data: Partial<SubjectRow> }) =>
+      api.put<SubjectRow>(`/classes/subjects/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subjects"] });
+      toast.success("Subject updated!");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -103,7 +244,10 @@ export function useDeleteSubject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/classes/subjects/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); toast.success("Subject deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subjects"] });
+      toast.success("Subject deleted");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -112,7 +256,10 @@ export function useDeleteStream() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/classes/streams/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Stream deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream deleted");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -120,8 +267,12 @@ export function useDeleteStream() {
 export function useUpdateStream() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<StreamRow> }) => api.put<StreamRow>(`/classes/streams/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Stream updated"); },
+    mutationFn: ({ id, data }: { id: string; data: Partial<StreamRow> }) =>
+      api.put<StreamRow>(`/classes/streams/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Stream updated");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -130,7 +281,10 @@ export function useDeleteGrade() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/classes/grades/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["grades"] }); toast.success("Class deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["grades"] });
+      toast.success("Class deleted");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -138,8 +292,13 @@ export function useDeleteGrade() {
 export function useUpdateGrade() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<GradeRow> }) => api.put<GradeRow>(`/classes/grades/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["grades"] }); qc.invalidateQueries({ queryKey: ["streams"] }); toast.success("Class updated"); },
+    mutationFn: ({ id, data }: { id: string; data: Partial<GradeRow> }) =>
+      api.put<GradeRow>(`/classes/grades/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["grades"] });
+      qc.invalidateQueries({ queryKey: ["streams"] });
+      toast.success("Class updated");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }
@@ -151,7 +310,24 @@ export function useStaff() {
       try {
         const data = await api.get<any>("/classes/staff");
         return (data?.data || data || []) as StaffRow[];
-      } catch { return [] as StaffRow[]; }
+      } catch {
+        return [] as StaffRow[];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useTeachers() {
+  return useQuery({
+    queryKey: ["teachers"],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>("/staff/teachers");
+        return (data?.data || data || []) as TeacherRow[];
+      } catch {
+        return [] as TeacherRow[];
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -164,7 +340,9 @@ export function useDepartments() {
       try {
         const data = await api.get<any>("/classes/departments");
         return (data?.data || data || []) as DepartmentRow[];
-      } catch { return [] as DepartmentRow[]; }
+      } catch {
+        return [] as DepartmentRow[];
+      }
     },
   });
 }
@@ -176,14 +354,20 @@ export function useDesignations() {
       try {
         const data = await api.get<any>("/classes/designations");
         return (data?.data || data || []) as any[];
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     },
   });
 }
 
 // ============= TIMETABLE =============
 export interface SubjectAssignment {
-  id: string; subject: string; teacher: string; class: string; section: string;
+  id: string;
+  subject: string;
+  teacher: string;
+  class: string;
+  section: string;
 }
 
 export interface TimetableEntry {
@@ -215,9 +399,13 @@ export function useTimetable(streamId?: string) {
     queryKey: ["timetable", streamId],
     queryFn: async () => {
       try {
-        const data = await api.get<any>(`/classes/timetable?stream_id=${streamId}`);
+        const data = await api.get<any>(
+          `/classes/timetable?stream_id=${streamId}`,
+        );
         return (data?.data || data || []) as TimetableEntry[];
-      } catch { return [] as TimetableEntry[]; }
+      } catch {
+        return [] as TimetableEntry[];
+      }
     },
     enabled: !!streamId,
   });
@@ -228,9 +416,13 @@ export function useTeacherTimetable(teacherId?: string) {
     queryKey: ["teacher-timetable", teacherId],
     queryFn: async () => {
       try {
-        const data = await api.get<any>(`/classes/timetable?teacher_id=${teacherId}`);
+        const data = await api.get<any>(
+          `/classes/timetable?teacher_id=${teacherId}`,
+        );
         return (data?.data || data || []) as TimetableEntry[];
-      } catch { return [] as TimetableEntry[]; }
+      } catch {
+        return [] as TimetableEntry[];
+      }
     },
     enabled: !!teacherId,
   });
@@ -239,8 +431,15 @@ export function useTeacherTimetable(teacherId?: string) {
 export function useCreateTimetableEntry() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<TimetableEntry> & { stream_id: string; grade_id: string; subject_id: string; day: string; period: number }) =>
-      api.post<TimetableEntry>("/classes/timetable", data),
+    mutationFn: (
+      data: Partial<TimetableEntry> & {
+        stream_id: string;
+        grade_id: string;
+        subject_id: string;
+        day: string;
+        period: number;
+      },
+    ) => api.post<TimetableEntry>("/classes/timetable", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["timetable"] });
       qc.invalidateQueries({ queryKey: ["teacher-timetable"] });

@@ -2,6 +2,36 @@ const router = require("express").Router();
 const { query, queryOne } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 const { success, error } = require("../../utils/response");
+const staffController = require("./staff.controller");
+
+// ===== Staff CRUD (HR module redesign 2026-05-31) =====
+// POST   /staff          -> create staff (auto user + role + teacher + creds)
+// GET    /staff          -> paginated list
+// GET    /staff/:id      -> single
+// PATCH  /staff/:id      -> update (also handles role -> teacher promotion)
+// DELETE /staff/:id      -> remove
+router.get("/teachers", staffController.listTeachers);
+router.post("/", staffController.create);
+router.post("/bulk-import", staffController.bulkImport);
+router.get("/", staffController.list);
+router.get("/:id", staffController.getById);
+router.patch("/:id", staffController.update);
+router.put("/:id", staffController.update);
+router.delete("/:id", staffController.remove);
+
+// router.get("/teachers/subjects", staffController.listTeacherSubjects);
+// router.get(
+//   "/teachers/subjects/allocated",
+//   staffController.listAllocatedTeacherSubjects,
+// );
+// router.get(
+//   "/teachers/subjects/unallocated",
+//   staffController.listUnallocatedTeacherSubjects,
+// );
+// router.get(
+//   "/teachers/subjects/allocated/by-grade/:gradeId",
+//   staffController.listAllocatedTeacherSubjectsByGrade,
+// );
 
 // ===== Departments =====
 router.get("/departments", async (req, res) => {
