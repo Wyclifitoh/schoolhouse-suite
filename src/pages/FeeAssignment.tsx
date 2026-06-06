@@ -116,6 +116,10 @@ const FeeAssignment = () => {
     setShowConfirm(false);
     const fee = getSelectedFeeInfo();
     if (!fee) return;
+    const scope = {
+      grade_ids: gradeFilter ? [gradeFilter] : [],
+      stream_ids: streamFilters.length ? streamFilters : [],
+    };
     try {
       if (additions.length) {
         await bulkAssign.mutateAsync({
@@ -123,6 +127,7 @@ const FeeAssignment = () => {
           term_id: selectedTerm?.id || null,
           academic_year_id: currentAcademicYear?.id || null,
           student_ids: additions,
+          scope,
         });
       }
       if (removals.length) {
@@ -130,6 +135,7 @@ const FeeAssignment = () => {
           fee_structure_id: fee.id,
           term_id: selectedTerm?.id || null,
           student_ids: removals,
+          scope,
         });
       }
       toast.success(`Saved: +${additions.length} assigned, -${removals.length} unassigned`);

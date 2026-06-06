@@ -370,6 +370,21 @@ const bulkUnassignFee = async ({
   );
   const blockedIds = new Set(blockedRows.map((r) => r.id));
 
+  // Capture the rows we are about to delete so we can write per-student
+  // audit entries after the DELETE succeeds.
+  const toDelete = await query(
+    `SELECT id, student_id, amount_due
+       FROM student_fees
+      WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
+        AND student_id IN (${placeholders})
+        AND amount_paid = 0
+        AND id NOT IN (
+          SELECT student_fee_id FROM payment_allocations
+           WHERE student_fee_id IS NOT NULL
+        )`,
+    [schoolId, feeStructureId, termId || null, ...studentIds],
+  );
+
   const result = await query(
     `DELETE FROM student_fees
        WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
@@ -381,7 +396,11 @@ const bulkUnassignFee = async ({
          )`,
     [schoolId, feeStructureId, termId || null, ...studentIds],
   );
-  return { removed: result.affectedRows || 0, blocked: blockedIds.size };
+  return {
+    removed: result.affectedRows || 0,
+    blocked: blockedIds.size,
+    removed_rows: toDelete,
+  };
 };
 
 // ---- Term close → carry forward ----
@@ -978,6 +997,82 @@ const logBulkFeeAudit = async ({
   }
 };
 
+// Validate that every studentId belongs to the provided scope
+// (grade_ids / stream_ids) for the given school. Returns the list of IDs
+// that fall OUTSIDE the scope. An empty array means everything is in scope.
+// When neither gradeIds nor streamIds are provided, scope is unconstrained
+// and an empty array is returned.
+const findStudentsOutOfScope = async ({
+  schoolId,
+  studentIds,
+  gradeIds,
+  streamIds,
+}) => {
+  if (!studentIds?.length) return [];
+  const hasGrade = Array.isArray(gradeIds) && gradeIds.length > 0;
+  const hasStream = Array.isArray(streamIds) && streamIds.length > 0;
+  if (!hasGrade && !hasStream) return [];
+  const placeholders = studentIds.map(() => "?").join(",");
+  const params = [schoolId, ...studentIds];
+  let sql = `SELECT id, grade_id, stream_id FROM students
+              WHERE school_id = ? AND id IN (${placeholders})`;
+  const rows = await query(sql, params);
+  const valid = new Set(
+    rows
+      .filter((r) => {
+        const gradeOk = !hasGrade || gradeIds.includes(r.grade_id);
+        const streamOk =
+          !hasStream || (r.stream_id && streamIds.includes(r.stream_id));
+        return gradeOk && streamOk;
+      })
+      .map((r) => r.id),
+  );
+  return studentIds.filter((id) => !valid.has(id));
+};
+
+// Per-student audit row for FEE_ASSIGNED / FEE_UNASSIGNED. Always records
+// the admin identity + active term/academic_year so changes are traceable.
+const logFeeAssignmentChange = async ({
+  schoolId,
+  action, // 'FEE_ASSIGNED' | 'FEE_UNASSIGNED'
+  studentFeeId,
+  studentId,
+  feeStructureId,
+  termId,
+  academicYearId,
+  amount,
+  performedBy,
+  performedByRole,
+  scope,
+}) => {
+  try {
+    await query(
+      `INSERT INTO finance_audit_logs
+        (id, school_id, action, entity_type, entity_id, student_id,
+         amount_affected, performed_by, metadata)
+       VALUES (?, ?, ?, 'student_fee', ?, ?, ?, ?, ?)`,
+      [
+        uuidv4(),
+        schoolId,
+        action,
+        studentFeeId || feeStructureId,
+        studentId || null,
+        amount == null ? null : Number(amount),
+        String(performedBy || "system"),
+        JSON.stringify({
+          fee_structure_id: feeStructureId,
+          term_id: termId || null,
+          academic_year_id: academicYearId || null,
+          performed_by_role: performedByRole || null,
+          scope: scope || null,
+        }),
+      ],
+    );
+  } catch (e) {
+    /* non-fatal */
+  }
+};
+
 const getAuditLogs = async (
   schoolId,
   { limit = 100, action, studentId } = {},
@@ -1401,6 +1496,8 @@ module.exports = {
   bulkAssignFee,
   bulkUnassignFee,
   logBulkFeeAudit,
+  logFeeAssignmentChange,
+  findStudentsOutOfScope,
   getAuditLogs,
   findExcessCredits,
   findStudentOutstandingFees,

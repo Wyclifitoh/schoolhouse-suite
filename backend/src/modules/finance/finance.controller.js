@@ -195,21 +195,31 @@ const bulkAssignFee = async (req, res) => {
   try {
     return success(
       res,
-      await financeService.bulkAssignFee(req.schoolId, req.body, req.user?.id),
+      await financeService.bulkAssignFee(
+        req.schoolId,
+        req.body,
+        { id: req.user?.id, role: req.user?.role },
+        req.session || {},
+      ),
       201,
     );
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.outOfScope ? 403 : 500);
   }
 };
 const bulkUnassignFee = async (req, res) => {
   try {
     return success(
       res,
-      await financeService.bulkUnassignFee(req.schoolId, req.body),
+      await financeService.bulkUnassignFee(
+        req.schoolId,
+        req.body,
+        { id: req.user?.id, role: req.user?.role },
+        req.session || {},
+      ),
     );
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.outOfScope ? 403 : 500);
   }
 };
 const getExpenses = async (req, res) => {
