@@ -370,6 +370,21 @@ const bulkUnassignFee = async ({
   );
   const blockedIds = new Set(blockedRows.map((r) => r.id));
 
+  // Capture the rows we are about to delete so we can write per-student
+  // audit entries after the DELETE succeeds.
+  const toDelete = await query(
+    `SELECT id, student_id, amount_due
+       FROM student_fees
+      WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
+        AND student_id IN (${placeholders})
+        AND amount_paid = 0
+        AND id NOT IN (
+          SELECT student_fee_id FROM payment_allocations
+           WHERE student_fee_id IS NOT NULL
+        )`,
+    [schoolId, feeStructureId, termId || null, ...studentIds],
+  );
+
   const result = await query(
     `DELETE FROM student_fees
        WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
@@ -381,7 +396,11 @@ const bulkUnassignFee = async ({
          )`,
     [schoolId, feeStructureId, termId || null, ...studentIds],
   );
-  return { removed: result.affectedRows || 0, blocked: blockedIds.size };
+  return {
+    removed: result.affectedRows || 0,
+    blocked: blockedIds.size,
+    removed_rows: toDelete,
+  };
 };
 
 // ---- Term close → carry forward ----
