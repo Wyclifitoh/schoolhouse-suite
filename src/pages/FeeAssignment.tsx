@@ -193,7 +193,27 @@ const FeeAssignment = () => {
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={toggleAll}><Users className="h-3.5 w-3.5 mr-1" />Select All</Button>
-                  {selected.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(paidLocked))} className="text-destructive">Clear</Button>}
+                  {selected.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        // Clear only the visible (filtered) students — never
+                        // touch selections for other classes/streams.
+                        const visibleIds = new Set(allStudents.map(s => s.id));
+                        setSelected(prev => {
+                          const next = new Set(prev);
+                          visibleIds.forEach(id => {
+                            if (!paidLocked.has(id)) next.delete(id);
+                          });
+                          return next;
+                        });
+                      }}
+                      className="text-destructive"
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
