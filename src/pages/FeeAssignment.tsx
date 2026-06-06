@@ -81,15 +81,25 @@ const FeeAssignment = () => {
   };
   const toggleAll = () => {
     const allIds = allStudents.map(s => s.id);
-    const allSelected = allIds.every(id => selected.has(id));
-    if (allSelected) {
-      // Keep paid-locked entries
-      const next = new Set<string>();
-      paidLocked.forEach(id => next.add(id));
-      setSelected(next);
-    } else {
-      setSelected(new Set(allIds.concat(Array.from(paidLocked))));
-    }
+    if (allIds.length === 0) return;
+    // Only act on the CURRENTLY VISIBLE (filtered) students. Never drop
+    // selections for students outside this view — those belong to other
+    // classes/streams that already have the fee assigned and must not
+    // be silently unassigned.
+    const allVisibleSelected = allIds.every(id => selected.has(id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        // Deselect only the visible ones, but keep paid-locked entries.
+        allIds.forEach(id => {
+          if (!paidLocked.has(id)) next.delete(id);
+        });
+      } else {
+        // Add every visible student to the existing selection.
+        allIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
   };
 
   const getSelectedFeeInfo = () => fees.find((f: any) => f.id === selectedFee);
