@@ -1496,6 +1496,8 @@ module.exports = {
   bulkAssignFee,
   bulkUnassignFee,
   logBulkFeeAudit,
+  logFeeAssignmentChange,
+  findStudentsOutOfScope,
   getAuditLogs,
   findExcessCredits,
   findStudentOutstandingFees,
