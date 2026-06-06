@@ -9,6 +9,10 @@ const getFeeCategories = async (schoolId) =>
   financeRepository.findFeeCategories(schoolId);
 const createFeeCategory = async (schoolId, data) =>
   financeRepository.createFeeCategory(schoolId, data);
+const updateFeeCategory = async (id, schoolId, data) =>
+  financeRepository.updateFeeCategory(id, schoolId, data);
+const deleteFeeCategory = async (id, schoolId) =>
+  financeRepository.deleteFeeCategory(id, schoolId);
 const getFeeStructures = async (schoolId) =>
   financeRepository.findFeeStructures(schoolId);
 const createFeeStructure = async (schoolId, data) =>
@@ -197,6 +201,8 @@ module.exports = {
   getFeeTemplates,
   getFeeCategories,
   createFeeCategory,
+  updateFeeCategory,
+  deleteFeeCategory,
   getFeeStructures,
   createFeeStructure,
   updateFeeStructure,

@@ -44,6 +44,7 @@ const listItems = async (req, res) => {
     });
     return paginated(res, rows, total, p.page, p.limit);
   } catch (err) {
+    console.error("Error listing items:", err);
     return error(res, err.message, 500);
   }
 };
@@ -224,4 +225,12 @@ module.exports = {
   createCategory,
   listTransactions,
   createTransaction,
+  listSuppliers,
+  createSupplier,
+  listPOs,
+  createPO,
+  updatePOStatus,
+  getPOById,
+  getPOItems,
+  updatePO,
 };

@@ -43,6 +43,47 @@ const createFeeCategory = async (schoolId, data) => {
   return queryOne("SELECT * FROM fee_categories WHERE id = ?", [id]);
 };
 
+const updateFeeCategory = async (id, schoolId, data) => {
+  const allowed = ["name", "type", "description", "gl_code", "is_optional"];
+  const entries = Object.entries(data || {}).filter(([k]) =>
+    allowed.includes(k),
+  );
+  if (entries.length === 0) {
+    return queryOne(
+      "SELECT * FROM fee_categories WHERE id = ? AND school_id = ?",
+      [id, schoolId],
+    );
+  }
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => v);
+  values.push(id, schoolId);
+  await query(
+    `UPDATE fee_categories SET ${fields.join(", ")} WHERE id = ? AND school_id = ?`,
+    values,
+  );
+  return queryOne("SELECT * FROM fee_categories WHERE id = ?", [id]);
+};
+
+const deleteFeeCategory = async (id, schoolId) => {
+  // Block delete when in use
+  const inUse = await queryOne(
+    "SELECT COUNT(*) AS c FROM fee_structures WHERE fee_category_id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  if (inUse && Number(inUse.c) > 0) {
+    const err = new Error(
+      "Category is used by one or more fee structures and cannot be deleted",
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+  await query("DELETE FROM fee_categories WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
+  return { deleted: true };
+};
+
 // ---- Fee Structures ----
 const findFeeStructures = async (schoolId) => {
   return query(
@@ -759,12 +800,24 @@ const getCarryForwards = async (schoolId) => {
   );
 };
 
-const getStudentFeesList = async (
+const getStudentFeesListV1 = async (
   schoolId,
   { search, termId, academicYearId },
 ) => {
   let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, s.grade, s.stream,
-    s.parent_name, s.parent_phone,
+    COALESCE(
+      (SELECT CONCAT_WS(' ', p.first_name, p.last_name)
+         FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id
+        ORDER BY (sp.is_primary = 1) DESC, sp.created_at ASC LIMIT 1),
+      s.parent_name
+    ) AS parent_name,
+    COALESCE(
+      (SELECT p.phone FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id AND p.phone IS NOT NULL AND p.phone <> ''
+        ORDER BY (sp.is_primary = 1) DESC, sp.created_at ASC LIMIT 1),
+      s.parent_phone
+    ) AS parent_phone,
     COALESCE(SUM(sf.amount_due), 0) as total_fee,
     COALESCE(SUM(sf.discount_amount), 0) as discount,
     COALESCE(SUM(sf.fine_amount), 0) as fine,
@@ -800,6 +853,87 @@ const getStudentFeesList = async (
 
   sql += " GROUP BY s.id ORDER BY s.full_name LIMIT 200";
   return query(sql, params);
+};
+
+const getStudentFeesList = async (
+  schoolId,
+  { search, termId, academicYearId, limit = 200, offset = 0 },
+) => {
+  const numLimit = parseInt(limit, 10);
+  const numOffset = parseInt(offset, 10);
+  const finalLimit = isNaN(numLimit)
+    ? 200
+    : Math.min(1000, Math.max(1, numLimit));
+  const finalOffset = isNaN(numOffset) ? 0 : Math.max(0, numOffset);
+
+  let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, 
+    s.current_grade_id as grade, s.current_stream_id as stream,
+    COALESCE(
+      (SELECT CONCAT_WS(' ', p.first_name, p.last_name)
+         FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id
+        ORDER BY sp.is_primary_contact DESC, sp.created_at ASC LIMIT 1),
+      s.parent_name
+    ) AS parent_name,
+    COALESCE(
+      (SELECT p.phone FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id AND p.phone IS NOT NULL AND p.phone <> ''
+        ORDER BY sp.is_primary_contact DESC, sp.created_at ASC LIMIT 1),
+      s.parent_phone
+    ) AS parent_phone,
+    COALESCE(SUM(sf.amount_due), 0) as total_fee,
+    COALESCE(SUM(sf.discount_amount), 0) as discount,
+    COALESCE(SUM(sf.fine_amount), 0) as fine,
+    COALESCE(SUM(sf.amount_paid), 0) as paid,
+    COALESCE(SUM(sf.amount_due - sf.amount_paid), 0) as balance,
+    COALESCE(SUM(CASE WHEN (sf.amount_due - sf.amount_paid) > 0 THEN 1 ELSE 0 END), 0) as fee_count,
+    COALESCE(SUM(CASE WHEN sf.due_date IS NOT NULL AND sf.due_date < CURRENT_DATE() AND (sf.amount_due - sf.amount_paid) > 0 THEN 1 ELSE 0 END), 0) as overdue_count
+    FROM students s
+    LEFT JOIN student_fees sf ON sf.student_id = s.id AND sf.school_id = s.school_id AND sf.status NOT IN ('cancelled','waived')`;
+
+  const params = [];
+  const joinFilters = [];
+  if (termId) {
+    joinFilters.push("sf.term_id = ?");
+    params.push(termId);
+  }
+  if (academicYearId) {
+    joinFilters.push(
+      "(sf.academic_year_id = ? OR sf.academic_year_id IS NULL)",
+    );
+    params.push(academicYearId);
+  }
+  if (joinFilters.length) sql += ` AND ${joinFilters.join(" AND ")}`;
+
+  sql += " WHERE s.school_id = ? AND s.status = ?";
+  params.push(schoolId, "active");
+
+  if (search) {
+    sql += " AND (s.full_name LIKE ? OR s.admission_number LIKE ?)";
+    const q = `%${search}%`;
+    params.push(q, q);
+  }
+
+  sql += " GROUP BY s.id ORDER BY s.full_name";
+
+  // Add pagination with template literals
+  sql += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
+
+  // Get total count
+  let countSql = `SELECT COUNT(DISTINCT s.id) as total FROM students s WHERE s.school_id = ? AND s.status = ?`;
+  const countParams = [schoolId, "active"];
+
+  if (search) {
+    countSql += " AND (s.full_name LIKE ? OR s.admission_number LIKE ?)";
+    countParams.push(`%${search}%`, `%${search}%`);
+  }
+
+  const [rows, countResult] = await Promise.all([
+    query(sql, params),
+    query(countSql, countParams),
+  ]);
+
+  return { rows, total: countResult[0]?.total || 0 };
 };
 
 const findExpenses = async (schoolId) => {
@@ -1246,6 +1380,8 @@ module.exports = {
   findFeeTemplates,
   findFeeCategories,
   createFeeCategory,
+  updateFeeCategory,
+  deleteFeeCategory,
   findFeeStructures,
   createFeeStructure,
   updateFeeStructure,

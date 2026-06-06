@@ -29,6 +29,30 @@ const createFeeCategory = async (req, res) => {
     return error(res, err.message, 500);
   }
 };
+const updateFeeCategory = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.updateFeeCategory(
+        req.params.id,
+        req.schoolId,
+        req.body,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+const deleteFeeCategory = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.deleteFeeCategory(req.params.id, req.schoolId),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
 const getFeeStructures = async (req, res) => {
   try {
     return success(res, await financeService.getFeeStructures(req.schoolId));
@@ -135,6 +159,7 @@ const getStudentFeesList = async (req, res) => {
       }),
     );
   } catch (err) {
+    console.error("Error in getStudentFeesList:", err);
     return error(res, err.message, 500);
   }
 };
@@ -149,6 +174,7 @@ const createStudentFee = async (req, res) => {
       201,
     );
   } catch (err) {
+    console.error("Error in createStudentFee:", err);
     return error(res, err.message, 500);
   }
 };
@@ -365,6 +391,8 @@ module.exports = {
   getFeeTemplates,
   getFeeCategories,
   createFeeCategory,
+  updateFeeCategory,
+  deleteFeeCategory,
   getFeeStructures,
   createFeeStructure,
   updateFeeStructure,
