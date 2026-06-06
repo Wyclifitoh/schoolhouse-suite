@@ -81,15 +81,25 @@ const FeeAssignment = () => {
   };
   const toggleAll = () => {
     const allIds = allStudents.map(s => s.id);
-    const allSelected = allIds.every(id => selected.has(id));
-    if (allSelected) {
-      // Keep paid-locked entries
-      const next = new Set<string>();
-      paidLocked.forEach(id => next.add(id));
-      setSelected(next);
-    } else {
-      setSelected(new Set(allIds.concat(Array.from(paidLocked))));
-    }
+    if (allIds.length === 0) return;
+    // Only act on the CURRENTLY VISIBLE (filtered) students. Never drop
+    // selections for students outside this view — those belong to other
+    // classes/streams that already have the fee assigned and must not
+    // be silently unassigned.
+    const allVisibleSelected = allIds.every(id => selected.has(id));
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        // Deselect only the visible ones, but keep paid-locked entries.
+        allIds.forEach(id => {
+          if (!paidLocked.has(id)) next.delete(id);
+        });
+      } else {
+        // Add every visible student to the existing selection.
+        allIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
   };
 
   const getSelectedFeeInfo = () => fees.find((f: any) => f.id === selectedFee);
@@ -106,6 +116,10 @@ const FeeAssignment = () => {
     setShowConfirm(false);
     const fee = getSelectedFeeInfo();
     if (!fee) return;
+    const scope = {
+      grade_ids: gradeFilter ? [gradeFilter] : [],
+      stream_ids: streamFilters.length ? streamFilters : [],
+    };
     try {
       if (additions.length) {
         await bulkAssign.mutateAsync({
@@ -113,6 +127,7 @@ const FeeAssignment = () => {
           term_id: selectedTerm?.id || null,
           academic_year_id: currentAcademicYear?.id || null,
           student_ids: additions,
+          scope,
         });
       }
       if (removals.length) {
@@ -120,6 +135,7 @@ const FeeAssignment = () => {
           fee_structure_id: fee.id,
           term_id: selectedTerm?.id || null,
           student_ids: removals,
+          scope,
         });
       }
       toast.success(`Saved: +${additions.length} assigned, -${removals.length} unassigned`);
@@ -183,7 +199,27 @@ const FeeAssignment = () => {
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={toggleAll}><Users className="h-3.5 w-3.5 mr-1" />Select All</Button>
-                  {selected.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(paidLocked))} className="text-destructive">Clear</Button>}
+                  {selected.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        // Clear only the visible (filtered) students — never
+                        // touch selections for other classes/streams.
+                        const visibleIds = new Set(allStudents.map(s => s.id));
+                        setSelected(prev => {
+                          const next = new Set(prev);
+                          visibleIds.forEach(id => {
+                            if (!paidLocked.has(id)) next.delete(id);
+                          });
+                          return next;
+                        });
+                      }}
+                      className="text-destructive"
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>

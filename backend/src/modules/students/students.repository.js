@@ -102,10 +102,33 @@ const findAll = async (
 };
 
 const findById = async (id, schoolId) => {
-  return queryOne("SELECT * FROM students WHERE id = ? AND school_id = ?", [
-    id,
-    schoolId,
-  ]);
+  const student = await queryOne(
+    "SELECT * FROM students WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  if (!student) return null;
+  // Attach linked parents (via student_parents) so UI never has to rely on
+  // the legacy students.parent_name / parent_phone columns alone.
+  const parents = await query(
+    `SELECT p.id, p.first_name, p.last_name, p.phone, p.alt_phone, p.email,
+            p.occupation, p.id_number,
+            sp.relationship, sp.is_primary
+       FROM student_parents sp
+       JOIN parents p ON p.id = sp.parent_id
+      WHERE sp.student_id = ?
+      ORDER BY (sp.is_primary = 1) DESC, sp.created_at ASC`,
+    [id],
+  ).catch(() => []);
+  student.parents = parents;
+  // Convenience fields — first linked parent wins, fallback to legacy cols
+  const primary = parents[0];
+  if (primary) {
+    student.parent_name =
+      `${primary.first_name || ""} ${primary.last_name || ""}`.trim();
+    student.parent_phone = primary.phone || student.parent_phone;
+    student.parent_email = primary.email || null;
+  }
+  return student;
 };
 
 const create = async (data) => {
@@ -193,6 +216,23 @@ const findByParentPhone = async (schoolId, parentPhone, excludeId) => {
   return query(sql, params);
 };
 
+const getNextAdmissionNumber = async (schoolId) => {
+  const result = await queryOne(
+    "SELECT admission_number FROM students WHERE school_id = ? ORDER BY created_at DESC LIMIT 1",
+    [schoolId]
+  );
+  if (!result || !result.admission_number) return "1000";
+  
+  const match = result.admission_number.match(/\d+$/);
+  if (match) {
+    const nextNum = parseInt(match[0], 10) + 1;
+    const numStr = String(nextNum).padStart(match[0].length, "0");
+    return result.admission_number.replace(/\d+$/, numStr);
+  }
+  
+  return result.admission_number + "-1";
+};
+
 module.exports = {
   findAll,
   findById,
@@ -200,4 +240,5 @@ module.exports = {
   bulkCreate,
   update,
   findByParentPhone,
+  getNextAdmissionNumber,
 };

@@ -1,8 +1,8 @@
-const { query, queryOne } = require("../../config/database");
+const { query, queryOne, cleanValues } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 
 // Items
-const findAllItems = async (
+const findAllItemsV1 = async (
   schoolId,
   { limit, offset, search, categoryId },
 ) => {
@@ -27,6 +27,51 @@ const findAllItems = async (
     query(sql, params),
     query(countSql, params.slice(0, -2)),
   ]);
+  return { rows, total: countRows[0]?.count || 0 };
+};
+
+const findAllItems = async (
+  schoolId,
+  { limit, offset, search, categoryId },
+) => {
+  // Parse and validate pagination values
+  const limitNum = parseInt(limit, 10);
+  const offsetNum = parseInt(offset, 10);
+
+  let sql =
+    "SELECT i.*, c.name as category_name FROM inventory_items i LEFT JOIN inventory_categories c ON c.id = i.category_id WHERE i.school_id = ?";
+  const params = [schoolId];
+
+  if (search) {
+    sql += " AND (i.name LIKE ? OR i.sku LIKE ?)";
+    const s = `%${search}%`;
+    params.push(s, s);
+  }
+  if (categoryId) {
+    sql += " AND i.category_id = ?";
+    params.push(categoryId);
+  }
+
+  // Build count query - remove ORDER BY and LIMIT/OFFSET
+  let countSql = sql;
+  // Remove ORDER BY clause if exists
+  const orderByIndex = countSql.toUpperCase().indexOf(" ORDER BY ");
+  if (orderByIndex !== -1) {
+    countSql = countSql.substring(0, orderByIndex);
+  }
+  countSql = countSql.replace(
+    /SELECT .+? FROM/i,
+    "SELECT COUNT(*) as count FROM",
+  );
+
+  // Use template literals for LIMIT and OFFSET
+  sql += ` ORDER BY i.name ASC LIMIT ${limitNum} OFFSET ${offsetNum}`;
+
+  const [rows, countRows] = await Promise.all([
+    query(sql, params),
+    query(countSql, params),
+  ]);
+
   return { rows, total: countRows[0]?.count || 0 };
 };
 
@@ -346,28 +391,6 @@ const findPOItems = async (poId) => {
      WHERE poi.po_id = ?`,
     [poId],
   );
-  (`INSERT INTO inventory_transactions (id, school_id, item_id, type, quantity, unit_price, total_amount, reference_type, reference_id, notes, recorded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      data.school_id,
-      data.item_id,
-      data.type,
-      data.quantity,
-      data.unit_price || null,
-      data.total_amount || null,
-      data.reference_type || null,
-      data.reference_id || null,
-      data.notes || null,
-      data.recorded_by || null,
-    ]);
-  // Update stock
-  const qtyChange = data.type === "sale" ? -data.quantity : data.quantity;
-  await query(
-    "UPDATE inventory_items SET quantity_in_stock = quantity_in_stock + ? WHERE id = ?",
-    [qtyChange, data.item_id],
-  );
-  return queryOne("SELECT * FROM inventory_transactions WHERE id = ?", [id]);
 };
 
 module.exports = {
@@ -379,4 +402,12 @@ module.exports = {
   createCategory,
   findTransactions,
   createTransaction,
+  findAllSuppliers,
+  createSupplier,
+  createPO,
+  findAllPOs,
+  updatePOStatus,
+  findPOById,
+  findPOItems,
+  editPO,
 };

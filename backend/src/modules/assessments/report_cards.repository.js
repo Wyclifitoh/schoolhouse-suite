@@ -60,10 +60,20 @@ exports.deleteTemplate = (id, schoolId) =>
   );
 
 // ---------- RUNS ----------
-exports.listRuns = (schoolId, { assessment_id } = {}) => {
+exports.listRuns = (schoolId, { assessment_id } = {}, session = null) => {
   const params = [schoolId];
   let where = "r.school_id=?";
   if (assessment_id) { where += " AND r.assessment_id=?"; params.push(assessment_id); }
+  // Session scoping: restrict to active term/year when present, allow
+  // legacy NULL rows so historical runs remain visible.
+  if (session?.academicYearId) {
+    where += " AND (r.academic_year_id = ? OR r.academic_year_id IS NULL)";
+    params.push(session.academicYearId);
+  }
+  if (session?.termId) {
+    where += " AND (r.term_id = ? OR r.term_id IS NULL)";
+    params.push(session.termId);
+  }
   return query(
     `SELECT r.*, a.name AS assessment_name, g.name AS grade_name, st.name AS stream_name,
             t.name AS template_name
@@ -82,6 +92,7 @@ exports.listRuns = (schoolId, { assessment_id } = {}) => {
 exports.createRun = async (data) => {
   const {
     school_id, assessment_id, grade_id, stream_id, template_id, created_by,
+    academic_year_id, term_id,
   } = data;
 
   // Ensure results exist
@@ -90,10 +101,11 @@ exports.createRun = async (data) => {
   const runId = uuid();
   await execute(
     `INSERT INTO report_card_runs_v2
-      (id, school_id, assessment_id, template_id, grade_id, stream_id, status, created_by)
-     VALUES (?,?,?,?,?,?, 'processing', ?)`,
+      (id, school_id, assessment_id, template_id, grade_id, stream_id, status, created_by, academic_year_id, term_id)
+     VALUES (?,?,?,?,?,?, 'processing', ?,?,?)`,
     [runId, school_id, assessment_id, template_id || null,
-     grade_id || null, stream_id || null, created_by || null],
+     grade_id || null, stream_id || null, created_by || null,
+     academic_year_id || null, term_id || null],
   );
 
   // Filter students by grade/stream if provided

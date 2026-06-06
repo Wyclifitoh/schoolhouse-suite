@@ -100,6 +100,15 @@ const exportCsv = async (req, res) => {
   }
 };
 
+const getNextAdmissionNumber = async (req, res) => {
+  try {
+    const nextNumber = await studentsService.getNextAdmissionNumber(req.schoolId);
+    return success(res, { admission_number: nextNumber });
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
 module.exports = {
   list,
   getById,
@@ -110,4 +119,5 @@ module.exports = {
   getSiblings,
   summary,
   exportCsv,
+  getNextAdmissionNumber,
 };

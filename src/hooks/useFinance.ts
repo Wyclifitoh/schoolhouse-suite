@@ -159,6 +159,7 @@ export function useBulkAssignFee() {
       academic_year_id?: string | null;
       student_ids: string[];
       discount_amount?: number;
+      scope?: { grade_ids?: string[]; stream_ids?: string[] };
     }) => api.post<any>("/finance/fee-assignments/bulk", body),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({
@@ -192,6 +193,7 @@ export function useBulkUnassignFee() {
       fee_structure_id: string;
       term_id?: string | null;
       student_ids: string[];
+      scope?: { grade_ids?: string[]; stream_ids?: string[] };
     }) => api.post<any>("/finance/fee-assignments/bulk-unassign", body),
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({
