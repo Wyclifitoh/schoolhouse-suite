@@ -413,6 +413,9 @@ router.post(
           stream_id: req.body.stream_id || null,
           template_id: req.body.template_id || null,
           created_by: uid(req),
+          academic_year_id:
+            req.body.academic_year_id || req.session?.academicYearId || null,
+          term_id: req.body.term_id || req.session?.termId || null,
         });
       } catch (e) {
         console.warn("[assessments] auto report card run failed:", e.message);
@@ -634,7 +637,7 @@ router.delete(
 router.get(
   "/report-cards/runs",
   h(async (req, res) =>
-    success(res, await reportCards.listRuns(sid(req), req.query)),
+    success(res, await reportCards.listRuns(sid(req), req.query, req.session)),
   ),
 );
 router.post(
@@ -646,6 +649,9 @@ router.post(
         ...req.body,
         school_id: sid(req),
         created_by: uid(req),
+        academic_year_id:
+          req.body.academic_year_id || req.session?.academicYearId || null,
+        term_id: req.body.term_id || req.session?.termId || null,
       }),
       201,
     ),
