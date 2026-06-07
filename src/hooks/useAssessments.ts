@@ -433,6 +433,21 @@ export function useSetAssessmentStatus() {
   });
 }
 
+export function useResyncAssessmentSubjects() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post(`/assessments/${id}/resync-subjects`, {}),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["assessments"] });
+      qc.invalidateQueries({ queryKey: ["assessment", id] });
+      qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
+      toast.success("Subjects synced with current class allocations");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ============ TASKS ============
 export interface AssessmentTask {
   id: string;
