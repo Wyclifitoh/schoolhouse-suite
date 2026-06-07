@@ -204,6 +204,7 @@ const bulkAssignFee = async (req, res) => {
       201,
     );
   } catch (err) {
+    console.error("Error in bulkAssignFee:", err);
     return error(res, err.message, err.outOfScope ? 403 : 500);
   }
 };
