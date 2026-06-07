@@ -1014,7 +1014,7 @@ const findStudentsOutOfScope = async ({
   if (!hasGrade && !hasStream) return [];
   const placeholders = studentIds.map(() => "?").join(",");
   const params = [schoolId, ...studentIds];
-  let sql = `SELECT id, grade_id, stream_id FROM students
+  let sql = `SELECT id, current_grade_id as grade_id, current_stream_id as stream_id FROM students
               WHERE school_id = ? AND id IN (${placeholders})`;
   const rows = await query(sql, params);
   const valid = new Set(

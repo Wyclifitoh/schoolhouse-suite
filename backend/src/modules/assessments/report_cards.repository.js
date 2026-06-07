@@ -21,11 +21,18 @@ exports.createTemplate = async (data) => {
        show_position, show_band, show_competencies, show_teacher_remarks, show_principal_remarks, is_default)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      id, data.school_id, data.name, data.kind || "CBC",
-      data.header_title || null, data.header_subtitle || null,
-      data.show_position ?? 0, data.show_band ?? 1,
-      data.show_competencies ?? 1, data.show_teacher_remarks ?? 1,
-      data.show_principal_remarks ?? 1, data.is_default ?? 0,
+      id,
+      data.school_id,
+      data.name,
+      data.kind || "CBC",
+      data.header_title || null,
+      data.header_subtitle || null,
+      data.show_position ?? 0,
+      data.show_band ?? 1,
+      data.show_competencies ?? 1,
+      data.show_teacher_remarks ?? 1,
+      data.show_principal_remarks ?? 1,
+      data.is_default ?? 0,
     ],
   );
   return queryOne("SELECT * FROM report_card_templates_v2 WHERE id=?", [id]);
@@ -35,11 +42,21 @@ exports.updateTemplate = async (id, schoolId, data) => {
   const fields = [];
   const values = [];
   for (const k of [
-    "name", "kind", "header_title", "header_subtitle",
-    "show_position", "show_band", "show_competencies",
-    "show_teacher_remarks", "show_principal_remarks", "is_default",
+    "name",
+    "kind",
+    "header_title",
+    "header_subtitle",
+    "show_position",
+    "show_band",
+    "show_competencies",
+    "show_teacher_remarks",
+    "show_principal_remarks",
+    "is_default",
   ]) {
-    if (data[k] !== undefined) { fields.push(`${k}=?`); values.push(data[k]); }
+    if (data[k] !== undefined) {
+      fields.push(`${k}=?`);
+      values.push(data[k]);
+    }
   }
   if (!fields.length) return null;
   values.push(id, schoolId);
@@ -54,16 +71,19 @@ exports.updateTemplate = async (id, schoolId, data) => {
 };
 
 exports.deleteTemplate = (id, schoolId) =>
-  execute(
-    "DELETE FROM report_card_templates_v2 WHERE id=? AND school_id=?",
-    [id, schoolId],
-  );
+  execute("DELETE FROM report_card_templates_v2 WHERE id=? AND school_id=?", [
+    id,
+    schoolId,
+  ]);
 
 // ---------- RUNS ----------
 exports.listRuns = (schoolId, { assessment_id } = {}, session = null) => {
   const params = [schoolId];
   let where = "r.school_id=?";
-  if (assessment_id) { where += " AND r.assessment_id=?"; params.push(assessment_id); }
+  if (assessment_id) {
+    where += " AND r.assessment_id=?";
+    params.push(assessment_id);
+  }
   // Session scoping: restrict to active term/year when present, allow
   // legacy NULL rows so historical runs remain visible.
   if (session?.academicYearId) {
@@ -91,8 +111,14 @@ exports.listRuns = (schoolId, { assessment_id } = {}, session = null) => {
 // Generate a run: pulls approved/published results and snapshots a payload per student.
 exports.createRun = async (data) => {
   const {
-    school_id, assessment_id, grade_id, stream_id, template_id, created_by,
-    academic_year_id, term_id,
+    school_id,
+    assessment_id,
+    grade_id,
+    stream_id,
+    template_id,
+    created_by,
+    academic_year_id,
+    term_id,
   } = data;
 
   // Ensure results exist
@@ -103,16 +129,30 @@ exports.createRun = async (data) => {
     `INSERT INTO report_card_runs_v2
       (id, school_id, assessment_id, template_id, grade_id, stream_id, status, created_by, academic_year_id, term_id)
      VALUES (?,?,?,?,?,?, 'processing', ?,?,?)`,
-    [runId, school_id, assessment_id, template_id || null,
-     grade_id || null, stream_id || null, created_by || null,
-     academic_year_id || null, term_id || null],
+    [
+      runId,
+      school_id,
+      assessment_id,
+      template_id || null,
+      grade_id || null,
+      stream_id || null,
+      created_by || null,
+      academic_year_id || null,
+      term_id || null,
+    ],
   );
 
   // Filter students by grade/stream if provided
   const params = [assessment_id];
   let where = "r.assessment_id=?";
-  if (grade_id) { where += " AND r.grade_id=?"; params.push(grade_id); }
-  if (stream_id) { where += " AND r.stream_id=?"; params.push(stream_id); }
+  if (grade_id) {
+    where += " AND r.grade_id=?";
+    params.push(grade_id);
+  }
+  if (stream_id) {
+    where += " AND r.stream_id=?";
+    params.push(stream_id);
+  }
   const studentResults = await query(
     `SELECT r.* FROM assessment_results r WHERE ${where}`,
     params,
@@ -120,7 +160,11 @@ exports.createRun = async (data) => {
 
   let count = 0;
   for (const r of studentResults) {
-    const detail = await results.studentDetail(school_id, assessment_id, r.student_id);
+    const detail = await results.studentDetail(
+      school_id,
+      assessment_id,
+      r.student_id,
+    );
     if (!detail) continue;
     await execute(
       `INSERT IGNORE INTO report_cards_v2
@@ -148,10 +192,7 @@ exports.publishRun = async (id, schoolId) => {
     `UPDATE report_card_runs_v2 SET status='published', published_at=NOW() WHERE id=?`,
     [id],
   );
-  await execute(
-    `UPDATE report_cards_v2 SET published=1 WHERE run_id=?`,
-    [id],
-  );
+  await execute(`UPDATE report_cards_v2 SET published=1 WHERE run_id=?`, [id]);
   // Publish related results
   await execute(
     `UPDATE assessment_results SET status='published', published_at=NOW()
