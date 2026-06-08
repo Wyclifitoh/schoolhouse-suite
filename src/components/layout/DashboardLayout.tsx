@@ -179,6 +179,7 @@ const navigationGroups: NavGroup[] = [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
+          ...FINANCE_STAFF_ROLES,
         ] as AppRole[],
       },
       {
