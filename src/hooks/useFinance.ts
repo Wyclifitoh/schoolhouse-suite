@@ -75,6 +75,8 @@ export function usePayments(filters?: {
   status?: string;
   method?: string;
   search?: string;
+  page?: number;
+  limit?: number;
 }) {
   const { selectedTerm } = useTerm();
   return useQuery({
@@ -85,15 +87,51 @@ export function usePayments(filters?: {
         params.set("status", filters.status);
       if (filters?.method && filters.method !== "all")
         params.set("method", filters.method);
+      if (filters?.search) params.set("search", filters.search);
+      if (filters?.page) params.set("page", String(filters.page));
+      if (filters?.limit) params.set("limit", String(filters.limit));
       const r = await api.get<any>(`/payments?${params}`);
-      return (r?.data || r || []).map((p: any) => ({
+      const rows = (r?.data || r || []).map((p: any) => ({
         ...p,
         student_name: p.student_name || "Unknown",
         admission_no: p.admission_number || "",
       }));
+      return {
+        rows,
+        total: Number(r?.total ?? r?.pagination?.total ?? rows.length),
+        page: Number(r?.page ?? filters?.page ?? 1),
+        limit: Number(r?.limit ?? filters?.limit ?? 20),
+      };
     },
   });
 }
+
+export function usePaymentStats(filters?: {
+  status?: string;
+  method?: string;
+  search?: string;
+}) {
+  const { selectedTerm } = useTerm();
+  return useQuery({
+    queryKey: ["payment-stats", selectedTerm?.id, filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters?.status && filters.status !== "all")
+        params.set("status", filters.status);
+      if (filters?.method && filters.method !== "all")
+        params.set("method", filters.method);
+      if (filters?.search) params.set("search", filters.search);
+      const r = await api.get<any>(`/payments/stats?${params}`);
+      const d = r?.data || r || {};
+      return {
+        total_collected: Number(d.total_collected || 0),
+        mpesa_total: Number(d.mpesa_total || 0),
+        total_count: Number(d.total_count || 0),
+      };
+    },
+  });
+}
+
 export function useExpenses() {
   return useQuery({
     queryKey: ["expenses"],
@@ -244,7 +282,11 @@ export function useRecordPayment() {
 }
 
 // ---- Phase 4 ----
-export function useFinanceAuditLogs(filters?: { action?: string; studentId?: string; limit?: number }) {
+export function useFinanceAuditLogs(filters?: {
+  action?: string;
+  studentId?: string;
+  limit?: number;
+}) {
   return useQuery({
     queryKey: ["finance-audit-logs", filters],
     queryFn: async () => {
@@ -273,13 +315,21 @@ export function useFeeAdjustments(status?: string) {
 export function useCreateFeeAdjustment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { student_fee_id: string; adjustment_type: string; amount: number; reason: string }) =>
-      api.post<any>("/finance/adjustments", body),
+    mutationFn: (body: {
+      student_fee_id: string;
+      adjustment_type: string;
+      amount: number;
+      reason: string;
+    }) => api.post<any>("/finance/adjustments", body),
     onSuccess: (d: any) => {
       qc.invalidateQueries({ queryKey: ["fee-adjustments"] });
       qc.invalidateQueries({ queryKey: ["student-fees-list"] });
       qc.invalidateQueries({ queryKey: ["student-fee-items"] });
-      toast.success(d?.requires_approval ? "Adjustment submitted for approval" : "Adjustment applied");
+      toast.success(
+        d?.requires_approval
+          ? "Adjustment submitted for approval"
+          : "Adjustment applied",
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -288,8 +338,19 @@ export function useCreateFeeAdjustment() {
 export function useDecideFeeAdjustment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, decision, rejected_reason }: { id: string; decision: "approve" | "reject"; rejected_reason?: string }) =>
-      api.post<any>(`/finance/adjustments/${id}/decision`, { decision, rejected_reason }),
+    mutationFn: ({
+      id,
+      decision,
+      rejected_reason,
+    }: {
+      id: string;
+      decision: "approve" | "reject";
+      rejected_reason?: string;
+    }) =>
+      api.post<any>(`/finance/adjustments/${id}/decision`, {
+        decision,
+        rejected_reason,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-adjustments"] });
       qc.invalidateQueries({ queryKey: ["student-fees-list"] });

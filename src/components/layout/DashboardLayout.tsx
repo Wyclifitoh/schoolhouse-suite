@@ -1053,7 +1053,10 @@ export function DashboardLayout({
   title,
   subtitle,
 }: DashboardLayoutProps) {
-  const { profile, user, roleLabel, hasAnyRole, signOut } = useAuth();
+  const { profile, user, primaryRole, getRoleLabel, hasAnyRole, signOut } =
+    useAuth();
+  const computedRoleLabel = primaryRole ? getRoleLabel(primaryRole) : "Guest";
+
   const { currentSchool } = useSchool();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1196,7 +1199,7 @@ export function DashboardLayout({
                     {displayName}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {roleLabel}
+                    {computedRoleLabel}
                   </p>
                 </div>
                 <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />

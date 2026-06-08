@@ -38,8 +38,13 @@ import {
   Undo2,
   Trophy,
   ShieldCheck,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const STATUS_COLORS: Record<ResultStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -122,6 +127,83 @@ export default function Results() {
     ).length;
     return totals;
   }, [results]);
+
+  const exportRows = useMemo(
+    () =>
+      results.map((r, i) => ({
+        "#": r.class_position ?? i + 1,
+        "Admission No.": r.admission_number,
+        Student: `${r.first_name} ${r.last_name}`,
+        Class: `${r.grade_name || ""}${r.stream_name ? " · " + r.stream_name : ""}`,
+        Total: Number(r.total_score || 0),
+        "Out Of": Number(r.total_out_of || 0),
+        "Mean %": Number(r.percentage || 0).toFixed(1),
+        AL: r.overall_al || "",
+        Band: r.overall_band || "",
+        Status: r.status,
+      })),
+    [results],
+  );
+
+  const assessmentName = useMemo(
+    () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
+    [assessments, assessmentId],
+  );
+
+  const exportExcel = () => {
+    if (!exportRows.length) return toast.error("Nothing to export");
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    ws["!cols"] = [
+      { wch: 5 },
+      { wch: 14 },
+      { wch: 26 },
+      { wch: 22 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 9 },
+      { wch: 6 },
+      { wch: 10 },
+      { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Results");
+    XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`);
+  };
+
+  const exportPdf = () => {
+    if (!exportRows.length) return toast.error("Nothing to export");
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
+    doc.setFontSize(14);
+    doc.text(assessmentName, 40, 36);
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(
+      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`,
+      40,
+      54,
+    );
+    doc.setTextColor(0);
+    const head = [Object.keys(exportRows[0])];
+    const body = exportRows.map((r) => Object.values(r) as any[]);
+    autoTable(doc, {
+      head,
+      body,
+      startY: 70,
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.pdf`);
+  };
 
   return (
     <DashboardLayout>
@@ -239,6 +321,20 @@ export default function Results() {
               onClick={() => positions.mutate(assessmentId)}
             >
               <Trophy className="h-4 w-4 mr-1" /> Rank
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!results.length}
+              onClick={exportExcel}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!results.length}
+              onClick={exportPdf}
+            >
+              <FileText className="h-4 w-4 mr-1" /> PDF
             </Button>
           </div>
         </div>

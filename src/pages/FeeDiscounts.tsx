@@ -8,10 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStudents } from "@/hooks/useStudents";
@@ -55,9 +64,12 @@ const FeeDiscounts = () => {
   });
 
   const apply = useMutation({
-    mutationFn: (body: any) => api.post<any>("/finance/applied-discounts", body),
+    mutationFn: (body: any) =>
+      api.post<any>("/finance/applied-discounts", body),
     onSuccess: (r: any) => {
-      toast.success(`Applied: ${r?.data?.applied || r?.applied || 0} · Skipped: ${r?.data?.skipped || r?.skipped || 0}`);
+      toast.success(
+        `Applied: ${r?.data?.applied || r?.applied || 0} · Skipped: ${r?.data?.skipped || r?.skipped || 0}`,
+      );
       setSelected(new Set());
       qc.invalidateQueries({ queryKey: ["applied-discounts"] });
       qc.invalidateQueries({ queryKey: ["student-fee-items"] });
@@ -66,7 +78,8 @@ const FeeDiscounts = () => {
   });
 
   const revoke = useMutation({
-    mutationFn: (id: string) => api.delete<any>(`/finance/applied-discounts/${id}`),
+    mutationFn: (id: string) =>
+      api.delete<any>(`/finance/applied-discounts/${id}`),
     onSuccess: () => {
       toast.success("Revoked");
       qc.invalidateQueries({ queryKey: ["applied-discounts"] });
@@ -89,7 +102,11 @@ const FeeDiscounts = () => {
   }));
 
   const toggle = (id: string) =>
-    setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelected((p) => {
+      const n = new Set(p);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
 
   const toggleAll = () => {
     const ids = allStudents.map((s) => s.id);
@@ -98,10 +115,12 @@ const FeeDiscounts = () => {
 
   const handleApply = () => {
     if (!discountId) return toast.error("Pick a discount");
+    if (!structureId)
+      return toast.error("Pick the fee this discount applies to");
     if (selected.size === 0) return toast.error("Select at least one student");
     apply.mutate({
       discount_id: discountId,
-      fee_structure_id: structureId || null,
+      fee_structure_id: structureId,
       term_id: selectedTerm?.id || null,
       academic_year_id: currentAcademicYear?.id || null,
       student_ids: Array.from(selected),
@@ -109,7 +128,10 @@ const FeeDiscounts = () => {
   };
 
   return (
-    <DashboardLayout title="Fee Discounts" subtitle="Apply discounts to specific students — independent of fee assignment">
+    <DashboardLayout
+      title="Fee Discounts"
+      subtitle="Apply discounts to specific students — independent of fee assignment"
+    >
       {selectedTerm && (
         <div className="mb-3 text-xs text-muted-foreground">
           Term: <strong className="text-foreground">{selectedTerm.name}</strong>
@@ -118,22 +140,31 @@ const FeeDiscounts = () => {
 
       <Tabs defaultValue="apply" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 h-auto gap-1">
-          <TabsTrigger value="apply" className="gap-1.5"><Percent className="h-3.5 w-3.5" />Apply Discount</TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5"><CheckCircle className="h-3.5 w-3.5" />Applied Discounts</TabsTrigger>
+          <TabsTrigger value="apply" className="gap-1.5">
+            <Percent className="h-3.5 w-3.5" />
+            Apply Discount
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5">
+            <CheckCircle className="h-3.5 w-3.5" />
+            Applied Discounts
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="apply" className="space-y-6">
           <Card className="border-primary/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                  1
+                </div>
                 Choose Discount
               </CardTitle>
             </CardHeader>
             <CardContent>
               {(discounts as any[]).length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No discounts configured. Add one under Finance → Fee Discounts.
+                  No discounts configured. Add one under Finance → Fee
+                  Discounts.
                 </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -142,12 +173,18 @@ const FeeDiscounts = () => {
                       key={d.id}
                       onClick={() => setDiscountId(d.id)}
                       className={`text-left p-3 rounded-xl border-2 transition-all ${
-                        discountId === d.id ? "border-primary bg-primary/5 shadow-md" : "border-border hover:border-primary/40"
+                        discountId === d.id
+                          ? "border-primary bg-primary/5 shadow-md"
+                          : "border-border hover:border-primary/40"
                       }`}
                     >
-                      <span className="font-semibold text-foreground text-sm block">{d.name}</span>
+                      <span className="font-semibold text-foreground text-sm block">
+                        {d.name}
+                      </span>
                       <p className="text-sm font-bold text-success mt-1">
-                        {d.type === "percentage" ? `${d.value}% off` : `${fmt(d.value)} off`}
+                        {d.type === "percentage"
+                          ? `${d.value}% off`
+                          : `${fmt(d.value)} off`}
                       </p>
                     </button>
                   ))}
@@ -156,59 +193,105 @@ const FeeDiscounts = () => {
             </CardContent>
           </Card>
 
-          <Card className={!discountId ? "opacity-50 pointer-events-none" : "border-primary/20"}>
+          <Card
+            className={
+              !discountId
+                ? "opacity-50 pointer-events-none"
+                : "border-primary/20"
+            }
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
-                Scope (Optional)
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                  2
+                </div>
+                Scope (Required)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs">Apply Against Fee Structure</Label>
-                  <Select value={structureId || "any"} onValueChange={(v) => setStructureId(v === "any" ? "" : v)}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Any fee" /></SelectTrigger>
+                  <Label className="text-xs">Apply To Fee Structure *</Label>
+                  <Select
+                    value={structureId}
+                    onValueChange={(v) => setStructureId(v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select fee (e.g. Tuition)" />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="any">Any (credit only, doesn't touch a fee row)</SelectItem>
                       {(feeStructures as any[]).map((f: any) => (
-                        <SelectItem key={f.id} value={f.id}>{f.name} · {fmt(Number(f.amount || 0))}</SelectItem>
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.name} · {fmt(Number(f.amount || 0))}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Picking a fee reduces that student's amount_due directly. Leaving blank just records the discount.
+                    Discount is applied to this fee only (e.g. Tuition). It will
+                    not affect Transport, Meals, or other fees.
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={!discountId ? "opacity-50 pointer-events-none" : "border-primary/20"}>
+          <Card
+            className={
+              !discountId || !structureId
+                ? "opacity-50 pointer-events-none"
+                : "border-primary/20"
+            }
+          >
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                    3
+                  </div>
                   Select Students
-                  {selected.size > 0 && <Badge className="bg-primary/10 text-primary border-0 ml-2">{selected.size} selected</Badge>}
+                  {selected.size > 0 && (
+                    <Badge className="bg-primary/10 text-primary border-0 ml-2">
+                      {selected.size} selected
+                    </Badge>
+                  )}
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={toggleAll}><Users className="h-3.5 w-3.5 mr-1" />Select All</Button>
+                <Button variant="outline" size="sm" onClick={toggleAll}>
+                  <Users className="h-3.5 w-3.5 mr-1" />
+                  Select All
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div>
                   <Label className="text-xs">Class *</Label>
-                  <Select value={gradeFilter} onValueChange={(v) => setGradeFilter(v)}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select class" /></SelectTrigger>
-                    <SelectContent>{(classes as any[]).map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
+                  <Select
+                    value={gradeFilter}
+                    onValueChange={(v) => setGradeFilter(v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(classes as any[]).map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label className="text-xs">Search</Label>
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input placeholder="Name or admission no..." className="pl-8 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+                    <Input
+                      placeholder="Name or admission no..."
+                      className="pl-8 h-9"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
@@ -218,7 +301,13 @@ const FeeDiscounts = () => {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="w-10">
-                        <Checkbox checked={allStudents.length > 0 && allStudents.every((s) => selected.has(s.id))} onCheckedChange={toggleAll} />
+                        <Checkbox
+                          checked={
+                            allStudents.length > 0 &&
+                            allStudents.every((s) => selected.has(s.id))
+                          }
+                          onCheckedChange={toggleAll}
+                        />
                       </TableHead>
                       <TableHead>Student</TableHead>
                       <TableHead>Admission</TableHead>
@@ -228,17 +317,47 @@ const FeeDiscounts = () => {
                   </TableHeader>
                   <TableBody>
                     {!gradeFilter ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Select a class to load students</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          Select a class to load students
+                        </TableCell>
+                      </TableRow>
                     ) : studentsLoading ? (
-                      [1, 2, 3].map((i) => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>)
+                      [1, 2, 3].map((i) => (
+                        <TableRow key={i}>
+                          <TableCell colSpan={5}>
+                            <Skeleton className="h-10 w-full" />
+                          </TableCell>
+                        </TableRow>
+                      ))
                     ) : allStudents.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No students match filters</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No students match filters
+                        </TableCell>
+                      </TableRow>
                     ) : (
                       allStudents.map((s) => (
-                        <TableRow key={s.id} className={`cursor-pointer ${selected.has(s.id) ? "bg-primary/5" : ""}`} onClick={() => toggle(s.id)}>
-                          <TableCell><Checkbox checked={selected.has(s.id)} /></TableCell>
-                          <TableCell className="font-medium">{s.full_name}</TableCell>
-                          <TableCell className="font-mono text-muted-foreground text-sm">{s.admission_no}</TableCell>
+                        <TableRow
+                          key={s.id}
+                          className={`cursor-pointer ${selected.has(s.id) ? "bg-primary/5" : ""}`}
+                          onClick={() => toggle(s.id)}
+                        >
+                          <TableCell>
+                            <Checkbox checked={selected.has(s.id)} />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {s.full_name}
+                          </TableCell>
+                          <TableCell className="font-mono text-muted-foreground text-sm">
+                            {s.admission_no}
+                          </TableCell>
                           <TableCell>{s.grade}</TableCell>
                           <TableCell>{s.stream}</TableCell>
                         </TableRow>
@@ -250,18 +369,36 @@ const FeeDiscounts = () => {
             </CardContent>
           </Card>
 
-          {discountId && selected.size > 0 && (
+          {discountId && structureId && selected.size > 0 && (
             <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
               <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <h3 className="font-bold text-lg">Ready to Apply</h3>
                   <p className="text-sm text-muted-foreground">
-                    Discount <strong>{selectedDiscount?.name}</strong> → {selected.size} student(s)
-                    {structureId && (<> on <strong>{(feeStructures as any[]).find((f) => f.id === structureId)?.name}</strong></>)}
+                    Discount <strong>{selectedDiscount?.name}</strong> →{" "}
+                    {selected.size} student(s)
+                    {structureId && (
+                      <>
+                        {" "}
+                        on{" "}
+                        <strong>
+                          {
+                            (feeStructures as any[]).find(
+                              (f) => f.id === structureId,
+                            )?.name
+                          }
+                        </strong>
+                      </>
+                    )}
                   </p>
                 </div>
-                <Button size="lg" onClick={handleApply} disabled={apply.isPending}>
-                  <CheckCircle className="h-4 w-4 mr-1.5" />{apply.isPending ? "Applying..." : "Apply Discount"}
+                <Button
+                  size="lg"
+                  onClick={handleApply}
+                  disabled={apply.isPending}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1.5" />
+                  {apply.isPending ? "Applying..." : "Apply Discount"}
                 </Button>
               </CardContent>
             </Card>
@@ -270,7 +407,11 @@ const FeeDiscounts = () => {
 
         <TabsContent value="history" className="space-y-4">
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Applied Discounts</CardTitle></CardHeader>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">
+                Applied Discounts
+              </CardTitle>
+            </CardHeader>
             <CardContent>
               <div className="rounded-lg border overflow-hidden">
                 <Table>
@@ -286,21 +427,54 @@ const FeeDiscounts = () => {
                   </TableHeader>
                   <TableBody>
                     {(applied as any[]).length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No discounts applied yet</TableCell></TableRow>
-                    ) : (applied as any[]).map((r: any) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.student_name} <span className="text-xs text-muted-foreground ml-1 font-mono">{r.admission_number}</span></TableCell>
-                        <TableCell>{r.discount_name} <Badge variant="secondary" className="ml-1 text-[10px]">{r.discount_type}</Badge></TableCell>
-                        <TableCell>{r.fee_structure_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                        <TableCell>{r.term_name || "—"}</TableCell>
-                        <TableCell className="text-right font-semibold text-success">{fmt(Number(r.amount || 0))}</TableCell>
-                        <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => revoke.mutate(r.id)} disabled={revoke.isPending}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No discounts applied yet
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      (applied as any[]).map((r: any) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-medium">
+                            {r.student_name}{" "}
+                            <span className="text-xs text-muted-foreground ml-1 font-mono">
+                              {r.admission_number}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {r.discount_name}{" "}
+                            <Badge
+                              variant="secondary"
+                              className="ml-1 text-[10px]"
+                            >
+                              {r.discount_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {r.fee_structure_name || (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{r.term_name || "—"}</TableCell>
+                          <TableCell className="text-right font-semibold text-success">
+                            {fmt(Number(r.amount || 0))}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => revoke.mutate(r.id)}
+                              disabled={revoke.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
