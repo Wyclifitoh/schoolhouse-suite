@@ -755,6 +755,8 @@ const EditStudentDialog = ({
   const [form, setForm] = useState<Record<string, any>>({});
   const updateStudent = useUpdateStudent();
   const updateParent = useUpdateParent();
+  const { data: gradesList = [] } = useGrades();
+  const { data: streamsList = [] } = useStreams(form.current_grade_id);
 
   const { data: parents, isLoading: parentsLoading } = useStudentParents(
     student?.id,
@@ -770,8 +772,12 @@ const EditStudentDialog = ({
         admission_number: student.admission_number || "",
         gender: student.gender || "",
         date_of_birth: student.date_of_birth || "",
-        parent_name: student.parent_name || "",
-        parent_phone: student.parent_phone || "",
+        current_grade_id: student.current_grade_id || "",
+        current_stream_id: student.current_stream_id || "",
+        religion: (student as any).religion || "",
+        nationality: (student as any).nationality || "",
+        admission_date: (student as any).admission_date || "",
+        upi: (student as any).upi || "",
         status: student.status || "active",
       });
       setActiveTab("student");
@@ -912,25 +918,91 @@ const EditStudentDialog = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Parent / Guardian Name</Label>
+                  <Label className="text-xs">Class / Grade</Label>
+                  <Select
+                    value={form.current_grade_id || ""}
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        current_grade_id: v,
+                        current_stream_id: "",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(gradesList as any[]).map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Stream</Label>
+                  <Select
+                    value={form.current_stream_id || ""}
+                    onValueChange={(v) =>
+                      setForm({ ...form, current_stream_id: v })
+                    }
+                    disabled={!form.current_grade_id}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select stream" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(streamsList as any[]).map((s: any) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Admission Date</Label>
                   <Input
+                    type="date"
                     className="h-9"
-                    value={form.parent_name || ""}
+                    value={form.admission_date || ""}
                     onChange={(e) =>
-                      setForm({ ...form, parent_name: e.target.value })
+                      setForm({ ...form, admission_date: e.target.value })
                     }
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Parent Phone</Label>
+                  <Label className="text-xs">Religion</Label>
                   <Input
                     className="h-9"
-                    value={form.parent_phone || ""}
+                    value={form.religion || ""}
                     onChange={(e) =>
-                      setForm({ ...form, parent_phone: e.target.value })
+                      setForm({ ...form, religion: e.target.value })
                     }
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nationality</Label>
+                  <Input
+                    className="h-9"
+                    value={form.nationality || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, nationality: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">UPI</Label>
+                <Input
+                  className="h-9"
+                  value={form.upi || ""}
+                  onChange={(e) => setForm({ ...form, upi: e.target.value })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Status</Label>

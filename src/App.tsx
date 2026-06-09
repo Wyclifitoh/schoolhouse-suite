@@ -75,6 +75,10 @@ import ExamReview from "./pages/exams/ExamReview";
 import ExamAnalytics from "./pages/exams/ExamAnalytics";
 import ReportCards from "./pages/exams/ReportCards";
 import AssessmentSettings from "./pages/settings/AssessmentSettings";
+import {
+  RolesList,
+  RolePermissionsEditor,
+} from "./pages/settings/RolesPermissions";
 
 // Assessments Module v2 (CBC)
 import AssessmentsList from "./pages/assessments/Assessments";
@@ -981,6 +985,22 @@ const App = () => (
                           ]}
                         >
                           <Settings />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/settings/roles"
+                      element={
+                        <ProtectedRoute roles={["super_admin", "school_admin"]}>
+                          <RolesList />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/settings/roles/:role/permissions"
+                      element={
+                        <ProtectedRoute roles={["super_admin", "school_admin"]}>
+                          <RolePermissionsEditor />
                         </ProtectedRoute>
                       }
                     />

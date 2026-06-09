@@ -73,11 +73,13 @@ import {
   useSchoolProfile,
   useUpdateSchoolProfile,
   useSchoolUsers,
+  useUpdateUserRole,
   useNotificationTemplates,
   useUpdateNotificationTemplate,
 } from "@/hooks/useSettings";
 import { useTerm, AcademicYear, Term } from "@/contexts/TermContext";
 import { formatDate } from "@/utils/date";
+import { useNavigate } from "react-router-dom";
 
 const termStatusConfig: Record<string, { label: string; className: string }> = {
   completed: {
@@ -156,12 +158,14 @@ const smsPlaceholders: Record<string, string[]> = {
 
 const Settings = () => {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("school");
 
   // --- Data hooks ---
   const { data: schoolProfile, isLoading: profileLoading } = useSchoolProfile();
   const updateProfile = useUpdateSchoolProfile();
   const { data: usersData = [], isLoading: usersLoading } = useSchoolUsers();
+  const updateUserRole = useUpdateUserRole();
   const { data: templatesData = [], isLoading: templatesLoading } =
     useNotificationTemplates();
   const updateTemplate = useUpdateNotificationTemplate();
@@ -316,7 +320,9 @@ const Settings = () => {
           <TabsTrigger value="users" className="gap-1.5">
             <Users className="h-4 w-4" /> User Management
           </TabsTrigger>
-          {/* SMS Templates moved to /communication */}
+          <TabsTrigger value="roles" className="gap-1.5">
+            <Shield className="h-4 w-4" /> Roles & Permissions
+          </TabsTrigger>
         </TabsList>
 
         {/* ── School Profile ── */}
@@ -878,16 +884,36 @@ const Settings = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant="default"
-                              className={
-                                roleColors[u.roles?.split(",")[0]?.trim()] ||
-                                "bg-secondary"
+                            <Select
+                              value={u.roles?.split(",")[0]?.trim() || ""}
+                              onValueChange={(v) =>
+                                updateUserRole.mutate({ userId: u.id, role: v })
                               }
+                              disabled={updateUserRole.isPending}
                             >
-                              <Shield className="h-3 w-3 mr-1" />
-                              {u.roles}
-                            </Badge>
+                              <SelectTrigger className="h-8 w-44 text-xs">
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="super_admin">
+                                  Super Admin
+                                </SelectItem>
+                                <SelectItem value="admin">
+                                  School Admin
+                                </SelectItem>
+                                <SelectItem value="manager">Manager</SelectItem>
+                                <SelectItem value="accountant">
+                                  Accountant
+                                </SelectItem>
+                                <SelectItem value="teacher">Teacher</SelectItem>
+                                <SelectItem value="librarian">
+                                  Librarian
+                                </SelectItem>
+                                <SelectItem value="receptionist">
+                                  Receptionist
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell>
                             <Badge
@@ -914,7 +940,27 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
-        {/* ── SMS Templates ── */}
+        {/* ── Roles & Permissions ── */}
+        <TabsContent value="roles" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" /> Roles & Permissions
+              </CardTitle>
+              <CardDescription>
+                Define what each system role is allowed to do. Pick a role to
+                assign granular CRUD permissions per module.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => navigate("/settings/roles")}>
+                <Shield className="h-4 w-4 mr-1.5" /> Open Roles & Permissions
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── SMS Templates (legacy section) ── */}
         <TabsContent value="sms" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-1">
