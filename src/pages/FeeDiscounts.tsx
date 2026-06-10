@@ -31,6 +31,7 @@ import { Percent, Users, Search, CheckCircle, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const fmt = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -392,14 +393,16 @@ const FeeDiscounts = () => {
                     )}
                   </p>
                 </div>
-                <Button
-                  size="lg"
-                  onClick={handleApply}
-                  disabled={apply.isPending}
-                >
-                  <CheckCircle className="h-4 w-4 mr-1.5" />
-                  {apply.isPending ? "Applying..." : "Apply Discount"}
-                </Button>
+                <PermissionGate permission="finance:fees:waive">
+                  <Button
+                    size="lg"
+                    onClick={handleApply}
+                    disabled={apply.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1.5" />
+                    {apply.isPending ? "Applying..." : "Apply Discount"}
+                  </Button>
+                </PermissionGate>
               </CardContent>
             </Card>
           )}
@@ -463,14 +466,16 @@ const FeeDiscounts = () => {
                             {fmt(Number(r.amount || 0))}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => revoke.mutate(r.id)}
-                              disabled={revoke.isPending}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
+                            <PermissionGate permission="finance:fees:waive">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => revoke.mutate(r.id)}
+                                disabled={revoke.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </PermissionGate>
                           </TableCell>
                         </TableRow>
                       ))

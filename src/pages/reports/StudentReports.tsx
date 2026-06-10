@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useStudentReportData } from "@/hooks/useReports";
 import { useClasses, useStreams } from "@/hooks/useClasses";
+import { ReportExportMenu } from "@/components/reports/ReportExportMenu";
 
 const LoadingSkeleton = () => (
   <div className="space-y-3 p-6">
@@ -133,10 +134,13 @@ const StudentReports = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export
-                  </Button>
+                  <ReportExportMenu
+                    path="/reports/students/export"
+                    fileBase="students-report"
+                    params={{
+                      class_id: classFilter !== "all" ? classFilter : undefined,
+                    }}
+                  />
                 </div>
               </div>
             </CardHeader>

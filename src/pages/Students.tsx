@@ -1359,45 +1359,72 @@ const Students = () => {
                   <Upload className="h-4 w-4 mr-1.5" />
                   Import
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const params = new URLSearchParams();
-                      params.set("status", "active");
-                      if (search) params.set("search", search);
-                      const token = api.getToken();
-                      const schoolId =
-                        localStorage.getItem("chuo-school-id") || "";
-                      const base =
-                        (import.meta as any).env?.VITE_API_URL ||
-                        "https://chuoapi.wikiteq.co.ke/api/v1";
-                      const res = await fetch(
-                        `${base}/students/export?${params}`,
-                        {
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                            "X-School-ID": schoolId,
-                          },
-                        },
-                      );
-                      if (!res.ok) throw new Error("Export failed");
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Export failed");
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1.5" />
-                  Export
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1.5" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {(["csv", "xlsx", "pdf"] as const).map((kind) => (
+                      <DropdownMenuItem
+                        key={kind}
+                        onClick={async () => {
+                          try {
+                            const params = new URLSearchParams();
+                            params.set("status", "active");
+                            if (search) params.set("search", search);
+                            if (gradeFilter !== "all" && selectedGrade?.id)
+                              params.set("grade_id", selectedGrade.id);
+                            if (streamFilters.length > 0) {
+                              const ids = streamsForGrade
+                                .filter((s: any) =>
+                                  streamFilters.includes(s.name),
+                                )
+                                .map((s: any) => s.id)
+                                .join(",");
+                              if (ids) params.set("stream_ids", ids);
+                            }
+                            const token = api.getToken();
+                            const schoolId =
+                              localStorage.getItem("chuo-school-id") || "";
+                            const base =
+                              (import.meta as any).env?.VITE_API_URL ||
+                              "https://chuoapi.wikiteq.co.ke/api/v1";
+                            const path =
+                              kind === "csv"
+                                ? "/students/export"
+                                : kind === "xlsx"
+                                  ? "/students/export.xlsx"
+                                  : "/students/export.pdf";
+                            const res = await fetch(
+                              `${base}${path}?${params}`,
+                              {
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                  "X-School-ID": schoolId,
+                                },
+                              },
+                            );
+                            if (!res.ok) throw new Error("Export failed");
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `students-${new Date().toISOString().slice(0, 10)}.${kind}`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          } catch (e: any) {
+                            toast.error(e?.message || "Export failed");
+                          }
+                        }}
+                      >
+                        Export as {kind.toUpperCase()}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">

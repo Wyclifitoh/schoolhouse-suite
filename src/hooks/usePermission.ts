@@ -1,80 +1,145 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
-import { useSchoolId } from "@/contexts/SchoolContext";
 
 // ============================================
-// PERMISSION CODES
+// PERMISSION CODES (catalog mirrors backend permissions table)
 // ============================================
 
 export type PermissionCode =
   // Students
-  | "students:read" | "students:create" | "students:update"
-  | "students:delete" | "students:promote" | "students:transfer"
+  | "students:create"
+  | "students:read"
+  | "students:update"
+  | "students:delete"
+  | "students:export"
+  | "students:import"
+  | "students:promote"
+  | "students:transfer"
+  // Parents
+  | "parents:create"
+  | "parents:read"
+  | "parents:update"
+  | "parents:delete"
+  // Staff
+  | "staff:create"
+  | "staff:read"
+  | "staff:update"
+  | "staff:delete"
+  // Classes
+  | "classes:create"
+  | "classes:read"
+  | "classes:update"
+  | "classes:delete"
   // Finance
-  | "finance:fees:read" | "finance:fees:create" | "finance:fees:assign"
-  | "finance:fees:waive" | "finance:payments:read" | "finance:payments:create"
-  | "finance:payments:reverse" | "finance:reports:view" | "finance:reports:export"
-  // Transport
-  | "transport:routes:manage" | "transport:assignments:manage" | "transport:fees:manage"
-  // Inventory & POS
-  | "inventory:items:manage" | "inventory:stock:adjust"
-  | "pos:sales:create" | "pos:sales:void"
-  // Reports
-  | "reports:academic:view" | "reports:finance:view" | "reports:audit:view"
-  // Settings & Users
-  | "settings:school:manage" | "users:manage" | "users:roles:assign";
+  | "finance:fees:read"
+  | "finance:fees:create"
+  | "finance:fees:update"
+  | "finance:fees:delete"
+  | "finance:fees:assign"
+  | "finance:fees:waive"
+  // Payments
+  | "payments:create"
+  | "payments:read"
+  | "payments:update"
+  | "payments:delete"
+  | "payments:import"
+  | "payments:receipt"
+  | "payments:reverse"
+  // Expenses
+  | "expenses:create"
+  | "expenses:read"
+  | "expenses:update"
+  | "expenses:delete"
+  | "expenses:approve"
+  | "expenses:import"
+  // Attendance
+  | "attendance:create"
+  | "attendance:read"
+  | "attendance:update"
+  | "attendance:delete"
+  // Exams
+  | "exams:create"
+  | "exams:read"
+  | "exams:update"
+  | "exams:delete"
+  | "exams:publish"
+  | "assessments:bands:manage"
+  // Comms
+  | "communication:create"
+  | "communication:read"
+  // Inventory
+  | "inventory:create"
+  | "inventory:read"
+  | "inventory:update"
+  | "inventory:delete"
+  | "suppliers:manage"
+  // Reports / audit
+  | "reports:read"
+  | "reports:export"
+  | "audit:read"
+  // Events
+  | "events:create"
+  | "events:read"
+  | "events:update"
+  | "events:delete"
+  // Settings / roles
+  | "settings:read"
+  | "settings:update"
+  | "users:manage"
+  | "roles:manage";
 
-// ============================================
-// HOOKS
-// ============================================
+interface MePermissions {
+  permissions: string[]; // ["*"] = admin wildcard
+  roles: string[];
+}
+
+export function useMyPermissions() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["me-permissions", user?.id],
+    queryFn: async () => {
+      try {
+        const data = await api.get<MePermissions>("/roles/me/permissions");
+        return data || { permissions: [], roles: [] };
+      } catch {
+        return { permissions: [], roles: [] };
+      }
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 /**
- * Check if current user has a specific permission in the current school.
- * Uses the database `has_permission` function for accurate checks.
+ * Check if current user has a specific permission.
+ * Admins (super_admin / admin) get "*" wildcard.
  */
 export function usePermission(permission: PermissionCode): boolean {
-  const { user, hasAnyRole } = useAuth();
-  const schoolId = useSchoolId();
-
-  // Admins always have permission
-  if (hasAnyRole(["super_admin", "school_admin"])) return true;
-
-  const { data } = useQuery({
-    queryKey: ["permission", user?.id, schoolId, permission],
-    queryFn: async () => {
-      if (!user || !schoolId) return false;
-
-      const { data, error } = await supabase.rpc("has_permission", {
-        _user_id: user.id,
-        _school_id: schoolId,
-        _permission_code: permission,
-      });
-
-      if (error) {
-        console.error("Permission check error:", error);
-        return false;
-      }
-
-      return !!data;
-    },
-    enabled: !!user && !!schoolId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 min
-  });
-
-  return data ?? false;
+  const { hasAnyRole } = useAuth();
+  // Admins always have permission (also handled server-side)
+  if (hasAnyRole(["super_admin", "admin", "school_admin"])) return true;
+  const { data } = useMyPermissions();
+  const perms = data?.permissions || [];
+  if (perms.includes("*")) return true;
+  return perms.includes(permission);
 }
 
 /**
  * Check multiple permissions at once.
  */
-export function usePermissions(permissions: PermissionCode[]): Record<PermissionCode, boolean> {
-  const results: Record<string, boolean> = {};
+export function usePermissions(
+  permissions: PermissionCode[],
+): Record<PermissionCode, boolean> {
+  const { hasAnyRole } = useAuth();
+  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"]);
+  const { data } = useMyPermissions();
+  const set = new Set(data?.permissions || []);
+  const out: Record<string, boolean> = {};
   for (const p of permissions) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    results[p] = usePermission(p);
+    out[p] = isAdmin || set.has("*") || set.has(p);
   }
-  return results as Record<PermissionCode, boolean>;
+  return out as Record<PermissionCode, boolean>;
 }
 
 /**
@@ -84,9 +149,13 @@ export function getDashboardRedirect(primaryRole: AppRole | null): string {
   const redirectMap: Partial<Record<AppRole, string>> = {
     super_admin: "/dashboard",
     school_admin: "/dashboard",
+    admin: "/dashboard",
     deputy_admin: "/dashboard",
+    manager: "/dashboard",
     finance_officer: "/finance",
+    accountant: "/finance",
     front_office: "/payments",
+    receptionist: "/payments",
     teacher: "/dashboard",
     transport_officer: "/dashboard",
     store_manager: "/inventory",
@@ -95,6 +164,5 @@ export function getDashboardRedirect(primaryRole: AppRole | null): string {
     parent: "/parent-portal",
     student: "/student-panel",
   };
-
-  return redirectMap[primaryRole || "school_admin"] || "/dashboard";
+  return redirectMap[primaryRole || "admin"] || "/dashboard";
 }

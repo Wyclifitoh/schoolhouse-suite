@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { PermissionGate } from "@/components/PermissionGate";
 
 type Draft = Record<
   string,
@@ -354,22 +355,27 @@ export default function MarksEntry() {
                 <Button variant="outline" onClick={downloadTemplate}>
                   <FileSpreadsheet className="h-4 w-4 mr-1" /> Download template
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={onPickFile}
-                  disabled={!!locked}
-                >
-                  <Upload className="h-4 w-4 mr-1" /> Import marks
-                </Button>
-                <Button onClick={onSave} disabled={!!locked || bulk.isPending}>
-                  <Save className="h-4 w-4 mr-1" /> Save
-                </Button>
-                <Button
-                  onClick={onSubmit}
-                  disabled={!!locked || submit.isPending}
-                >
-                  <Send className="h-4 w-4 mr-1" /> Save &amp; Submit
-                </Button>
+                <PermissionGate permission="exams:update">
+                  <Button
+                    variant="outline"
+                    onClick={onPickFile}
+                    disabled={!!locked}
+                  >
+                    <Upload className="h-4 w-4 mr-1" /> Import marks
+                  </Button>
+                  <Button
+                    onClick={onSave}
+                    disabled={!!locked || bulk.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-1" /> Save
+                  </Button>
+                  <Button
+                    onClick={onSubmit}
+                    disabled={!!locked || submit.isPending}
+                  >
+                    <Send className="h-4 w-4 mr-1" /> Save &amp; Submit
+                  </Button>
+                </PermissionGate>
               </div>
             </div>
           </CardHeader>

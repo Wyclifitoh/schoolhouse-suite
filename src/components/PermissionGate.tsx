@@ -1,12 +1,8 @@
 import { ReactNode } from "react";
-import { usePermission, PermissionCode } from "@/hooks/usePermission";
+import { usePermissions, PermissionCode } from "@/hooks/usePermission";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ShieldX } from "lucide-react";
-
-// ============================================
-// PERMISSION GATE - Hide/show UI based on permissions
-// ============================================
 
 interface PermissionGateProps {
   /** Single permission or array (any match = visible) */
@@ -18,37 +14,36 @@ interface PermissionGateProps {
   children: ReactNode;
 }
 
+/**
+ * Hide/show UI based on permission codes or roles.
+ * Admin and super_admin always pass.
+ */
 export function PermissionGate({
   permission,
   role,
   fallback = null,
   children,
 }: PermissionGateProps) {
-  const { hasRole, hasAnyRole } = useAuth();
+  const { hasAnyRole } = useAuth();
+  const permList: PermissionCode[] = permission
+    ? Array.isArray(permission)
+      ? permission
+      : [permission]
+    : [];
+  const permMap = usePermissions(permList);
 
-  // Role check
   if (role) {
     const roles = Array.isArray(role) ? role : [role];
     if (!hasAnyRole(roles)) return <>{fallback}</>;
   }
 
-  // Permission check
-  if (permission) {
-    const permissions = Array.isArray(permission) ? permission : [permission];
-    // Check if any permission is granted
-    const hasAny = permissions.some(p => {
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      return usePermission(p);
-    });
-    if (!hasAny) return <>{fallback}</>;
+  if (permList.length) {
+    const granted = permList.some((p) => permMap[p]);
+    if (!granted) return <>{fallback}</>;
   }
 
   return <>{children}</>;
 }
-
-// ============================================
-// ACCESS DENIED COMPONENT
-// ============================================
 
 export function AccessDenied({ message }: { message?: string }) {
   return (
@@ -57,7 +52,8 @@ export function AccessDenied({ message }: { message?: string }) {
         <ShieldX className="h-5 w-5" />
         <AlertTitle>Access Denied</AlertTitle>
         <AlertDescription>
-          {message || "You do not have permission to access this resource. Contact your administrator."}
+          {message ||
+            "You do not have permission to access this resource. Contact your administrator."}
         </AlertDescription>
       </Alert>
     </div>

@@ -36,9 +36,11 @@ import {
   usePaymentsReportData,
 } from "@/hooks/useReports";
 import { useClasses } from "@/hooks/useClasses";
+import { ReportExportMenu } from "@/components/reports/ReportExportMenu";
 import { formatDate } from "@/utils/date";
 
-const formatKES = (a: number) => `KES ${Math.abs(a || 0).toLocaleString()}`;
+const formatKES = (a: number) =>
+  `KES ${Math.abs(Number(a) || 0).toLocaleString()}`;
 
 const LoadingSkeleton = () => (
   <div className="space-y-3 p-6">
@@ -100,11 +102,11 @@ const FinanceReports = () => {
   const classes = safeArray(classesData);
 
   const totalCollected = dailyCollections.reduce(
-    (s: number, d: any) => s + (d.total || 0),
+    (s: number, d: any) => s + (Number(d.total) || 0),
     0,
   );
   const totalTransactions = dailyCollections.reduce(
-    (s: number, d: any) => s + (d.transactions || 0),
+    (s: number, d: any) => s + (Number(d.transactions) || 0),
     0,
   );
   const totalOutstanding = balanceFees.reduce(
@@ -246,10 +248,15 @@ const FinanceReports = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export
-                  </Button>
+                  <ReportExportMenu
+                    path="/reports/finance/export"
+                    fileBase="finance-report"
+                    params={{
+                      class_id: classFilter !== "all" ? classFilter : undefined,
+                      start_date: startDate || undefined,
+                      end_date: endDate || undefined,
+                    }}
+                  />
                 </div>
               </div>
             </CardHeader>
