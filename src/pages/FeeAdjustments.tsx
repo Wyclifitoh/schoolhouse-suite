@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { useFeeAdjustments, useDecideFeeAdjustment } from "@/hooks/useFinance";
 import { Check, X, ClipboardCheck } from "lucide-react";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
@@ -132,27 +133,29 @@ const FeeAdjustments = () => {
                         </TableCell>
                         {tab === "pending" && (
                           <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  decide.mutate({
-                                    id: r.id,
-                                    decision: "approve",
-                                  })
-                                }
-                                disabled={decide.isPending}
-                              >
-                                <Check className="h-4 w-4 mr-1" /> Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => setRejectId(r.id)}
-                              >
-                                <X className="h-4 w-4 mr-1" /> Reject
-                              </Button>
-                            </div>
+                            <PermissionGate permission="finance:fees:waive">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    decide.mutate({
+                                      id: r.id,
+                                      decision: "approve",
+                                    })
+                                  }
+                                  disabled={decide.isPending}
+                                >
+                                  <Check className="h-4 w-4 mr-1" /> Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => setRejectId(r.id)}
+                                >
+                                  <X className="h-4 w-4 mr-1" /> Reject
+                                </Button>
+                              </div>
+                            </PermissionGate>
                           </TableCell>
                         )}
                       </TableRow>

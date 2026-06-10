@@ -47,6 +47,7 @@ import {
   PlayCircle,
   Trash2,
 } from "lucide-react";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   useAssessmentsList,
   useAssessmentTypes,
@@ -108,126 +109,133 @@ function NewAssessmentDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-1" /> New Assessment
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create Assessment</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. End Term 1 — Grade 4"
-              />
-            </div>
-            <div>
-              <Label>Type</Label>
-              <Select
-                value={form.assessment_type_id}
-                onValueChange={(v) =>
-                  setForm({ ...form, assessment_type_id: v })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(types as any[]).map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.weight}%)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Start date</Label>
-              <Input
-                type="date"
-                value={form.start_date}
-                onChange={(e) =>
-                  setForm({ ...form, start_date: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>End date</Label>
-              <Input
-                type="date"
-                value={form.end_date}
-                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Default out-of</Label>
-              <Input
-                type="number"
-                value={form.out_of}
-                onChange={(e) =>
-                  setForm({ ...form, out_of: Number(e.target.value) })
-                }
-              />
-            </div>
-          </div>
-          <div>
-            <Label>Description</Label>
-            <Textarea
-              rows={2}
-              value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <Label>Classes *</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto p-2 rounded border">
-              {(grades as any[]).map((g) => {
-                const checked = form.grade_ids.includes(g.id);
-                return (
-                  <label key={g.id} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) =>
-                        setForm({
-                          ...form,
-                          grade_ids: v
-                            ? [...form.grade_ids, g.id]
-                            : form.grade_ids.filter((x) => x !== g.id),
-                        })
-                      }
-                    />
-                    {g.name}
-                  </label>
-                );
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Subjects are auto-attached from each class' subject allocation.
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+    <PermissionGate permission="exams:create">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-1" /> New Assessment
           </Button>
-          <Button
-            onClick={submit}
-            disabled={save.isPending || !form.name || !form.grade_ids.length}
-          >
-            Create
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Assessment</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Name *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. End Term 1 — Grade 4"
+                />
+              </div>
+              <div>
+                <Label>Type</Label>
+                <Select
+                  value={form.assessment_type_id}
+                  onValueChange={(v) =>
+                    setForm({ ...form, assessment_type_id: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(types as any[]).map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} ({t.weight}%)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Start date</Label>
+                <Input
+                  type="date"
+                  value={form.start_date}
+                  onChange={(e) =>
+                    setForm({ ...form, start_date: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>End date</Label>
+                <Input
+                  type="date"
+                  value={form.end_date}
+                  onChange={(e) =>
+                    setForm({ ...form, end_date: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Default out-of</Label>
+                <Input
+                  type="number"
+                  value={form.out_of}
+                  onChange={(e) =>
+                    setForm({ ...form, out_of: Number(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                rows={2}
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Classes *</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto p-2 rounded border">
+                {(grades as any[]).map((g) => {
+                  const checked = form.grade_ids.includes(g.id);
+                  return (
+                    <label
+                      key={g.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) =>
+                          setForm({
+                            ...form,
+                            grade_ids: v
+                              ? [...form.grade_ids, g.id]
+                              : form.grade_ids.filter((x) => x !== g.id),
+                          })
+                        }
+                      />
+                      {g.name}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Subjects are auto-attached from each class' subject allocation.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={save.isPending || !form.name || !form.grade_ids.length}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </PermissionGate>
   );
 }
 
@@ -414,88 +422,92 @@ export default function Assessments() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right space-x-1">
-                            {a.status === "draft" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => publish.mutate(a.id)}
-                              >
-                                <PlayCircle className="h-3.5 w-3.5 mr-1" />{" "}
-                                Publish
-                              </Button>
-                            )}
-                            {(a.status === "published" ||
-                              a.status === "in_progress") && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  setStatusM.mutate({
-                                    id: a.id,
-                                    status: "locked",
-                                  })
-                                }
-                              >
-                                <Lock className="h-3.5 w-3.5 mr-1" /> Lock
-                              </Button>
-                            )}
-                            {a.status === "locked" && (
-                              <>
+                            <PermissionGate permission="exams:publish">
+                              {a.status === "draft" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => publish.mutate(a.id)}
+                                >
+                                  <PlayCircle className="h-3.5 w-3.5 mr-1" />{" "}
+                                  Publish
+                                </Button>
+                              )}
+                              {(a.status === "published" ||
+                                a.status === "in_progress") && (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() =>
                                     setStatusM.mutate({
                                       id: a.id,
-                                      status: "published",
+                                      status: "locked",
                                     })
                                   }
                                 >
-                                  <LockOpen className="h-3.5 w-3.5 mr-1" />{" "}
-                                  Unlock
+                                  <Lock className="h-3.5 w-3.5 mr-1" /> Lock
                                 </Button>
+                              )}
+                              {a.status === "locked" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setStatusM.mutate({
+                                        id: a.id,
+                                        status: "published",
+                                      })
+                                    }
+                                  >
+                                    <LockOpen className="h-3.5 w-3.5 mr-1" />{" "}
+                                    Unlock
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setStatusM.mutate({
+                                        id: a.id,
+                                        status: "archived",
+                                      })
+                                    }
+                                  >
+                                    <Archive className="h-3.5 w-3.5 mr-1" />{" "}
+                                    Archive
+                                  </Button>
+                                </>
+                              )}
+                              {a.status === "archived" && (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() =>
                                     setStatusM.mutate({
                                       id: a.id,
-                                      status: "archived",
+                                      status: "draft",
                                     })
                                   }
                                 >
-                                  <Archive className="h-3.5 w-3.5 mr-1" />{" "}
-                                  Archive
+                                  <ArchiveRestore className="h-3.5 w-3.5 mr-1" />{" "}
+                                  Unarchive
                                 </Button>
-                              </>
-                            )}
-                            {a.status === "archived" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  setStatusM.mutate({
-                                    id: a.id,
-                                    status: "draft",
-                                  })
-                                }
-                              >
-                                <ArchiveRestore className="h-3.5 w-3.5 mr-1" />{" "}
-                                Unarchive
-                              </Button>
-                            )}
-                            {a.status === "draft" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  if (confirm("Delete this assessment?"))
-                                    remove.mutate(a.id);
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
-                            )}
+                              )}
+                            </PermissionGate>
+                            <PermissionGate permission="exams:delete">
+                              {a.status === "draft" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    if (confirm("Delete this assessment?"))
+                                      remove.mutate(a.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              )}
+                            </PermissionGate>
                           </TableCell>
                         </TableRow>
                       );

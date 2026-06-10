@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -128,6 +129,7 @@ const Finance = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Fee Categories</CardTitle>
+                <PermissionGate permission="finance:fees:create">
                 <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Category</Button></DialogTrigger>
                   <DialogContent>
@@ -164,6 +166,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -208,6 +211,7 @@ const Finance = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Fee Structures</CardTitle>
+                <PermissionGate permission="finance:fees:create">
                 <Dialog open={structDialogOpen} onOpenChange={setStructDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Fee Structure</Button></DialogTrigger>
                   <DialogContent className="sm:max-w-lg">
@@ -241,6 +245,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -289,6 +294,7 @@ const Finance = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Fee Discounts</CardTitle>
+                <PermissionGate permission="finance:fees:create">
                 <Dialog open={discDialogOpen} onOpenChange={setDiscDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Discount</Button></DialogTrigger>
                   <DialogContent>
@@ -328,6 +334,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">

@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const STATUS_COLORS: Record<ResultStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -307,35 +308,39 @@ export default function Results() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || compute.isPending}
-              onClick={() => compute.mutate(assessmentId)}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              {compute.isPending ? "Computing…" : "Compute"}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || positions.isPending}
-              onClick={() => positions.mutate(assessmentId)}
-            >
-              <Trophy className="h-4 w-4 mr-1" /> Rank
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!results.length}
-              onClick={exportExcel}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!results.length}
-              onClick={exportPdf}
-            >
-              <FileText className="h-4 w-4 mr-1" /> PDF
-            </Button>
+            <PermissionGate permission="exams:update">
+              <Button
+                variant="outline"
+                disabled={!assessmentId || compute.isPending}
+                onClick={() => compute.mutate(assessmentId)}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                {compute.isPending ? "Computing…" : "Compute"}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!assessmentId || positions.isPending}
+                onClick={() => positions.mutate(assessmentId)}
+              >
+                <Trophy className="h-4 w-4 mr-1" /> Rank
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="reports:export">
+              <Button
+                variant="outline"
+                disabled={!results.length}
+                onClick={exportExcel}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!results.length}
+                onClick={exportPdf}
+              >
+                <FileText className="h-4 w-4 mr-1" /> PDF
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -382,41 +387,41 @@ export default function Results() {
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
             <CardTitle>Results roster</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!selected.size || setStatus.isPending}
-                onClick={() => doStatus("pending_review")}
-              >
-                <Send className="h-4 w-4 mr-1" /> Submit for review
-              </Button>
-              {canApprove && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("approved")}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("published")}
-                  >
-                    <Send className="h-4 w-4 mr-1" /> Publish
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("revoked")}
-                  >
-                    <Undo2 className="h-4 w-4 mr-1" /> Revoke
-                  </Button>
-                </>
-              )}
+              <PermissionGate permission={["exams:update", "exams:publish"]}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("pending_review")}
+                >
+                  <Send className="h-4 w-4 mr-1" /> Submit for review
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission="exams:publish">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("approved")}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("published")}
+                >
+                  <Send className="h-4 w-4 mr-1" /> Publish
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("revoked")}
+                >
+                  <Undo2 className="h-4 w-4 mr-1" /> Revoke
+                </Button>
+              </PermissionGate>
             </div>
           </CardHeader>
           <CardContent className="p-0">

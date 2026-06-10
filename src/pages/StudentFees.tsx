@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 import { api } from "@/lib/api";
@@ -315,35 +316,39 @@ const StudentFees = () => {
             Back
           </Button>
           <div className="flex gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Download className="h-3.5 w-3.5 mr-1" />
-                  Statement
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => downloadStatement("pdf")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download as PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadStatement("excel")}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Download as Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              size="sm"
-              onClick={() => {
-                setPaymentFeeId("");
-                setPaymentAmount(undefined);
-                setShowPaymentDialog(true);
-              }}
-            >
-              <Wallet className="h-3.5 w-3.5 mr-1" />
-              Receive Payment
-            </Button>
+            <PermissionGate permission="reports:export">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    Statement
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => downloadStatement("pdf")}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download as PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadStatement("excel")}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Download as Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGate>
+            <PermissionGate permission="payments:create">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPaymentFeeId("");
+                  setPaymentAmount(undefined);
+                  setShowPaymentDialog(true);
+                }}
+              >
+                <Wallet className="h-3.5 w-3.5 mr-1" />
+                Receive Payment
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -480,19 +485,21 @@ const StudentFees = () => {
                   : "It will auto-apply when new fees are assigned."}
               </span>
               {totals.totalBalance > 0 && excessCredits.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {excessCredits.map((c: any) => (
-                    <Button
-                      key={c.id}
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px]"
-                      onClick={() => applyExcess(c.id)}
-                    >
-                      Apply {formatKES(Number(c.amount))}
-                    </Button>
-                  ))}
-                </div>
+                <PermissionGate permission="finance:fees:waive">
+                  <div className="flex flex-wrap gap-2">
+                    {excessCredits.map((c: any) => (
+                      <Button
+                        key={c.id}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        onClick={() => applyExcess(c.id)}
+                      >
+                        Apply {formatKES(Number(c.amount))}
+                      </Button>
+                    ))}
+                  </div>
+                </PermissionGate>
               )}
             </CardContent>
           </Card>

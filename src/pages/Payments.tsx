@@ -25,6 +25,7 @@ import {
   useRecordPayment,
 } from "@/hooks/useFinance";
 import { useTerm } from "@/contexts/TermContext";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   Search,
   Download,
@@ -225,22 +226,28 @@ const Payments = () => {
                   <SelectItem value="card">Card</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-1.5" />
-                Export
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowBulkImport(true)}
-              >
-                <Upload className="h-4 w-4 mr-1.5" />
-                Bulk Import
-              </Button>
-              <Button size="sm" onClick={() => setShowRecordPayment(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Record Payment
-              </Button>
+              <PermissionGate permission="reports:export">
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-1.5" />
+                  Export
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission="payments:import">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkImport(true)}
+                >
+                  <Upload className="h-4 w-4 mr-1.5" />
+                  Bulk Import
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission="payments:create">
+                <Button size="sm" onClick={() => setShowRecordPayment(true)}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Record Payment
+                </Button>
+              </PermissionGate>
             </div>
           </div>
         </CardHeader>
@@ -326,29 +333,33 @@ const Payments = () => {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              openReceiptPdf(p.id).catch((e) =>
-                                toast.error(e.message),
-                              )
-                            }
-                          >
-                            <Printer className="h-4 w-4 mr-2" />
-                            Print Receipt
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {p.status === "completed" && (
+                          <PermissionGate permission="payments:receipt">
                             <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => {
-                                setSelectedPayment(p);
-                                setShowVoidPayment(true);
-                              }}
+                              onClick={() =>
+                                openReceiptPdf(p.id).catch((e) =>
+                                  toast.error(e.message),
+                                )
+                              }
                             >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Void Payment
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print Receipt
                             </DropdownMenuItem>
-                          )}
+                          </PermissionGate>
+                          <PermissionGate permission="payments:reverse">
+                            <DropdownMenuSeparator />
+                            {p.status === "completed" && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  setSelectedPayment(p);
+                                  setShowVoidPayment(true);
+                                }}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Void Payment
+                              </DropdownMenuItem>
+                            )}
+                          </PermissionGate>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
