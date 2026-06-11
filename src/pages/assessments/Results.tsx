@@ -482,11 +482,21 @@ export default function Results() {
                       {Number(r.percentage || 0).toFixed(1)}
                     </TableCell>
                     <TableCell>
-                      {r.overall_al ? (
-                        <Badge variant="outline">{r.overall_al}</Badge>
-                      ) : (
-                        "—"
-                      )}
+                      {(() => {
+                        const pts = (r as any).total_points;
+                        if (pts != null && !isNaN(Number(pts))) {
+                          return (
+                            <Badge variant="outline">
+                              AL{Math.round(Number(pts))}
+                            </Badge>
+                          );
+                        }
+                        return r.overall_al ? (
+                          <Badge variant="outline">{r.overall_al}</Badge>
+                        ) : (
+                          "—"
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}

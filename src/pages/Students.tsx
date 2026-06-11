@@ -758,9 +758,18 @@ const EditStudentDialog = ({
   const { data: gradesList = [] } = useGrades();
   const { data: streamsList = [] } = useStreams(form.current_grade_id);
 
-  const { data: parents, isLoading: parentsLoading } = useStudentParents(
+  const { data: allParents, isLoading: parentsLoading } = useStudentParents(
     student?.id,
   );
+  // Only the PRIMARY parent (guardian) is shown / editable on this form.
+  // If no parent is flagged primary, fall back to the first linked parent.
+  const parents = (() => {
+    if (!allParents || allParents.length === 0) return [];
+    const primary = allParents.find(
+      (p: any) => p.is_primary || p.is_primary_contact,
+    );
+    return [primary || allParents[0]];
+  })();
   const [parentForms, setParentForms] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -785,9 +794,9 @@ const EditStudentDialog = ({
   }, [student, open]);
 
   useEffect(() => {
-    if (parents && open) {
+    if (parents.length && open) {
       const pForms: Record<string, any> = {};
-      parents.forEach((p) => {
+      parents.forEach((p: any) => {
         pForms[p.id] = {
           first_name: p.first_name || "",
           last_name: p.last_name || "",
@@ -799,7 +808,8 @@ const EditStudentDialog = ({
       });
       setParentForms(pForms);
     }
-  }, [parents, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allParents, open]);
 
   const handleSave = async () => {
     if (!student) return;

@@ -207,10 +207,20 @@ export function useStudentParents(studentId: string | undefined) {
         const rows = Array.isArray(result)
           ? result
           : result?.rows || result?.data || [];
-        // Backend returns flat parent rows; normalize to { parent, relationship } shape
+        // Return both flat parent fields AND the nested `parent` wrapper so
+        // existing call sites (StudentProfile, edit forms) continue to work.
         return rows.map((r: any) => ({
           id: r.id,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          phone: r.phone,
+          alt_phone: r.alt_phone,
+          email: r.email,
+          occupation: r.occupation,
+          id_number: r.id_number,
+          address: r.address,
           relationship: r.relationship || "guardian",
+          is_primary: !!(r.is_primary || r.is_primary_contact),
           is_primary_contact: !!(r.is_primary || r.is_primary_contact),
           is_fee_payer: !!r.is_fee_payer,
           parent: {
