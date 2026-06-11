@@ -36,6 +36,7 @@ import {
   Sparkles,
   Plus,
   Trash2,
+  Pencil,
   Scale,
   Award,
   Target,
@@ -339,13 +340,34 @@ function BandsTab() {
                   <Badge variant="outline" className="font-mono">
                     {b.code}
                   </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => del.mutate(b.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setForm({
+                          id: b.id,
+                          code: b.code,
+                          name: b.name,
+                          color: b.color || "#3b82f6",
+                          sort_order: b.sort_order,
+                          is_active: b.is_active,
+                        });
+                        setOpen(true);
+                      }}
+                      title="Edit band"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => del.mutate(b.id)}
+                      title="Delete band"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="font-medium text-sm">{b.name}</div>
               </CardContent>

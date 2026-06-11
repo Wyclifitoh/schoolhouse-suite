@@ -77,6 +77,8 @@ export function useUpdateParent() {
       api.put(`/parents/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["parents"] });
+      qc.invalidateQueries({ queryKey: ["student-parents"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
       toast.success("Parent updated!");
     },
     onError: (err: Error) => toast.error(err.message),
