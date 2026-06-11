@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -63,6 +64,19 @@ const Finance = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [editCatOpen, setEditCatOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<any>(null);
+  const updateCategory = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/finance/fee-categories/${id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-categories"] }); toast.success("Fee category updated"); setEditCatOpen(false); setEditingCat(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const deleteCategory = useMutation({
+    mutationFn: (id: string) => api.delete(`/finance/fee-categories/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-categories"] }); toast.success("Fee category deleted"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // --- Fee Structure CRUD (renamed from template) ---
   const [structDialogOpen, setStructDialogOpen] = useState(false);
   const [structForm, setStructForm] = useState({ name: "", fee_category_id: "", amount: "", grade_id: "", term_id: "", due_date: "" });
@@ -115,6 +129,7 @@ const Finance = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Fee Categories</CardTitle>
+                <PermissionGate permission="finance:fees:create">
                 <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Category</Button></DialogTrigger>
                   <DialogContent>
@@ -151,6 +166,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -158,16 +174,29 @@ const Finance = () => {
                 <TableHeader><TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">Name</TableHead><TableHead className="font-semibold">Type</TableHead>
                   <TableHead className="font-semibold">GL Code</TableHead><TableHead className="font-semibold">Optional</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {categoriesLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  (feeCategories as any[]).length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No categories. Click "Add Category" to create one.</TableCell></TableRow> :
+                  {categoriesLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
+                  (feeCategories as any[]).length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No categories. Click "Add Category" to create one.</TableCell></TableRow> :
                   (feeCategories as any[]).map((c: any) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell><Badge variant="secondary" className="capitalize">{c.type}</Badge></TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">{c.gl_code || "—"}</TableCell>
                       <TableCell>{c.is_optional ? <Badge className="bg-info/10 text-info border-0">Optional</Badge> : <Badge variant="secondary">Mandatory</Badge>}</TableCell>
+                      <TableCell className="text-right">
+                        {canManage && (
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCat({ ...c }); setEditCatOpen(true); }}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteCategory.mutate(c.id); }}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -182,6 +211,7 @@ const Finance = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Fee Structures</CardTitle>
+                <PermissionGate permission="finance:fees:create">
                 <Dialog open={structDialogOpen} onOpenChange={setStructDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Fee Structure</Button></DialogTrigger>
                   <DialogContent className="sm:max-w-lg">
@@ -199,24 +229,8 @@ const Finance = () => {
                         </div>
                         <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" placeholder="0" value={structForm.amount} onChange={e => setStructForm(f => ({ ...f, amount: e.target.value }))} /></div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Grade (optional)</Label>
-                          <Select value={structForm.grade_id} onValueChange={v => setStructForm(f => ({ ...f, grade_id: v }))}>
-                            <SelectTrigger><SelectValue placeholder="All grades" /></SelectTrigger>
-                            <SelectContent>
-                              {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2"><Label>Term (optional)</Label>
-                          <Select value={structForm.term_id} onValueChange={v => setStructForm(f => ({ ...f, term_id: v }))}>
-                            <SelectTrigger><SelectValue placeholder="All terms" /></SelectTrigger>
-                            <SelectContent>
-                              {terms.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                      {/* Grade & Term dropdowns intentionally hidden per requirements —
+                          they're set at fee-assignment time, not at structure creation. */}
                       <div className="space-y-2"><Label>Due Date (optional)</Label><Input type="date" value={structForm.due_date} onChange={e => setStructForm(f => ({ ...f, due_date: e.target.value }))} /></div>
                       <Button className="w-full mt-2" onClick={() => createStructure.mutate({
                         ...structForm,
@@ -231,6 +245,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -279,6 +294,7 @@ const Finance = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Fee Discounts</CardTitle>
+                <PermissionGate permission="finance:fees:create">
                 <Dialog open={discDialogOpen} onOpenChange={setDiscDialogOpen}>
                   <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Discount</Button></DialogTrigger>
                   <DialogContent>
@@ -318,6 +334,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -460,6 +477,46 @@ const Finance = () => {
                 due_date: editingStruct.due_date || null,
               }})} disabled={updateStructure.isPending}>
                 {updateStructure.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Fee Category Dialog */}
+      <Dialog open={editCatOpen} onOpenChange={setEditCatOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Fee Category</DialogTitle></DialogHeader>
+          {editingCat && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Name</Label><Input value={editingCat.name || ""} onChange={e => setEditingCat((c: any) => ({ ...c, name: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Type</Label>
+                  <Select value={editingCat.type || "tuition"} onValueChange={v => setEditingCat((c: any) => ({ ...c, type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tuition">Tuition</SelectItem>
+                      <SelectItem value="boarding">Boarding</SelectItem>
+                      <SelectItem value="transport">Transport</SelectItem>
+                      <SelectItem value="activity">Activity</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>GL Code</Label><Input value={editingCat.gl_code || ""} onChange={e => setEditingCat((c: any) => ({ ...c, gl_code: e.target.value }))} /></div>
+                <label className="flex items-center gap-2 cursor-pointer text-sm pt-7">
+                  <Checkbox checked={!!editingCat.is_optional} onCheckedChange={(v) => setEditingCat((c: any) => ({ ...c, is_optional: !!v }))} />
+                  Optional Fee
+                </label>
+              </div>
+              <div className="space-y-2"><Label>Description</Label><Input value={editingCat.description || ""} onChange={e => setEditingCat((c: any) => ({ ...c, description: e.target.value }))} /></div>
+              <Button className="w-full mt-2" onClick={() => updateCategory.mutate({ id: editingCat.id, data: {
+                name: editingCat.name, type: editingCat.type, description: editingCat.description,
+                gl_code: editingCat.gl_code, is_optional: !!editingCat.is_optional,
+              }})} disabled={updateCategory.isPending || !editingCat.name}>
+                {updateCategory.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           )}

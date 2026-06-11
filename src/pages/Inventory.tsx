@@ -850,6 +850,7 @@ export const SupplierManagement = () => {
     contact_person: "",
     phone: "",
     email: "",
+    tax_pin: "",
   });
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -908,6 +909,11 @@ export const SupplierManagement = () => {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
               </div>
+              <Input
+                placeholder="Tax PIN (e.g. KRA PIN)"
+                value={form.tax_pin}
+                onChange={(e) => setForm({ ...form, tax_pin: e.target.value })}
+              />
               <Button className="w-full" onClick={() => addMutation.mutate()}>
                 Save Supplier
               </Button>
@@ -922,6 +928,7 @@ export const SupplierManagement = () => {
               <TableHead>Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Phone</TableHead>
+              <TableHead>Tax PIN</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -930,6 +937,9 @@ export const SupplierManagement = () => {
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell>{s.contact_person}</TableCell>
                 <TableCell>{s.phone}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {s.tax_pin || "—"}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

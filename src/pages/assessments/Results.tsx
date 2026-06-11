@@ -38,8 +38,14 @@ import {
   Undo2,
   Trophy,
   ShieldCheck,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const STATUS_COLORS: Record<ResultStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -122,6 +128,83 @@ export default function Results() {
     ).length;
     return totals;
   }, [results]);
+
+  const exportRows = useMemo(
+    () =>
+      results.map((r, i) => ({
+        "#": r.class_position ?? i + 1,
+        "Admission No.": r.admission_number,
+        Student: `${r.first_name} ${r.last_name}`,
+        Class: `${r.grade_name || ""}${r.stream_name ? " · " + r.stream_name : ""}`,
+        Total: Number(r.total_score || 0),
+        "Out Of": Number(r.total_out_of || 0),
+        "Mean %": Number(r.percentage || 0).toFixed(1),
+        AL: r.overall_al || "",
+        Band: r.overall_band || "",
+        Status: r.status,
+      })),
+    [results],
+  );
+
+  const assessmentName = useMemo(
+    () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
+    [assessments, assessmentId],
+  );
+
+  const exportExcel = () => {
+    if (!exportRows.length) return toast.error("Nothing to export");
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    ws["!cols"] = [
+      { wch: 5 },
+      { wch: 14 },
+      { wch: 26 },
+      { wch: 22 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 9 },
+      { wch: 6 },
+      { wch: 10 },
+      { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Results");
+    XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`);
+  };
+
+  const exportPdf = () => {
+    if (!exportRows.length) return toast.error("Nothing to export");
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
+    doc.setFontSize(14);
+    doc.text(assessmentName, 40, 36);
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(
+      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`,
+      40,
+      54,
+    );
+    doc.setTextColor(0);
+    const head = [Object.keys(exportRows[0])];
+    const body = exportRows.map((r) => Object.values(r) as any[]);
+    autoTable(doc, {
+      head,
+      body,
+      startY: 70,
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.pdf`);
+  };
 
   return (
     <DashboardLayout>
@@ -225,21 +308,39 @@ export default function Results() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || compute.isPending}
-              onClick={() => compute.mutate(assessmentId)}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              {compute.isPending ? "Computing…" : "Compute"}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || positions.isPending}
-              onClick={() => positions.mutate(assessmentId)}
-            >
-              <Trophy className="h-4 w-4 mr-1" /> Rank
-            </Button>
+            <PermissionGate permission="exams:update">
+              <Button
+                variant="outline"
+                disabled={!assessmentId || compute.isPending}
+                onClick={() => compute.mutate(assessmentId)}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                {compute.isPending ? "Computing…" : "Compute"}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!assessmentId || positions.isPending}
+                onClick={() => positions.mutate(assessmentId)}
+              >
+                <Trophy className="h-4 w-4 mr-1" /> Rank
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="reports:export">
+              <Button
+                variant="outline"
+                disabled={!results.length}
+                onClick={exportExcel}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!results.length}
+                onClick={exportPdf}
+              >
+                <FileText className="h-4 w-4 mr-1" /> PDF
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -286,41 +387,41 @@ export default function Results() {
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
             <CardTitle>Results roster</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!selected.size || setStatus.isPending}
-                onClick={() => doStatus("pending_review")}
-              >
-                <Send className="h-4 w-4 mr-1" /> Submit for review
-              </Button>
-              {canApprove && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("approved")}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("published")}
-                  >
-                    <Send className="h-4 w-4 mr-1" /> Publish
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("revoked")}
-                  >
-                    <Undo2 className="h-4 w-4 mr-1" /> Revoke
-                  </Button>
-                </>
-              )}
+              <PermissionGate permission={["exams:update", "exams:publish"]}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("pending_review")}
+                >
+                  <Send className="h-4 w-4 mr-1" /> Submit for review
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission="exams:publish">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("approved")}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("published")}
+                >
+                  <Send className="h-4 w-4 mr-1" /> Publish
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!selected.size || setStatus.isPending}
+                  onClick={() => doStatus("revoked")}
+                >
+                  <Undo2 className="h-4 w-4 mr-1" /> Revoke
+                </Button>
+              </PermissionGate>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -381,11 +482,21 @@ export default function Results() {
                       {Number(r.percentage || 0).toFixed(1)}
                     </TableCell>
                     <TableCell>
-                      {r.overall_al ? (
-                        <Badge variant="outline">{r.overall_al}</Badge>
-                      ) : (
-                        "—"
-                      )}
+                      {(() => {
+                        const pts = (r as any).total_points;
+                        if (pts != null && !isNaN(Number(pts))) {
+                          return (
+                            <Badge variant="outline">
+                              AL{Math.round(Number(pts))}
+                            </Badge>
+                          );
+                        }
+                        return r.overall_al ? (
+                          <Badge variant="outline">{r.overall_al}</Badge>
+                        ) : (
+                          "—"
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}

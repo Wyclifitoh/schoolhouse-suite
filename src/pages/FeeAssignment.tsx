@@ -8,24 +8,47 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStudents } from "@/hooks/useStudents";
-import { useFeeStructures, useFeeAssignments, useBulkAssignFee, useBulkUnassignFee } from "@/hooks/useFinance";
+import {
+  useFeeStructures,
+  useFeeAssignments,
+  useBulkAssignFee,
+  useBulkUnassignFee,
+} from "@/hooks/useFinance";
 import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
 import {
-  Search, Users, CheckCircle, ListChecks, AlertTriangle,
+  Search,
+  Users,
+  CheckCircle,
+  ListChecks,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -36,11 +59,14 @@ const FeeAssignment = () => {
   const [streamFilters, setStreamFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [originallyAssigned, setOriginallyAssigned] = useState<Set<string>>(new Set());
+  const [originallyAssigned, setOriginallyAssigned] = useState<Set<string>>(
+    new Set(),
+  );
   const [paidLocked, setPaidLocked] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const { data: feeStructures = [], isLoading: structuresLoading } = useFeeStructures();
+  const { data: feeStructures = [], isLoading: structuresLoading } =
+    useFeeStructures();
   const { data: classes = [] } = useClasses();
   const { data: streamsAll = [] } = useStreams(gradeFilter || undefined);
 
@@ -52,44 +78,79 @@ const FeeAssignment = () => {
     search: searchQuery || undefined,
   });
 
-  const { data: assignments = [] } = useFeeAssignments(selectedFee || undefined, selectedTerm?.id);
+  const { data: assignments = [] } = useFeeAssignments(
+    selectedFee || undefined,
+    selectedTerm?.id,
+  );
   const bulkAssign = useBulkAssignFee();
   const bulkUnassign = useBulkUnassignFee();
 
   // Sync prefilled selection from existing assignments
   useEffect(() => {
     const assignedIds = new Set(assignments.map((a: any) => a.student_id));
-    const paid = new Set(assignments.filter((a: any) => Number(a.amount_paid) > 0).map((a: any) => a.student_id));
+    const paid = new Set(
+      assignments
+        .filter((a: any) => Number(a.amount_paid) > 0)
+        .map((a: any) => a.student_id),
+    );
     setOriginallyAssigned(assignedIds);
     setPaidLocked(paid);
     setSelected(new Set(assignedIds));
   }, [selectedFee, JSON.stringify(assignments)]);
 
-  const fees: any[] = (Array.isArray(feeStructures) ? feeStructures : []).map((f: any) => ({
-    id: f.id, name: f.name, amount: Number(f.amount || 0), ledger_type: f.category_type || "fees",
-    due_date: f.due_date, term_id: f.term_id, academic_year_id: f.academic_year_id,
-  }));
+  const fees: any[] = (Array.isArray(feeStructures) ? feeStructures : []).map(
+    (f: any) => ({
+      id: f.id,
+      name: f.name,
+      amount: Number(f.amount || 0),
+      ledger_type: f.category_type || "fees",
+      due_date: f.due_date,
+      term_id: f.term_id,
+      academic_year_id: f.academic_year_id,
+    }),
+  );
 
   const allStudents = (studentsData as any[]).map((s: any) => ({
-    id: s.id, full_name: s.full_name || `${s.first_name} ${s.last_name}`,
-    admission_no: s.admission_number, grade: s.grade || "", stream: s.stream || "", status: s.status,
+    id: s.id,
+    full_name: s.full_name || `${s.first_name} ${s.last_name}`,
+    admission_no: s.admission_number,
+    grade: s.grade || "",
+    stream: s.stream || "",
+    status: s.status,
   }));
 
   const toggleStudent = (id: string) => {
-    if (paidLocked.has(id)) { toast.error("Cannot unassign a fee with payments"); return; }
-    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    if (paidLocked.has(id)) {
+      toast.error("Cannot unassign a fee with payments");
+      return;
+    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
   const toggleAll = () => {
-    const allIds = allStudents.map(s => s.id);
-    const allSelected = allIds.every(id => selected.has(id));
-    if (allSelected) {
-      // Keep paid-locked entries
-      const next = new Set<string>();
-      paidLocked.forEach(id => next.add(id));
-      setSelected(next);
-    } else {
-      setSelected(new Set(allIds.concat(Array.from(paidLocked))));
-    }
+    const allIds = allStudents.map((s) => s.id);
+    if (allIds.length === 0) return;
+    // Only act on the CURRENTLY VISIBLE (filtered) students. Never drop
+    // selections for students outside this view — those belong to other
+    // classes/streams that already have the fee assigned and must not
+    // be silently unassigned.
+    const allVisibleSelected = allIds.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        // Deselect only the visible ones, but keep paid-locked entries.
+        allIds.forEach((id) => {
+          if (!paidLocked.has(id)) next.delete(id);
+        });
+      } else {
+        // Add every visible student to the existing selection.
+        allIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
   };
 
   const getSelectedFeeInfo = () => fees.find((f: any) => f.id === selectedFee);
@@ -99,13 +160,21 @@ const FeeAssignment = () => {
     return fee?.amount || 0;
   }, [selectedFee, fees]);
 
-  const additions = Array.from(selected).filter(id => !originallyAssigned.has(id));
-  const removals = Array.from(originallyAssigned).filter(id => !selected.has(id) && !paidLocked.has(id));
+  const additions = Array.from(selected).filter(
+    (id) => !originallyAssigned.has(id),
+  );
+  const removals = Array.from(originallyAssigned).filter(
+    (id) => !selected.has(id) && !paidLocked.has(id),
+  );
 
   const handleSubmit = async () => {
     setShowConfirm(false);
     const fee = getSelectedFeeInfo();
     if (!fee) return;
+    const scope = {
+      grade_ids: gradeFilter ? [gradeFilter] : [],
+      stream_ids: streamFilters.length ? streamFilters : [],
+    };
     try {
       if (additions.length) {
         await bulkAssign.mutateAsync({
@@ -113,6 +182,7 @@ const FeeAssignment = () => {
           term_id: selectedTerm?.id || null,
           academic_year_id: currentAcademicYear?.id || null,
           student_ids: additions,
+          scope,
         });
       }
       if (removals.length) {
@@ -120,70 +190,147 @@ const FeeAssignment = () => {
           fee_structure_id: fee.id,
           term_id: selectedTerm?.id || null,
           student_ids: removals,
+          scope,
         });
       }
-      toast.success(`Saved: +${additions.length} assigned, -${removals.length} unassigned`);
+      toast.success(
+        `Saved: +${additions.length} assigned, -${removals.length} unassigned`,
+      );
     } catch (e: any) {
       toast.error(e.message || "Failed");
     }
   };
 
   const feeSelected = !!selectedFee;
-  
+
   const toggleStreamFilter = (id: string) =>
-    setStreamFilters(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+    setStreamFilters((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
   const templatesLoading = structuresLoading;
 
   return (
-    <DashboardLayout title="Fee Assignment" subtitle="Select fees and assign to students by class, section, or individually">
+    <DashboardLayout
+      title="Fee Assignment"
+      subtitle="Select fees and assign to students by class, section, or individually"
+    >
       {selectedTerm && (
         <div className="mb-3 text-xs text-muted-foreground">
-          Assigning to current term: <strong className="text-foreground">{selectedTerm.name}</strong>
+          Assigning to current term:{" "}
+          <strong className="text-foreground">{selectedTerm.name}</strong>
         </div>
       )}
       <Tabs defaultValue="assign" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 h-auto gap-1">
-          <TabsTrigger value="assign" className="gap-1.5"><ListChecks className="h-3.5 w-3.5" />Assign Fees</TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5"><CheckCircle className="h-3.5 w-3.5" />Assignment History</TabsTrigger>
+          <TabsTrigger value="assign" className="gap-1.5">
+            <ListChecks className="h-3.5 w-3.5" />
+            Assign Fees
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5">
+            <CheckCircle className="h-3.5 w-3.5" />
+            Assignment History
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="assign" className="space-y-6">
           <Card className="border-primary/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                  1
+                </div>
                 Select Fee to Assign
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {templatesLoading ? <div className="grid gap-3 sm:grid-cols-3">{[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}</div> :
-              fees.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No fee structures configured. Go to Finance → Fee Structures to add one.</p> :
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {fees.map((f: any) => (
-                  <button key={f.id} onClick={() => setSelectedFee(f.id)}
-                    className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${selectedFee === f.id ? "border-primary bg-primary/5 shadow-md" : "border-border hover:border-primary/40 hover:bg-muted/30"}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-foreground">{f.name}</span>
-                      <Badge variant="secondary" className="text-[10px] capitalize">{f.ledger_type}</Badge>
-                    </div>
-                    <p className="text-lg font-bold text-primary">{formatKES(f.amount)}</p>
-                  </button>
-                ))}
-              </div>}
+              {templatesLoading ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-24" />
+                  ))}
+                </div>
+              ) : fees.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No fee structures configured. Go to Finance → Fee Structures
+                  to add one.
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {fees.map((f: any) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setSelectedFee(f.id)}
+                      className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${selectedFee === f.id ? "border-primary bg-primary/5 shadow-md" : "border-border hover:border-primary/40 hover:bg-muted/30"}`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-foreground">
+                          {f.name}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] capitalize"
+                        >
+                          {f.ledger_type}
+                        </Badge>
+                      </div>
+                      <p className="text-lg font-bold text-primary">
+                        {formatKES(f.amount)}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className={!feeSelected ? "opacity-50 pointer-events-none" : "border-primary/20"}>
+          <Card
+            className={
+              !feeSelected
+                ? "opacity-50 pointer-events-none"
+                : "border-primary/20"
+            }
+          >
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                    2
+                  </div>
                   Select Students
-                  {selected.size > 0 && <Badge className="bg-primary/10 text-primary border-0 ml-2">{selected.size} selected</Badge>}
+                  {selected.size > 0 && (
+                    <Badge className="bg-primary/10 text-primary border-0 ml-2">
+                      {selected.size} selected
+                    </Badge>
+                  )}
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={toggleAll}><Users className="h-3.5 w-3.5 mr-1" />Select All</Button>
-                  {selected.size > 0 && <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(paidLocked))} className="text-destructive">Clear</Button>}
+                  <Button variant="outline" size="sm" onClick={toggleAll}>
+                    <Users className="h-3.5 w-3.5 mr-1" />
+                    Select All
+                  </Button>
+                  {selected.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        // Clear only the visible (filtered) students — never
+                        // touch selections for other classes/streams.
+                        const visibleIds = new Set(
+                          allStudents.map((s) => s.id),
+                        );
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          visibleIds.forEach((id) => {
+                            if (!paidLocked.has(id)) next.delete(id);
+                          });
+                          return next;
+                        });
+                      }}
+                      className="text-destructive"
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -191,52 +338,149 @@ const FeeAssignment = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div>
                   <Label className="text-xs">Class *</Label>
-                  <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setStreamFilters([]); }}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Select class" /></SelectTrigger>
-                    <SelectContent>{(classes as any[]).map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
+                  <Select
+                    value={gradeFilter}
+                    onValueChange={(v) => {
+                      setGradeFilter(v);
+                      setStreamFilters([]);
+                    }}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(classes as any[]).map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label className="text-xs">Streams</Label>
-                  <div className={`min-h-9 rounded-md border p-2 flex flex-wrap gap-1.5 ${!gradeFilter ? "opacity-50 pointer-events-none bg-muted/30" : ""}`}>
-                    {!gradeFilter ? <span className="text-xs text-muted-foreground">Select class first</span> :
-                    (streamsAll as any[]).length === 0 ? <span className="text-xs text-muted-foreground">No streams in this class</span> :
-                    (streamsAll as any[]).map((s: any) => (
-                      <label key={s.id} className="flex items-center gap-1.5 text-xs cursor-pointer rounded border px-2 py-1 hover:bg-muted">
-                        <Checkbox checked={streamFilters.includes(s.id)} onCheckedChange={() => toggleStreamFilter(s.id)} />
-                        {s.name}
-                      </label>
-                    ))}
+                  <div
+                    className={`min-h-9 rounded-md border p-2 flex flex-wrap gap-1.5 ${!gradeFilter ? "opacity-50 pointer-events-none bg-muted/30" : ""}`}
+                  >
+                    {!gradeFilter ? (
+                      <span className="text-xs text-muted-foreground">
+                        Select class first
+                      </span>
+                    ) : (streamsAll as any[]).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        No streams in this class
+                      </span>
+                    ) : (
+                      (streamsAll as any[]).map((s: any) => (
+                        <label
+                          key={s.id}
+                          className="flex items-center gap-1.5 text-xs cursor-pointer rounded border px-2 py-1 hover:bg-muted"
+                        >
+                          <Checkbox
+                            checked={streamFilters.includes(s.id)}
+                            onCheckedChange={() => toggleStreamFilter(s.id)}
+                          />
+                          {s.name}
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
                 <div>
                   <Label className="text-xs">Search</Label>
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input placeholder="Name or admission no..." className="pl-8 h-9" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                    <Input
+                      placeholder="Name or admission no..."
+                      className="pl-8 h-9"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
               <div className="rounded-lg border overflow-hidden">
                 <Table>
-                  <TableHeader><TableRow className="bg-muted/50">
-                    <TableHead className="w-10"><Checkbox checked={allStudents.length > 0 && allStudents.every(s => selected.has(s.id))} onCheckedChange={toggleAll} /></TableHead>
-                    <TableHead className="font-semibold">Student</TableHead><TableHead className="font-semibold">Admission No</TableHead>
-                    <TableHead className="font-semibold">Grade</TableHead><TableHead className="font-semibold">Stream</TableHead>
-                  </TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={
+                            allStudents.length > 0 &&
+                            allStudents.every((s) => selected.has(s.id))
+                          }
+                          onCheckedChange={toggleAll}
+                        />
+                      </TableHead>
+                      <TableHead className="font-semibold">Student</TableHead>
+                      <TableHead className="font-semibold">
+                        Admission No
+                      </TableHead>
+                      <TableHead className="font-semibold">Grade</TableHead>
+                      <TableHead className="font-semibold">Stream</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-                    {!filtersReady ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Select a class to load students</TableCell></TableRow> :
-                    studentsLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                    allStudents.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No students match filters</TableCell></TableRow> :
-                    allStudents.map((s: any) => (
-                      <TableRow key={s.id} className={`cursor-pointer ${selected.has(s.id) ? "bg-primary/5" : ""} ${paidLocked.has(s.id) ? "opacity-80" : ""}`} onClick={() => toggleStudent(s.id)}>
-                        <TableCell><Checkbox checked={selected.has(s.id)} disabled={paidLocked.has(s.id)} /></TableCell>
-                        <TableCell className="font-medium">{s.full_name}</TableCell>
-                        <TableCell className="font-mono text-muted-foreground text-sm">{s.admission_no}</TableCell>
-                        <TableCell>{s.grade}</TableCell>
-                        <TableCell>{s.stream}{paidLocked.has(s.id) && <Badge variant="secondary" className="ml-2 text-[10px]">paid</Badge>}</TableCell>
+                    {!filtersReady ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          Select a class to load students
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    ) : studentsLoading ? (
+                      [1, 2, 3].map((i) => (
+                        <TableRow key={i}>
+                          <TableCell colSpan={5}>
+                            <Skeleton className="h-10 w-full" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : allStudents.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No students match filters
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      allStudents.map((s: any) => (
+                        <TableRow
+                          key={s.id}
+                          className={`cursor-pointer ${selected.has(s.id) ? "bg-primary/5" : ""} ${paidLocked.has(s.id) ? "opacity-80" : ""}`}
+                          onClick={() => toggleStudent(s.id)}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={selected.has(s.id)}
+                              disabled={paidLocked.has(s.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {s.full_name}
+                          </TableCell>
+                          <TableCell className="font-mono text-muted-foreground text-sm">
+                            {s.admission_no}
+                          </TableCell>
+                          <TableCell>{s.grade}</TableCell>
+                          <TableCell>
+                            {s.stream}
+                            {paidLocked.has(s.id) && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-[10px]"
+                              >
+                                paid
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -245,22 +489,47 @@ const FeeAssignment = () => {
 
           <AnimatePresence>
             {feeSelected && (additions.length > 0 || removals.length > 0) && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+              >
                 <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
                   <CardContent className="p-5">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="space-y-1">
-                        <h3 className="font-bold text-foreground text-lg">Pending Changes</h3>
+                        <h3 className="font-bold text-foreground text-lg">
+                          Pending Changes
+                        </h3>
                         <div className="flex flex-wrap gap-3 text-sm">
-                          <span className="text-muted-foreground">Fee: <strong className="text-foreground">{getSelectedFeeInfo()?.name}</strong></span>
-                          <span className="text-success">+{additions.length} to assign</span>
-                          <span className="text-destructive">-{removals.length} to unassign</span>
-                          <span className="text-muted-foreground">Per student: <strong>{formatKES(perStudentAmount)}</strong></span>
+                          <span className="text-muted-foreground">
+                            Fee:{" "}
+                            <strong className="text-foreground">
+                              {getSelectedFeeInfo()?.name}
+                            </strong>
+                          </span>
+                          <span className="text-success">
+                            +{additions.length} to assign
+                          </span>
+                          <span className="text-destructive">
+                            -{removals.length} to unassign
+                          </span>
+                          <span className="text-muted-foreground">
+                            Per student:{" "}
+                            <strong>{formatKES(perStudentAmount)}</strong>
+                          </span>
                         </div>
                       </div>
-                      <Button size="lg" onClick={() => setShowConfirm(true)} className="shadow-lg">
-                        <CheckCircle className="h-4 w-4 mr-1.5" />Save Changes
-                      </Button>
+                      <PermissionGate permission="finance:fees:assign">
+                        <Button
+                          size="lg"
+                          onClick={() => setShowConfirm(true)}
+                          className="shadow-lg"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
+                          Save Changes
+                        </Button>
+                      </PermissionGate>
                     </div>
                   </CardContent>
                 </Card>
@@ -271,28 +540,73 @@ const FeeAssignment = () => {
 
         <TabsContent value="history" className="space-y-6">
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Recent Fee Assignments</CardTitle></CardHeader>
-            <CardContent><p className="text-center py-8 text-sm text-muted-foreground">Assignment history will load from the backend.</p></CardContent>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">
+                Recent Fee Assignments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-center py-8 text-sm text-muted-foreground">
+                Assignment history will load from the backend.
+              </p>
+            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent>
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-warning" />Confirm Changes</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Confirm Changes
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Fee</span><span className="font-semibold">{getSelectedFeeInfo()?.name}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Term</span><span className="font-semibold">{selectedTerm?.name || "—"}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-success">Newly assigned</span><span className="font-semibold">{additions.length}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-destructive">To unassign</span><span className="font-semibold">{removals.length}</span></div>
-              <div className="flex justify-between text-sm font-bold border-t pt-2 mt-2"><span>Per student amount</span><span className="text-primary">{formatKES(perStudentAmount)}</span></div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Fee</span>
+                <span className="font-semibold">
+                  {getSelectedFeeInfo()?.name}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Term</span>
+                <span className="font-semibold">
+                  {selectedTerm?.name || "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-success">Newly assigned</span>
+                <span className="font-semibold">{additions.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-destructive">To unassign</span>
+                <span className="font-semibold">{removals.length}</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold border-t pt-2 mt-2">
+                <span>Per student amount</span>
+                <span className="text-primary">
+                  {formatKES(perStudentAmount)}
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">Students with any payment recorded against this fee cannot be unassigned and stay locked.</p>
+            <p className="text-xs text-muted-foreground">
+              Students with any payment recorded against this fee cannot be
+              unassigned and stay locked.
+            </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={bulkAssign.isPending || bulkUnassign.isPending}><CheckCircle className="h-4 w-4 mr-1.5" />Confirm</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={bulkAssign.isPending || bulkUnassign.isPending}
+            >
+              <CheckCircle className="h-4 w-4 mr-1.5" />
+              Confirm
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

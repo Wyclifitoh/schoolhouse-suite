@@ -755,10 +755,21 @@ const EditStudentDialog = ({
   const [form, setForm] = useState<Record<string, any>>({});
   const updateStudent = useUpdateStudent();
   const updateParent = useUpdateParent();
+  const { data: gradesList = [] } = useGrades();
+  const { data: streamsList = [] } = useStreams(form.current_grade_id);
 
-  const { data: parents, isLoading: parentsLoading } = useStudentParents(
+  const { data: allParents, isLoading: parentsLoading } = useStudentParents(
     student?.id,
   );
+  // Only the PRIMARY parent (guardian) is shown / editable on this form.
+  // If no parent is flagged primary, fall back to the first linked parent.
+  const parents = (() => {
+    if (!allParents || allParents.length === 0) return [];
+    const primary = allParents.find(
+      (p: any) => p.is_primary || p.is_primary_contact,
+    );
+    return [primary || allParents[0]];
+  })();
   const [parentForms, setParentForms] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -770,8 +781,12 @@ const EditStudentDialog = ({
         admission_number: student.admission_number || "",
         gender: student.gender || "",
         date_of_birth: student.date_of_birth || "",
-        parent_name: student.parent_name || "",
-        parent_phone: student.parent_phone || "",
+        current_grade_id: student.current_grade_id || "",
+        current_stream_id: student.current_stream_id || "",
+        religion: (student as any).religion || "",
+        nationality: (student as any).nationality || "",
+        admission_date: (student as any).admission_date || "",
+        upi: (student as any).upi || "",
         status: student.status || "active",
       });
       setActiveTab("student");
@@ -779,9 +794,9 @@ const EditStudentDialog = ({
   }, [student, open]);
 
   useEffect(() => {
-    if (parents && open) {
+    if (parents.length && open) {
       const pForms: Record<string, any> = {};
-      parents.forEach((p) => {
+      parents.forEach((p: any) => {
         pForms[p.id] = {
           first_name: p.first_name || "",
           last_name: p.last_name || "",
@@ -793,7 +808,8 @@ const EditStudentDialog = ({
       });
       setParentForms(pForms);
     }
-  }, [parents, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allParents, open]);
 
   const handleSave = async () => {
     if (!student) return;
@@ -912,25 +928,91 @@ const EditStudentDialog = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Parent / Guardian Name</Label>
+                  <Label className="text-xs">Class / Grade</Label>
+                  <Select
+                    value={form.current_grade_id || ""}
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        current_grade_id: v,
+                        current_stream_id: "",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(gradesList as any[]).map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Stream</Label>
+                  <Select
+                    value={form.current_stream_id || ""}
+                    onValueChange={(v) =>
+                      setForm({ ...form, current_stream_id: v })
+                    }
+                    disabled={!form.current_grade_id}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select stream" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(streamsList as any[]).map((s: any) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Admission Date</Label>
                   <Input
+                    type="date"
                     className="h-9"
-                    value={form.parent_name || ""}
+                    value={form.admission_date || ""}
                     onChange={(e) =>
-                      setForm({ ...form, parent_name: e.target.value })
+                      setForm({ ...form, admission_date: e.target.value })
                     }
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Parent Phone</Label>
+                  <Label className="text-xs">Religion</Label>
                   <Input
                     className="h-9"
-                    value={form.parent_phone || ""}
+                    value={form.religion || ""}
                     onChange={(e) =>
-                      setForm({ ...form, parent_phone: e.target.value })
+                      setForm({ ...form, religion: e.target.value })
                     }
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nationality</Label>
+                  <Input
+                    className="h-9"
+                    value={form.nationality || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, nationality: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">UPI</Label>
+                <Input
+                  className="h-9"
+                  value={form.upi || ""}
+                  onChange={(e) => setForm({ ...form, upi: e.target.value })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Status</Label>
@@ -1287,45 +1369,72 @@ const Students = () => {
                   <Upload className="h-4 w-4 mr-1.5" />
                   Import
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const params = new URLSearchParams();
-                      params.set("status", "active");
-                      if (search) params.set("search", search);
-                      const token = api.getToken();
-                      const schoolId =
-                        localStorage.getItem("chuo-school-id") || "";
-                      const base =
-                        (import.meta as any).env?.VITE_API_URL ||
-                        "https://chuoapi.wikiteq.co.ke/api/v1";
-                      const res = await fetch(
-                        `${base}/students/export?${params}`,
-                        {
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                            "X-School-ID": schoolId,
-                          },
-                        },
-                      );
-                      if (!res.ok) throw new Error("Export failed");
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Export failed");
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1.5" />
-                  Export
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1.5" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {(["csv", "xlsx", "pdf"] as const).map((kind) => (
+                      <DropdownMenuItem
+                        key={kind}
+                        onClick={async () => {
+                          try {
+                            const params = new URLSearchParams();
+                            params.set("status", "active");
+                            if (search) params.set("search", search);
+                            if (gradeFilter !== "all" && selectedGrade?.id)
+                              params.set("grade_id", selectedGrade.id);
+                            if (streamFilters.length > 0) {
+                              const ids = streamsForGrade
+                                .filter((s: any) =>
+                                  streamFilters.includes(s.name),
+                                )
+                                .map((s: any) => s.id)
+                                .join(",");
+                              if (ids) params.set("stream_ids", ids);
+                            }
+                            const token = api.getToken();
+                            const schoolId =
+                              localStorage.getItem("chuo-school-id") || "";
+                            const base =
+                              (import.meta as any).env?.VITE_API_URL ||
+                              "https://chuoapi.wikiteq.co.ke/api/v1";
+                            const path =
+                              kind === "csv"
+                                ? "/students/export"
+                                : kind === "xlsx"
+                                  ? "/students/export.xlsx"
+                                  : "/students/export.pdf";
+                            const res = await fetch(
+                              `${base}${path}?${params}`,
+                              {
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                  "X-School-ID": schoolId,
+                                },
+                              },
+                            );
+                            if (!res.ok) throw new Error("Export failed");
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `students-${new Date().toISOString().slice(0, 10)}.${kind}`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          } catch (e: any) {
+                            toast.error(e?.message || "Export failed");
+                          }
+                        }}
+                      >
+                        Export as {kind.toUpperCase()}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">

@@ -52,6 +52,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/PermissionGate";
+import { usePermission } from "@/hooks/usePermission";
 
 const STATUS_META: Record<
   AttendanceStatus,
@@ -82,6 +84,7 @@ const STATUS_META: Record<
 type StatusMap = Record<string, { status: AttendanceStatus; remarks?: string }>;
 
 const Attendance = () => {
+  const canEditAttendance = usePermission("attendance:update");
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState(
@@ -312,25 +315,29 @@ const Attendance = () => {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={exportCsv}>
-                    <Download className="h-4 w-4 mr-1.5" /> Export CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={resetOverrides}
-                    disabled={dirtyCount === 0}
-                  >
-                    <RotateCcw className="h-4 w-4 mr-1.5" /> Reset
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={isSaving || isLoading}
-                  >
-                    <Save className="h-4 w-4 mr-1.5" />{" "}
-                    {isSaving ? "Saving…" : "Save Day"}
-                  </Button>
+                  <PermissionGate permission="reports:export">
+                    <Button variant="outline" size="sm" onClick={exportCsv}>
+                      <Download className="h-4 w-4 mr-1.5" /> Export CSV
+                    </Button>
+                  </PermissionGate>
+                  <PermissionGate permission="attendance:update">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={resetOverrides}
+                      disabled={dirtyCount === 0}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1.5" /> Reset
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={isSaving || isLoading}
+                    >
+                      <Save className="h-4 w-4 mr-1.5" />{" "}
+                      {isSaving ? "Saving…" : "Save Day"}
+                    </Button>
+                  </PermissionGate>
                 </div>
               </div>
             </CardHeader>
@@ -371,6 +378,7 @@ const Attendance = () => {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-xs"
+                    disabled={!canEditAttendance}
                     onClick={() => markAll("present")}
                   >
                     All present
@@ -379,6 +387,7 @@ const Attendance = () => {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-xs"
+                    disabled={!canEditAttendance}
                     onClick={() => markAll("absent")}
                   >
                     All absent
@@ -466,8 +475,9 @@ const Attendance = () => {
                                 ).map((st) => (
                                   <button
                                     key={st}
+                                    disabled={!canEditAttendance}
                                     onClick={() => setStatus(s.student_id, st)}
-                                    className={`h-7 px-2 rounded-md text-xs font-medium transition ${
+                                    className={`h-7 px-2 rounded-md text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                                       eff.status === st
                                         ? STATUS_META[st].chip +
                                           " ring-1 ring-current"

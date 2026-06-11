@@ -720,6 +720,10 @@ const getSiblings = async (schoolId, parentPhone, excludeId) => {
   return studentsRepository.findByParentPhone(schoolId, parentPhone, excludeId);
 };
 
+const getNextAdmissionNumber = async (schoolId) => {
+  return studentsRepository.getNextAdmissionNumber(schoolId);
+};
+
 module.exports = {
   list,
   getById,
@@ -730,4 +734,5 @@ module.exports = {
   getSiblings,
   getSummary,
   exportCsv,
+  getNextAdmissionNumber,
 };

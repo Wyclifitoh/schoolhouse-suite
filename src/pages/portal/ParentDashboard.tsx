@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PortalLayout } from "@/components/portal/PortalLayout";
+import { parentNav } from "@/components/portal/portalNav";
 import { usePortalAuth, PortalChild } from "@/contexts/PortalAuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,11 +19,16 @@ import {
 } from "@/hooks/usePortalApi";
 import { ReportCardViewer } from "./_ReportCardViewer";
 
-const formatKES = (n: number) => `KES ${Math.abs(Number(n) || 0).toLocaleString()}`;
+const formatKES = (n: number) =>
+  `KES ${Math.abs(Number(n) || 0).toLocaleString()}`;
 
 function ChildPanel({ child }: { child: PortalChild }) {
-  const { data: summary, isLoading: sLoading } = usePortalStudentSummary(child.id);
-  const { data: cards = [], isLoading: cLoading } = usePortalReportCards(child.id);
+  const { data: summary, isLoading: sLoading } = usePortalStudentSummary(
+    child.id,
+  );
+  const { data: cards = [], isLoading: cLoading } = usePortalReportCards(
+    child.id,
+  );
   const [openCard, setOpenCard] = useState<string | null>(null);
 
   const att = summary?.attendance;
@@ -112,9 +118,8 @@ function ChildPanel({ child }: { child: PortalChild }) {
                       {c.assessment_name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Published{" "}
-                      {new Date(c.published_at).toLocaleDateString()} •{" "}
-                      {c.payload?.percentage ?? "—"}%
+                      Published {new Date(c.published_at).toLocaleDateString()}{" "}
+                      • {c.payload?.percentage ?? "—"}%
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -172,6 +177,7 @@ const ParentDashboard = () => {
     <PortalLayout
       title="Parent Dashboard"
       subtitle="View your children's academic progress, fees and attendance"
+      nav={parentNav}
     >
       {!me ? (
         <Skeleton className="h-40 w-full" />

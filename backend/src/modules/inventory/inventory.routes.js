@@ -10,6 +10,18 @@ router.post("/categories", inventoryController.createCategory);
 router.get("/transactions", inventoryController.listTransactions);
 router.post("/transactions", inventoryController.createTransaction);
 
+router.get("/suppliers", inventoryController.listSuppliers);
+router.post("/suppliers", inventoryController.createSupplier);
+
+// Purchase Orders
+router.get("/purchase-orders", inventoryController.listPOs);
+router.post("/purchase-orders", inventoryController.createPO);
+router.put("/purchase-orders/:id/status", inventoryController.updatePOStatus);
+
+router.get("/purchase-orders/:id", inventoryController.getPOById);
+router.get("/purchase-orders/:id/items", inventoryController.getPOItems); 
+router.put("/purchase-orders/:id", inventoryController.updatePO);
+
 router.get("/", inventoryController.listItems);
 router.post("/", inventoryController.createItem);
 router.get("/:id", inventoryController.getItem);

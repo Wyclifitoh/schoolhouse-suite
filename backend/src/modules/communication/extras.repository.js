@@ -95,9 +95,20 @@ const listNotices = async (
   schoolId,
   { status, audience, search, limit = 50, offset = 0 } = {},
 ) => {
+  // Parse and validate pagination values
+  const limitNum = parseInt(limit, 10);
+  const offsetNum = parseInt(offset, 10);
+
+  // Set defaults and limits
+  const finalLimit = isNaN(limitNum)
+    ? 50
+    : Math.min(500, Math.max(1, limitNum));
+  const finalOffset = isNaN(offsetNum) ? 0 : Math.max(0, offsetNum);
+
   let sql =
     "SELECT n.*, u.full_name AS created_by_name FROM notices n LEFT JOIN users u ON u.id = n.created_by WHERE n.school_id = ?";
   const p = [schoolId];
+
   if (status) {
     sql += " AND n.status = ?";
     p.push(status);
@@ -110,16 +121,27 @@ const listNotices = async (
     sql += " AND (n.title LIKE ? OR n.message LIKE ?)";
     p.push(`%${search}%`, `%${search}%`);
   }
-  const countRows = await query(
-    sql.replace(
-      "SELECT n.*, u.full_name AS created_by_name",
-      "SELECT COUNT(*) AS count",
-    ),
-    p,
+
+  // Build count query - remove ORDER BY and LIMIT/OFFSET
+  let countSql = sql;
+  // Remove ORDER BY clause if exists
+  const orderByIndex = countSql.toUpperCase().indexOf(" ORDER BY ");
+  if (orderByIndex !== -1) {
+    countSql = countSql.substring(0, orderByIndex);
+  }
+  countSql = countSql.replace(
+    "SELECT n.*, u.full_name AS created_by_name",
+    "SELECT COUNT(*) AS count",
   );
-  sql += " ORDER BY n.pinned DESC, n.created_at DESC LIMIT ? OFFSET ?";
-  p.push(limit, offset);
-  const rows = await query(sql, p);
+
+  // Use template literals for LIMIT and OFFSET
+  sql += ` ORDER BY n.pinned DESC, n.created_at DESC LIMIT ${finalLimit} OFFSET ${finalOffset}`;
+
+  const [rows, countRows] = await Promise.all([
+    query(sql, p),
+    query(countSql, p),
+  ]);
+
   return { rows, total: countRows[0]?.count || 0 };
 };
 

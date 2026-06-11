@@ -2,7 +2,13 @@ const router = require("express").Router();
 const c = require("./finance.controller");
 const statementController = require("./statement.controller");
 const prevBalance = require("./previous-balance.service");
+const feeReminders = require("./fee-reminders.controller");
 const { success, error } = require("../../utils/response");
+
+router.post("/fee-reminders/send", feeReminders.sendFeeReminders);
+// Fee categories — update & delete
+router.put("/fee-categories/:id", c.updateFeeCategory);
+router.delete("/fee-categories/:id", c.deleteFeeCategory);
 
 router.get("/fee-templates", c.getFeeTemplates);
 router.get("/fee-categories", c.getFeeCategories);

@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
+import { toast as sonner } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,6 +109,42 @@ export default function StaffDirectory() {
   const [viewStaff, setViewStaff] = useState<any>(null);
   const [editStaff, setEditStaff] = useState<any>(null);
   const [deleteStaff, setDeleteStaff] = useState<any>(null);
+  const [resetStaff, setResetStaff] = useState<any>(null);
+  const [resetResult, setResetResult] = useState<any>(null);
+  const [resetting, setResetting] = useState(false);
+  const handleReset = async (target: any) => {
+    setResetting(true);
+    setResetStaff(target);
+    setResetResult(null);
+    try {
+      const res = await api.post<any>(`/staff/${target.id}/reset-password`, {
+        send: "none",
+      });
+      setResetResult(res);
+    } catch (e: any) {
+      sonner.error(e.message || "Reset failed");
+      setResetStaff(null);
+    } finally {
+      setResetting(false);
+    }
+  };
+  const sendReset = async (channel: "email" | "sms") => {
+    if (!resetStaff) return;
+    try {
+      const res = await api.post<any>(
+        `/staff/${resetStaff.id}/reset-password`,
+        { send: channel },
+      );
+      setResetResult(res);
+      const ok =
+        channel === "email" ? res?.delivery?.email?.ok : res?.delivery?.sms?.ok;
+      ok
+        ? sonner.success(`Sent via ${channel.toUpperCase()}`)
+        : sonner.error(`Failed to send via ${channel.toUpperCase()}`);
+    } catch (e: any) {
+      sonner.error(e.message || "Send failed");
+    }
+  };
   const [tab, setTab] = useState("basic");
   const [form, setForm] = useState({ ...emptyForm });
 
@@ -697,6 +734,14 @@ export default function StaffDirectory() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Reset password"
+                            onClick={() => handleReset(s)}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => setDeleteStaff(s)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -824,6 +869,119 @@ export default function StaffDirectory() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Reset password */}
+        <Dialog
+          open={!!resetStaff}
+          onOpenChange={(o) => {
+            if (!o) {
+              setResetStaff(null);
+              setResetResult(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset Password</DialogTitle>
+            </DialogHeader>
+            {resetting && !resetResult ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Generating new password…
+              </p>
+            ) : resetResult ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    New password for{" "}
+                    <span className="font-medium text-foreground">
+                      {resetStaff?.first_name} {resetStaff?.last_name}
+                    </span>
+                  </p>
+                </div>
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    Temporary password
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="font-mono text-base font-semibold tracking-wide">
+                      {resetResult.new_password}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(resetResult.new_password);
+                        sonner.success("Copied");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Staff will be required to change it on first login.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => sendReset("email")}
+                    disabled={!resetStaff?.email}
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send via Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => sendReset("sms")}
+                    disabled={!resetStaff?.phone}
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Send via SMS
+                  </Button>
+                </div>
+                {resetResult.delivery && (
+                  <div className="text-xs space-y-1">
+                    {resetResult.delivery.email && (
+                      <div>
+                        Email:{" "}
+                        {resetResult.delivery.email.ok ? (
+                          <span className="text-green-600">Sent</span>
+                        ) : (
+                          <span className="text-destructive">
+                            {resetResult.delivery.email.error || "Failed"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {resetResult.delivery.sms && (
+                      <div>
+                        SMS:{" "}
+                        {resetResult.delivery.sms.ok ? (
+                          <span className="text-green-600">Sent</span>
+                        ) : (
+                          <span className="text-destructive">
+                            {resetResult.delivery.sms.error || "Failed"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setResetStaff(null);
+                      setResetResult(null);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

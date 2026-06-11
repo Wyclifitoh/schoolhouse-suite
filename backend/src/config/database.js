@@ -8,6 +8,7 @@ const pool = mysql.createPool({
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
   charset: "utf8mb4",
+  dateStrings: ["DATE"],
 });
 
 pool.on &&
@@ -59,4 +60,14 @@ const queryCount = async (sql, params) => {
 
 const getClient = () => pool.getConnection();
 
-module.exports = { pool, query, queryOne, queryCount, getClient, execute };
+const cleanValues = (arr) => arr.map((v) => (v === undefined ? null : v));
+
+module.exports = {
+  pool,
+  query,
+  queryOne,
+  queryCount,
+  getClient,
+  execute,
+  cleanValues,
+};

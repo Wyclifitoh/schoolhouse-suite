@@ -62,6 +62,9 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/utils/date";
+import { BulkExpenseImportDialog } from "@/components/expenses/BulkExpenseImportDialog";
+import { Upload } from "lucide-react";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
 
@@ -129,18 +132,21 @@ const CategoryForm = ({
 const ExpenseForm = ({
   expense,
   categories,
+  suppliers,
   onSave,
   onClose,
   onAddNewCategory,
 }: {
   expense?: any;
   categories: any[];
+  suppliers: any[];
   onSave: (data: any) => void;
   onClose: () => void;
   onAddNewCategory: () => void;
 }) => {
   const [title, setTitle] = useState(expense?.title || "");
   const [categoryId, setCategoryId] = useState(expense?.category_id || "");
+  const [supplierId, setSupplierId] = useState(expense?.supplier_id || "none");
   const [amount, setAmount] = useState(expense?.amount?.toString() || "");
   const [expenseDate, setExpenseDate] = useState(
     expense?.expense_date || new Date().toISOString().split("T")[0],
@@ -223,6 +229,23 @@ const ExpenseForm = ({
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
+          <Label>Supplier (optional)</Label>
+          <Select value={supplierId} onValueChange={setSupplierId}>
+            <SelectTrigger>
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— None —</SelectItem>
+              {suppliers.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                  {s.tax_pin ? ` · ${s.tax_pin}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
           <Label>Reference</Label>
           <Input
             value={reference}
@@ -230,19 +253,19 @@ const ExpenseForm = ({
             placeholder="Receipt/Invoice number"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Status</Label>
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label>Description</Label>
@@ -266,6 +289,8 @@ const ExpenseForm = ({
             onSave({
               title,
               category_id: categoryId || null,
+              supplier_id:
+                supplierId && supplierId !== "none" ? supplierId : null,
               amount: Number(amount),
               expense_date: expenseDate,
               payment_method: paymentMethod,
@@ -291,6 +316,7 @@ const Expenses = () => {
   const [editingCat, setEditingCat] = useState<any>(null);
   const [editingExp, setEditingExp] = useState<any>(null);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
 
   const saveCat = useMutation({
     mutationFn: async (data: any) => {
@@ -352,6 +378,12 @@ const Expenses = () => {
   const { data: expensesList = [] } = useQuery({
     queryKey: ["expenses", schoolId],
     queryFn: () => api.get<any[]>("/expenses"),
+    enabled: !!schoolId,
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["inventory-suppliers", schoolId],
+    queryFn: () => api.get<any[]>("/inventory/suppliers"),
     enabled: !!schoolId,
   });
 
@@ -511,41 +543,57 @@ const Expenses = () => {
                       onChange={(e) => setSearch(e.target.value)}
                     />
                   </div>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export
-                  </Button>
-                  <Dialog
-                    open={expDialogOpen}
-                    onOpenChange={(o) => {
-                      setExpDialogOpen(o);
-                      if (!o) setEditingExp(null);
-                    }}
-                  >
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-1.5" />
-                        Add Expense
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>
-                          {editingExp ? "Edit Expense" : "Record Expense"}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <ExpenseForm
-                        expense={editingExp}
-                        categories={categories}
-                        onSave={(d) => saveExp.mutate(d)}
-                        onClose={() => {
-                          setExpDialogOpen(false);
-                          setEditingExp(null);
-                        }}
-                        onAddNewCategory={() => setCatDialogOpen(true)}
-                      />
-                    </DialogContent>
-                  </Dialog>
+                  <PermissionGate permission="expenses:import">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBulkImportOpen(true)}
+                    >
+                      <Upload className="h-4 w-4 mr-1.5" />
+                      Bulk Import
+                    </Button>
+                  </PermissionGate>
+                  <PermissionGate permission="expenses:create">
+                    <Dialog
+                      open={expDialogOpen}
+                      onOpenChange={(o) => {
+                        setExpDialogOpen(o);
+                        if (!o) setEditingExp(null);
+                      }}
+                    >
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Add Expense
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>
+                            {editingExp ? "Edit Expense" : "Record Expense"}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <ExpenseForm
+                          expense={editingExp}
+                          categories={categories}
+                          suppliers={suppliers}
+                          onSave={(d) => saveExp.mutate(d)}
+                          onClose={() => {
+                            setExpDialogOpen(false);
+                            setEditingExp(null);
+                          }}
+                          onAddNewCategory={() => setCatDialogOpen(true)}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </PermissionGate>
+                  <BulkExpenseImportDialog
+                    open={bulkImportOpen}
+                    onOpenChange={setBulkImportOpen}
+                    onImported={() =>
+                      queryClient.invalidateQueries({ queryKey: ["expenses"] })
+                    }
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -608,81 +656,82 @@ const Expenses = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1 justify-end">
-                          {/* Quick Status Actions */}
-                          {e.status === "pending" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-primary"
-                              onClick={() =>
-                                updateStatus.mutate({
-                                  id: e.id,
-                                  status: "approved",
-                                })
-                              }
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-
-                          {e.status === "approved" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-success"
-                              onClick={() =>
-                                updateStatus.mutate({
-                                  id: e.id,
-                                  status: "paid",
-                                })
-                              }
-                            >
-                              <Wallet className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-
-                          {/* General Actions */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => {
-                              setEditingExp(e);
-                              setExpDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+                          <PermissionGate permission="expenses:approve">
+                            {e.status === "pending" && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive"
+                                className="h-8 w-8 text-primary"
+                                onClick={() =>
+                                  updateStatus.mutate({
+                                    id: e.id,
+                                    status: "approved",
+                                  })
+                                }
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <CheckCircle className="h-3.5 w-3.5" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete expense?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteExp.mutate(e.id)}
+                            )}
+                            {e.status === "approved" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-success"
+                                onClick={() =>
+                                  updateStatus.mutate({
+                                    id: e.id,
+                                    status: "paid",
+                                  })
+                                }
+                              >
+                                <Wallet className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </PermissionGate>
+                          <PermissionGate permission="expenses:update">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setEditingExp(e);
+                                setExpDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </PermissionGate>
+                          <PermissionGate permission="expenses:delete">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive"
                                 >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete expense?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteExp.mutate(e.id)}
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </PermissionGate>
                         </div>
                       </TableCell>
                     </TableRow>

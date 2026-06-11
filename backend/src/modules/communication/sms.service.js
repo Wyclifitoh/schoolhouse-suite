@@ -1,29 +1,56 @@
-const axios = require("axios");
-
 /**
- * Send SMS via wikiteq gateway.
- * Required env: SMS_API_KEY, SMS_PARTNER_ID, SMS_SHORTCODE, SMS_GATEWAY_URL
+ * SMS Service
+ * Centralised helper used by ALL backend modules that need to send SMS.
+ *
+ * Required env:
+ *   SMS_GATEWAY_URL   - full POST endpoint of the SMS gateway
+ *   SMS_API_KEY       - bearer token
+ *   SMS_PARTNER_ID    - partner identifier (X-Partner-ID)
+ *   SMS_SHORTCODE     - sender shortcode
  */
-const sendSMS = async (phoneNumber, message, userId = "1") => {
+const axios = require("axios");
+const { v4: uuidv4 } = require("uuid");
+
+const log = (...args) => console.log("[sms]", ...args);
+
+const sendSMS = async (phone, message) => {
+  if (!phone) {
+    return { success: false, error: "no-recipient" };
+  }
+  if (!process.env.SMS_GATEWAY_URL || !process.env.SMS_API_KEY) {
+    log("skipped — SMS env not configured", { phone });
+    return { success: false, error: "not-configured" };
+  }
   try {
     const payload = {
-      apikey: process.env.SMS_API_KEY,
-      partnerID: process.env.SMS_PARTNER_ID || "13491",
+      shortcode: process.env.SMS_SHORTCODE,
+      phoneNumber: [phone],
       message,
-      shortcode: process.env.SMS_SHORTCODE || "SIMU L LTD",
-      userId,
-      phoneNumber,
     };
-    const response = await axios.post(
-      process.env.SMS_GATEWAY_URL || "https://wikiteq.co.ke/api/sms/send-sms",
-      payload,
-      { headers: { "Content-Type": "application/json" }, timeout: 15000 },
-    );
-    return { success: true, data: response.data };
+    const response = await axios.post(process.env.SMS_GATEWAY_URL, payload, {
+      headers: {
+        Authorization: `Bearer ${process.env.SMS_API_KEY}`,
+        "X-Partner-ID": process.env.SMS_PARTNER_ID,
+        "X-Idempotency-Key": uuidv4(),
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    });
+    log(`queued to ${phone}: ${String(message).substring(0, 50)}...`);
+    return {
+      success: true,
+      jobId: response.data?.jobId,
+      status: response.data?.status,
+      summary: response.data?.summary,
+      data: response.data,
+    };
   } catch (error) {
+    log(`failed to ${phone}:`, error.message);
     return {
       success: false,
-      error: error?.response?.data || error?.message || "SMS send failed",
+      error:
+        error.response?.data?.message || error.message || "Unknown SMS error",
+      details: error.response?.data || null,
     };
   }
 };
