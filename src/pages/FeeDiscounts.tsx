@@ -25,9 +25,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStudents } from "@/hooks/useStudents";
 import { useFeeDiscounts, useFeeStructures } from "@/hooks/useFinance";
-import { useClasses } from "@/hooks/useClasses";
+import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
-import { Percent, Users, Search, CheckCircle, Trash2 } from "lucide-react";
+import {
+  Percent,
+  Users,
+  Search,
+  CheckCircle,
+  Trash2,
+  CheckCheck,
+  X,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -45,24 +53,42 @@ const FeeDiscounts = () => {
   const [discountId, setDiscountId] = useState("");
   const [structureId, setStructureId] = useState<string>("");
   const [gradeFilter, setGradeFilter] = useState("");
+  const [streamFilter, setStreamFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const { data: streams = [] } = useStreams(gradeFilter || undefined);
 
   const { data: studentsData = [], isLoading: studentsLoading } = useStudents({
     enabled: !!gradeFilter,
     gradeId: gradeFilter || undefined,
+    streamIds: streamFilter ? [streamFilter] : undefined,
     search: search || undefined,
   });
 
   const { data: applied = [] } = useQuery({
-    queryKey: ["applied-discounts", selectedTerm?.id],
+    queryKey: ["applied-discounts", selectedTerm?.id, discountId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
+      if (discountId) params.set("discount_id", discountId);
       const r = await api.get<any>(`/finance/applied-discounts?${params}`);
       return (r?.data || r || []) as any[];
     },
   });
+
+  // Map of student_id → applied row (filtered by discount+structure+term)
+  const assignedMap = useMemo(() => {
+    const m = new Map<string, any>();
+    (applied as any[]).forEach((a) => {
+      if (a.discount_id !== discountId) return;
+      if (structureId && a.fee_structure_id !== structureId) return;
+      if (selectedTerm?.id && a.term_id && a.term_id !== selectedTerm.id)
+        return;
+      m.set(a.student_id, a);
+    });
+    return m;
+  }, [applied, discountId, structureId, selectedTerm?.id]);
 
   const apply = useMutation({
     mutationFn: (body: any) =>
@@ -83,6 +109,23 @@ const FeeDiscounts = () => {
       api.delete<any>(`/finance/applied-discounts/${id}`),
     onSuccess: () => {
       toast.success("Revoked");
+      qc.invalidateQueries({ queryKey: ["applied-discounts"] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const bulkRevoke = useMutation({
+    mutationFn: (student_ids: string[]) =>
+      api.post<any>("/finance/applied-discounts/bulk-revoke", {
+        discount_id: discountId,
+        fee_structure_id: structureId || null,
+        term_id: selectedTerm?.id || null,
+        student_ids,
+      }),
+    onSuccess: (r: any) => {
+      toast.success(`Unassigned ${r?.data?.revoked ?? r?.revoked ?? 0}`);
+      setSelected(new Set());
       qc.invalidateQueries({ queryKey: ["applied-discounts"] });
       qc.invalidateQueries({ queryKey: ["student-fee-items"] });
     },
@@ -114,18 +157,34 @@ const FeeDiscounts = () => {
     setSelected(ids.every((i) => selected.has(i)) ? new Set() : new Set(ids));
   };
 
+  const selectedArr = Array.from(selected);
+  const selectedAssigned = selectedArr.filter((id) => assignedMap.has(id));
+  const selectedUnassigned = selectedArr.filter((id) => !assignedMap.has(id));
+
   const handleApply = () => {
     if (!discountId) return toast.error("Pick a discount");
     if (!structureId)
       return toast.error("Pick the fee this discount applies to");
-    if (selected.size === 0) return toast.error("Select at least one student");
+    if (!selectedUnassigned.length)
+      return toast.error("No unassigned students selected");
     apply.mutate({
       discount_id: discountId,
       fee_structure_id: structureId,
       term_id: selectedTerm?.id || null,
       academic_year_id: currentAcademicYear?.id || null,
-      student_ids: Array.from(selected),
+      student_ids: selectedUnassigned,
     });
+  };
+
+  const handleUnassign = () => {
+    if (!discountId) return toast.error("Pick a discount");
+    if (!selectedAssigned.length)
+      return toast.error("No assigned students selected");
+    if (
+      !confirm(`Unassign discount from ${selectedAssigned.length} student(s)?`)
+    )
+      return;
+    bulkRevoke.mutate(selectedAssigned);
   };
 
   return (
@@ -264,12 +323,15 @@ const FeeDiscounts = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div>
                   <Label className="text-xs">Class *</Label>
                   <Select
                     value={gradeFilter}
-                    onValueChange={(v) => setGradeFilter(v)}
+                    onValueChange={(v) => {
+                      setGradeFilter(v);
+                      setStreamFilter("");
+                    }}
                   >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select class" />
@@ -278,6 +340,26 @@ const FeeDiscounts = () => {
                       {(classes as any[]).map((g: any) => (
                         <SelectItem key={g.id} value={g.id}>
                           {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Stream</Label>
+                  <Select
+                    value={streamFilter || "all"}
+                    onValueChange={(v) => setStreamFilter(v === "all" ? "" : v)}
+                    disabled={!gradeFilter}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="All streams" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All streams</SelectItem>
+                      {(streams as any[]).map((s: any) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -297,6 +379,27 @@ const FeeDiscounts = () => {
                 </div>
               </div>
 
+              {discountId && (
+                <div className="text-xs text-muted-foreground mb-3 flex items-center gap-3 flex-wrap">
+                  <Badge variant="outline" className="gap-1">
+                    <CheckCircle className="h-3 w-3 text-success" />
+                    {assignedMap.size} student(s) currently assigned this
+                    discount
+                  </Badge>
+                  {selected.size > 0 && (
+                    <>
+                      <Badge variant="outline">{selected.size} selected</Badge>
+                      <Badge variant="outline">
+                        {selectedAssigned.length} assigned
+                      </Badge>
+                      <Badge variant="outline">
+                        {selectedUnassigned.length} unassigned
+                      </Badge>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="rounded-lg border overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -314,13 +417,14 @@ const FeeDiscounts = () => {
                       <TableHead>Admission</TableHead>
                       <TableHead>Grade</TableHead>
                       <TableHead>Stream</TableHead>
+                      <TableHead className="w-28">Discount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {!gradeFilter ? (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={6}
                           className="text-center py-8 text-muted-foreground"
                         >
                           Select a class to load students
@@ -329,7 +433,7 @@ const FeeDiscounts = () => {
                     ) : studentsLoading ? (
                       [1, 2, 3].map((i) => (
                         <TableRow key={i}>
-                          <TableCell colSpan={5}>
+                          <TableCell colSpan={6}>
                             <Skeleton className="h-10 w-full" />
                           </TableCell>
                         </TableRow>
@@ -337,32 +441,46 @@ const FeeDiscounts = () => {
                     ) : allStudents.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={6}
                           className="text-center py-8 text-muted-foreground"
                         >
                           No students match filters
                         </TableCell>
                       </TableRow>
                     ) : (
-                      allStudents.map((s) => (
-                        <TableRow
-                          key={s.id}
-                          className={`cursor-pointer ${selected.has(s.id) ? "bg-primary/5" : ""}`}
-                          onClick={() => toggle(s.id)}
-                        >
-                          <TableCell>
-                            <Checkbox checked={selected.has(s.id)} />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {s.full_name}
-                          </TableCell>
-                          <TableCell className="font-mono text-muted-foreground text-sm">
-                            {s.admission_no}
-                          </TableCell>
-                          <TableCell>{s.grade}</TableCell>
-                          <TableCell>{s.stream}</TableCell>
-                        </TableRow>
-                      ))
+                      allStudents.map((s) => {
+                        const isAssigned = assignedMap.has(s.id);
+                        return (
+                          <TableRow
+                            key={s.id}
+                            className={`cursor-pointer ${selected.has(s.id) ? "bg-primary/5" : ""}`}
+                            onClick={() => toggle(s.id)}
+                          >
+                            <TableCell>
+                              <Checkbox checked={selected.has(s.id)} />
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {s.full_name}
+                            </TableCell>
+                            <TableCell className="font-mono text-muted-foreground text-sm">
+                              {s.admission_no}
+                            </TableCell>
+                            <TableCell>{s.grade}</TableCell>
+                            <TableCell>{s.stream}</TableCell>
+                            <TableCell>
+                              {isAssigned ? (
+                                <Badge className="bg-success/10 text-success border-0 gap-1">
+                                  <CheckCircle className="h-3 w-3" /> Assigned
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
@@ -370,14 +488,15 @@ const FeeDiscounts = () => {
             </CardContent>
           </Card>
 
-          {discountId && structureId && selected.size > 0 && (
+          {discountId && selected.size > 0 && (
             <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
               <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h3 className="font-bold text-lg">Ready to Apply</h3>
+                  <h3 className="font-bold text-lg">Bulk Actions</h3>
                   <p className="text-sm text-muted-foreground">
                     Discount <strong>{selectedDiscount?.name}</strong> →{" "}
-                    {selected.size} student(s)
+                    {selectedUnassigned.length} to assign ·{" "}
+                    {selectedAssigned.length} to unassign
                     {structureId && (
                       <>
                         {" "}
@@ -394,14 +513,33 @@ const FeeDiscounts = () => {
                   </p>
                 </div>
                 <PermissionGate permission="finance:fees:waive">
-                  <Button
-                    size="lg"
-                    onClick={handleApply}
-                    disabled={apply.isPending}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1.5" />
-                    {apply.isPending ? "Applying..." : "Apply Discount"}
-                  </Button>
+                  <div className="flex gap-2">
+                    {selectedAssigned.length > 0 && (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={handleUnassign}
+                        disabled={bulkRevoke.isPending}
+                      >
+                        <X className="h-4 w-4 mr-1.5" />
+                        {bulkRevoke.isPending
+                          ? "Unassigning..."
+                          : `Unassign (${selectedAssigned.length})`}
+                      </Button>
+                    )}
+                    {selectedUnassigned.length > 0 && (
+                      <Button
+                        size="lg"
+                        onClick={handleApply}
+                        disabled={apply.isPending || !structureId}
+                      >
+                        <CheckCheck className="h-4 w-4 mr-1.5" />
+                        {apply.isPending
+                          ? "Applying..."
+                          : `Assign (${selectedUnassigned.length})`}
+                      </Button>
+                    )}
+                  </div>
                 </PermissionGate>
               </CardContent>
             </Card>
