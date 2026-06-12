@@ -14,7 +14,11 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { useStudentWithFees } from "@/hooks/useStudents";
-import { useFeeDiscounts, useRecordPayment } from "@/hooks/useFinance";
+import {
+  useFeeDiscounts,
+  useRecordPayment,
+  useCreateFeeAdjustment,
+} from "@/hooks/useFinance";
 import { useTerm } from "@/contexts/TermContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -45,6 +49,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Undo2 } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { formatDate, formatDateTime } from "@/utils/date";
 import {
   DropdownMenu,
@@ -54,6 +59,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FileText, FileSpreadsheet, Printer } from "lucide-react";
 import { openReceiptPdf } from "@/hooks/useReceipt";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -129,7 +144,39 @@ const StudentFees = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const recordPayment = useRecordPayment();
+  const createAdjustment = useCreateFeeAdjustment();
   const qc = useQueryClient();
+  const [showRebalanceConfirm, setShowRebalanceConfirm] = useState(false);
+  const rebalanceMutation = useMutation({
+    mutationFn: () =>
+      api.post<any>(`/finance/students/${studentId}/rebalance`, {}),
+    onSuccess: (res: any) => {
+      const d = res?.data || res || {};
+      const corrected = d.overpayments_corrected || 0;
+      const moved = Number(d.total_excess_moved || 0);
+      const applied = Number(d.excess_auto_applied || 0);
+      const remaining = Number(d.remaining_excess || 0);
+      if (corrected === 0 && d.status_normalised === 0) {
+        toast.success("Already balanced — no inconsistencies found.");
+      } else {
+        toast.success(
+          `Rebalanced: ${corrected} overpayment(s), KES ${moved.toLocaleString()} moved to excess` +
+            (applied > 0
+              ? `, KES ${applied.toLocaleString()} auto-applied`
+              : "") +
+            (remaining > 0
+              ? `, KES ${remaining.toLocaleString()} remaining excess.`
+              : "."),
+        );
+      }
+      setShowRebalanceConfirm(false);
+      qc.invalidateQueries({ queryKey: ["student-fee-items", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-payments", studentId] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits", studentId] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Rebalance failed"),
+  });
 
   const [revertTarget, setRevertTarget] = useState<any | null>(null);
   const [revertMode, setRevertMode] = useState<"excess" | "auto_apply">(
@@ -273,10 +320,24 @@ const StudentFees = () => {
     }
   };
 
-  const handleAdjustment = (data: any) => {
-    toast.success(`Fee adjustment applied`);
-    setShowAdjustmentDialog(false);
-    setAdjustmentFee(null);
+  const handleAdjustment = async (data: {
+    feeId: string;
+    adjustmentType: string;
+    amount: number;
+    reason: string;
+  }) => {
+    try {
+      await createAdjustment.mutateAsync({
+        student_fee_id: data.feeId,
+        adjustment_type: data.adjustmentType,
+        amount: Number(data.amount) || 0,
+        reason: data.reason,
+      });
+      setShowAdjustmentDialog(false);
+      setAdjustmentFee(null);
+    } catch {
+      /* toast handled in hook */
+    }
   };
 
   const downloadStatement = async (format: "pdf" | "excel") => {
@@ -387,6 +448,17 @@ const StudentFees = () => {
               >
                 <Wallet className="h-3.5 w-3.5 mr-1" />
                 Receive Payment
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="finance:fees:waive">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowRebalanceConfirm(true)}
+                title="Detect overpayments and move excess to credits"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                Rebalance
               </Button>
             </PermissionGate>
           </div>
@@ -626,21 +698,39 @@ const StudentFees = () => {
                           {Number(f.balance || 0).toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          {(f.balance || 0) > 0 && (
+                          <div className="flex gap-1">
+                            {(f.balance || 0) > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => {
+                                  setPaymentFeeId(f.id);
+                                  setPaymentAmount(f.balance);
+                                  setShowPaymentDialog(true);
+                                }}
+                              >
+                                <Wallet className="h-3 w-3 mr-0.5" />
+                                Pay
+                              </Button>
+                            )}
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               className="h-7 text-[11px] px-2"
                               onClick={() => {
-                                setPaymentFeeId(f.id);
-                                setPaymentAmount(f.balance);
-                                setShowPaymentDialog(true);
+                                setAdjustmentFee({
+                                  id: f.id,
+                                  name: f.fee_name || f.name || "Fee",
+                                  currentAmount: Number(f.amount || 0),
+                                  amountPaid: Number(f.paid || 0),
+                                });
+                                setShowAdjustmentDialog(true);
                               }}
                             >
-                              <Wallet className="h-3 w-3 mr-0.5" />
-                              Pay
+                              Adjust
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -901,6 +991,7 @@ const StudentFees = () => {
         fee={adjustmentFee}
         studentName={displayName}
         onSubmit={handleAdjustment}
+        isSubmitting={createAdjustment.isPending}
       />
       <Dialog
         open={!!revertTarget}
@@ -998,6 +1089,54 @@ const StudentFees = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={showRebalanceConfirm}
+        onOpenChange={setShowRebalanceConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Rebalance {displayName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This scans every fee for this student and rectifies any
+              inconsistency:
+              <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
+                <li>
+                  Where a fee has been paid more than its due amount, the
+                  overpayment is moved to Excess Payments as an advance credit.
+                </li>
+                <li>
+                  The new credit is auto-applied to the next unpaid fees (oldest
+                  first). Any remainder stays as excess.
+                </li>
+                <li>
+                  Fee statuses (paid / partial / pending) are normalised to
+                  match actual figures.
+                </li>
+              </ul>
+              The action is fully logged in the audit trail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rebalanceMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                rebalanceMutation.mutate();
+              }}
+              disabled={rebalanceMutation.isPending}
+            >
+              {rebalanceMutation.isPending
+                ? "Rebalancing…"
+                : "Confirm Rebalance"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
