@@ -29,6 +29,7 @@ import {
   BookOpen, Plus, Search, Edit, Trash2, ClipboardCheck, Calendar, Users,
 } from "lucide-react";
 import { useClasses, useStreams, useSubjects } from "@/hooks/useClasses";
+import { usePermissions } from "@/hooks/usePermission";
 import { formatDate } from "@/utils/date";
 
 const HomeworkForm = ({ homework, onSave, onClose }: { homework?: any; onSave: (d: any) => void; onClose: () => void }) => {
@@ -117,6 +118,7 @@ const Homework = () => {
   const { currentSchool } = useSchool();
   const queryClient = useQueryClient();
   const schoolId = currentSchool?.id;
+  const perms = usePermissions(["classes:create","classes:update","classes:delete"]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -209,12 +211,12 @@ const Homework = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
                   </div>
-                  <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null); }}>
+                  {perms["classes:create"] && <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null); }}>
                     <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Assign Homework</Button></DialogTrigger>
                     <DialogContent className="max-w-lg"><DialogHeader><DialogTitle>{editing ? "Edit Homework" : "Assign Homework"}</DialogTitle></DialogHeader>
                       <HomeworkForm homework={editing} onSave={d => saveHw.mutate(d)} onClose={() => { setDialogOpen(false); setEditing(null); }} />
                     </DialogContent>
-                  </Dialog>
+                  </Dialog>}
                 </div>
               </div>
             </CardHeader>
@@ -237,13 +239,13 @@ const Homework = () => {
                       <TableCell><Badge className={isOverdue ? "bg-destructive/10 text-destructive border-0" : "bg-success/10 text-success border-0"}>{isOverdue ? "Overdue" : "Active"}</Badge></TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(h); setDialogOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button>
-                          <AlertDialog>
+                          {perms["classes:update"] && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(h); setDialogOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button>}
+                          {perms["classes:delete"] && <AlertDialog>
                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger>
                             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete homework?</AlertDialogTitle><AlertDialogDescription>This will also delete all submissions.</AlertDialogDescription></AlertDialogHeader>
                               <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteHw.mutate(h.id)}>Delete</AlertDialogAction></AlertDialogFooter>
                             </AlertDialogContent>
-                          </AlertDialog>
+                          </AlertDialog>}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -1,6 +1,7 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PermissionGate } from "@/components/PermissionGate";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -64,7 +65,7 @@ const HomeworkReports = () => (
               <div className="flex items-center gap-2">
                 <Select><SelectTrigger className="w-36 h-9"><SelectValue placeholder="Class" /></SelectTrigger>
                   <SelectContent>{["All","Grade 6","Grade 7","Grade 8"].map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent></Select>
-                <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+                <PermissionGate permission="reports:export"><Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button></PermissionGate>
               </div>
             </div>
           </CardHeader>
@@ -105,7 +106,7 @@ const HomeworkReports = () => (
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" />Homework Evaluation Report</CardTitle>
-              <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+              <PermissionGate permission="reports:export"><Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button></PermissionGate>
             </div>
           </CardHeader>
           <CardContent>
@@ -139,7 +140,7 @@ const HomeworkReports = () => (
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />Daily Assignment Report</CardTitle>
-              <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+              <PermissionGate permission="reports:export"><Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button></PermissionGate>
             </div>
           </CardHeader>
           <CardContent>

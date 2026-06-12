@@ -25,6 +25,7 @@ import {
 } from "@/hooks/useLessonPlans";
 import { useSubjects, useClasses, useStreams } from "@/hooks/useClasses";
 import { ArrowLeft, Save, FileSignature, Download, Users } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 
 const EMPTY: any = {
   lesson_date: new Date().toISOString().slice(0, 10),
@@ -36,6 +37,7 @@ const EMPTY: any = {
 };
 
 export default function LessonPlanEditor() {
+  const perms = usePermissions(["classes:create","classes:update"]);
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === "new";
   const navigate = useNavigate();
@@ -119,18 +121,22 @@ export default function LessonPlanEditor() {
                 PDF
               </Button>
             )}
-            <Button
-              variant="outline"
-              onClick={handleSave}
-              disabled={save.isPending}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {save.isPending ? "Saving…" : "Save Draft"}
-            </Button>
-            <Button onClick={handlePublish}>
-              <FileSignature className="w-4 h-4 mr-2" />
-              Publish
-            </Button>
+            {(perms["classes:create"] || perms["classes:update"]) && (
+              <Button
+                variant="outline"
+                onClick={handleSave}
+                disabled={save.isPending}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {save.isPending ? "Saving…" : "Save Draft"}
+              </Button>
+            )}
+            {perms["classes:update"] && (
+              <Button onClick={handlePublish}>
+                <FileSignature className="w-4 h-4 mr-2" />
+                Publish
+              </Button>
+            )}
           </div>
         </div>
 

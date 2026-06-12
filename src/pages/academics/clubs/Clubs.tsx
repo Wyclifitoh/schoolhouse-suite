@@ -20,6 +20,7 @@ import { Sparkles, Plus, Users, Trash2, Edit, ExternalLink } from "lucide-react"
 import { useClubs, useCreateClub, useUpdateClub, useDeleteClub, useClubsSummary, Club } from "@/hooks/useClubs";
 import { useStaff } from "@/hooks/useClasses";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermission";
 
 const blank = {
   name: "", category: "", description: "",
@@ -30,6 +31,7 @@ const blank = {
 const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 export default function Clubs() {
+  const perms = usePermissions(["events:create","events:update","events:delete"]);
   const { data: clubs = [], isLoading } = useClubs();
   const { data: staff = [] } = useStaff();
   const { data: summary } = useClubsSummary();
@@ -89,6 +91,7 @@ export default function Clubs() {
         <Card>
           <CardHeader className="pb-4 flex flex-row items-center justify-between">
             <CardTitle className="text-base font-semibold">All Clubs</CardTitle>
+            {perms["events:create"] && (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1.5"/>New Club</Button>
@@ -144,6 +147,7 @@ export default function Clubs() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
@@ -179,10 +183,14 @@ export default function Clubs() {
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
                           <Link to={`/clubs/${c.id}`}><Button variant="ghost" size="icon" className="h-8 w-8"><ExternalLink className="h-3.5 w-3.5"/></Button></Link>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={()=>openEdit(c)}><Edit className="h-3.5 w-3.5"/></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={()=>{ if (confirm(`Delete club "${c.name}"? Members, meetings and attendance will be removed.`)) deleteClub.mutate(c.id); }}>
-                            <Trash2 className="h-3.5 w-3.5"/>
-                          </Button>
+                          {perms["events:update"] && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={()=>openEdit(c)}><Edit className="h-3.5 w-3.5"/></Button>
+                          )}
+                          {perms["events:delete"] && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={()=>{ if (confirm(`Delete club "${c.name}"? Members, meetings and attendance will be removed.`)) deleteClub.mutate(c.id); }}>
+                              <Trash2 className="h-3.5 w-3.5"/>
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

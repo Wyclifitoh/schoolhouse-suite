@@ -20,6 +20,7 @@ import {
   useClubAchievements, useCreateAchievement, useDeleteAchievement,
 } from "@/hooks/useClubs";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermission";
 
 export default function ClubDetail() {
   const { id = "" } = useParams<{ id: string }>();
@@ -65,6 +66,7 @@ export default function ClubDetail() {
 
 // ───────── Members ─────────
 function MembersTab({ clubId }: { clubId: string }) {
+  const perms = usePermissions(["events:create","events:update","events:delete"]);
   const { data: members = [] } = useClubMembers(clubId);
   const [search, setSearch] = useState("");
   const { data: candidates = [] } = useUnassignedStudents(search);
@@ -86,6 +88,7 @@ function MembersTab({ clubId }: { clubId: string }) {
     <Card>
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="text-base">Members ({members.length})</CardTitle>
+        {perms["events:update"] && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5"/>Add Members</Button></DialogTrigger>
           <DialogContent className="max-w-lg">
@@ -108,6 +111,7 @@ function MembersTab({ clubId }: { clubId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         {members.length === 0 ? (
@@ -126,8 +130,12 @@ function MembersTab({ clubId }: { clubId: string }) {
                   <TableCell><Badge variant="secondary">{m.role}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Make student leader" onClick={()=>setLeader.mutate(m.student_id)}><Crown className="h-3.5 w-3.5 text-warning"/></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={()=>{ if (confirm("Remove from club?")) remove.mutate(m.student_id); }}><Trash2 className="h-3.5 w-3.5"/></Button>
+                      {perms["events:update"] && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Make student leader" onClick={()=>setLeader.mutate(m.student_id)}><Crown className="h-3.5 w-3.5 text-warning"/></Button>
+                      )}
+                      {perms["events:delete"] && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={()=>{ if (confirm("Remove from club?")) remove.mutate(m.student_id); }}><Trash2 className="h-3.5 w-3.5"/></Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -142,6 +150,7 @@ function MembersTab({ clubId }: { clubId: string }) {
 
 // ───────── Meetings ─────────
 function MeetingsTab({ clubId }: { clubId: string }) {
+  const perms = usePermissions(["events:create","events:delete"]);
   const { data: meetings = [] } = useClubMeetings(clubId);
   const create = useCreateClubMeeting(clubId);
   const del = useDeleteClubMeeting(clubId);
@@ -157,6 +166,7 @@ function MeetingsTab({ clubId }: { clubId: string }) {
     <Card>
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="text-base">Meetings ({meetings.length})</CardTitle>
+        {perms["events:create"] && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5"/>Schedule Meeting</Button></DialogTrigger>
           <DialogContent>
@@ -177,6 +187,7 @@ function MeetingsTab({ clubId }: { clubId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         {meetings.length === 0 ? <p className="p-6 text-sm text-muted-foreground text-center">No meetings yet.</p> : (
@@ -194,7 +205,9 @@ function MeetingsTab({ clubId }: { clubId: string }) {
                   <TableCell><Badge variant="secondary">{m.status}</Badge></TableCell>
                   <TableCell>{m.attendance_count || 0}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={()=>{ if (confirm("Delete meeting?")) del.mutate(m.id); }}><Trash2 className="h-3.5 w-3.5"/></Button>
+                    {perms["events:delete"] && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={()=>{ if (confirm("Delete meeting?")) del.mutate(m.id); }}><Trash2 className="h-3.5 w-3.5"/></Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -276,6 +289,7 @@ function AttendanceTab({ clubId }: { clubId: string }) {
 
 // ───────── Achievements ─────────
 function AchievementsTab({ clubId }: { clubId: string }) {
+  const perms = usePermissions(["events:create","events:delete"]);
   const { data: items = [] } = useClubAchievements(clubId);
   const create = useCreateAchievement(clubId);
   const del = useDeleteAchievement(clubId);
@@ -289,6 +303,7 @@ function AchievementsTab({ clubId }: { clubId: string }) {
     <Card>
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="text-base">Achievements</CardTitle>
+        {perms["events:create"] && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5"/>Add</Button></DialogTrigger>
           <DialogContent>
@@ -315,6 +330,7 @@ function AchievementsTab({ clubId }: { clubId: string }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </CardHeader>
       <CardContent>
         {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground text-center">No achievements yet.</p> : (
@@ -328,7 +344,9 @@ function AchievementsTab({ clubId }: { clubId: string }) {
                       <p className="text-xs text-muted-foreground capitalize">{a.award_level?.replace("_"," ")} {a.position ? `· ${a.position}` : ""} · {a.achievement_date}</p>
                       {a.description && <p className="text-sm mt-2">{a.description}</p>}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={()=>{ if (confirm("Remove?")) del.mutate(a.id); }}><Trash2 className="h-3.5 w-3.5"/></Button>
+                    {perms["events:delete"] && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={()=>{ if (confirm("Remove?")) del.mutate(a.id); }}><Trash2 className="h-3.5 w-3.5"/></Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

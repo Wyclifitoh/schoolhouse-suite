@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermission";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,11 +79,16 @@ const Classes = () => {
   const { data: students = [] } = useStudents({ status: "active" });
   // (academic year context no longer needed here — backend handles defaults)
   const { hasAnyRole } = useAuth();
-  const canManage = hasAnyRole([
-    "super_admin",
-    "school_admin",
-    "deputy_admin",
-  ] as any);
+  const perms = usePermissions([
+    "classes:create",
+    "classes:update",
+    "classes:delete",
+  ]);
+  const canManage =
+    perms["classes:create"] ||
+    perms["classes:update"] ||
+    perms["classes:delete"] ||
+    hasAnyRole(["super_admin", "school_admin", "deputy_admin"] as any);
   const qc = useQueryClient();
 
   const refreshStreams = () => {
@@ -919,74 +925,76 @@ const Classes = () => {
                 <CardTitle className="text-base font-semibold">
                   Subjects
                 </CardTitle>
-                <Dialog
-                  open={subjectDialogOpen}
-                  onOpenChange={setSubjectDialogOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      Add Subject
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Subject</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Subject Name</Label>
-                          <Input
-                            placeholder="e.g. Mathematics"
-                            value={subjectForm.name}
-                            onChange={(e) =>
-                              setSubjectForm((f) => ({
-                                ...f,
-                                name: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Subject Code</Label>
-                          <Input
-                            placeholder="e.g. MATH"
-                            value={subjectForm.code}
-                            onChange={(e) =>
-                              setSubjectForm((f) => ({
-                                ...f,
-                                code: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description (optional)</Label>
-                        <Input
-                          placeholder="Brief description"
-                          value={subjectForm.description}
-                          onChange={(e) =>
-                            setSubjectForm((f) => ({
-                              ...f,
-                              description: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <Button
-                        className="w-full mt-2"
-                        onClick={handleCreateSubject}
-                        disabled={createSubject.isPending}
-                      >
-                        {createSubject.isPending
-                          ? "Creating..."
-                          : "Add Subject"}
+                {canManage && (
+                  <Dialog
+                    open={subjectDialogOpen}
+                    onOpenChange={setSubjectDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Add Subject
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Subject</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Subject Name</Label>
+                            <Input
+                              placeholder="e.g. Mathematics"
+                              value={subjectForm.name}
+                              onChange={(e) =>
+                                setSubjectForm((f) => ({
+                                  ...f,
+                                  name: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Subject Code</Label>
+                            <Input
+                              placeholder="e.g. MATH"
+                              value={subjectForm.code}
+                              onChange={(e) =>
+                                setSubjectForm((f) => ({
+                                  ...f,
+                                  code: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description (optional)</Label>
+                          <Input
+                            placeholder="Brief description"
+                            value={subjectForm.description}
+                            onChange={(e) =>
+                              setSubjectForm((f) => ({
+                                ...f,
+                                description: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <Button
+                          className="w-full mt-2"
+                          onClick={handleCreateSubject}
+                          disabled={createSubject.isPending}
+                        >
+                          {createSubject.isPending
+                            ? "Creating..."
+                            : "Add Subject"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">

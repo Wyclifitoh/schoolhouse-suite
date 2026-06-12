@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
+import { usePermission } from "@/hooks/usePermission";
 
 type PreviewRow = {
   student_id: string;
@@ -40,6 +41,7 @@ type PreviewRow = {
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
 export default function BroughtForwardBalances() {
+  const canApply = usePermission("finance:fees:assign");
   const qc = useQueryClient();
   const { selectedTerm, selectedAcademicYear } = useTerm();
   const { data: grades = [] } = useClasses();
@@ -210,12 +212,14 @@ export default function BroughtForwardBalances() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button
-              onClick={handleSubmit}
-              disabled={!enabled || applyMutation.isPending || !filtered.length}
-            >
-              {applyMutation.isPending ? "Applying…" : "Submit"}
-            </Button>
+            {canApply && (
+              <Button
+                onClick={handleSubmit}
+                disabled={!enabled || applyMutation.isPending || !filtered.length}
+              >
+                {applyMutation.isPending ? "Applying…" : "Submit"}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

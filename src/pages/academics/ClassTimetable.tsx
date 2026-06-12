@@ -27,6 +27,7 @@ import {
   useEntries, useGenerateTimetable, useClashes,
   type PeriodRow, type PeriodKind,
 } from "@/hooks/useTimetable";
+import { usePermissions } from "@/hooks/usePermission";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const KINDS: { value: PeriodKind; label: string }[] = [
@@ -48,6 +49,7 @@ function kindBadge(k: PeriodKind) {
 
 // ============ Period Setup Tab ============
 function PeriodSetup() {
+  const perms = usePermissions(["classes:create","classes:update","classes:delete"]);
   const { data: periods = [], isLoading } = usePeriods();
   const save = useSavePeriod();
   const del = useDeletePeriod();
@@ -64,6 +66,7 @@ function PeriodSetup() {
           <CardTitle className="text-base flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" /> Period Setup
           </CardTitle>
+          {perms["classes:create"] && (
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) reset(); }}>
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Period</Button>
@@ -104,6 +107,7 @@ function PeriodSetup() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -129,12 +133,16 @@ function PeriodSetup() {
                     <TableCell className="text-sm">{p.start_time?.slice(0, 5)} – {p.end_time?.slice(0, 5)}</TableCell>
                     <TableCell><Badge className={kindBadge(p.kind)} variant="outline">{p.kind}</Badge></TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setForm(p); setOpen(true); }}>
-                        <Calendar className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+                      {perms["classes:update"] && (
+                        <Button variant="ghost" size="icon" onClick={() => { setForm(p); setOpen(true); }}>
+                          <Calendar className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {perms["classes:delete"] && (
+                        <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -148,6 +156,7 @@ function PeriodSetup() {
 
 // ============ Lesson Requirements Tab ============
 function LessonRequirements() {
+  const perms = usePermissions(["classes:update"]);
   const { data: grades = [] } = useClasses();
   const { data: subjects = [] } = useSubjects();
   const [gradeId, setGradeId] = useState("");
@@ -183,7 +192,9 @@ function LessonRequirements() {
               <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Select class" /></SelectTrigger>
               <SelectContent>{grades.map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
             </Select>
-            <Button size="sm" disabled={!gradeId || bulkSave.isPending} onClick={handleSave}>Save</Button>
+            {perms["classes:update"] && (
+              <Button size="sm" disabled={!gradeId || bulkSave.isPending} onClick={handleSave}>Save</Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -222,6 +233,7 @@ function LessonRequirements() {
 
 // ============ Auto-Generate Tab ============
 function AutoGenerate() {
+  const perms = usePermissions(["classes:create"]);
   const { data: grades = [] } = useClasses();
   const [selected, setSelected] = useState<string[]>([]);
   const gen = useGenerateTimetable();
@@ -252,10 +264,12 @@ function AutoGenerate() {
             ))}
           </div>
           <div className="flex gap-2">
-            <Button disabled={!selected.length || gen.isPending}
-              onClick={() => gen.mutate({ grade_ids: selected, replace: true })}>
-              <Wand2 className="h-4 w-4 mr-2" />{gen.isPending ? "Generating..." : "Generate"}
-            </Button>
+            {perms["classes:create"] && (
+              <Button disabled={!selected.length || gen.isPending}
+                onClick={() => gen.mutate({ grade_ids: selected, replace: true })}>
+                <Wand2 className="h-4 w-4 mr-2" />{gen.isPending ? "Generating..." : "Generate"}
+              </Button>
+            )}
             <Button variant="outline" disabled={!grades.length}
               onClick={() => setSelected(grades.map((g) => g.id))}>Select all</Button>
             <Button variant="ghost" onClick={() => setSelected([])}>Clear</Button>

@@ -5,6 +5,7 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermission";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -103,6 +104,7 @@ export default function StaffDirectory() {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const qc = useQueryClient();
+  const perms = usePermissions(["staff:create","staff:update","staff:delete"]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -570,12 +572,12 @@ export default function StaffDirectory() {
               }
             }}
           >
-            <DialogTrigger asChild>
+            {perms["staff:create"] && <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Staff
               </Button>
-            </DialogTrigger>
+            </DialogTrigger>}
             <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Staff Member</DialogTitle>
@@ -724,28 +726,28 @@ export default function StaffDirectory() {
                               <Eye className="h-4 w-4" />
                             </a>
                           </Button>
-                          <Button
+                          {perms["staff:update"] && <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => openEdit(s)}
                           >
                             <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
+                          </Button>}
+                          {perms["staff:update"] && <Button
                             variant="ghost"
                             size="icon"
                             title="Reset password"
                             onClick={() => handleReset(s)}
                           >
                             <KeyRound className="h-4 w-4" />
-                          </Button>
-                          <Button
+                          </Button>}
+                          {perms["staff:delete"] && <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setDeleteStaff(s)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          </Button>}
                         </div>
                       </TableCell>
                     </TableRow>

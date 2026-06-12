@@ -355,16 +355,7 @@ export default function MarksEntry() {
                 <Button variant="outline" onClick={downloadTemplate}>
                   <FileSpreadsheet className="h-4 w-4 mr-1" /> Download template
                 </Button>
-                <PermissionGate
-                  role={[
-                    "super_admin",
-                    "admin",
-                    "school_admin",
-                    "deputy_admin",
-                    "manager",
-                    "teacher",
-                  ]}
-                >
+                <PermissionGate permission="exams:update">
                   <Button
                     variant="outline"
                     onClick={onPickFile}

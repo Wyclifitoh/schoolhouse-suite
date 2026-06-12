@@ -26,6 +26,7 @@ import {
 } from "@/hooks/useAssessments";
 import { useClasses, useStreams, useSubjects } from "@/hooks/useClasses";
 import { Button } from "@/components/ui/button";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   BarChart3,
   Trophy,
@@ -180,7 +181,7 @@ export default function Analytics() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="ml-auto flex items-center gap-2">
+              <PermissionGate permission="reports:export"><div className="ml-auto flex items-center gap-2">
                 <Button
                   variant="outline"
                   disabled={!assessmentId || dl.isPending}
@@ -207,7 +208,7 @@ export default function Analytics() {
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
                 </Button>
-              </div>
+              </div></PermissionGate>
             </div>
           </CardContent>
         </Card>

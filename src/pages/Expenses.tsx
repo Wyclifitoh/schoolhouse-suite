@@ -750,6 +750,7 @@ const Expenses = () => {
                 <CardTitle className="text-base font-semibold">
                   Expense Categories
                 </CardTitle>
+                <PermissionGate permission="expenses:create">
                 <Dialog
                   open={catDialogOpen}
                   onOpenChange={(o) => {
@@ -779,6 +780,7 @@ const Expenses = () => {
                     />
                   </DialogContent>
                 </Dialog>
+                </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -835,6 +837,7 @@ const Expenses = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <PermissionGate permission="expenses:update">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -846,6 +849,8 @@ const Expenses = () => {
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
+                            </PermissionGate>
+                            <PermissionGate permission="expenses:delete">
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
@@ -876,6 +881,7 @@ const Expenses = () => {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                            </PermissionGate>
                           </div>
                         </TableCell>
                       </TableRow>

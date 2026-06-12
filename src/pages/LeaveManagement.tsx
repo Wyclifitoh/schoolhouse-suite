@@ -24,6 +24,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Plus, Check, X, Settings, Wallet } from "lucide-react";
 import { formatDate } from "@/utils/date";
+import { usePermissions } from "@/hooks/usePermission";
 
 export default function LeaveManagement() {
   const { currentSchool } = useSchool();
@@ -31,6 +32,7 @@ export default function LeaveManagement() {
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
+  const perms = usePermissions(["staff:create","staff:update","staff:delete"]);
 
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [isTypeOpen, setIsTypeOpen] = useState(false);
@@ -141,7 +143,7 @@ export default function LeaveManagement() {
             <p className="text-muted-foreground">Apply, approve and track staff leave</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Dialog open={isTypeOpen} onOpenChange={setIsTypeOpen}>
+            {perms["staff:create"] && <Dialog open={isTypeOpen} onOpenChange={setIsTypeOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline"><Settings className="h-4 w-4 mr-2" />Leave Types</Button>
               </DialogTrigger>
@@ -172,9 +174,9 @@ export default function LeaveManagement() {
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
 
-            <Dialog open={isAllocOpen} onOpenChange={setIsAllocOpen}>
+            {perms["staff:update"] && <Dialog open={isAllocOpen} onOpenChange={setIsAllocOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline"><Wallet className="h-4 w-4 mr-2" />Allocate Balance</Button>
               </DialogTrigger>
@@ -220,7 +222,7 @@ export default function LeaveManagement() {
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
+            </Dialog>}
 
             <Dialog open={isApplyOpen} onOpenChange={setIsApplyOpen}>
               <DialogTrigger asChild>
@@ -325,15 +327,15 @@ export default function LeaveManagement() {
                           <TableCell className="text-right">
                             {leave.status === "pending" && (
                               <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="text-green-600"
+                                {perms["staff:update"] && <Button variant="ghost" size="icon" className="text-green-600"
                                   disabled={!user?.id}
                                   onClick={() => actionMutation.mutate({ id: leave.id, status: "approved" })}>
                                   <Check className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="text-red-600"
+                                </Button>}
+                                {perms["staff:update"] && <Button variant="ghost" size="icon" className="text-red-600"
                                   onClick={() => actionMutation.mutate({ id: leave.id, status: "rejected" })}>
                                   <X className="h-4 w-4" />
-                                </Button>
+                                </Button>}
                               </div>
                             )}
                           </TableCell>

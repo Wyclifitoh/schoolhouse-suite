@@ -30,8 +30,10 @@ import { useSubmitDraftMarks } from "@/hooks/useExamsExtended";
 import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
 import { ClipboardCheck, Save, Send, Download } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 
 export default function MarksEntry() {
+  const perms = usePermissions(["exams:update","exams:publish","reports:export"]);
   const { data: exams = [] } = useExams();
   const { data: grades = [] } = useGrades();
   const [examId, setExamId] = useState<string>("");
@@ -186,25 +188,31 @@ export default function MarksEntry() {
                 </Select>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={downloadCsv}
-                  disabled={!rows.length}
-                >
-                  <Download className="h-4 w-4 mr-1" /> CSV
-                </Button>
-                <Button
-                  onClick={onSave}
-                  disabled={!subject || !examId || locked || bulk.isPending}
-                >
-                  <Save className="h-4 w-4 mr-1" /> Save Draft
-                </Button>
-                <Button
-                  onClick={onSubmit}
-                  disabled={!subject || !examId || locked || submit.isPending}
-                >
-                  <Send className="h-4 w-4 mr-1" /> Submit
-                </Button>
+                {perms["reports:export"] && (
+                  <Button
+                    variant="outline"
+                    onClick={downloadCsv}
+                    disabled={!rows.length}
+                  >
+                    <Download className="h-4 w-4 mr-1" /> CSV
+                  </Button>
+                )}
+                {perms["exams:update"] && (
+                  <Button
+                    onClick={onSave}
+                    disabled={!subject || !examId || locked || bulk.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-1" /> Save Draft
+                  </Button>
+                )}
+                {perms["exams:update"] && (
+                  <Button
+                    onClick={onSubmit}
+                    disabled={!subject || !examId || locked || submit.isPending}
+                  >
+                    <Send className="h-4 w-4 mr-1" /> Submit
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>

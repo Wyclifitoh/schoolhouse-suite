@@ -26,6 +26,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { usePermissions } from "@/hooks/usePermission";
 
 type Form = {
   id?: string;
@@ -40,6 +41,7 @@ export default function Departments() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Form>({ name: "", description: "" });
+  const p = usePermissions(["staff:create", "staff:update", "staff:delete"]);
 
   useEffect(() => {
     if (schoolId) api.setSchoolId(schoolId);
@@ -118,10 +120,12 @@ export default function Departments() {
       subtitle="Organisational structure used for staff onboarding"
     >
       <div className="flex justify-end mb-4">
-        <Button size="sm" onClick={() => openEdit()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Department
-        </Button>
+        {p["staff:create"] && (
+          <Button size="sm" onClick={() => openEdit()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Department
+          </Button>
+        )}
       </div>
       <Card>
         <CardContent className="p-0">
@@ -161,23 +165,27 @@ export default function Departments() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openEdit(d)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          if (confirm(`Deactivate ${d.name}?`))
-                            remove.mutate(d.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
+                      {p["staff:update"] && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEdit(d)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {p["staff:delete"] && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm(`Deactivate ${d.name}?`))
+                              remove.mutate(d.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
