@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight, Search, Info } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useClasses, useStreams } from "@/hooks/useClasses";
@@ -95,22 +96,29 @@ export default function BroughtForwardBalances() {
     );
   });
 
+  const alreadyForwarded = useMemo(
+    () => rows.some((r) => Number(r.existing_brought_forward) > 0),
+    [rows],
+  );
+
   const amountFor = (r: PreviewRow) =>
     edits[r.student_id] !== undefined
       ? edits[r.student_id]
-      : String(r.existing_brought_forward || 0);
+      : String(
+          Number(r.existing_brought_forward) > 0
+            ? r.existing_brought_forward
+            : r.previous_term_balance || 0,
+        );
 
   const handleSubmit = () => {
-    // Submit ONLY rows the user has edited so we never silently overwrite
-    // unrelated students. Allow 0 to clear an existing balance? Backend skips
-    // amount === 0 inserts so it's safe to send everything edited.
-    const entries = Object.entries(edits)
-      .map(([student_id, v]) => ({ student_id, amount: Number(v || 0) }))
-      .filter((e) => e.amount >= 0 && !Number.isNaN(e.amount));
+    const entries = filtered.map((r) => ({
+      student_id: r.student_id,
+      amount: Number(amountFor(r) || 0),
+    }));
     if (!entries.length) return toast.error("Nothing to submit");
     if (
       !confirm(
-        `Save Previous Balance for ${entries.length} student(s) into ${selectedTerm?.name}?`,
+        `Apply Previous Balance for ${entries.length} student(s) into ${selectedTerm?.name}?`,
       )
     )
       return;
@@ -119,8 +127,8 @@ export default function BroughtForwardBalances() {
 
   return (
     <DashboardLayout
-      title="Previous Balance"
-      subtitle="Set each student's previous balance. Saves to the protected Previous Balance fee structure (system-managed — never duplicated)."
+      title="Brought Forward Balances"
+      subtitle="Carry student balances from a previous term into the current term using the protected Previous Balance fee structure"
     >
       <Card>
         <CardHeader>
@@ -176,6 +184,19 @@ export default function BroughtForwardBalances() {
         </CardContent>
       </Card>
 
+      {enabled && alreadyForwarded && (
+        <Alert className="mt-6 border-warning/40 bg-warning/5">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Previous Balance Already Forwarded</AlertTitle>
+          <AlertDescription>
+            Some students in this class already have a Previous Balance for{" "}
+            <strong>{selectedTerm?.name}</strong>. You can only update the
+            amounts now — submitting will override existing entries instead of
+            creating duplicates.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="mt-6">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Students</CardTitle>
@@ -191,22 +212,16 @@ export default function BroughtForwardBalances() {
             </div>
             <Button
               onClick={handleSubmit}
-              disabled={
-                !enabled ||
-                applyMutation.isPending ||
-                Object.keys(edits).length === 0
-              }
+              disabled={!enabled || applyMutation.isPending || !filtered.length}
             >
-              {applyMutation.isPending
-                ? "Saving…"
-                : `Save Changes${Object.keys(edits).length ? ` (${Object.keys(edits).length})` : ""}`}
+              {applyMutation.isPending ? "Applying…" : "Submit"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {!enabled ? (
             <p className="text-sm text-muted-foreground">
-              Select class and stream to load students.
+              Select class, stream and source term to load students.
             </p>
           ) : isLoading ? (
             <Skeleton className="h-40 w-full" />
@@ -222,10 +237,11 @@ export default function BroughtForwardBalances() {
                     <TableHead>Admission No</TableHead>
                     <TableHead>Student Name</TableHead>
                     <TableHead className="text-right">
-                      Current Previous Balance
+                      Previous Term Balance
                     </TableHead>
+                    <TableHead className="text-right">Existing B/F</TableHead>
                     <TableHead className="w-48">
-                      Previous Balance Amount
+                      Amount to Carry Forward
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -237,14 +253,15 @@ export default function BroughtForwardBalances() {
                       </TableCell>
                       <TableCell>{r.full_name}</TableCell>
                       <TableCell className="text-right">
+                        {formatKES(r.previous_term_balance)}
+                      </TableCell>
+                      <TableCell className="text-right">
                         {r.existing_brought_forward > 0 ? (
                           <Badge variant="secondary">
                             {formatKES(r.existing_brought_forward)}
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground">
-                            {formatKES(0)}
-                          </span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>
