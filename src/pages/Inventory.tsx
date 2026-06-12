@@ -74,6 +74,7 @@ import {
 } from "lucide-react";
 
 import { useSchool } from "@/contexts/SchoolContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -844,7 +845,12 @@ export const SupplierManagement = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
+  const { hasRole } = useAuth();
+  const canManage = hasRole("super_admin") || hasRole("admin");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
   const [form, setForm] = useState({
     name: "",
     contact_person: "",
@@ -865,9 +871,60 @@ export const SupplierManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-suppliers"] });
       setIsAddOpen(false);
+      setForm({
+        name: "",
+        contact_person: "",
+        phone: "",
+        email: "",
+        tax_pin: "",
+      });
       toast({ title: "Supplier added" });
     },
   });
+
+  const editMutation = useMutation({
+    mutationFn: () => api.put(`/inventory/suppliers/${selected?.id}`, form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-suppliers"] });
+      setIsEditOpen(false);
+      setSelected(null);
+      toast({ title: "Supplier updated" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/inventory/suppliers/${selected?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-suppliers"] });
+      setIsDeleteOpen(false);
+      setSelected(null);
+      toast({ title: "Supplier deleted" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const openEdit = (s: any) => {
+    setSelected(s);
+    setForm({
+      name: s.name || "",
+      contact_person: s.contact_person || "",
+      phone: s.phone || "",
+      email: s.email || "",
+      tax_pin: s.tax_pin || "",
+    });
+    setIsEditOpen(true);
+  };
 
   return (
     <Card>
@@ -929,6 +986,9 @@ export const SupplierManagement = () => {
               <TableHead>Contact</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Tax PIN</TableHead>
+              {canManage && (
+                <TableHead className="text-right">Actions</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -940,11 +1000,109 @@ export const SupplierManagement = () => {
                 <TableCell className="font-mono text-xs">
                   {s.tax_pin || "—"}
                 </TableCell>
+                {canManage && (
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(s)}>
+                          <Pencil className="h-4 w-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => {
+                            setSelected(s);
+                            setIsDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Edit dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Supplier</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Company Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <Input
+              placeholder="Contact Person"
+              value={form.contact_person}
+              onChange={(e) =>
+                setForm({ ...form, contact_person: e.target.value })
+              }
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="Phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+              <Input
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <Input
+              placeholder="Tax PIN (e.g. KRA PIN)"
+              value={form.tax_pin}
+              onChange={(e) => setForm({ ...form, tax_pin: e.target.value })}
+            />
+            <Button
+              className="w-full"
+              onClick={() => editMutation.mutate()}
+              disabled={editMutation.isPending || !form.name}
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Supplier</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">{selected?.name}</span>? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
