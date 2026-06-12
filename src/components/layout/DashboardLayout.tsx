@@ -598,16 +598,16 @@ const navigationGroups: NavGroup[] = [
           ...MANAGER_ROLES,
         ] as AppRole[],
       },
-      {
-        title: "Assessment Reports",
-        url: "/reports/assessments",
-        icon: FileBadge,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...MANAGER_ROLES,
-        ] as AppRole[],
-      },
+      // {
+      //   title: "Assessment Reports",
+      //   url: "/reports/assessments",
+      //   icon: FileBadge,
+      //   roles: [
+      //     ...ADMIN_ROLES,
+      //     ...TEACHER_ROLES,
+      //     ...MANAGER_ROLES,
+      //   ] as AppRole[],
+      // },
       {
         title: "Finance Reports",
         url: "/reports/finance",
@@ -656,30 +656,30 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Administration
-  {
-    label: "Administration",
-    icon: Settings,
-    items: [
-      {
-        title: "Academic Settings",
-        url: "/settings/academic",
-        icon: BookOpen,
-        roles: ADMIN_ROLES,
-      },
-      {
-        title: "Archives",
-        url: "/archives",
-        icon: ArchiveIcon,
-        roles: ADMIN_ROLES,
-      },
-      {
-        title: "System Settings",
-        url: "/settings/system",
-        icon: Settings,
-        roles: SUPER_ADMIN_ROLES,
-      },
-    ],
-  },
+  // {
+  //   label: "Administration",
+  //   icon: Settings,
+  //   items: [
+  //     {
+  //       title: "Academic Settings",
+  //       url: "/settings/academic",
+  //       icon: BookOpen,
+  //       roles: ADMIN_ROLES,
+  //     },
+  //     {
+  //       title: "Archives",
+  //       url: "/archives",
+  //       icon: ArchiveIcon,
+  //       roles: ADMIN_ROLES,
+  //     },
+  //     {
+  //       title: "System Settings",
+  //       url: "/settings/system",
+  //       icon: Settings,
+  //       roles: SUPER_ADMIN_ROLES,
+  //     },
+  //   ],
+  // },
 ];
 
 /* ── Session Timeout Hook ── */

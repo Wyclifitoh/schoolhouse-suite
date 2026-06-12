@@ -14,7 +14,11 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { useStudentWithFees } from "@/hooks/useStudents";
-import { useFeeDiscounts, useRecordPayment } from "@/hooks/useFinance";
+import {
+  useFeeDiscounts,
+  useRecordPayment,
+  useCreateFeeAdjustment,
+} from "@/hooks/useFinance";
 import { useTerm } from "@/contexts/TermContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -140,6 +144,7 @@ const StudentFees = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const recordPayment = useRecordPayment();
+  const createAdjustment = useCreateFeeAdjustment();
   const qc = useQueryClient();
   const [showRebalanceConfirm, setShowRebalanceConfirm] = useState(false);
   const rebalanceMutation = useMutation({
@@ -315,10 +320,24 @@ const StudentFees = () => {
     }
   };
 
-  const handleAdjustment = (data: any) => {
-    toast.success(`Fee adjustment applied`);
-    setShowAdjustmentDialog(false);
-    setAdjustmentFee(null);
+  const handleAdjustment = async (data: {
+    feeId: string;
+    adjustmentType: string;
+    amount: number;
+    reason: string;
+  }) => {
+    try {
+      await createAdjustment.mutateAsync({
+        student_fee_id: data.feeId,
+        adjustment_type: data.adjustmentType,
+        amount: Number(data.amount) || 0,
+        reason: data.reason,
+      });
+      setShowAdjustmentDialog(false);
+      setAdjustmentFee(null);
+    } catch {
+      /* toast handled in hook */
+    }
   };
 
   const downloadStatement = async (format: "pdf" | "excel") => {
@@ -679,21 +698,39 @@ const StudentFees = () => {
                           {Number(f.balance || 0).toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          {(f.balance || 0) > 0 && (
+                          <div className="flex gap-1">
+                            {(f.balance || 0) > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => {
+                                  setPaymentFeeId(f.id);
+                                  setPaymentAmount(f.balance);
+                                  setShowPaymentDialog(true);
+                                }}
+                              >
+                                <Wallet className="h-3 w-3 mr-0.5" />
+                                Pay
+                              </Button>
+                            )}
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               className="h-7 text-[11px] px-2"
                               onClick={() => {
-                                setPaymentFeeId(f.id);
-                                setPaymentAmount(f.balance);
-                                setShowPaymentDialog(true);
+                                setAdjustmentFee({
+                                  id: f.id,
+                                  name: f.fee_name || f.name || "Fee",
+                                  currentAmount: Number(f.amount || 0),
+                                  amountPaid: Number(f.paid || 0),
+                                });
+                                setShowAdjustmentDialog(true);
                               }}
                             >
-                              <Wallet className="h-3 w-3 mr-0.5" />
-                              Pay
+                              Adjust
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -954,6 +991,7 @@ const StudentFees = () => {
         fee={adjustmentFee}
         studentName={displayName}
         onSubmit={handleAdjustment}
+        isSubmitting={createAdjustment.isPending}
       />
       <Dialog
         open={!!revertTarget}
