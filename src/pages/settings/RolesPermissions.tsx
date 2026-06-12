@@ -73,7 +73,27 @@ interface Permission {
   description: string | null;
 }
 
-const ACTIONS = ["create", "read", "update", "delete", "manage"] as const;
+// Preferred display order for actions; any extra actions found in the
+// catalog (import, export, assign, waive, approve, publish, etc.) are
+// appended automatically so no permission is ever hidden from the UI.
+const ACTION_ORDER = [
+  "read",
+  "create",
+  "update",
+  "delete",
+  "manage",
+  "approve",
+  "assign",
+  "waive",
+  "import",
+  "export",
+  "publish",
+  "promote",
+  "transfer",
+  "receipt",
+  "reverse",
+  "issue",
+];
 
 // ----------------------------------------------------------------------------
 // /settings/roles  — list all system roles
@@ -351,8 +371,9 @@ export const RolePermissionsEditor = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Group permissions by module
-  const grouped = useMemo(() => {
+  // Group permissions by module and compute the union of actions present
+  // across the entire catalog so we render one column per real action.
+  const { grouped, actions } = useMemo(() => {
     const filtered = all.filter(
       (p) =>
         !search ||
@@ -360,11 +381,18 @@ export const RolePermissionsEditor = () => {
         p.code.toLowerCase().includes(search.toLowerCase()),
     );
     const map: Record<string, Record<string, Permission>> = {};
+    const actionSet = new Set<string>();
     for (const p of filtered) {
+      const action = p.action || p.code.split(":").pop() || "manage";
       map[p.module] ||= {};
-      map[p.module][p.action] = p;
+      map[p.module][action] = p;
+      actionSet.add(action);
     }
-    return map;
+    const ordered = [
+      ...ACTION_ORDER.filter((a) => actionSet.has(a)),
+      ...[...actionSet].filter((a) => !ACTION_ORDER.includes(a)).sort(),
+    ];
+    return { grouped: map, actions: ordered };
   }, [all, search]);
 
   const toggle = (id: string) =>
@@ -437,7 +465,7 @@ export const RolePermissionsEditor = () => {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-semibold">Module</TableHead>
-                    {ACTIONS.map((a) => (
+                    {actions.map((a) => (
                       <TableHead
                         key={a}
                         className="font-semibold text-center capitalize"
@@ -454,8 +482,8 @@ export const RolePermissionsEditor = () => {
                   {Object.keys(grouped)
                     .sort()
                     .map((module) => {
-                      const actions = grouped[module];
-                      const allOn = Object.values(actions).every((p) =>
+                      const moduleActions = grouped[module];
+                      const allOn = Object.values(moduleActions).every((p) =>
                         selected.has(p.id),
                       );
                       return (
@@ -463,8 +491,8 @@ export const RolePermissionsEditor = () => {
                           <TableCell className="font-medium capitalize">
                             {module}
                           </TableCell>
-                          {ACTIONS.map((a) => {
-                            const p = actions[a];
+                          {actions.map((a) => {
+                            const p = moduleActions[a];
                             return (
                               <TableCell key={a} className="text-center">
                                 {p ? (
