@@ -355,13 +355,29 @@ export default function MarksEntry() {
                 <Button variant="outline" onClick={downloadTemplate}>
                   <FileSpreadsheet className="h-4 w-4 mr-1" /> Download template
                 </Button>
-                <PermissionGate permission="exams:update">
+                <PermissionGate
+                  role={[
+                    "super_admin",
+                    "admin",
+                    "school_admin",
+                    "deputy_admin",
+                    "manager",
+                    "teacher",
+                  ]}
+                >
                   <Button
                     variant="outline"
                     onClick={onPickFile}
                     disabled={!!locked}
                   >
                     <Upload className="h-4 w-4 mr-1" /> Import marks
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={onSave}
+                    disabled={!!locked || bulk.isPending}
+                  >
+                    <Save className="h-4 w-4 mr-1" /> Save draft
                   </Button>
                   <Button
                     onClick={onSave}

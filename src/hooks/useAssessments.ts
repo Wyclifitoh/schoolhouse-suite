@@ -476,11 +476,42 @@ export function useAssessmentTasks(
     queryFn: async () => {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
-      return (
-        unwrap<AssessmentTask[]>(
-          await api.get<any>(`/assessments/tasks/list?${qp}`),
-        ) || []
-      );
+      const raw = await api.get<any>(`/assessments/tasks/list?${qp}`);
+      const payload = raw?.data ?? raw;
+      // Support both legacy array shape and paginated { data, total } shape
+      if (Array.isArray(payload)) return payload as AssessmentTask[];
+      return (payload?.data || []) as AssessmentTask[];
+    },
+  });
+}
+
+/** Paginated variant returning { data, total, page, limit }. */
+export function useAssessmentTasksPaged(
+  filters: Record<string, string | number | undefined> = {},
+) {
+  return useQuery({
+    queryKey: ["assessment-tasks-paged", filters],
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== "" && v !== null) qp.set(k, String(v));
+      });
+      const raw = await api.get<any>(`/assessments/tasks/list?${qp}`);
+      const payload = raw?.data ?? raw;
+      if (Array.isArray(payload)) {
+        return {
+          data: payload as AssessmentTask[],
+          total: payload.length,
+          page: 1,
+          limit: payload.length,
+        };
+      }
+      return {
+        data: (payload?.data || []) as AssessmentTask[],
+        total: Number(payload?.total || 0),
+        page: Number(payload?.page || 1),
+        limit: Number(payload?.limit || 25),
+      };
     },
   });
 }

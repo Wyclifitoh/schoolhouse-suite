@@ -37,6 +37,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -160,6 +170,11 @@ const Settings = () => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("school");
+  const [pendingRoleChange, setPendingRoleChange] = useState<{
+    userId: string;
+    role: string;
+    userName: string;
+  } | null>(null);
 
   // --- Data hooks ---
   const { data: schoolProfile, isLoading: profileLoading } = useSchoolProfile();
@@ -886,9 +901,16 @@ const Settings = () => {
                           <TableCell>
                             <Select
                               value={u.roles?.split(",")[0]?.trim() || ""}
-                              onValueChange={(v) =>
-                                updateUserRole.mutate({ userId: u.id, role: v })
-                              }
+                              onValueChange={(v) => {
+                                const currentRole =
+                                  u.roles?.split(",")[0]?.trim() || "";
+                                if (v === currentRole) return;
+                                setPendingRoleChange({
+                                  userId: u.id,
+                                  role: v,
+                                  userName: u.full_name || u.email,
+                                });
+                              }}
                               disabled={updateUserRole.isPending}
                             >
                               <SelectTrigger className="h-8 w-44 text-xs">
@@ -1129,6 +1151,40 @@ const Settings = () => {
           </Dialog>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={!!pendingRoleChange}
+        onOpenChange={(o) => !o && setPendingRoleChange(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Role Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to update this user's role
+              {pendingRoleChange?.userName
+                ? ` for ${pendingRoleChange.userName}`
+                : ""}
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingRoleChange) {
+                  updateUserRole.mutate({
+                    userId: pendingRoleChange.userId,
+                    role: pendingRoleChange.role,
+                  });
+                }
+                setPendingRoleChange(null);
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
