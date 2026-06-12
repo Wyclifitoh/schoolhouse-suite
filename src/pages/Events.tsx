@@ -22,6 +22,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import {
   useEvents, useSaveEvent, useDeleteEvent, type CalendarEvent,
 } from "@/hooks/useEvents";
+import { usePermissions } from "@/hooks/usePermission";
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
@@ -46,6 +47,10 @@ export default function Events() {
   const { data: events = [] } = useEvents();
   const save = useSaveEvent();
   const remove = useDeleteEvent();
+  const perms = usePermissions(["events:create", "events:update", "events:delete"]);
+  const canCreate = perms["events:create"];
+  const canUpdate = perms["events:update"];
+  const canDelete = perms["events:delete"];
 
   const [editing, setEditing] = useState<Form | null>(null);
 
@@ -63,6 +68,7 @@ export default function Events() {
   );
 
   const onSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    if (!canCreate) return;
     setEditing({
       title: "",
       starts_at: toLocal(start),
@@ -122,12 +128,14 @@ export default function Events() {
               Click any time slot to create an event. Reminders are sent automatically.
             </p>
           </div>
-          <Button onClick={() => setEditing({
-            title: "", starts_at: toLocal(new Date()), ends_at: toLocal(addHours(new Date(), 1)),
-            color: "#3b82f6", category: "general", audience: "all", reminder_minutes: 60,
-          })}>
-            <Plus className="h-4 w-4 mr-1" /> New event
-          </Button>
+          {canCreate && (
+            <Button onClick={() => setEditing({
+              title: "", starts_at: toLocal(new Date()), ends_at: toLocal(addHours(new Date(), 1)),
+              color: "#3b82f6", category: "general", audience: "all", reminder_minutes: 60,
+            })}>
+              <Plus className="h-4 w-4 mr-1" /> New event
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -238,14 +246,16 @@ export default function Events() {
             </div>
           )}
           <DialogFooter className="gap-2">
-            {editing?.id && (
+            {editing?.id && canDelete && (
               <Button variant="destructive" onClick={onDelete}>
                 <Trash2 className="h-4 w-4 mr-1" /> Delete
               </Button>
             )}
             <div className="flex-1" />
             <Button variant="outline" onClick={close}>Cancel</Button>
-            <Button onClick={onSave} disabled={save.isPending}>Save</Button>
+            {((editing?.id && canUpdate) || (!editing?.id && canCreate)) && (
+              <Button onClick={onSave} disabled={save.isPending}>Save</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

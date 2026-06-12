@@ -14,6 +14,7 @@ import { useClasses, useStreams } from "@/hooks/useClasses";
 import { useAcademicSessions } from "@/hooks/usePromotion";
 import { useTerm } from "@/contexts/TermContext";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermission";
 
 type PromotionAction = "promote" | "retain" | "leaving";
 
@@ -38,6 +39,7 @@ const Promotion = () => {
   const { data: allStudents = [] } = useStudents({ gradeId: undefined });
   const { terms, currentTerm } = useTerm();
   const { data: streamsForClass = [] } = useStreams(selectedClass || undefined);
+  const p = usePermissions(["students:promote"]);
 
   const handleGenerate = () => {
     const classStudents = allStudents.filter((s: any) => {

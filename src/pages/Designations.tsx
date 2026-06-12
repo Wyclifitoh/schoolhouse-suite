@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/hooks/use-toast";
 import { Plus, Edit } from "lucide-react";
 import { api } from "@/lib/api";
+import { usePermissions } from "@/hooks/usePermission";
 
 type Form = { id?: string; name: string; description: string; is_active?: boolean };
 
@@ -23,6 +24,7 @@ export default function Designations() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Form>({ name: "", description: "" });
+  const p = usePermissions(["staff:create", "staff:update"]);
 
   useEffect(() => { if (schoolId) api.setSchoolId(schoolId); }, [schoolId]);
 
@@ -63,9 +65,11 @@ export default function Designations() {
   return (
     <DashboardLayout title="Designations" subtitle="Staff roles and job titles">
       <div className="flex justify-end mb-4">
-        <Button size="sm" onClick={() => openEdit()}>
-          <Plus className="h-4 w-4 mr-2" />Add Designation
-        </Button>
+        {p["staff:create"] && (
+          <Button size="sm" onClick={() => openEdit()}>
+            <Plus className="h-4 w-4 mr-2" />Add Designation
+          </Button>
+        )}
       </div>
       <Card>
         <CardContent className="p-0">
@@ -89,7 +93,9 @@ export default function Designations() {
                   <TableCell className="text-right">{staffCounts[d.id] || 0}</TableCell>
                   <TableCell><Badge variant={d.is_active ? "default" : "secondary"}>{d.is_active ? "Active" : "Inactive"}</Badge></TableCell>
                   <TableCell className="text-right">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(d)}><Edit className="h-4 w-4" /></Button>
+                    {p["staff:update"] && (
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(d)}><Edit className="h-4 w-4" /></Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   Select,
   SelectContent,
@@ -105,10 +106,12 @@ const TeacherTimetable = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button size="sm" variant="outline">
-                  <Download className="h-4 w-4 mr-1.5" />
-                  Export
-                </Button>
+                <PermissionGate permission="reports:export">
+                  <Button size="sm" variant="outline">
+                    <Download className="h-4 w-4 mr-1.5" />
+                    Export
+                  </Button>
+                </PermissionGate>
               </div>
             </div>
           </CardHeader>

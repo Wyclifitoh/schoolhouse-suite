@@ -31,6 +31,7 @@ import {
 import { Wallet, Search, CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/usePermission";
 
 const fmt = (n: number) => `KES ${Math.abs(Number(n) || 0).toLocaleString()}`;
 
@@ -57,6 +58,7 @@ interface OutstandingFee {
 }
 
 export default function ExcessPayments() {
+  const canApply = usePermission("finance:fees:waive");
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("pending");
@@ -264,7 +266,7 @@ export default function ExcessPayments() {
                         {new Date(r.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        {r.status === "pending" && (
+                        {r.status === "pending" && canApply && (
                           <Button
                             size="sm"
                             onClick={() => {

@@ -36,6 +36,7 @@ import {
   useDeleteSubject,
 } from "@/hooks/useClasses";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermission";
 
 const CATEGORIES = [
   "Core",
@@ -48,6 +49,7 @@ const CATEGORIES = [
 ];
 
 const Subjects = () => {
+  const perms = usePermissions(["classes:create", "classes:update", "classes:delete"]);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
@@ -130,10 +132,12 @@ const Subjects = () => {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Button size="sm" onClick={openAdd}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Subject
-              </Button>
+              {perms["classes:create"] && (
+                <Button size="sm" onClick={openAdd}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Subject
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -186,20 +190,24 @@ const Subjects = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(s)}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(s.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+                      {perms["classes:update"] && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(s)}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {perms["classes:delete"] && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(s.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

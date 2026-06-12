@@ -47,6 +47,7 @@ import {
   FileSignature,
   Sparkles,
 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 
 const statusBadge = (s: string) => {
   const map: Record<string, string> = {
@@ -58,6 +59,7 @@ const statusBadge = (s: string) => {
 };
 
 export default function LessonPlans() {
+  const perms = usePermissions(["classes:create","classes:update","classes:delete"]);
   const navigate = useNavigate();
   const [tab, setTab] = useState("overview");
   const [filters, setFilters] = useState<{
@@ -105,9 +107,11 @@ export default function LessonPlans() {
               Kenyan CBE framework.
             </p>
           </div>
-          <Button onClick={() => navigate("/lesson-plans/new")}>
-            <Plus className="w-4 h-4 mr-2" /> New Lesson Plan
-          </Button>
+          {perms["classes:create"] && (
+            <Button onClick={() => navigate("/lesson-plans/new")}>
+              <Plus className="w-4 h-4 mr-2" /> New Lesson Plan
+            </Button>
+          )}
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
@@ -383,14 +387,16 @@ export default function LessonPlans() {
                                 >
                                   <Download className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => dup.mutate({ id: p.id })}
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </Button>
-                                {p.status === "draft" && (
+                                {perms["classes:create"] && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => dup.mutate({ id: p.id })}
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {p.status === "draft" && perms["classes:update"] && (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -405,7 +411,7 @@ export default function LessonPlans() {
                                     Publish
                                   </Button>
                                 )}
-                                {p.status === "published" && (
+                                {p.status === "published" && perms["classes:update"] && (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -420,16 +426,18 @@ export default function LessonPlans() {
                                     Delivered
                                   </Button>
                                 )}
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    if (confirm("Delete this lesson plan?"))
-                                      del.mutate(p.id);
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
+                                {perms["classes:delete"] && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm("Delete this lesson plan?"))
+                                        del.mutate(p.id);
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

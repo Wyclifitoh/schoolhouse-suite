@@ -18,6 +18,7 @@ import {
   useSubjectAllocations,
   useAllocateSubjects,
 } from "@/hooks/useAssessments";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const SubjectAllocation = () => {
   const { data: classes = [], isLoading: classesLoading } = useClasses();
@@ -74,14 +75,16 @@ const SubjectAllocation = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={!gradeId || allocate.isPending}
-              >
-                <Save className="h-4 w-4 mr-1.5" />
-                Save Allocation
-              </Button>
+              <PermissionGate permission="classes:update">
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!gradeId || allocate.isPending}
+                >
+                  <Save className="h-4 w-4 mr-1.5" />
+                  Save Allocation
+                </Button>
+              </PermissionGate>
             </div>
           </div>
         </CardHeader>

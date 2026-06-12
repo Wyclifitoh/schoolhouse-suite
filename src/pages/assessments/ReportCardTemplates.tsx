@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import {
   FileBadge, Plus, Pencil, Trash2, Palette, Save, Eye,
 } from "lucide-react";
+import { PermissionGate } from "@/components/PermissionGate";
 
 interface SchoolProfile {
   id: string;
@@ -125,9 +126,11 @@ export default function ReportCardTemplates() {
                   Layout fields shown on every generated report card.
                 </p>
               </div>
-              <Button size="sm" onClick={() => setEditing({ ...EMPTY })}>
-                <Plus className="h-4 w-4 mr-1.5" /> New Template
-              </Button>
+              <PermissionGate permission="settings:update">
+                <Button size="sm" onClick={() => setEditing({ ...EMPTY })}>
+                  <Plus className="h-4 w-4 mr-1.5" /> New Template
+                </Button>
+              </PermissionGate>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -168,18 +171,20 @@ export default function ReportCardTemplates() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewing(t)}>
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(t)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7"
-                            onClick={() => { if (confirm(`Delete "${t.name}"?`)) del.mutate(t.id); }}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </div>
+                         <div className="flex justify-end gap-1">
+                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewing(t)}>
+                             <Eye className="h-3.5 w-3.5" />
+                           </Button>
+                           <PermissionGate permission="settings:update">
+                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(t)}>
+                               <Pencil className="h-3.5 w-3.5" />
+                             </Button>
+                             <Button variant="ghost" size="icon" className="h-7 w-7"
+                               onClick={() => { if (confirm(`Delete "${t.name}"?`)) del.mutate(t.id); }}>
+                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                             </Button>
+                           </PermissionGate>
+                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -239,13 +244,15 @@ export default function ReportCardTemplates() {
                 />
               </div>
 
-              <Button
-                onClick={() => updateSchool.mutate({ logo_url: logoUrl, address })}
-                disabled={updateSchool.isPending}
-              >
-                <Save className="h-4 w-4 mr-1.5" />
-                {updateSchool.isPending ? "Saving…" : "Save Branding"}
-              </Button>
+              <PermissionGate permission="settings:update">
+                <Button
+                  onClick={() => updateSchool.mutate({ logo_url: logoUrl, address })}
+                  disabled={updateSchool.isPending}
+                >
+                  <Save className="h-4 w-4 mr-1.5" />
+                  {updateSchool.isPending ? "Saving…" : "Save Branding"}
+                </Button>
+              </PermissionGate>
 
               <p className="text-xs text-muted-foreground">
                 Tip: principal &amp; class-teacher signature images can be added per template

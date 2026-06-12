@@ -80,6 +80,8 @@ import {
   type Notice,
 } from "@/hooks/useCommHub";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/usePermission";
+import { AccessDenied } from "@/components/PermissionGate";
 
 /* ============= SHARED ============= */
 const StatusBadge = ({ status }: { status: string }) => {
@@ -408,6 +410,7 @@ export const Overview = ({ goto }: { goto?: (tab: string) => void }) => {
 
 /* ============= SMS COMPOSER ============= */
 export const SmsComposer = () => {
+  const canSend = usePermission("communication:create");
   const [audience, setAudience] = useState<Audience>({
     type: "parents",
     relationship: "all",
@@ -439,6 +442,7 @@ export const SmsComposer = () => {
     });
   };
 
+  if (!canSend) return <AccessDenied message="You don't have permission to send SMS." />;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -556,6 +560,7 @@ export const SmsComposer = () => {
 
 /* ============= EMAIL COMPOSER ============= */
 export const EmailComposer = () => {
+  const canSend = usePermission("communication:create");
   const [audience, setAudience] = useState<Audience>({
     type: "parents",
     relationship: "all",
@@ -589,6 +594,7 @@ export const EmailComposer = () => {
     });
   };
 
+  if (!canSend) return <AccessDenied message="You don't have permission to send emails." />;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -874,6 +880,7 @@ const emptyTpl: Partial<SmsTemplate> = {
   is_active: true,
 };
 export const TemplatesTab = () => {
+  const canManage = usePermission("communication:create");
   const [search, setSearch] = useState("");
   const { data: templates = [], isLoading } = useSmsTemplates({
     search: search || undefined,
@@ -915,7 +922,7 @@ export const TemplatesTab = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button
+            {canManage && <Button
               size="sm"
               onClick={() => {
                 setEditing(emptyTpl);
@@ -923,7 +930,7 @@ export const TemplatesTab = () => {
               }}
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" /> New Template
-            </Button>
+            </Button>}
           </div>
         </div>
       </CardHeader>
@@ -967,6 +974,7 @@ export const TemplatesTab = () => {
                 <div className="flex items-center gap-1 shrink-0">
                   <Switch
                     checked={t.is_active}
+                    disabled={!canManage}
                     onCheckedChange={() =>
                       update.mutate({
                         id: t.id,
@@ -985,7 +993,7 @@ export const TemplatesTab = () => {
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
+                  {canManage && <Button
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7"
@@ -995,8 +1003,8 @@ export const TemplatesTab = () => {
                     }}
                   >
                     <Edit3 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
+                  </Button>}
+                  {canManage && <Button
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 text-destructive"
@@ -1006,7 +1014,7 @@ export const TemplatesTab = () => {
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  </Button>}
                 </div>
               </div>
             </div>
@@ -1131,6 +1139,7 @@ const emptyNotice: Partial<Notice> = {
   pinned: false,
 };
 export const NoticeboardTab = () => {
+  const canManage = usePermission("communication:create");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { data: notices = [], isLoading } = useNotices({
@@ -1192,7 +1201,7 @@ export const NoticeboardTab = () => {
                 <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
-            <Button
+            {canManage && <Button
               size="sm"
               onClick={() => {
                 setEditing(emptyNotice);
@@ -1200,7 +1209,7 @@ export const NoticeboardTab = () => {
               }}
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" /> New Notice
-            </Button>
+            </Button>}
           </div>
         </div>
       </CardHeader>
@@ -1258,7 +1267,7 @@ export const NoticeboardTab = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
+                    {canManage && <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7"
@@ -1268,16 +1277,16 @@ export const NoticeboardTab = () => {
                       <Pin
                         className={`h-3.5 w-3.5 ${n.pinned ? "text-primary fill-primary" : ""}`}
                       />
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canManage && <Button
                       size="sm"
                       variant="outline"
                       className="h-7 text-xs"
                       onClick={() => publish(n)}
                     >
                       {n.status === "published" ? "Unpublish" : "Publish"}
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canManage && <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7"
@@ -1287,8 +1296,8 @@ export const NoticeboardTab = () => {
                       }}
                     >
                       <Edit3 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canManage && <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7 text-destructive"
@@ -1297,7 +1306,7 @@ export const NoticeboardTab = () => {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </Button>}
                   </div>
                 </div>
               </div>

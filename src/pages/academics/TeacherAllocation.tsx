@@ -36,6 +36,7 @@ import {
   useCreateTeacherAllocation,
   useDeleteTeacherAllocation,
 } from "@/hooks/useAssessments";
+import { usePermissions } from "@/hooks/usePermission";
 
 const unwrap = (d: any) => d?.data ?? d ?? [];
 
@@ -57,6 +58,7 @@ function useSubjectsForGrade(gradeId?: string) {
 }
 
 const TeacherAllocation = () => {
+  const perms = usePermissions(["classes:create", "classes:delete"]);
   const { data: classes = [], isLoading: classesLoading } = useClasses();
   const { data: teachersList = [], isLoading: teachersLoading } = useTeachers();
   const [filterGrade, setFilterGrade] = useState<string>("all");
@@ -153,6 +155,7 @@ const TeacherAllocation = () => {
                 </SelectContent>
               </Select>
 
+              {perms["classes:create"] && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -293,6 +296,7 @@ const TeacherAllocation = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -338,14 +342,16 @@ const TeacherAllocation = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => del.mutate(allocation.id)}
-                        disabled={del.isPending}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+                      {perms["classes:delete"] && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => del.mutate(allocation.id)}
+                          disabled={del.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -15,6 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { MessageSquareText, Plus, Pencil, Trash2 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 import {
   useRemarkBands, useSaveRemarkBand, useDeleteRemarkBand, type RemarkBand,
 } from "@/hooks/useRemarkBands";
@@ -42,6 +43,7 @@ export default function RemarkBandsPage() {
 
   const save = useSaveRemarkBand();
   const remove = useDeleteRemarkBand();
+  const p = usePermissions(["assessments:bands:manage"]);
   const [editing, setEditing] = useState<Form | null>(null);
 
   const close = () => setEditing(null);
@@ -65,9 +67,9 @@ export default function RemarkBandsPage() {
               the matching remark is suggested automatically.
             </p>
           </div>
-          <Button onClick={() => setEditing({ ...blank })}>
+          {p["assessments:bands:manage"] && <Button onClick={() => setEditing({ ...blank })}>
             <Plus className="h-4 w-4 mr-1" /> Add band
-          </Button>
+          </Button>}
         </div>
 
         <Card>

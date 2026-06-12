@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useAssessments";
 import { useClasses, useStreams } from "@/hooks/useClasses";
 import { FileText, PencilLine, Search } from "lucide-react";
+import { PermissionGate } from "@/components/PermissionGate";
 
 export default function AssessmentTasks() {
   const [status, setStatus] = useState<string>("");
@@ -223,11 +224,13 @@ export default function AssessmentTasks() {
                           <Badge variant="outline">{t.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Link to={`/assessments/marks/${t.id}`}>
-                            <Button size="sm" variant="outline">
-                              <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter
-                            </Button>
-                          </Link>
+                          <PermissionGate permission="exams:update">
+                            <Link to={`/assessments/marks/${t.id}`}>
+                              <Button size="sm" variant="outline">
+                                <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter
+                              </Button>
+                            </Link>
+                          </PermissionGate>
                         </TableCell>
                       </TableRow>
                     );

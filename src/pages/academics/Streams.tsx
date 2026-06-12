@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePermissions } from "@/hooks/usePermission";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const Streams = () => {
   const { data: grades = [] } = useClasses();
   const { data: streams = [], isLoading } = useIndependentStreams();
 
+  const p = usePermissions(["classes:create", "classes:update", "classes:delete"]);
   const createStream = useCreateIndependentStream();
   const deleteStream = useDeleteIndependentStream();
   const updateStream = useUpdateIndependentStream();
@@ -143,6 +145,7 @@ const Streams = () => {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Layers className="h-4 w-4 text-primary" /> All Streams
               </CardTitle>
+              {p["classes:create"] && (
               <Dialog open={showAdd} onOpenChange={setShowAdd}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -201,6 +204,7 @@ const Streams = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">

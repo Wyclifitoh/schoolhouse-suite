@@ -10,6 +10,7 @@ import {
 import { useExams } from "@/hooks/useExams";
 import { useExamLifecycle, useExamAudit } from "@/hooks/useExamsExtended";
 import { CheckCircle2, ShieldCheck, Lock, RefreshCw, Archive, FileClock } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "bg-muted text-muted-foreground",
@@ -21,6 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ExamReview() {
+  const perms = usePermissions(["exams:update","exams:publish","exams:delete"]);
   const { data: exams = [], isLoading } = useExams();
   const lc = useExamLifecycle();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -66,27 +68,27 @@ export default function ExamReview() {
                       <Badge className={STATUS_COLOR[e.status] || ""}>{e.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      {e.status === "SUBMITTED" && (
+                      {e.status === "SUBMITTED" && perms["exams:update"] && (
                         <Button size="sm" variant="outline" onClick={() => run("review", e.id)}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Review
                         </Button>
                       )}
-                      {e.status === "REVIEWED" && (
+                      {e.status === "REVIEWED" && perms["exams:publish"] && (
                         <Button size="sm" onClick={() => run("approve", e.id)}>
                           <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
                         </Button>
                       )}
-                      {e.status === "APPROVED" && (
+                      {e.status === "APPROVED" && perms["exams:publish"] && (
                         <Button size="sm" variant="destructive" onClick={() => run("lock", e.id)}>
                           <Lock className="h-3 w-3 mr-1" /> Lock
                         </Button>
                       )}
-                      {(e.status === "LOCKED" || e.status === "APPROVED" || e.status === "SUBMITTED" || e.status === "REVIEWED") && (
+                      {(e.status === "LOCKED" || e.status === "APPROVED" || e.status === "SUBMITTED" || e.status === "REVIEWED") && perms["exams:update"] && (
                         <Button size="sm" variant="ghost" onClick={() => run("reopen", e.id)}>
                           <RefreshCw className="h-3 w-3 mr-1" /> Reopen
                         </Button>
                       )}
-                      {(e.status === "APPROVED" || e.status === "LOCKED") && (
+                      {(e.status === "APPROVED" || e.status === "LOCKED") && perms["exams:delete"] && (
                         <Button size="sm" variant="ghost" onClick={() => run("archive", e.id)}>
                           <Archive className="h-3 w-3 mr-1" /> Archive
                         </Button>
