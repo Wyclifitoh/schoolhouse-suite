@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,13 +33,20 @@ import {
   Search,
   CheckCircle,
   Trash2,
-  CheckCheck,
-  X,
+  AlertTriangle,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { motion, AnimatePresence } from "framer-motion";
 
 const fmt = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -56,6 +63,10 @@ const FeeDiscounts = () => {
   const [streamFilter, setStreamFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [originallyAssigned, setOriginallyAssigned] = useState<Set<string>>(
+    new Set(),
+  );
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const { data: streams = [] } = useStreams(gradeFilter || undefined);
 
@@ -90,14 +101,17 @@ const FeeDiscounts = () => {
     return m;
   }, [applied, discountId, structureId, selectedTerm?.id]);
 
+  // Sync prefilled selection from existing assignments — like FeeAssignment.
+  useEffect(() => {
+    const ids = new Set(Array.from(assignedMap.keys()));
+    setOriginallyAssigned(ids);
+    setSelected(new Set(ids));
+  }, [discountId, structureId, JSON.stringify(Array.from(assignedMap.keys()))]);
+
   const apply = useMutation({
     mutationFn: (body: any) =>
       api.post<any>("/finance/applied-discounts", body),
-    onSuccess: (r: any) => {
-      toast.success(
-        `Applied: ${r?.data?.applied || r?.applied || 0} · Skipped: ${r?.data?.skipped || r?.skipped || 0}`,
-      );
-      setSelected(new Set());
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["applied-discounts"] });
       qc.invalidateQueries({ queryKey: ["student-fee-items"] });
     },
@@ -123,9 +137,7 @@ const FeeDiscounts = () => {
         term_id: selectedTerm?.id || null,
         student_ids,
       }),
-    onSuccess: (r: any) => {
-      toast.success(`Unassigned ${r?.data?.revoked ?? r?.revoked ?? 0}`);
-      setSelected(new Set());
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["applied-discounts"] });
       qc.invalidateQueries({ queryKey: ["student-fee-items"] });
     },
@@ -153,38 +165,52 @@ const FeeDiscounts = () => {
     });
 
   const toggleAll = () => {
-    const ids = allStudents.map((s) => s.id);
-    setSelected(ids.every((i) => selected.has(i)) ? new Set() : new Set(ids));
-  };
-
-  const selectedArr = Array.from(selected);
-  const selectedAssigned = selectedArr.filter((id) => assignedMap.has(id));
-  const selectedUnassigned = selectedArr.filter((id) => !assignedMap.has(id));
-
-  const handleApply = () => {
-    if (!discountId) return toast.error("Pick a discount");
-    if (!structureId)
-      return toast.error("Pick the fee this discount applies to");
-    if (!selectedUnassigned.length)
-      return toast.error("No unassigned students selected");
-    apply.mutate({
-      discount_id: discountId,
-      fee_structure_id: structureId,
-      term_id: selectedTerm?.id || null,
-      academic_year_id: currentAcademicYear?.id || null,
-      student_ids: selectedUnassigned,
+    const visibleIds = allStudents.map((s) => s.id);
+    if (!visibleIds.length) return;
+    const allVisibleSelected = visibleIds.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
     });
   };
 
-  const handleUnassign = () => {
+  // Derive deltas relative to the originally-assigned set (FeeAssignment pattern).
+  const additions = Array.from(selected).filter(
+    (id) => !originallyAssigned.has(id),
+  );
+  const removals = Array.from(originallyAssigned).filter(
+    (id) => !selected.has(id),
+  );
+
+  const handleSave = async () => {
+    setShowConfirm(false);
     if (!discountId) return toast.error("Pick a discount");
-    if (!selectedAssigned.length)
-      return toast.error("No assigned students selected");
-    if (
-      !confirm(`Unassign discount from ${selectedAssigned.length} student(s)?`)
-    )
-      return;
-    bulkRevoke.mutate(selectedAssigned);
+    if (!structureId)
+      return toast.error("Pick the fee this discount applies to");
+    try {
+      if (additions.length) {
+        await apply.mutateAsync({
+          discount_id: discountId,
+          fee_structure_id: structureId,
+          term_id: selectedTerm?.id || null,
+          academic_year_id: currentAcademicYear?.id || null,
+          student_ids: additions,
+        });
+      }
+      if (removals.length) {
+        await bulkRevoke.mutateAsync(removals);
+      }
+      toast.success(
+        `Saved: +${additions.length} assigned, -${removals.length} unassigned`,
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Failed");
+    }
   };
 
   return (
@@ -389,11 +415,11 @@ const FeeDiscounts = () => {
                   {selected.size > 0 && (
                     <>
                       <Badge variant="outline">{selected.size} selected</Badge>
-                      <Badge variant="outline">
-                        {selectedAssigned.length} assigned
+                      <Badge variant="outline" className="text-success">
+                        +{additions.length} to assign
                       </Badge>
-                      <Badge variant="outline">
-                        {selectedUnassigned.length} unassigned
+                      <Badge variant="outline" className="text-destructive">
+                        -{removals.length} to unassign
                       </Badge>
                     </>
                   )}
@@ -488,62 +514,98 @@ const FeeDiscounts = () => {
             </CardContent>
           </Card>
 
-          {discountId && selected.size > 0 && (
-            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-              <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-lg">Bulk Actions</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Discount <strong>{selectedDiscount?.name}</strong> →{" "}
-                    {selectedUnassigned.length} to assign ·{" "}
-                    {selectedAssigned.length} to unassign
-                    {structureId && (
-                      <>
-                        {" "}
-                        on{" "}
-                        <strong>
-                          {
-                            (feeStructures as any[]).find(
-                              (f) => f.id === structureId,
-                            )?.name
-                          }
-                        </strong>
-                      </>
-                    )}
-                  </p>
-                </div>
-                <PermissionGate permission="finance:fees:waive">
-                  <div className="flex gap-2">
-                    {selectedAssigned.length > 0 && (
-                      <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={handleUnassign}
-                        disabled={bulkRevoke.isPending}
-                      >
-                        <X className="h-4 w-4 mr-1.5" />
-                        {bulkRevoke.isPending
-                          ? "Unassigning..."
-                          : `Unassign (${selectedAssigned.length})`}
-                      </Button>
-                    )}
-                    {selectedUnassigned.length > 0 && (
-                      <Button
-                        size="lg"
-                        onClick={handleApply}
-                        disabled={apply.isPending || !structureId}
-                      >
-                        <CheckCheck className="h-4 w-4 mr-1.5" />
-                        {apply.isPending
-                          ? "Applying..."
-                          : `Assign (${selectedUnassigned.length})`}
-                      </Button>
-                    )}
+          <AnimatePresence>
+            {discountId &&
+              structureId &&
+              (additions.length > 0 || removals.length > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                >
+                  <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+                    <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg">Pending Changes</h3>
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          <span className="text-muted-foreground">
+                            Discount:{" "}
+                            <strong className="text-foreground">
+                              {selectedDiscount?.name}
+                            </strong>
+                          </span>
+                          <span className="text-muted-foreground">
+                            Fee:{" "}
+                            <strong className="text-foreground">
+                              {
+                                (feeStructures as any[]).find(
+                                  (f) => f.id === structureId,
+                                )?.name
+                              }
+                            </strong>
+                          </span>
+                          <span className="text-success">
+                            +{additions.length} to assign
+                          </span>
+                          <span className="text-destructive">
+                            -{removals.length} to unassign
+                          </span>
+                        </div>
+                      </div>
+                      <PermissionGate permission="finance:fees:waive">
+                        <Button
+                          size="lg"
+                          onClick={() => setShowConfirm(true)}
+                          className="shadow-lg"
+                          disabled={apply.isPending || bulkRevoke.isPending}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
+                          Save Changes
+                        </Button>
+                      </PermissionGate>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+          </AnimatePresence>
+
+          <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
+                  Confirm Changes
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2 py-2 text-sm">
+                <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span className="font-semibold">
+                      {selectedDiscount?.name}
+                    </span>
                   </div>
-                </PermissionGate>
-              </CardContent>
-            </Card>
-          )}
+                  <div className="flex justify-between">
+                    <span className="text-success">Newly assigned</span>
+                    <span className="font-semibold">{additions.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-destructive">To unassign</span>
+                    <span className="font-semibold">{removals.length}</span>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowConfirm(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>
+                  <CheckCircle className="h-4 w-4 mr-1.5" />
+                  Confirm
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
