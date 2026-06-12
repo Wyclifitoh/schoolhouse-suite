@@ -2,24 +2,67 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Shield, ChevronRight, Search, ArrowLeft, Save } from "lucide-react";
+import {
+  Shield,
+  ChevronRight,
+  Search,
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Role {
+  id?: string;
   code: string;
   label: string;
   description: string;
   permission_count: number;
+  builtin?: boolean;
 }
 
 interface Permission {
@@ -37,12 +80,36 @@ const ACTIONS = ["create", "read", "update", "delete", "manage"] as const;
 // ----------------------------------------------------------------------------
 export const RolesList = () => {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ["system-roles"],
     queryFn: async () => {
       const r = await api.get<any>("/roles");
       return (r?.data || r || []) as Role[];
     },
+  });
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({ code: "", label: "", description: "" });
+
+  const createRole = useMutation({
+    mutationFn: () => api.post("/roles/custom", form),
+    onSuccess: () => {
+      toast.success("Custom role created");
+      qc.invalidateQueries({ queryKey: ["system-roles"] });
+      setAddOpen(false);
+      setForm({ code: "", label: "", description: "" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteRole = useMutation({
+    mutationFn: (id: string) => api.delete(`/roles/custom/${id}`),
+    onSuccess: () => {
+      toast.success("Custom role deleted");
+      qc.invalidateQueries({ queryKey: ["system-roles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -52,18 +119,91 @@ export const RolesList = () => {
     >
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Shield className="h-4 w-4 text-primary" /> System Roles
-          </CardTitle>
-          <CardDescription>
-            Click <span className="font-medium">Assign Permissions</span> on a role to choose what CRUD actions users with
-            that role can perform across the system.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Shield className="h-4 w-4 text-primary" /> System Roles
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Click <span className="font-medium">Assign Permissions</span> on
+                a role to choose what actions users with that role can perform.
+                Built-in roles cannot be deleted but their permissions are fully
+                configurable per school.
+              </CardDescription>
+            </div>
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-1.5" /> Add Custom Role
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create custom role</DialogTitle>
+                  <DialogDescription>
+                    Define a new role for this school. After creating, assign
+                    permissions to control what users with this role can do.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <div>
+                    <Label htmlFor="role-label">Role name</Label>
+                    <Input
+                      id="role-label"
+                      placeholder="e.g. Sports Coordinator"
+                      value={form.label}
+                      onChange={(e) =>
+                        setForm({ ...form, label: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role-code">Role code</Label>
+                    <Input
+                      id="role-code"
+                      placeholder="e.g. sports_coordinator"
+                      value={form.code}
+                      onChange={(e) =>
+                        setForm({ ...form, code: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Lowercase letters, numbers and underscores only.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="role-desc">Description (optional)</Label>
+                    <Textarea
+                      id="role-desc"
+                      placeholder="What this role is responsible for"
+                      value={form.description}
+                      onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setAddOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => createRole.mutate()}
+                    disabled={!form.code || !form.label || createRole.isPending}
+                  >
+                    {createRole.isPending ? "Creating…" : "Create role"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
             </div>
           ) : (
             <div className="rounded-md border overflow-hidden">
@@ -72,31 +212,88 @@ export const RolesList = () => {
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-semibold">Role</TableHead>
                     <TableHead className="font-semibold">Description</TableHead>
-                    <TableHead className="font-semibold text-center">Permissions</TableHead>
-                    <TableHead className="font-semibold text-right">Action</TableHead>
+                    <TableHead className="font-semibold text-center">
+                      Permissions
+                    </TableHead>
+                    <TableHead className="font-semibold text-right">
+                      Action
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {roles.map((r) => (
                     <TableRow key={r.code}>
                       <TableCell>
-                        <div className="font-medium text-foreground">{r.label}</div>
-                        <div className="text-[10px] font-mono text-muted-foreground">{r.code}</div>
+                        <div className="font-medium text-foreground flex items-center gap-2">
+                          {r.label}
+                          {!r.builtin && (
+                            <Badge variant="outline" className="text-[10px]">
+                              Custom
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-[10px] font-mono text-muted-foreground">
+                          {r.code}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{r.description}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {r.description}
+                      </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="secondary" className="font-mono text-xs">
+                        <Badge
+                          variant="secondary"
+                          className="font-mono text-xs"
+                        >
                           {r.permission_count}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/settings/roles/${r.code}/permissions`)}
-                        >
-                          Assign Permissions <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              navigate(`/settings/roles/${r.code}/permissions`)
+                            }
+                          >
+                            Assign Permissions{" "}
+                            <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                          </Button>
+                          {!r.builtin && r.id && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete role “{r.label}”?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Users currently assigned to this role will
+                                    lose its permissions immediately. This
+                                    cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteRole.mutate(r.id!)}
+                                    className="bg-destructive text-destructive-foreground"
+                                  >
+                                    Delete role
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -200,7 +397,11 @@ export const RolePermissionsEditor = () => {
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => navigate("/settings/roles")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/settings/roles")}
+              >
                 <ArrowLeft className="h-4 w-4 mr-1" /> Back
               </Button>
               <CardTitle className="text-base flex items-center gap-2">
@@ -237,11 +438,16 @@ export const RolePermissionsEditor = () => {
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-semibold">Module</TableHead>
                     {ACTIONS.map((a) => (
-                      <TableHead key={a} className="font-semibold text-center capitalize">
+                      <TableHead
+                        key={a}
+                        className="font-semibold text-center capitalize"
+                      >
                         {a}
                       </TableHead>
                     ))}
-                    <TableHead className="font-semibold text-right">All</TableHead>
+                    <TableHead className="font-semibold text-right">
+                      All
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -249,10 +455,14 @@ export const RolePermissionsEditor = () => {
                     .sort()
                     .map((module) => {
                       const actions = grouped[module];
-                      const allOn = Object.values(actions).every((p) => selected.has(p.id));
+                      const allOn = Object.values(actions).every((p) =>
+                        selected.has(p.id),
+                      );
                       return (
                         <TableRow key={module} className="hover:bg-muted/30">
-                          <TableCell className="font-medium capitalize">{module}</TableCell>
+                          <TableCell className="font-medium capitalize">
+                            {module}
+                          </TableCell>
                           {ACTIONS.map((a) => {
                             const p = actions[a];
                             return (
@@ -263,7 +473,9 @@ export const RolePermissionsEditor = () => {
                                     onCheckedChange={() => toggle(p.id)}
                                   />
                                 ) : (
-                                  <span className="text-muted-foreground/40">—</span>
+                                  <span className="text-muted-foreground/40">
+                                    —
+                                  </span>
                                 )}
                               </TableCell>
                             );
@@ -271,7 +483,9 @@ export const RolePermissionsEditor = () => {
                           <TableCell className="text-right">
                             <Checkbox
                               checked={allOn}
-                              onCheckedChange={(v) => toggleAllForModule(module, !!v)}
+                              onCheckedChange={(v) =>
+                                toggleAllForModule(module, !!v)
+                              }
                             />
                           </TableCell>
                         </TableRow>
