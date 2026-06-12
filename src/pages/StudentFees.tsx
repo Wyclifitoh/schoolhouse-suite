@@ -32,7 +32,19 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 import { api } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Undo2 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/utils/date";
 import {
   DropdownMenu,
@@ -117,6 +129,34 @@ const StudentFees = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const recordPayment = useRecordPayment();
+  const qc = useQueryClient();
+
+  const [revertTarget, setRevertTarget] = useState<any | null>(null);
+  const [revertMode, setRevertMode] = useState<"excess" | "auto_apply">(
+    "excess",
+  );
+  const [revertReason, setRevertReason] = useState("");
+  const revertMutation = useMutation({
+    mutationFn: ({
+      id,
+      mode,
+      reason,
+    }: {
+      id: string;
+      mode: string;
+      reason: string;
+    }) => api.post(`/payments/${id}/revert`, { mode, reason }),
+    onSuccess: () => {
+      toast.success("Payment reverted");
+      setRevertTarget(null);
+      setRevertReason("");
+      qc.invalidateQueries({ queryKey: ["student-payments", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items", studentId] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits", studentId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const excessAvailable = useMemo(
     () =>
@@ -726,6 +766,23 @@ const StudentFees = () => {
                             >
                               <Printer className="h-4 w-4" />
                             </Button>
+                            {p.status !== "reversed" && (
+                              <PermissionGate permission="payments:reverse">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-destructive"
+                                  title="Revert payment"
+                                  onClick={() => {
+                                    setRevertTarget(p);
+                                    setRevertMode("excess");
+                                    setRevertReason("");
+                                  }}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </PermissionGate>
+                            )}
                           </TableCell>
                         </TableRow>
                         {(allocs.length > 0 || unallocated > 0) && (
@@ -845,6 +902,102 @@ const StudentFees = () => {
         studentName={displayName}
         onSubmit={handleAdjustment}
       />
+      <Dialog
+        open={!!revertTarget}
+        onOpenChange={(o) => !o && setRevertTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-destructive" /> Revert Payment
+            </DialogTitle>
+            <DialogDescription>
+              The payment record is preserved for audit. Its allocations will be
+              removed from the fee(s) they touched.
+            </DialogDescription>
+          </DialogHeader>
+          {revertTarget && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-md bg-muted/40 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <strong>{formatKES(Number(revertTarget.amount || 0))}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-mono text-xs">
+                    {revertTarget.reference_number ||
+                      revertTarget.mpesa_receipt ||
+                      "—"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">
+                  Where should the reverted amount go?
+                </Label>
+                <RadioGroup
+                  value={revertMode}
+                  onValueChange={(v: any) => setRevertMode(v)}
+                >
+                  <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="excess" />
+                    <div>
+                      <div className="font-medium text-sm">
+                        Move to Excess Payments
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Park the full amount as an unallocated credit on the
+                        student's account.
+                      </p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="auto_apply" />
+                    <div>
+                      <div className="font-medium text-sm">
+                        Auto-apply to next unpaid fees
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Re-allocate to outstanding fees FIFO (oldest due first).
+                        Any remainder becomes excess credit.
+                      </p>
+                    </div>
+                  </label>
+                </RadioGroup>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Reason (optional)</Label>
+                <Textarea
+                  rows={2}
+                  value={revertReason}
+                  onChange={(e) => setRevertReason(e.target.value)}
+                  placeholder="e.g. Wrong student / duplicate payment"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevertTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={revertMutation.isPending}
+              onClick={() =>
+                revertTarget &&
+                revertMutation.mutate({
+                  id: revertTarget.id,
+                  mode: revertMode,
+                  reason: revertReason,
+                })
+              }
+            >
+              {revertMutation.isPending ? "Reverting…" : "Confirm Revert"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
