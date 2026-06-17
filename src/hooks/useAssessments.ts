@@ -328,6 +328,7 @@ export interface Assessment {
   start_date: string | null;
   end_date: string | null;
   status: AssessmentStatus;
+  curriculum_type?: "CBC" | "844";
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
@@ -546,6 +547,20 @@ export function useSubmitTask() {
 export interface TaskRoster {
   task: AssessmentTask & { stream_id: string | null };
   out_of: number;
+  curriculum_type?: "CBC" | "844";
+  subject_config?: {
+    calculation_type: string;
+    calculation_config: any;
+    uses_papers: boolean;
+  } | null;
+  papers?: Array<{
+    id: string;
+    name: string;
+    code: string | null;
+    paper_type: "THEORY" | "PRACTICAL" | "ORAL" | "PROJECT";
+    max_marks: number;
+    display_order: number;
+  }>;
   students: Array<{
     id: string;
     first_name: string;
@@ -561,6 +576,8 @@ export interface TaskRoster {
       points: number | null;
       status: string;
       remarks: string | null;
+      grade_code?: string | null;
+      paper_scores?: Record<string, number | null> | string | null;
     };
   }>;
 }
@@ -591,6 +608,30 @@ export function useBulkSaveAssessmentMarks() {
         remarks?: string | null;
       }>;
     }) => api.post(`/assessments/marks/bulk`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task-roster"] });
+      qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
+      toast.success("Marks saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// 8-4-4 — bulk save per-paper marks
+export function useBulkSavePaperMarks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      assessment_id: string;
+      task_id?: string;
+      items: Array<{
+        student_id: string;
+        subject_id: string;
+        paper_scores: Record<string, number | null>;
+        status?: string;
+        remarks?: string | null;
+      }>;
+    }) => api.post(`/assessments/marks/bulk-papers`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task-roster"] });
       qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
