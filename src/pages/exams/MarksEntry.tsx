@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,9 +31,18 @@ import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
 import { ClipboardCheck, Save, Send, Download } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermission";
+import {
+  useSubjectPapers,
+  usePaperMarks,
+  useBulkSavePaperMarks,
+} from "@/hooks/useSubjectPapers";
 
 export default function MarksEntry() {
-  const perms = usePermissions(["exams:update","exams:publish","reports:export"]);
+  const perms = usePermissions([
+    "exams:update",
+    "exams:publish",
+    "reports:export",
+  ]);
   const { data: exams = [] } = useExams();
   const { data: grades = [] } = useGrades();
   const [examId, setExamId] = useState<string>("");
@@ -42,6 +51,7 @@ export default function MarksEntry() {
 
   const exam = exams.find((e: any) => e.id === examId);
   const isCBC = (exam?.curriculum_type || "CBC") === "CBC";
+  const is844 = (exam?.curriculum_type || "CBC") === "844";
   const { data: students = [] } = useStudents({
     gradeId: gradeId || undefined,
     enabled: !!gradeId,
@@ -53,6 +63,28 @@ export default function MarksEntry() {
 
   const bulk = useBulkSaveMarks();
   const submit = useSubmitDraftMarks();
+
+  // 8-4-4 paper mode
+  const currentSubject: any = subjects.find(
+    (s: any) => s.subject_name === subject,
+  );
+  const subjectId: string = currentSubject?.subject_id || "";
+  const usePaperFlow = is844 && !!currentSubject?.uses_papers;
+  const { data: papers = [] } = useSubjectPapers(
+    usePaperFlow ? subjectId : undefined,
+  );
+  const [paperId, setPaperId] = useState<string>("");
+  useEffect(() => {
+    // Reset paper selection when subject/exam changes
+    setPaperId("");
+  }, [subject, examId]);
+  const currentPaper: any = papers.find((p: any) => p.id === paperId);
+  const { data: paperMarks = [] } = usePaperMarks({
+    exam_id: examId,
+    paper_id: paperId,
+    grade_id: gradeId || undefined,
+  });
+  const savePaperMarks = useBulkSavePaperMarks();
 
   const [draft, setDraft] = useState<
     Record<string, { score?: string; level?: string; remarks?: string }>
@@ -83,8 +115,40 @@ export default function MarksEntry() {
   const subjectMaxMarks =
     subjects.find((s: any) => s.subject_name === subject)?.max_marks || 100;
 
+  // Rows for paper-mode entry
+  const paperRows = useMemo(() => {
+    if (!usePaperFlow || !paperId) return [];
+    return (students as any[]).map((s) => {
+      const existing = (paperMarks as any[]).find((m) => m.student_id === s.id);
+      const d = draft[s.id];
+      return {
+        student: s,
+        existing,
+        score: d?.score ?? existing?.score ?? "",
+      };
+    });
+  }, [students, paperMarks, paperId, draft, usePaperFlow]);
+
   const onSave = async () => {
     if (!subject || !examId) return;
+    if (usePaperFlow) {
+      if (!paperId || !currentPaper) return;
+      const payload = paperRows
+        .filter((r) => r.score !== "")
+        .map((r) => ({
+          exam_id: examId,
+          student_id: r.student.id,
+          subject_id: subjectId,
+          subject_name: subject,
+          paper_id: paperId,
+          score: r.score === "" ? null : Number(r.score),
+          max_marks: Number(currentPaper.max_marks),
+        }));
+      if (!payload.length) return;
+      await savePaperMarks.mutateAsync(payload as any);
+      setDraft({});
+      return;
+    }
     const payload = rows
       .filter((r) => r.score !== "" || r.level)
       .map((r) => ({
@@ -187,6 +251,23 @@ export default function MarksEntry() {
                   </SelectContent>
                 </Select>
               </div>
+              {usePaperFlow && (
+                <div className="flex-1 min-w-[180px]">
+                  <label className="text-sm text-muted-foreground">Paper</label>
+                  <Select value={paperId} onValueChange={setPaperId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select paper" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(papers as any[]).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.paper_type}, /{Number(p.max_marks)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex gap-2">
                 {perms["reports:export"] && (
                   <Button
@@ -222,7 +303,61 @@ export default function MarksEntry() {
                 This exam is {exam?.status}. Marks are read-only.
               </div>
             )}
-            {!examId || !subject ? (
+            {usePaperFlow ? (
+              !paperId ? (
+                <p className="text-muted-foreground text-sm">
+                  Select a paper to enter marks. The system will recompute the
+                  subject final automatically.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Adm #</TableHead>
+                        <TableHead>Student</TableHead>
+                        <TableHead className="w-40">
+                          {currentPaper?.name} /{" "}
+                          {Number(currentPaper?.max_marks)}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paperRows.map((r) => (
+                        <TableRow key={r.student.id}>
+                          <TableCell>{r.student.admission_number}</TableCell>
+                          <TableCell>
+                            {r.student.first_name} {r.student.last_name}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={Number(currentPaper?.max_marks)}
+                              value={r.score as any}
+                              disabled={locked}
+                              onChange={(e) =>
+                                setCell(r.student.id, { score: e.target.value })
+                              }
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {!paperRows.length && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={3}
+                            className="text-center text-muted-foreground"
+                          >
+                            No students in this class.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
+            ) : !examId || !subject ? (
               <p className="text-muted-foreground text-sm">
                 Select an exam and subject to start entering marks.
               </p>
