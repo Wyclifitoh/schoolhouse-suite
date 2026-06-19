@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +45,12 @@ import {
 export default function AssessmentDetail() {
   const { id } = useParams();
   const { data: a, isLoading } = useAssessment(id);
-  const { data: tasks = [] } = useAssessmentTasks({ assessment_id: id });
+  // Fetch with a high limit so the class/stream filter dropdowns and
+  // pagination see every task (backend defaults to 25 per page).
+  const { data: tasks = [] } = useAssessmentTasks({
+    assessment_id: id,
+    limit: "1000",
+  });
   const publish = usePublishAssessment();
   const setStatus = useSetAssessmentStatus();
   const submit = useSubmitTask();
@@ -53,6 +58,8 @@ export default function AssessmentDetail() {
 
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [streamFilter, setStreamFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
 
   const gradeOptions = useMemo(() => {
     const m = new Map<string, string>();
@@ -82,6 +89,18 @@ export default function AssessmentDetail() {
         return true;
       }),
     [tasks, gradeFilter, streamFilter],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [gradeFilter, streamFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedTasks = useMemo(
+    () =>
+      filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredTasks, currentPage],
   );
 
   if (isLoading || !a) {
@@ -142,13 +161,16 @@ export default function AssessmentDetail() {
               )}
               {a.status === "draft" && (
                 <Button onClick={() => publish.mutate(a.id)}>
-                  <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate tasks
+                  <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
+                  tasks
                 </Button>
               )}
               {(a.status === "published" || a.status === "in_progress") && (
                 <Button
                   variant="outline"
-                  onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}
+                  onClick={() =>
+                    setStatus.mutate({ id: a.id, status: "locked" })
+                  }
                 >
                   <Lock className="h-4 w-4 mr-1" /> Lock
                 </Button>
@@ -176,7 +198,9 @@ export default function AssessmentDetail() {
               {a.status === "archived" && (
                 <Button
                   variant="outline"
-                  onClick={() => setStatus.mutate({ id: a.id, status: "draft" })}
+                  onClick={() =>
+                    setStatus.mutate({ id: a.id, status: "draft" })
+                  }
                 >
                   <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
                 </Button>
@@ -275,7 +299,7 @@ export default function AssessmentDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTasks.map((t) => {
+                  {pagedTasks.map((t) => {
                     const p = t.student_count
                       ? Math.round((t.marked_count / t.student_count) * 100)
                       : 0;
@@ -306,8 +330,8 @@ export default function AssessmentDetail() {
                           <PermissionGate permission="exams:update">
                             <Link to={`/assessments/marks/${t.id}`}>
                               <Button size="sm" variant="outline">
-                                <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter
-                                marks
+                                <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
+                                Enter marks
                               </Button>
                             </Link>
                             {t.status === "in_progress" && (
@@ -341,6 +365,36 @@ export default function AssessmentDetail() {
                 </TableBody>
               </Table>
             </div>
+            {filteredTasks.length > pageSize && (
+              <div className="flex items-center justify-between gap-3 pt-4 flex-wrap">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * pageSize + 1}–
+                  {Math.min(currentPage * pageSize, filteredTasks.length)} of{" "}
+                  {filteredTasks.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
