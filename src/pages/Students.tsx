@@ -47,6 +47,7 @@ import {
 import { useGrades, useStreams } from "@/hooks/useGrades";
 import { useParents, useUpdateParent } from "@/hooks/useParents";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermission";
 import { formatDate } from "@/utils/date";
 import {
   DropdownMenu,
@@ -1193,11 +1194,19 @@ const Students = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentRow | null>(null);
   const { hasAnyRole } = useAuth();
-  const canManageStudents = hasAnyRole([
-    "super_admin",
-    "admin",
-    "school_admin",
-  ] as any);
+  const perms = usePermissions([
+    "students:create",
+    "students:update",
+    "students:delete",
+    "students:import",
+    "students:export",
+  ]);
+  const canCreateStudent = perms["students:create"];
+  const canUpdateStudent = perms["students:update"];
+  const canDeleteStudent = perms["students:delete"];
+  const canImportStudents = perms["students:import"];
+  const canExportStudents = perms["students:export"];
+  const canManageStudents = canUpdateStudent || canDeleteStudent;
   const canViewFees = hasAnyRole([
     "super_admin",
     "admin",
@@ -1361,14 +1370,17 @@ const Students = () => {
                     Disabled
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBulkImportOpen(true)}
-                >
-                  <Upload className="h-4 w-4 mr-1.5" />
-                  Import
-                </Button>
+                {canImportStudents && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkImportOpen(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-1.5" />
+                    Import
+                  </Button>
+                )}
+                {canExportStudents && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -1435,6 +1447,8 @@ const Students = () => {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                )}
+                {canCreateStudent && (
                 <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -1452,6 +1466,7 @@ const Students = () => {
                     />
                   </DialogContent>
                 </Dialog>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -1717,13 +1732,16 @@ const Students = () => {
                                   Collect Payment
                                 </DropdownMenuItem>
                               )}
-                              {canManageStudents && (
+                              {(canUpdateStudent || canDeleteStudent) && (
                                 <>
                                   <DropdownMenuSeparator />
+                                  {canUpdateStudent && (
                                   <DropdownMenuItem onClick={() => openEdit(s)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
                                   </DropdownMenuItem>
+                                  )}
+                                  {canDeleteStudent && (
                                   <DropdownMenuItem
                                     className="text-destructive"
                                     onClick={() => {
@@ -1740,6 +1758,7 @@ const Students = () => {
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Deactivate
                                   </DropdownMenuItem>
+                                  )}
                                 </>
                               )}
                             </DropdownMenuContent>

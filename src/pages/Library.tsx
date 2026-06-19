@@ -24,6 +24,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/hooks/usePermission";
 
 const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
 
@@ -49,6 +50,10 @@ const Library = () => {
   const [issueStatusFilter, setIssueStatusFilter] = useState("all");
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
+  const perms = usePermissions(["inventory:create", "inventory:update", "inventory:delete", "reports:export"]);
+  const canCreate = perms["inventory:create"];
+  const canUpdate = perms["inventory:update"];
+  const canExport = perms["reports:export"];
 
   const { data: libraryBooks = [] } = useBooks();
   const { data: bookIssues = [] } = useBookIssues();
@@ -116,7 +121,8 @@ const Library = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <CardTitle className="text-base font-semibold">Book Catalog</CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+                  {canExport && <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>}
+                  {canCreate && (
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Book</Button>
@@ -145,6 +151,7 @@ const Library = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -198,8 +205,8 @@ const Library = () => {
                               <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Edit Book</DropdownMenuItem>
-                              <DropdownMenuItem>Issue Book</DropdownMenuItem>
+                              {canUpdate && <DropdownMenuItem>Edit Book</DropdownMenuItem>}
+                              {canUpdate && <DropdownMenuItem>Issue Book</DropdownMenuItem>}
                               <DropdownMenuItem>View History</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -220,6 +227,7 @@ const Library = () => {
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <CardTitle className="text-base font-semibold">Issue & Return Tracking</CardTitle>
+                {canUpdate && (
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button size="sm"><BookCopy className="h-4 w-4 mr-1.5" />Issue Book</Button>
@@ -252,6 +260,7 @@ const Library = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -309,7 +318,7 @@ const Library = () => {
                           </TableCell>
                           <TableCell><Badge className={cfg?.className}>{cfg?.label}</Badge></TableCell>
                           <TableCell>
-                            {(i.status === "issued" || i.status === "overdue") && (
+                            {(i.status === "issued" || i.status === "overdue") && canUpdate && (
                               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleReturn(i)}>
                                 <RotateCcw className="h-3 w-3 mr-1" />Return
                               </Button>
@@ -438,7 +447,7 @@ const Library = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {!i.fine_paid && <Button variant="outline" size="sm" className="h-7 text-xs">Collect</Button>}
+                          {!i.fine_paid && canUpdate && <Button variant="outline" size="sm" className="h-7 text-xs">Collect</Button>}
                         </TableCell>
                       </TableRow>
                     ))}

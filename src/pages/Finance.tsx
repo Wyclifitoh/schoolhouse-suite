@@ -29,6 +29,7 @@ import {
 import { useClasses } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
@@ -42,7 +43,9 @@ const formatKES = (amount: number) => `KES ${Math.abs(amount || 0).toLocaleStrin
 const Finance = () => {
   const qc = useQueryClient();
   const { hasAnyRole } = useAuth();
-  const canManage = hasAnyRole(["super_admin", "school_admin", "deputy_admin", "finance_officer"] as any);
+  const canUpdateFees = usePermission("finance:fees:update");
+  const canDeleteFees = usePermission("finance:fees:delete");
+  const canManage = canUpdateFees || canDeleteFees || hasAnyRole(["super_admin", "school_admin", "deputy_admin", "finance_officer"] as any);
   const [collectSearch, setCollectSearch] = useState("");
 
   const { data: feeTemplates = [], isLoading: templatesLoading } = useFeeTemplates();

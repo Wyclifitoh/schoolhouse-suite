@@ -33,6 +33,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { formatDate } from "@/utils/date";
+import { usePermissions } from "@/hooks/usePermission";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,11 @@ export default function PurchaseOrders() {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
+  const perms = usePermissions([
+    "inventory:create",
+    "inventory:update",
+    "inventory:delete",
+  ]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -167,15 +173,17 @@ export default function PurchaseOrders() {
             Manage supplier orders and restocks
           </p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setIsOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Order
-        </Button>
+        {perms["inventory:create"] && (
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Order
+          </Button>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -384,36 +392,45 @@ export default function PurchaseOrders() {
                       po.status === "ordered" ||
                       po.status === "in_transit" ? (
                         <>
-                          <DropdownMenuItem
-                            onClick={() => handleEdit(po)}
-                            className="cursor-pointer"
-                          >
-                            <Edit3 className="h-4 w-4 mr-2" /> Edit Order
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              updateStatus.mutate({
-                                id: po.id,
-                                status: "delivered",
-                              })
-                            }
-                            className="cursor-pointer text-green-600 focus:text-green-600"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" /> Mark
-                            Delivered
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() =>
-                              updateStatus.mutate({
-                                id: po.id,
-                                status: "cancelled",
-                              })
-                            }
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <XCircle className="h-4 w-4 mr-2" /> Cancel Order
-                          </DropdownMenuItem>
+                          {perms["inventory:update"] && (
+                            <DropdownMenuItem
+                              onClick={() => handleEdit(po)}
+                              className="cursor-pointer"
+                            >
+                              <Edit3 className="h-4 w-4 mr-2" /> Edit Order
+                            </DropdownMenuItem>
+                          )}
+                          {perms["inventory:update"] && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                updateStatus.mutate({
+                                  id: po.id,
+                                  status: "delivered",
+                                })
+                              }
+                              className="cursor-pointer text-green-600 focus:text-green-600"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" /> Mark
+                              Delivered
+                            </DropdownMenuItem>
+                          )}
+                          {perms["inventory:update"] &&
+                            perms["inventory:delete"] && (
+                              <DropdownMenuSeparator />
+                            )}
+                          {perms["inventory:delete"] && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                updateStatus.mutate({
+                                  id: po.id,
+                                  status: "cancelled",
+                                })
+                              }
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" /> Cancel Order
+                            </DropdownMenuItem>
+                          )}
                         </>
                       ) : (
                         <DropdownMenuItem disabled>

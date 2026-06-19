@@ -47,6 +47,7 @@ import {
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { PermissionGate } from "@/components/PermissionGate";
+import { PaperMarksGrid } from "@/components/assessments/PaperMarksGrid";
 
 type Draft = Record<
   string,
@@ -72,6 +73,7 @@ export default function MarksEntry() {
   const outOf = data?.out_of ?? 100;
   const gradeId = (task as any)?.grade_id;
   const subjectId = task?.subject_id;
+  const is844 = (data?.curriculum_type || "CBC") === "844";
 
   const { data: bands = [] } = useRemarkBands({
     subject_id: subjectId,
@@ -328,7 +330,9 @@ export default function MarksEntry() {
             {task.subject_name}
           </p>
           <div className="flex gap-2 mt-2 flex-wrap">
-            <Badge variant="outline">Out of {outOf}</Badge>
+            <Badge variant="outline">
+              {is844 ? "8-4-4 · per-paper" : `Out of ${outOf}`}
+            </Badge>
             <Badge variant="outline">
               {markedCount}/{rows.length} entered ({completion}%)
             </Badge>
@@ -344,55 +348,49 @@ export default function MarksEntry() {
           <CardHeader>
             <div className="flex flex-wrap justify-between gap-2">
               <CardTitle>Roster</CardTitle>
-              <div className="flex gap-2 flex-wrap">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={onFile}
-                />
-                <Button variant="outline" onClick={downloadTemplate}>
-                  <FileSpreadsheet className="h-4 w-4 mr-1" /> Download template
-                </Button>
-                <PermissionGate
-                  role={[
-                    "super_admin",
-                    "admin",
-                    "school_admin",
-                    "deputy_admin",
-                    "manager",
-                    "teacher",
-                  ]}
-                >
-                  <Button
-                    variant="outline"
-                    onClick={onPickFile}
-                    disabled={!!locked}
-                  >
-                    <Upload className="h-4 w-4 mr-1" /> Import marks
+              {!is844 && (
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={onFile}
+                  />
+                  <Button variant="outline" onClick={downloadTemplate}>
+                    <FileSpreadsheet className="h-4 w-4 mr-1" /> Download
+                    template
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={onSave}
-                    disabled={!!locked || bulk.isPending}
-                  >
-                    <Save className="h-4 w-4 mr-1" /> Save draft
-                  </Button>
-                  <Button
-                    onClick={onSave}
-                    disabled={!!locked || bulk.isPending}
-                  >
-                    <Save className="h-4 w-4 mr-1" /> Save
-                  </Button>
-                  <Button
-                    onClick={onSubmit}
-                    disabled={!!locked || submit.isPending}
-                  >
-                    <Send className="h-4 w-4 mr-1" /> Save &amp; Submit
-                  </Button>
-                </PermissionGate>
-              </div>
+                  <PermissionGate permission="exams:update">
+                    <Button
+                      variant="outline"
+                      onClick={onPickFile}
+                      disabled={!!locked}
+                    >
+                      <Upload className="h-4 w-4 mr-1" /> Import marks
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={onSave}
+                      disabled={!!locked || bulk.isPending}
+                    >
+                      <Save className="h-4 w-4 mr-1" /> Save draft
+                    </Button>
+                    <Button
+                      onClick={onSave}
+                      disabled={!!locked || bulk.isPending}
+                    >
+                      <Save className="h-4 w-4 mr-1" /> Save
+                    </Button>
+                    <Button
+                      onClick={onSubmit}
+                      disabled={!!locked || submit.isPending}
+                    >
+                      <Send className="h-4 w-4 mr-1" /> Save &amp; Submit
+                    </Button>
+                  </PermissionGate>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -402,110 +400,118 @@ export default function MarksEntry() {
                 read-only.
               </div>
             )}
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-24">Adm #</TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="w-32">Score / {outOf}</TableHead>
-                    <TableHead className="w-20">AL</TableHead>
-                    <TableHead className="w-20">Band</TableHead>
-                    <TableHead className="w-36">Status</TableHead>
-                    <TableHead>Remarks (auto)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => {
-                    const num = r.score === "" ? NaN : Number(r.score);
-                    const al = previewAL(levels as any[], num, outOf);
-                    return (
-                      <TableRow key={r.student.id}>
-                        <TableCell>{r.student.admission_number}</TableCell>
-                        <TableCell>
-                          {r.student.first_name} {r.student.last_name}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={outOf}
-                            value={r.score}
-                            disabled={
-                              !!locked ||
-                              r.status === "absent" ||
-                              r.status === "exempted"
-                            }
-                            onChange={(e) =>
-                              setCell(r.student.id, { score: e.target.value })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {al ? (
-                            <Badge variant="secondary">{al.code}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {al ? (
-                            <Badge variant="outline">{al.band_code}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={r.status}
-                            onValueChange={(v) =>
-                              setCell(r.student.id, { status: v })
-                            }
-                            disabled={!!locked}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="present">Present</SelectItem>
-                              <SelectItem value="absent">Absent</SelectItem>
-                              <SelectItem value="exempted">Exempted</SelectItem>
-                              <SelectItem value="transferred_in">
-                                Transferred in
-                              </SelectItem>
-                              <SelectItem value="transferred_out">
-                                Transferred out
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={r.remarks}
-                            placeholder="Auto-filled from score"
-                            disabled={!!locked}
-                            onChange={(e) =>
-                              setCell(r.student.id, { remarks: e.target.value })
-                            }
-                          />
+            {is844 ? (
+              <PaperMarksGrid roster={data!} locked={!!locked} />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-24">Adm #</TableHead>
+                      <TableHead>Student</TableHead>
+                      <TableHead className="w-32">Score / {outOf}</TableHead>
+                      <TableHead className="w-20">AL</TableHead>
+                      <TableHead className="w-20">Band</TableHead>
+                      <TableHead className="w-36">Status</TableHead>
+                      <TableHead>Remarks (auto)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((r) => {
+                      const num = r.score === "" ? NaN : Number(r.score);
+                      const al = previewAL(levels as any[], num, outOf);
+                      return (
+                        <TableRow key={r.student.id}>
+                          <TableCell>{r.student.admission_number}</TableCell>
+                          <TableCell>
+                            {r.student.first_name} {r.student.last_name}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={outOf}
+                              value={r.score}
+                              disabled={
+                                !!locked ||
+                                r.status === "absent" ||
+                                r.status === "exempted"
+                              }
+                              onChange={(e) =>
+                                setCell(r.student.id, { score: e.target.value })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {al ? (
+                              <Badge variant="secondary">{al.code}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {al ? (
+                              <Badge variant="outline">{al.band_code}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={r.status}
+                              onValueChange={(v) =>
+                                setCell(r.student.id, { status: v })
+                              }
+                              disabled={!!locked}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="present">Present</SelectItem>
+                                <SelectItem value="absent">Absent</SelectItem>
+                                <SelectItem value="exempted">
+                                  Exempted
+                                </SelectItem>
+                                <SelectItem value="transferred_in">
+                                  Transferred in
+                                </SelectItem>
+                                <SelectItem value="transferred_out">
+                                  Transferred out
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={r.remarks}
+                              placeholder="Auto-filled from score"
+                              disabled={!!locked}
+                              onChange={(e) =>
+                                setCell(r.student.id, {
+                                  remarks: e.target.value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {!rows.length && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-muted-foreground py-8"
+                        >
+                          No students in this class.
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                  {!rows.length && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-muted-foreground py-8"
-                      >
-                        No students in this class.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -17,8 +17,10 @@ import {
 import { useExams } from "@/hooks/useExams";
 import { useGrades } from "@/hooks/useGrades";
 import { FileText, Plus, Send, Trash2 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 
 export default function ReportCards() {
+  const perms = usePermissions(["exams:create","exams:update","exams:delete","exams:publish"]);
   const { data: templates = [] } = useReportCardTemplates();
   const { data: runs = [] } = useReportCardRuns();
   const { data: exams = [] } = useExams();
@@ -58,9 +60,11 @@ export default function ReportCards() {
                     <SelectItem value="HYBRID">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={() => { if (tplName) { saveTpl.mutate({ name: tplName, kind: tplKind }); setTplName(""); } }}>
-                  <Plus className="h-4 w-4 mr-1" /> Add
-                </Button>
+                {perms["exams:create"] && (
+                  <Button onClick={() => { if (tplName) { saveTpl.mutate({ name: tplName, kind: tplKind }); setTplName(""); } }}>
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                )}
               </div>
               <Table>
                 <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Kind</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -69,7 +73,7 @@ export default function ReportCards() {
                     <TableRow key={t.id}>
                       <TableCell>{t.name} {t.is_default ? <Badge variant="outline" className="ml-1">default</Badge> : null}</TableCell>
                       <TableCell><Badge>{t.kind}</Badge></TableCell>
-                      <TableCell><Button size="icon" variant="ghost" onClick={() => delTpl.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                      <TableCell>{perms["exams:delete"] && (<Button size="icon" variant="ghost" onClick={() => delTpl.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button>)}</TableCell>
                     </TableRow>
                   ))}
                   {!templates.length && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No templates yet.</TableCell></TableRow>}
@@ -94,12 +98,14 @@ export default function ReportCards() {
                   <SelectTrigger><SelectValue placeholder="Template" /></SelectTrigger>
                   <SelectContent>{(templates as any[]).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Button
-                  disabled={!runExam || createRun.isPending}
-                  onClick={() => createRun.mutate({ exam_id: runExam, grade_id: runGrade || null, template_id: runTpl || null })}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Create Run
-                </Button>
+                {perms["exams:create"] && (
+                  <Button
+                    disabled={!runExam || createRun.isPending}
+                    onClick={() => createRun.mutate({ exam_id: runExam, grade_id: runGrade || null, template_id: runTpl || null })}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Create Run
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -118,7 +124,7 @@ export default function ReportCards() {
                     <TableCell className="text-xs">{new Date(r.generated_at).toLocaleString()}</TableCell>
                     <TableCell><Badge variant={r.status === "PUBLISHED" ? "default" : "outline"}>{r.status}</Badge></TableCell>
                     <TableCell className="text-right">
-                      {r.status !== "PUBLISHED" && (
+                      {r.status !== "PUBLISHED" && perms["exams:publish"] && (
                         <Button size="sm" onClick={() => publish.mutate(r.id)}>
                           <Send className="h-4 w-4 mr-1" /> Publish
                         </Button>

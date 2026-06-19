@@ -75,6 +75,7 @@ import {
 
 import { useSchool } from "@/contexts/SchoolContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermission";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -204,6 +205,7 @@ export const ProductCatalog = () => {
   const [catFilter, setCatFilter] = useState("all");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const perms = usePermissions(["inventory:create","inventory:update","inventory:delete"]);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -256,7 +258,7 @@ export const ProductCatalog = () => {
             Product Catalog ({items.length})
           </CardTitle>
 
-          <Dialog>
+          {perms["inventory:create"] && <Dialog>
             <DialogTrigger asChild>
               <Button size="sm" className="rounded-lg">
                 <Plus className="h-4 w-4 mr-1.5" />
@@ -368,7 +370,7 @@ export const ProductCatalog = () => {
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
         </div>
       </CardHeader>
 
@@ -468,7 +470,7 @@ export const ProductCatalog = () => {
                     </TableCell>
 
                     <TableCell>
-                      <DropdownMenu>
+                      {(perms["inventory:update"] || perms["inventory:delete"]) && <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
@@ -480,11 +482,11 @@ export const ProductCatalog = () => {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Restock</DropdownMenuItem>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          {perms["inventory:update"] && <DropdownMenuItem>Restock</DropdownMenuItem>}
+                          {perms["inventory:update"] && <DropdownMenuItem>Edit</DropdownMenuItem>}
                           <DropdownMenuItem>Price History</DropdownMenuItem>
                         </DropdownMenuContent>
-                      </DropdownMenu>
+                      </DropdownMenu>}
                     </TableCell>
                   </TableRow>
                 );
@@ -1112,6 +1114,7 @@ export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
+  const perms = usePermissions(["inventory:create","inventory:update","inventory:delete"]);
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -1200,7 +1203,7 @@ export const CategoriesOverview = () => {
     <>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Categories</h2>
-        <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
+        {perms["inventory:create"] && <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-2" />
@@ -1235,18 +1238,18 @@ export const CategoriesOverview = () => {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Add category card */}
-        <div
+        {perms["inventory:create"] && <div
           className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
           onClick={() => setIsCatOpen(true)}
         >
           <Plus className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">Add New Category</p>
-        </div>
+        </div>}
 
         {/* Categories list */}
         {categories.map((cat: any) => (
@@ -1262,22 +1265,22 @@ export const CategoriesOverview = () => {
 
               {/* Action buttons */}
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
+                {perms["inventory:update"] && <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => handleEdit(cat)}
                 >
                   <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
+                </Button>}
+                {perms["inventory:delete"] && <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive"
                   onClick={() => handleDelete(cat)}
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
+                </Button>}
               </div>
             </CardContent>
           </Card>

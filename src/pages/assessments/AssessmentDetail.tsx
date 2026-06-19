@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   Table,
   TableBody,
@@ -129,56 +130,58 @@ export default function AssessmentDetail() {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {a.status !== "archived" && a.status !== "locked" && (
-              <Button
-                variant="outline"
-                onClick={() => resync.mutate(a.id)}
-                disabled={resync.isPending}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
-              </Button>
-            )}
-            {a.status === "draft" && (
-              <Button onClick={() => publish.mutate(a.id)}>
-                <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate tasks
-              </Button>
-            )}
-            {(a.status === "published" || a.status === "in_progress") && (
-              <Button
-                variant="outline"
-                onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}
-              >
-                <Lock className="h-4 w-4 mr-1" /> Lock
-              </Button>
-            )}
-            {a.status === "locked" && (
-              <>
+            <PermissionGate permission={["exams:update", "exams:publish"]}>
+              {a.status !== "archived" && a.status !== "locked" && (
                 <Button
                   variant="outline"
-                  onClick={() =>
-                    setStatus.mutate({ id: a.id, status: "published" })
-                  }
+                  onClick={() => resync.mutate(a.id)}
+                  disabled={resync.isPending}
                 >
-                  <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                  <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
                 </Button>
+              )}
+              {a.status === "draft" && (
+                <Button onClick={() => publish.mutate(a.id)}>
+                  <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate tasks
+                </Button>
+              )}
+              {(a.status === "published" || a.status === "in_progress") && (
                 <Button
                   variant="outline"
-                  onClick={() =>
-                    setStatus.mutate({ id: a.id, status: "archived" })
-                  }
+                  onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}
                 >
-                  <Archive className="h-4 w-4 mr-1" /> Archive
+                  <Lock className="h-4 w-4 mr-1" /> Lock
                 </Button>
-              </>
-            )}
-            {a.status === "archived" && (
-              <Button
-                variant="outline"
-                onClick={() => setStatus.mutate({ id: a.id, status: "draft" })}
-              >
-                <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
-              </Button>
-            )}
+              )}
+              {a.status === "locked" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setStatus.mutate({ id: a.id, status: "published" })
+                    }
+                  >
+                    <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setStatus.mutate({ id: a.id, status: "archived" })
+                    }
+                  >
+                    <Archive className="h-4 w-4 mr-1" /> Archive
+                  </Button>
+                </>
+              )}
+              {a.status === "archived" && (
+                <Button
+                  variant="outline"
+                  onClick={() => setStatus.mutate({ id: a.id, status: "draft" })}
+                >
+                  <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
+                </Button>
+              )}
+            </PermissionGate>
           </div>
         </div>
 
@@ -300,21 +303,23 @@ export default function AssessmentDetail() {
                           <Badge variant="outline">{t.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
-                          <Link to={`/assessments/marks/${t.id}`}>
-                            <Button size="sm" variant="outline">
-                              <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter
-                              marks
-                            </Button>
-                          </Link>
-                          {t.status === "in_progress" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => submit.mutate(t.id)}
-                            >
-                              Submit
-                            </Button>
-                          )}
+                          <PermissionGate permission="exams:update">
+                            <Link to={`/assessments/marks/${t.id}`}>
+                              <Button size="sm" variant="outline">
+                                <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter
+                                marks
+                              </Button>
+                            </Link>
+                            {t.status === "in_progress" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => submit.mutate(t.id)}
+                              >
+                                Submit
+                              </Button>
+                            )}
+                          </PermissionGate>
                         </TableCell>
                       </TableRow>
                     );

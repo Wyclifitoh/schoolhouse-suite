@@ -77,6 +77,7 @@ function NewAssessmentDialog() {
     end_date: string;
     grade_ids: string[];
     out_of: number;
+    curriculum_type: "CBC" | "844";
   }>({
     name: "",
     description: "",
@@ -85,6 +86,7 @@ function NewAssessmentDialog() {
     end_date: "",
     grade_ids: [],
     out_of: 100,
+    curriculum_type: "CBC",
   });
   const { data: types = [] } = useAssessmentTypes();
   const { data: grades = [] } = useGrades();
@@ -99,6 +101,7 @@ function NewAssessmentDialog() {
       end_date: "",
       grade_ids: [],
       out_of: 100,
+      curriculum_type: "CBC",
     });
 
   const submit = async () => {
@@ -121,6 +124,32 @@ function NewAssessmentDialog() {
             <DialogTitle>Create Assessment</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
+            <div>
+              <Label>Curriculum *</Label>
+              <Select
+                value={form.curriculum_type}
+                onValueChange={(v) =>
+                  setForm({ ...form, curriculum_type: v as "CBC" | "844" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CBC">
+                    CBC / CBE (competency-based)
+                  </SelectItem>
+                  <SelectItem value="844">
+                    8-4-4 (Secondary — papers + grades)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.curriculum_type === "844"
+                  ? "Marks entry will use per-paper inputs and 8-4-4 letter grades (A–E)."
+                  : "Marks entry will use competency-based Achievement Levels (EE/ME/AE/BE)."}
+              </p>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <Label>Name *</Label>

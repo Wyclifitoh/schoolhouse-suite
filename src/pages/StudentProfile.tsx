@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   useStudentWithFees,
   useUpdateStudent,
@@ -186,10 +187,13 @@ const StudentProfile = () => {
           </Button>
           {!isEditing ? (
             <>
+              <PermissionGate permission="students:update">
               <Button size="sm" onClick={startEditing}>
                 <Edit className="h-4 w-4 mr-1.5" />
                 Edit
               </Button>
+              </PermissionGate>
+              <PermissionGate permission="students:delete">
               <Button
                 variant="destructive"
                 size="sm"
@@ -198,6 +202,7 @@ const StudentProfile = () => {
                 <Trash2 className="h-4 w-4 mr-1.5" />
                 Deactivate
               </Button>
+              </PermissionGate>
             </>
           ) : (
             <>
@@ -208,6 +213,7 @@ const StudentProfile = () => {
               >
                 Cancel
               </Button>
+              <PermissionGate permission="students:update">
               <Button
                 size="sm"
                 className="bg-success hover:bg-success/90"
@@ -217,6 +223,7 @@ const StudentProfile = () => {
                 <CheckCircle className="h-4 w-4 mr-1.5" />
                 {updateStudent.isPending ? "Saving..." : "Save Changes"}
               </Button>
+              </PermissionGate>
             </>
           )}
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { PermissionGate } from "@/components/PermissionGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -385,6 +386,7 @@ const FeeReminders = () => {
                     <SelectItem value="gte90">90%+ paid</SelectItem>
                   </SelectContent>
                 </Select>
+                <PermissionGate permission="communication:create">
                 <Button
                   size="sm"
                   disabled={selectedIds.size === 0}
@@ -393,6 +395,7 @@ const FeeReminders = () => {
                   <Send className="h-3.5 w-3.5 mr-1" />
                   Send Reminder ({selectedIds.size})
                 </Button>
+                </PermissionGate>
               </div>
             </div>
           </CardHeader>
