@@ -641,6 +641,20 @@ export function useBulkSavePaperMarks() {
   });
 }
 
+export function useAssessmentMarksList(filters: Record<string, string | undefined> = {}) {
+  return useQuery({
+    queryKey: ["assessment-marks", filters],
+    enabled: !!filters.assessment_id,
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
+      return (
+        unwrap<any[]>(await api.get<any>(`/assessments/marks?${qp}`)) || []
+      );
+    },
+  });
+}
+
 // =====================================================================
 // PHASE 3 — Results, Report Cards, Analytics
 // =====================================================================
