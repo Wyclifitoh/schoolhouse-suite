@@ -25,6 +25,7 @@ import {
   useComputeResults,
   useBulkResultStatus,
   useRecomputeResultPositions,
+  useAssessmentMarksList,
   type ResultStatus,
 } from "@/hooks/useAssessments";
 import { useGrades, useStreams } from "@/hooks/useGrades";
@@ -75,6 +76,7 @@ export default function Results() {
   const { data: streams = [] } = useStreams(gradeId || undefined);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"results" | "preview">("results");
 
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
@@ -88,6 +90,12 @@ export default function Results() {
     assessmentId,
     filters,
   );
+  
+  const { data: rawMarks = [], isLoading: marksLoading } = useAssessmentMarksList({
+    assessment_id: assessmentId,
+    grade_id: gradeId || undefined,
+    stream_id: streamId || undefined,
+  });
   const compute = useComputeResults();
   const positions = useRecomputeResultPositions();
   const setStatus = useBulkResultStatus();
@@ -145,6 +153,31 @@ export default function Results() {
       })),
     [results],
   );
+
+  const broadsheet = useMemo(() => {
+    if (!rawMarks.length) return { students: [], subjects: [] };
+    const subjMap = new Map();
+    const stuMap = new Map();
+    rawMarks.forEach((m: any) => {
+      if (!subjMap.has(m.subject_id)) {
+        subjMap.set(m.subject_id, { id: m.subject_id, name: m.subject_name });
+      }
+      if (!stuMap.has(m.student_id)) {
+        stuMap.set(m.student_id, { 
+          id: m.student_id, 
+          name: `${m.first_name} ${m.last_name}`, 
+          adm: m.admission_number, 
+          className: `${m.grade_name || ""}${m.stream_name ? ' · ' + m.stream_name : ''}`,
+          marks: {} 
+        });
+      }
+      stuMap.get(m.student_id).marks[m.subject_id] = m.score != null ? Math.round(Number(m.score)) : null;
+    });
+    
+    const subjects = Array.from(subjMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+    const students = Array.from(stuMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+    return { subjects, students };
+  }, [rawMarks]);
 
   const assessmentName = useMemo(
     () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
@@ -204,6 +237,35 @@ export default function Results() {
       margin: { left: 40, right: 40 },
     });
     doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.pdf`);
+  };
+
+  const exportPreviewPdf = () => {
+    if (!broadsheet.students.length) return toast.error("No preview data available");
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    doc.setFontSize(14);
+    doc.text(`${assessmentName} - Broadsheet Preview`, 40, 36);
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(`Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`, 40, 54);
+    doc.setTextColor(0);
+    
+    const head = [["Student", "Adm", ...broadsheet.subjects.map(s => s.name)]];
+    const body = broadsheet.students.map(stu => [
+      stu.name,
+      stu.adm,
+      ...broadsheet.subjects.map(s => stu.marks[s.id] != null ? String(stu.marks[s.id]) : "—")
+    ]);
+    
+    autoTable(doc, {
+      head,
+      body,
+      startY: 70,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_preview.pdf`);
   };
 
   return (
@@ -384,48 +446,74 @@ export default function Results() {
         </div>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
-            <CardTitle>Results roster</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3 pb-2">
+            <div className="flex items-center gap-4">
+              <CardTitle>Results roster</CardTitle>
+              <div className="flex bg-muted p-1 rounded-md">
+                <button
+                  className={`px-3 py-1 text-sm rounded-sm transition-colors ${viewMode === "results" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                  onClick={() => setViewMode("results")}
+                >
+                  Computed Results
+                </button>
+                <button
+                  className={`px-3 py-1 text-sm rounded-sm transition-colors ${viewMode === "preview" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                  onClick={() => setViewMode("preview")}
+                >
+                  Marks Preview
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
-              <PermissionGate permission={["exams:update", "exams:publish"]}>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!selected.size || setStatus.isPending}
-                  onClick={() => doStatus("pending_review")}
-                >
-                  <Send className="h-4 w-4 mr-1" /> Submit for review
+              {viewMode === "preview" && (
+                <Button size="sm" variant="outline" onClick={exportPreviewPdf} disabled={!broadsheet.students.length}>
+                  <FileText className="h-4 w-4 mr-1" /> Download Preview PDF
                 </Button>
-              </PermissionGate>
-              <PermissionGate permission="exams:publish">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!selected.size || setStatus.isPending}
-                  onClick={() => doStatus("approved")}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={!selected.size || setStatus.isPending}
-                  onClick={() => doStatus("published")}
-                >
-                  <Send className="h-4 w-4 mr-1" /> Publish
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!selected.size || setStatus.isPending}
-                  onClick={() => doStatus("revoked")}
-                >
-                  <Undo2 className="h-4 w-4 mr-1" /> Revoke
-                </Button>
-              </PermissionGate>
+              )}
+              {viewMode === "results" && (
+                <>
+                  <PermissionGate permission={["exams:update", "exams:publish"]}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("pending_review")}
+                    >
+                      <Send className="h-4 w-4 mr-1" /> Submit for review
+                    </Button>
+                  </PermissionGate>
+                  <PermissionGate permission="exams:publish">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("approved")}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("published")}
+                    >
+                      <Send className="h-4 w-4 mr-1" /> Publish
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("revoked")}
+                    >
+                      <Undo2 className="h-4 w-4 mr-1" /> Revoke
+                    </Button>
+                  </PermissionGate>
+                </>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            {viewMode === "results" ? (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">
@@ -526,6 +614,50 @@ export default function Results() {
                 )}
               </TableBody>
             </Table>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Student</TableHead>
+                      {broadsheet.subjects.map(s => (
+                        <TableHead key={s.id} className="text-center">{s.name}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {broadsheet.students.map((stu, i) => (
+                      <TableRow key={stu.id}>
+                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{stu.name}</div>
+                          <div className="text-xs text-muted-foreground">{stu.adm}</div>
+                        </TableCell>
+                        {broadsheet.subjects.map(s => (
+                          <TableCell key={s.id} className="text-center tabular-nums">
+                            {stu.marks[s.id] != null
+                              ? stu.marks[s.id]
+                              : <span className="text-muted-foreground/30">—</span>}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                    {!broadsheet.students.length && (
+                      <TableRow>
+                        <TableCell colSpan={broadsheet.subjects.length + 2} className="text-center text-muted-foreground py-10">
+                          {!assessmentId
+                            ? "Select an assessment to preview marks."
+                            : marksLoading
+                              ? "Loading marks…"
+                              : "No marks recorded for this assessment yet."}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
