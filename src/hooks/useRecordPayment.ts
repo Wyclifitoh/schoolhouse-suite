@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSchoolId } from "@/contexts/SchoolContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 // ============================================
 // TYPES
@@ -41,7 +42,7 @@ export function useRecordManualPayment() {
       // Generate receipt number first
       const { data: receiptNumber, error: receiptError } = await supabase.rpc(
         "next_receipt_number",
-        { p_school_id: schoolId }
+        { p_school_id: schoolId },
       );
 
       if (receiptError) throw receiptError;
@@ -104,15 +105,18 @@ export function useSTKPush() {
     mutationFn: async (input: STKPushInput) => {
       if (!schoolId) throw new Error("Missing school context");
 
-      const { data, error } = await supabase.functions.invoke("mpesa-stk-push", {
-        body: {
-          school_id: schoolId,
-          student_id: input.student_id,
-          phone_number: input.phone_number,
-          amount: input.amount,
-          fee_ids: input.fee_ids || [],
+      const { data, error } = await supabase.functions.invoke(
+        "mpesa-stk-push",
+        {
+          body: {
+            school_id: schoolId,
+            student_id: input.student_id,
+            phone_number: input.phone_number,
+            amount: input.amount,
+            fee_ids: input.fee_ids || [],
+          },
         },
-      });
+      );
 
       if (error) throw error;
       return data;
@@ -134,23 +138,17 @@ export function useVoidPayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
-      const { data, error } = await supabase.rpc("reverse_payment", {
-        _payment_id: paymentId,
-        _reason: reason,
-      });
-
-      if (error) throw error;
-
-      const result = data as { success: boolean; error?: string };
-      if (!result.success) {
-        throw new Error(result.error || "Failed to reverse payment");
-      }
-
-      return result;
+    mutationFn: async ({
+      paymentId,
+      reason,
+    }: {
+      paymentId: string;
+      reason: string;
+    }) => {
+      return api.patch(`/payments/${paymentId}/void`, { reason });
     },
     onSuccess: () => {
-      toast.success("Payment reversed successfully");
+      toast.success("Payment voided successfully");
       queryClient.invalidateQueries({ queryKey: ["payments"] });
       queryClient.invalidateQueries({ queryKey: ["student-fees"] });
       queryClient.invalidateQueries({ queryKey: ["student-balance"] });

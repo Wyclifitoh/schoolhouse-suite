@@ -23,6 +23,8 @@ import {
   usePayments,
   usePaymentStats,
   useRecordPayment,
+  useVoidPayment,
+  useBulkVoidPayments,
 } from "@/hooks/useFinance";
 import { useTerm } from "@/contexts/TermContext";
 import { PermissionGate } from "@/components/PermissionGate";
@@ -36,6 +38,7 @@ import {
   MoreHorizontal,
   Eye,
   XCircle,
+  Trash2,
   Printer,
   ChevronLeft,
   ChevronRight,
@@ -55,6 +58,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
@@ -68,7 +82,10 @@ const Payments = () => {
   const [showRecordPayment, setShowRecordPayment] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showVoidPayment, setShowVoidPayment] = useState(false);
+  const [showBulkVoid, setShowBulkVoid] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkVoidReason, setBulkVoidReason] = useState("");
 
   // Debounce search
   useEffect(() => {
@@ -97,6 +114,14 @@ const Payments = () => {
 
   const { selectedTerm } = useTerm();
   const recordPayment = useRecordPayment();
+  const voidPayment = useVoidPayment();
+  const bulkVoidPayments = useBulkVoidPayments();
+  const completedVisibleIds = payments
+    .filter((p: any) => p.status === "completed")
+    .map((p: any) => p.id);
+  const allVisibleSelected =
+    completedVisibleIds.length > 0 &&
+    completedVisibleIds.every((id: string) => selectedIds.includes(id));
 
   const handleRecordPayment = async (data: any) => {
     try {
@@ -116,10 +141,21 @@ const Payments = () => {
     }
   };
 
-  const handleVoidPayment = (_paymentId: string, _reason: string) => {
-    toast.success("Payment voided successfully");
+  const handleVoidPayment = async (paymentId: string, reason: string) => {
+    await voidPayment.mutateAsync({ paymentId, reason });
     setShowVoidPayment(false);
     setSelectedPayment(null);
+    setSelectedIds((ids) => ids.filter((id) => id !== paymentId));
+  };
+
+  const handleBulkVoid = async () => {
+    await bulkVoidPayments.mutateAsync({
+      payment_ids: selectedIds,
+      reason: bulkVoidReason,
+    });
+    setShowBulkVoid(false);
+    setBulkVoidReason("");
+    setSelectedIds([]);
   };
 
   return (
@@ -242,6 +278,18 @@ const Payments = () => {
                   Bulk Import
                 </Button>
               </PermissionGate>
+              <PermissionGate permission="payments:delete">
+                {selectedIds.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowBulkVoid(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Void {selectedIds.length}
+                  </Button>
+                )}
+              </PermissionGate>
               <PermissionGate permission="payments:create">
                 <Button size="sm" onClick={() => setShowRecordPayment(true)}>
                   <Plus className="h-4 w-4 mr-1.5" />
@@ -255,6 +303,25 @@ const Payments = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
+                <TableHead className="w-10">
+                  <PermissionGate permission="payments:delete">
+                    <Checkbox
+                      checked={allVisibleSelected}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds((ids) =>
+                          checked
+                            ? Array.from(
+                                new Set([...ids, ...completedVisibleIds]),
+                              )
+                            : ids.filter(
+                                (id) => !completedVisibleIds.includes(id),
+                              ),
+                        );
+                      }}
+                      aria-label="Select completed payments"
+                    />
+                  </PermissionGate>
+                </TableHead>
                 <TableHead className="font-semibold">Student</TableHead>
                 <TableHead className="font-semibold">Amount</TableHead>
                 <TableHead className="font-semibold">Method</TableHead>
@@ -268,7 +335,7 @@ const Payments = () => {
               {isLoading ? (
                 [1, 2, 3].map((i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <Skeleton className="h-10 w-full" />
                     </TableCell>
                   </TableRow>
@@ -276,7 +343,7 @@ const Payments = () => {
               ) : payments.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center py-8 text-muted-foreground"
                   >
                     No payments found
@@ -285,6 +352,22 @@ const Payments = () => {
               ) : (
                 payments.map((p: any) => (
                   <TableRow key={p.id} className="group">
+                    <TableCell>
+                      <PermissionGate permission="payments:delete">
+                        <Checkbox
+                          checked={selectedIds.includes(p.id)}
+                          disabled={p.status !== "completed"}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds((ids) =>
+                              checked
+                                ? [...ids, p.id]
+                                : ids.filter((id) => id !== p.id),
+                            );
+                          }}
+                          aria-label={`Select payment ${p.reference_number || p.id}`}
+                        />
+                      </PermissionGate>
+                    </TableCell>
                     <TableCell className="font-medium">
                       {p.student_name}
                     </TableCell>
@@ -345,7 +428,7 @@ const Payments = () => {
                               Print Receipt
                             </DropdownMenuItem>
                           </PermissionGate>
-                          <PermissionGate permission="payments:reverse">
+                          <PermissionGate permission="payments:delete">
                             <DropdownMenuSeparator />
                             {p.status === "completed" && (
                               <DropdownMenuItem
@@ -424,7 +507,52 @@ const Payments = () => {
             : null
         }
         onConfirm={handleVoidPayment}
+        isSubmitting={voidPayment.isPending}
       />
+      <Dialog open={showBulkVoid} onOpenChange={setShowBulkVoid}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> Bulk Void Payments
+            </DialogTitle>
+            <DialogDescription>
+              This reverses allocations and excess credits for each selected
+              payment and keeps audit logs.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Selected payments</span>
+                <strong>{selectedIds.length}</strong>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Reason for bulk void (min 20 characters) *</Label>
+              <Textarea
+                value={bulkVoidReason}
+                onChange={(e) => setBulkVoidReason(e.target.value)}
+                rows={3}
+                placeholder="e.g. Duplicate bulk import submitted twice by mistake"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkVoid(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                bulkVoidReason.trim().length < 20 || bulkVoidPayments.isPending
+              }
+              onClick={handleBulkVoid}
+            >
+              {bulkVoidPayments.isPending ? "Voiding…" : "Void selected"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

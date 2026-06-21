@@ -14,7 +14,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PortalReportCard } from "@/hooks/usePortalApi";
-import { Award, Target, MessageSquare } from "lucide-react";
+import {
+  Award,
+  Target,
+  MessageSquare,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
 const BAND_COLORS: Record<string, string> = {
   EE: "bg-success/15 text-success border-success/30",
@@ -67,6 +83,11 @@ export function ReportCardViewer({
             value={p.class_position ? String(p.class_position) : "—"}
           />
         </div>
+
+        <ProgressSection
+          progress={p.progress}
+          currentAssessmentId={card.assessment_id}
+        />
 
         {/* Subjects */}
         <div>
@@ -217,6 +238,216 @@ function RemarkBlock({ title, text }: { title: string; text: string }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Progress section: term assessments table, previous-term comparison */
+/*  and a trend chart. Renders nothing if progress data is missing.    */
+/* ------------------------------------------------------------------ */
+function ProgressSection({
+  progress,
+  currentAssessmentId,
+}: {
+  progress: any;
+  currentAssessmentId?: string;
+}) {
+  if (!progress) return null;
+  const termAssessments: any[] = progress.term_assessments || [];
+  const subjectMatrix: any[] = progress.subject_matrix || [];
+  const previous = progress.previous_term;
+  const trend: any[] = progress.trend || [];
+
+  // Build subject x assessment pivot
+  const subjectMap = new Map<
+    string,
+    { name: string; code?: string; cells: Map<string, any> }
+  >();
+  for (const row of subjectMatrix) {
+    if (!subjectMap.has(row.subject_id)) {
+      subjectMap.set(row.subject_id, {
+        name: row.subject_name,
+        code: row.subject_code,
+        cells: new Map(),
+      });
+    }
+    subjectMap.get(row.subject_id)!.cells.set(row.assessment_id, row);
+  }
+
+  const hasTerm = termAssessments.length > 1;
+  const hasTrend = trend.length > 1;
+  if (!hasTerm && !previous && !hasTrend) return null;
+
+  const trendData = trend.map((t) => ({
+    name: (t.name || "").slice(0, 14),
+    pct: Number(t.percentage) || 0,
+  }));
+
+  return (
+    <div className="space-y-4 my-3">
+      {previous && (
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-bold">Previous Term Comparison</h4>
+            </div>
+            <DeltaChip delta={previous.delta_percentage} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <PrevCell label="Previous" value={previous.assessment_name} />
+            <PrevCell
+              label="Mean %"
+              value={`${Number(previous.percentage || 0).toFixed(1)}%`}
+            />
+            <PrevCell label="Grade/AL" value={previous.overall_al || "—"} />
+            <PrevCell
+              label="Position"
+              value={
+                previous.class_position ? String(previous.class_position) : "—"
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {hasTerm && subjectMap.size > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Award className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-bold">All Term Assessments</h4>
+          </div>
+          <div className="rounded-lg border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subject</TableHead>
+                  {termAssessments.map((a) => (
+                    <TableHead key={a.id} className="text-center">
+                      <span
+                        className={
+                          a.id === currentAssessmentId
+                            ? "text-primary font-bold"
+                            : ""
+                        }
+                      >
+                        {a.name}
+                      </span>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from(subjectMap.values()).map((s, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{s.name}</TableCell>
+                    {termAssessments.map((a) => {
+                      const cell = s.cells.get(a.id);
+                      return (
+                        <TableCell
+                          key={a.id}
+                          className="text-center text-xs tabular-nums"
+                        >
+                          {cell ? (
+                            <span>
+                              {cell.score ?? "—"}
+                              {cell.out_of ? `/${cell.out_of}` : ""}
+                              {cell.grade_code ||
+                              cell.achievement_level_code ? (
+                                <span className="ml-1 font-bold">
+                                  (
+                                  {cell.grade_code ||
+                                    cell.achievement_level_code}
+                                  )
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/30 font-semibold">
+                  <TableCell>Overall %</TableCell>
+                  {termAssessments.map((a) => (
+                    <TableCell
+                      key={a.id}
+                      className="text-center text-xs tabular-nums"
+                    >
+                      {a.percentage
+                        ? `${Number(a.percentage).toFixed(1)}%`
+                        : "—"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {hasTrend && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-bold">Performance Trend</h4>
+          </div>
+          <div
+            className="rounded-lg border bg-card p-3"
+            style={{ height: 200 }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="pct"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrevCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-card rounded p-2 border">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+        {label}
+      </div>
+      <div className="text-sm font-bold">{value}</div>
+    </div>
+  );
+}
+
+function DeltaChip({ delta }: { delta: number | null | undefined }) {
+  if (delta == null) return null;
+  const up = delta > 0;
+  const down = delta < 0;
+  const Icon = up ? TrendingUp : down ? TrendingDown : Minus;
+  const cls = up
+    ? "bg-success/15 text-success border-success/30"
+    : down
+      ? "bg-destructive/15 text-destructive border-destructive/30"
+      : "bg-muted text-muted-foreground border-muted-foreground/30";
+  return (
+    <Badge variant="outline" className={cls}>
+      <Icon className="h-3 w-3 mr-1" />
+      {up ? "+" : ""}
+      {delta.toFixed(1)}%
+    </Badge>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  8-4-4 (Zeraki-style) report card template                          */
 /* ------------------------------------------------------------------ */
 
@@ -278,6 +509,11 @@ function Report844({
             }
           />
         </div>
+
+        <ProgressSection
+          progress={p.progress}
+          currentAssessmentId={card.assessment_id}
+        />
 
         {/* Subjects */}
         <div>

@@ -13,11 +13,12 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { useStudentWithFees } from "@/hooks/useStudents";
+import { useStudentWithFees, useStudents } from "@/hooks/useStudents";
 import {
   useFeeDiscounts,
   useRecordPayment,
   useCreateFeeAdjustment,
+  useTransferPayment,
 } from "@/hooks/useFinance";
 import { useTerm } from "@/contexts/TermContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +30,7 @@ import {
   Receipt,
   AlertTriangle,
   Scale,
+  UserRoundCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -48,6 +50,13 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Undo2 } from "lucide-react";
 import { RefreshCw } from "lucide-react";
 import { formatDate, formatDateTime } from "@/utils/date";
@@ -145,6 +154,11 @@ const StudentFees = () => {
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const recordPayment = useRecordPayment();
   const createAdjustment = useCreateFeeAdjustment();
+  const transferPayment = useTransferPayment();
+  const { data: transferStudents = [] } = useStudents({
+    status: "active",
+    enabled: true,
+  });
   const qc = useQueryClient();
   const [showRebalanceConfirm, setShowRebalanceConfirm] = useState(false);
   const rebalanceMutation = useMutation({
@@ -179,6 +193,9 @@ const StudentFees = () => {
   });
 
   const [revertTarget, setRevertTarget] = useState<any | null>(null);
+  const [transferTarget, setTransferTarget] = useState<any | null>(null);
+  const [transferStudentId, setTransferStudentId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
   const [revertMode, setRevertMode] = useState<"excess" | "auto_apply">(
     "excess",
   );
@@ -204,6 +221,19 @@ const StudentFees = () => {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const handleTransferPayment = async () => {
+    if (!transferTarget) return;
+    await transferPayment.mutateAsync({
+      paymentId: transferTarget.id,
+      toStudentId: transferStudentId,
+      reason: transferReason,
+    });
+    setTransferTarget(null);
+    setTransferStudentId("");
+    setTransferReason("");
+    qc.invalidateQueries({ queryKey: ["student-with-fees", studentId] });
+  };
 
   const excessAvailable = useMemo(
     () =>
@@ -873,6 +903,23 @@ const StudentFees = () => {
                                 </Button>
                               </PermissionGate>
                             )}
+                            {p.status !== "reversed" && (
+                              <PermissionGate permission="payments:update">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-primary"
+                                  title="Transfer payment to another student"
+                                  onClick={() => {
+                                    setTransferTarget(p);
+                                    setTransferStudentId("");
+                                    setTransferReason("");
+                                  }}
+                                >
+                                  <UserRoundCheck className="h-4 w-4" />
+                                </Button>
+                              </PermissionGate>
+                            )}
                           </TableCell>
                         </TableRow>
                         {(allocs.length > 0 || unallocated > 0) && (
@@ -1085,6 +1132,88 @@ const StudentFees = () => {
               }
             >
               {revertMutation.isPending ? "Reverting…" : "Confirm Revert"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!transferTarget}
+        onOpenChange={(o) => !o && setTransferTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserRoundCheck className="h-5 w-5 text-primary" /> Transfer
+              Payment
+            </DialogTitle>
+            <DialogDescription>
+              The current student's allocations and excess are reversed, then
+              the same payment is reallocated to the selected student.
+            </DialogDescription>
+          </DialogHeader>
+          {transferTarget && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-md bg-muted/40 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <strong>
+                    {formatKES(Number(transferTarget.amount || 0))}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-mono text-xs">
+                    {transferTarget.reference_number ||
+                      transferTarget.mpesa_receipt ||
+                      "—"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Transfer to student *</Label>
+                <Select
+                  value={transferStudentId}
+                  onValueChange={setTransferStudentId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(transferStudents as any[])
+                      .filter((s) => s.id !== studentId)
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name || `${s.first_name} ${s.last_name}`} ·{" "}
+                          {s.admission_number}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Reason (min 20 characters) *</Label>
+                <Textarea
+                  rows={3}
+                  value={transferReason}
+                  onChange={(e) => setTransferReason(e.target.value)}
+                  placeholder="e.g. Payment was allocated to the wrong student"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !transferStudentId ||
+                transferReason.trim().length < 20 ||
+                transferPayment.isPending
+              }
+              onClick={handleTransferPayment}
+            >
+              {transferPayment.isPending ? "Transferring…" : "Transfer Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
