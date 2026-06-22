@@ -17,6 +17,7 @@ import UserLogin from "./pages/UserLogin";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Unauthorized from "./pages/Unauthorized";
+import ApiKeysPage from "./pages/settings/ApiKeys";
 
 // Portal pages
 import ParentDashboard from "./pages/portal/ParentDashboard";
