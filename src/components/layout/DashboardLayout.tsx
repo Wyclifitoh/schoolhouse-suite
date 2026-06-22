@@ -446,6 +446,27 @@ const navigationGroups: NavGroup[] = [
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["expenses:read"],
       },
+      {
+        title: "Income",
+        url: "/income",
+        icon: TrendingUp,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+      },
+      {
+        title: "Payment in Kind",
+        url: "/payments/in-kind",
+        icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["payments:create"],
+      },
+      {
+        title: "Bulk Sponsorship",
+        url: "/payments/bulk-bursary",
+        icon: Wallet,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["payments:create"],
+      },
     ],
   },
 
@@ -724,30 +745,33 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Administration
-  // {
-  //   label: "Administration",
-  //   icon: Settings,
-  //   items: [
-  //     {
-  //       title: "Academic Settings",
-  //       url: "/settings/academic",
-  //       icon: BookOpen,
-  //       roles: ADMIN_ROLES,
-  //     },
-  //     {
-  //       title: "Archives",
-  //       url: "/archives",
-  //       icon: ArchiveIcon,
-  //       roles: ADMIN_ROLES,
-  //     },
-  //     {
-  //       title: "System Settings",
-  //       url: "/settings/system",
-  //       icon: Settings,
-  //       roles: SUPER_ADMIN_ROLES,
-  //     },
-  //   ],
-  // },
+  {
+    label: "Administration",
+    icon: Settings,
+    items: [
+      {
+        title: "Academic Settings",
+        url: "/settings/academics",
+        icon: BookOpen,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
+      },
+      {
+        title: "Archives",
+        url: "/archives",
+        icon: ArchiveIcon,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
+      },
+      {
+        title: "Public API Keys",
+        url: "/settings/api-keys",
+        icon: Shield,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
+      },
+    ],
+  },
 ];
 
 /* ── Session Timeout Hook ── */
