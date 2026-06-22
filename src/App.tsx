@@ -56,6 +56,9 @@ import Classes from "./pages/Classes";
 import Streams from "./pages/academics/Streams";
 import Library from "./pages/Library";
 import Expenses from "./pages/Expenses";
+import Income from "./pages/Income";
+import InKindPayments from "./pages/InKindPayments";
+import BulkBursary from "./pages/BulkBursary";
 import Communication from "./pages/Communication";
 import Promotion from "./pages/Promotion";
 import ParentPortal from "./pages/ParentPortal";
@@ -847,6 +850,65 @@ const App = () => (
                           ]}
                         >
                           <Expenses />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/income"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "admin",
+                            "accountant",
+                            "school_admin",
+                            "finance_officer",
+                          ]}
+                        >
+                          <Income />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/payments/in-kind"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
+                          <InKindPayments />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/payments/bulk-bursary"
+                      element={
+                        <ProtectedRoute
+                          roles={[
+                            "super_admin",
+                            "school_admin",
+                            "admin",
+                            "accountant",
+                            "finance_officer",
+                          ]}
+                        >
+                          <BulkBursary />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/settings/api-keys"
+                      element={
+                        <ProtectedRoute
+                          roles={["super_admin", "school_admin", "admin"]}
+                        >
+                          <ApiKeysPage />
                         </ProtectedRoute>
                       }
                     />

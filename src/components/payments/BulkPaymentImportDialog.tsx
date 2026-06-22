@@ -2,18 +2,39 @@ import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useStudents } from "@/hooks/useStudents";
@@ -34,10 +55,17 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const TEMPLATE_HEADERS = ["admission_number", "student_name", "amount", "reference", "notes"];
+const TEMPLATE_HEADERS = [
+  "admission_number",
+  "student_name",
+  "amount",
+  "reference",
+  "notes",
+];
 
 export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const batchKeyRef = useRef("");
   const queryClient = useQueryClient();
   const { selectedTerm } = useTerm();
   const { data: students = [] } = useStudents();
@@ -59,15 +87,24 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(data);
-    ws["!cols"] = [{ wch: 18 }, { wch: 28 }, { wch: 12 }, { wch: 22 }, { wch: 30 }];
+    ws["!cols"] = [
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 12 },
+      { wch: 22 },
+      { wch: 30 },
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Payments");
     XLSX.writeFile(wb, "payments-bulk-template.xlsx");
-    toast.success(`Template downloaded with ${(students as any[]).length} students`);
+    toast.success(
+      `Template downloaded with ${(students as any[]).length} students`,
+    );
   };
 
   const onFile = (file: File) => {
     setFileName(file.name);
+    batchKeyRef.current = `bulk-${file.name}-${file.size}-${file.lastModified}`;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -85,7 +122,10 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
           }))
           .filter((r) => r.admission_number && r.amount > 0);
         setRows(parsed);
-        if (!parsed.length) toast.error("No valid rows found. Ensure admission_number and amount are filled.");
+        if (!parsed.length)
+          toast.error(
+            "No valid rows found. Ensure admission_number and amount are filled.",
+          );
         else toast.success(`Parsed ${parsed.length} payment rows`);
       } catch (err: any) {
         toast.error(err.message || "Failed to read file");
@@ -109,7 +149,7 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
             reference_number: r.reference || null,
             notes: r.notes || "Bulk import",
             term_id: selectedTerm?.id || null,
-            idempotency_key: `bulk-${Date.now()}-${i}-${r.admission_number}`,
+            idempotency_key: `${batchKeyRef.current}-${i}-${r.admission_number}`,
           });
           updated[i] = { ...r, _status: "success" };
           success++;
@@ -125,14 +165,20 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
     onSuccess: ({ success, failed }) => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
       queryClient.invalidateQueries({ queryKey: ["student-fees"] });
-      if (failed === 0) toast.success(`Imported ${success} payments`);
-      else toast.warning(`Imported ${success}, ${failed} failed`);
+      if (failed === 0) {
+        toast.success(`Imported ${success} payments`);
+        setTimeout(close, 500);
+      } else toast.warning(`Imported ${success}, ${failed} failed`);
     },
   });
 
   const close = () => {
     onOpenChange(false);
-    setTimeout(() => { setRows([]); setFileName(""); setProgress(0); }, 200);
+    setTimeout(() => {
+      setRows([]);
+      setFileName("");
+      setProgress(0);
+    }, 200);
   };
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
@@ -146,7 +192,8 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
             Bulk Payment Import
           </DialogTitle>
           <DialogDescription>
-            Download the Excel template (with admission numbers pre-filled), enter amounts, then upload to record payments.
+            Download the Excel template (with admission numbers pre-filled),
+            enter amounts, then upload to record payments.
           </DialogDescription>
         </DialogHeader>
 
@@ -171,7 +218,9 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
             <div className="ml-auto flex items-center gap-2">
               <Label className="text-sm">Method</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-40 h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="mpesa">M-Pesa</SelectItem>
@@ -186,11 +235,17 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
             <>
               <div className="flex items-center justify-between text-sm">
                 <div className="flex gap-4">
-                  <span>Rows: <strong>{rows.length}</strong></span>
-                  <span>Total: <strong>KES {total.toLocaleString()}</strong></span>
+                  <span>
+                    Rows: <strong>{rows.length}</strong>
+                  </span>
+                  <span>
+                    Total: <strong>KES {total.toLocaleString()}</strong>
+                  </span>
                 </div>
                 {importMutation.isPending && (
-                  <span className="text-muted-foreground">Importing… {progress}%</span>
+                  <span className="text-muted-foreground">
+                    Importing… {progress}%
+                  </span>
                 )}
               </div>
               <div className="border rounded-lg max-h-80 overflow-y-auto">
@@ -207,19 +262,26 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
                   <TableBody>
                     {rows.map((r, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-mono text-xs">{r.admission_number}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {r.admission_number}
+                        </TableCell>
                         <TableCell>{r.student_name || "—"}</TableCell>
                         <TableCell className="text-right font-semibold">
                           {r.amount.toLocaleString()}
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{r.reference || "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {r.reference || "—"}
+                        </TableCell>
                         <TableCell>
                           {r._status === "success" ? (
                             <Badge className="bg-success/10 text-success border-0 gap-1">
                               <CheckCircle2 className="h-3 w-3" /> OK
                             </Badge>
                           ) : r._status === "error" ? (
-                            <Badge className="bg-destructive/10 text-destructive border-0 gap-1" title={r._message}>
+                            <Badge
+                              className="bg-destructive/10 text-destructive border-0 gap-1"
+                              title={r._message}
+                            >
                               <AlertTriangle className="h-3 w-3" /> Failed
                             </Badge>
                           ) : (
@@ -236,13 +298,21 @@ export function BulkPaymentImportDialog({ open, onOpenChange }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={close}>Close</Button>
+          <Button variant="outline" onClick={close}>
+            Close
+          </Button>
           <Button
             onClick={() => importMutation.mutate()}
-            disabled={!rows.length || importMutation.isPending}
+            disabled={
+              !rows.length ||
+              importMutation.isPending ||
+              rows.every((r) => r._status === "success")
+            }
           >
             {importMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing…</>
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing…
+              </>
             ) : (
               <>Import {rows.length || ""} Payments</>
             )}
