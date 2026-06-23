@@ -136,9 +136,7 @@ function NewAssessmentDialog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CBC">
-                    CBC / CBE (competency-based)
-                  </SelectItem>
+                  <SelectItem value="CBC">CBE (competency-based)</SelectItem>
                   <SelectItem value="844">
                     8-4-4 (Secondary — papers + grades)
                   </SelectItem>
@@ -302,7 +300,7 @@ export default function Assessments() {
               <ClipboardCheck className="h-7 w-7 text-primary" /> Assessments
             </h1>
             <p className="text-muted-foreground">
-              Create CBC/CBE assessments, auto-generate teacher tasks, and track
+              Create CBE assessments, auto-generate teacher tasks, and track
               progress end-to-end.
             </p>
           </div>

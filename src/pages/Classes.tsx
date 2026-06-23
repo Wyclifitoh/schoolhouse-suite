@@ -674,7 +674,7 @@ const Classes = () => {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="CBC">CBC</SelectItem>
+                                <SelectItem value="CBC">CBE</SelectItem>
                                 <SelectItem value="8-4-4">8-4-4</SelectItem>
                               </SelectContent>
                             </Select>
@@ -872,7 +872,7 @@ const Classes = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CBC">CBC</SelectItem>
+                        <SelectItem value="CBC">CBE</SelectItem>
                         <SelectItem value="8-4-4">8-4-4</SelectItem>
                       </SelectContent>
                     </Select>

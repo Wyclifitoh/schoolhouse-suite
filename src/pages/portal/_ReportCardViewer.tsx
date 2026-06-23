@@ -49,6 +49,7 @@ export function ReportCardViewer({
   const p: any = card.payload || {};
   const subjects: any[] = p.subjects || [];
   const competencies: any[] = p.competencies || [];
+  const showPosition = p.template?.show_position !== false;
   const is844 =
     String(p.kind || p.curriculum || "").toUpperCase() === "844" ||
     subjects.some((s: any) => s.grade_code || s.points != null);
@@ -78,10 +79,14 @@ export function ReportCardViewer({
             value={p.overall_band || "—"}
             band={p.overall_band || undefined}
           />
-          <SummaryStat
-            label="Class Position"
-            value={p.class_position ? String(p.class_position) : "—"}
-          />
+          {showPosition ? (
+            <SummaryStat
+              label="Class Position"
+              value={p.class_position ? String(p.class_position) : "—"}
+            />
+          ) : (
+            <SummaryStat label="Curriculum" value="CBE" />
+          )}
         </div>
 
         <ProgressSection

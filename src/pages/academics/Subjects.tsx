@@ -123,7 +123,7 @@ const Subjects = () => {
   return (
     <DashboardLayout
       title="Subjects"
-      subtitle="CBC subjects across all classes"
+      subtitle="CBE subjects across all classes"
     >
       <Card>
         <CardHeader className="pb-4">

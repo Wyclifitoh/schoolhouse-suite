@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,9 @@ import {
   useDownloadReportCardPdf,
   useDownloadRunZip,
 } from "@/hooks/useAssessments";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGrades } from "@/hooks/useGrades";
 import {
   Dialog,
@@ -82,7 +86,7 @@ export default function ReportCardsV2() {
             <FileBadge className="h-7 w-7 text-primary" /> Report Cards
           </h1>
           <p className="text-muted-foreground">
-            CBC-compliant templates and per-class batch generation.
+            CBE-compliant templates and per-class batch generation.
           </p>
         </div>
 
@@ -108,7 +112,7 @@ export default function ReportCardsV2() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CBC">CBC</SelectItem>
+                      <SelectItem value="CBC">CBE</SelectItem>
                       <SelectItem value="844">8-4-4</SelectItem>
                       <SelectItem value="HYBRID">Hybrid</SelectItem>
                     </SelectContent>
@@ -121,7 +125,7 @@ export default function ReportCardsV2() {
                   </Label>
                   <Label className="flex items-center gap-2">
                     <Switch checked={showBand} onCheckedChange={setShowBand} />
-                    Show CBC band
+                    Show CBE band
                   </Label>
                   <Label className="flex items-center gap-2">
                     <Switch checked={showComp} onCheckedChange={setShowComp} />
@@ -169,7 +173,7 @@ export default function ReportCardsV2() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge>{t.kind}</Badge>
+                        <Badge>{t.kind === "CBC" ? "CBE" : t.kind}</Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {[
@@ -380,79 +384,159 @@ function RunCardsDialog({
 }) {
   const { data: cards = [] } = useRcCards(runId || undefined);
   const dl = useDownloadReportCardPdf();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<any | null>(null);
+  const [teacherRemark, setTeacherRemark] = useState("");
+  const [principalRemark, setPrincipalRemark] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (c: any) => {
+    setEditing(c);
+    setTeacherRemark(c.teacher_remarks || "");
+    setPrincipalRemark(c.principal_remarks || "");
+  };
+  const saveRemarks = async () => {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      await api.put(`/assessments/report-cards/cards/${editing.id}/remarks`, {
+        teacher_remarks: teacherRemark,
+        principal_remarks: principalRemark,
+      });
+      toast.success("Remarks saved");
+      qc.invalidateQueries({ queryKey: ["rc-cards"] });
+      setEditing(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save remarks");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Dialog open={!!runId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Report cards in this run</DialogTitle>
-        </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Adm #</TableHead>
-                <TableHead className="text-right">Mean %</TableHead>
-                <TableHead>AL</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(cards as any[]).map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">
-                    {c.first_name} {c.last_name}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {c.admission_number}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {Number(c.percentage || 0).toFixed(1)}
-                  </TableCell>
-                  <TableCell>
-                    {c.overall_al ? (
-                      <Badge variant="outline">{c.overall_al}</Badge>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={c.published ? "default" : "outline"}>
-                      {c.published ? "published" : "draft"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={dl.isPending}
-                      onClick={() =>
-                        dl.mutate({
-                          cardId: c.id,
-                          name: `${c.first_name}_${c.last_name}_${c.admission_number}`,
-                        })
-                      }
-                    >
-                      <FileText className="h-4 w-4 mr-1" /> PDF
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!cards.length && (
+    <>
+      <Dialog open={!!runId} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Report cards in this run</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center text-muted-foreground"
-                  >
-                    No cards.
-                  </TableCell>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Adm #</TableHead>
+                  <TableHead className="text-right">Mean %</TableHead>
+                  <TableHead>AL</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right"></TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </DialogContent>
-    </Dialog>
+              </TableHeader>
+              <TableBody>
+                {(cards as any[]).map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">
+                      {c.first_name} {c.last_name}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {c.admission_number}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {Number(c.percentage || 0).toFixed(1)}
+                    </TableCell>
+                    <TableCell>
+                      {c.overall_al ? (
+                        <Badge variant="outline">{c.overall_al}</Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={c.published ? "default" : "outline"}>
+                        {c.published ? "published" : "draft"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEdit(c)}
+                        >
+                          Remarks
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={dl.isPending}
+                          onClick={() =>
+                            dl.mutate({
+                              cardId: c.id,
+                              name: `${c.first_name}_${c.last_name}_${c.admission_number}`,
+                            })
+                          }
+                        >
+                          <FileText className="h-4 w-4 mr-1" /> PDF
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!cards.length && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center text-muted-foreground"
+                    >
+                      No cards.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              Edit remarks{" "}
+              {editing ? `— ${editing.first_name} ${editing.last_name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Class Teacher's Remarks</Label>
+              <Textarea
+                rows={3}
+                value={teacherRemark}
+                onChange={(e) => setTeacherRemark(e.target.value)}
+                placeholder="Auto-generated remark — edit if needed"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">
+                Principal / Headteacher's Remarks
+              </Label>
+              <Textarea
+                rows={3}
+                value={principalRemark}
+                onChange={(e) => setPrincipalRemark(e.target.value)}
+                placeholder="Auto-generated remark — edit if needed"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button onClick={saveRemarks} disabled={saving}>
+                {saving ? "Saving…" : "Save remarks"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

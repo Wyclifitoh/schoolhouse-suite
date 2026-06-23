@@ -583,7 +583,7 @@ function CompetenciesTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        <strong className="text-foreground">Where these are used:</strong> CBC
+        <strong className="text-foreground">Where these are used:</strong> CBE
         competencies you define here power per-student competency ratings on
         report cards (Strengths &amp; Areas to Improve), the Competency Strands
         panel on student result details, and rubrics that teachers attach to
@@ -604,7 +604,7 @@ function CompetenciesTab() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>CBC Competency</DialogTitle>
+              <DialogTitle>CBE Competency</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div className="space-y-1">
@@ -686,12 +686,12 @@ const AssessmentSettings = () => {
   return (
     <DashboardLayout
       title="Assessment Settings"
-      subtitle="Configure CBC types, bands, achievement levels & competencies"
+      subtitle="Configure CBE types, bands, achievement levels & competencies"
     >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-primary" /> CBC Assessment
+            <Sparkles className="h-4 w-4 text-primary" /> CBE Assessment
             Configuration
           </CardTitle>
         </CardHeader>
