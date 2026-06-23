@@ -89,7 +89,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const CURRICULA = [
-  { value: "CBC", label: "CBC (Competency Based)" },
+  { value: "CBC", label: "CBE (Competency Based)" },
   { value: "8-4-4", label: "8-4-4 (Traditional)" },
   { value: "IGCSE", label: "IGCSE / International" },
 ];
@@ -612,7 +612,7 @@ const Examinations = () => {
   return (
     <DashboardLayout
       title="Examinations & Assessment"
-      subtitle="Manage exams, schedules, marks, analytics & report cards — CBC and 8-4-4 ready"
+      subtitle="Manage exams, schedules, marks, analytics & report cards — CBE and 8-4-4 ready"
     >
       <Tabs defaultValue="exams" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
