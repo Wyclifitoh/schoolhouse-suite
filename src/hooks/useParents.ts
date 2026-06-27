@@ -147,3 +147,108 @@ export function useTogglePortalAccount() {
     onError: (err: Error) => toast.error(err.message),
   });
 }
+
+export interface LinkedChild {
+  link_id: string;
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  admission_number: string;
+  grade: string | null;
+  stream: string | null;
+  status: string;
+  relationship: "father" | "mother" | "guardian" | "other";
+  is_primary_contact: 0 | 1 | boolean;
+  is_fee_payer: 0 | 1 | boolean;
+}
+
+export function useParentChildren(parentId: string | undefined) {
+  return useQuery({
+    queryKey: ["parent-children-list", parentId],
+    queryFn: () =>
+      api.get<{ count: number; children: LinkedChild[] }>(
+        `/parents/${parentId}/children`,
+      ),
+    enabled: !!parentId,
+  });
+}
+
+export function useUnlinkStudentsFromParent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      parentId,
+      studentIds,
+    }: {
+      parentId: string;
+      studentIds: string[];
+    }) =>
+      api.post<{ unlinked: number; promoted: any[]; failed: any[] }>(
+        `/parents/${parentId}/unlink-students`,
+        { student_ids: studentIds },
+      ),
+    onSuccess: (data, vars) => {
+      qc.invalidateQueries({ queryKey: ["parent-children", vars.parentId] });
+      qc.invalidateQueries({
+        queryKey: ["parent-children-list", vars.parentId],
+      });
+      qc.invalidateQueries({ queryKey: ["parents"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["student-parents"] });
+      const d: any = (data as any)?.data ?? data;
+      const failed = d?.failed?.length || 0;
+      toast.success(
+        `Unlinked ${d?.unlinked || 0} student(s).${failed ? ` ${failed} failed.` : ""}`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useTransferStudentsToParent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      parentId,
+      studentIds,
+      targetParentId,
+      relationship,
+      keepPrimary,
+    }: {
+      parentId: string;
+      studentIds: string[];
+      targetParentId: string;
+      relationship?: "father" | "mother" | "guardian" | "other";
+      keepPrimary?: boolean;
+    }) =>
+      api.post<{ transferred: number; merged: number; failed: any[] }>(
+        `/parents/${parentId}/transfer-students`,
+        {
+          student_ids: studentIds,
+          target_parent_id: targetParentId,
+          relationship,
+          keep_primary: keepPrimary,
+        },
+      ),
+    onSuccess: (data, vars) => {
+      qc.invalidateQueries({ queryKey: ["parent-children", vars.parentId] });
+      qc.invalidateQueries({
+        queryKey: ["parent-children-list", vars.parentId],
+      });
+      qc.invalidateQueries({
+        queryKey: ["parent-children-list", vars.targetParentId],
+      });
+      qc.invalidateQueries({ queryKey: ["parents"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["student-parents"] });
+      const d: any = (data as any)?.data ?? data;
+      toast.success(
+        `Transferred ${d?.transferred || 0}, merged ${d?.merged || 0}.${
+          d?.failed?.length ? ` ${d.failed.length} failed.` : ""
+        }`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
