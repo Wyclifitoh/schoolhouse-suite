@@ -180,6 +180,7 @@ export function useUpdateStudent() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ["students"] });
       qc.invalidateQueries({ queryKey: ["student", id] });
+      qc.invalidateQueries({ queryKey: ["student-with-fees", id] });
       toast.success("Student updated!");
     },
     onError: (err: Error) => toast.error(err.message),
