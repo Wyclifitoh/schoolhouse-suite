@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
@@ -165,7 +165,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </Sheet>
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto">{children || <Outlet />}</main>
       </div>
     </div>
   );

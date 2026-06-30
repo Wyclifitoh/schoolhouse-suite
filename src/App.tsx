@@ -5,11 +5,25 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PortalAuthProvider } from "@/contexts/PortalAuthContext";
+import { PlatformAuthProvider } from "@/contexts/PlatformAuthContext";
 import { SchoolProvider } from "@/contexts/SchoolContext";
 import { TermProvider } from "@/contexts/TermContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalProtectedRoute } from "@/components/PortalProtectedRoute";
+import { PlatformProtectedRoute } from "@/components/admin/PlatformProtectedRoute";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Admin pages
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminSchools from "./pages/admin/AdminSchools";
+import AdminSchoolDetail from "./pages/admin/AdminSchoolDetail";
+import AdminPlans from "./pages/admin/AdminPlans";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAudit from "./pages/admin/AdminAudit";
+import AdminStaff from "./pages/admin/AdminStaff";
+import AdminBilling from "./pages/admin/AdminBilling";
 
 // Auth pages
 import Login from "./pages/Login";
@@ -165,12 +179,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <PortalAuthProvider>
-        <SchoolProvider>
-          <TermProvider>
-            <TooltipProvider>
-              <ErrorBoundary>
-                <Toaster />
-                <Sonner />
+        <PlatformAuthProvider>
+          <SchoolProvider>
+            <TermProvider>
+              <TooltipProvider>
+                <ErrorBoundary>
+                  <Toaster />
+                  <Sonner />
                 <BrowserRouter>
                   <Routes>
                     {/* Public routes */}
@@ -1375,6 +1390,26 @@ const App = () => (
                       }
                     />
 
+                    {/* SaaS Admin Routes */}
+                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route
+                      path="/admin"
+                      element={
+                        <PlatformProtectedRoute>
+                          <AdminLayout />
+                        </PlatformProtectedRoute>
+                      }
+                    >
+                      <Route index element={<AdminOverview />} />
+                      <Route path="schools" element={<AdminSchools />} />
+                      <Route path="schools/:id" element={<AdminSchoolDetail />} />
+                      <Route path="billing" element={<AdminBilling />} />
+                      <Route path="plans" element={<AdminPlans />} />
+                      <Route path="users" element={<AdminUsers />} />
+                      <Route path="staff" element={<AdminStaff />} />
+                      <Route path="audit" element={<AdminAudit />} />
+                    </Route>
+
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </BrowserRouter>
@@ -1382,6 +1417,7 @@ const App = () => (
             </TooltipProvider>
           </TermProvider>
         </SchoolProvider>
+        </PlatformAuthProvider>
       </PortalAuthProvider>
     </AuthProvider>
   </QueryClientProvider>

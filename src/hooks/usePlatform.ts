@@ -36,6 +36,12 @@ export interface PlatformPlan {
   is_active: 0 | 1;
 }
 
+export interface AssessmentBillingRow {
+  id: string; school_id: string; assessment_id: string; assessment_name: string | null;
+  student_count: number; price_per_student: number; total_amount: number;
+  status: "pending" | "paid" | "waived"; created_at: string;
+}
+
 export const useOverview = () => useQuery({ queryKey: ["pf","overview"], queryFn: () => platformApi.get<OverviewStats>("/overview"), staleTime: 30_000 });
 
 export const useSchools = (params: { search?: string; status?: string } = {}) => {
@@ -48,6 +54,15 @@ export const useSchools = (params: { search?: string; status?: string } = {}) =>
 
 export const useSchoolDetail = (id: string | undefined) =>
   useQuery({ enabled: !!id, queryKey: ["pf","school", id], queryFn: () => platformApi.get<any>(`/schools/${id}`) });
+
+export const useCreateSchool = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; email?: string; phone?: string; address?: string; curriculum_type?: string; code?: string; trial_days?: number }) =>
+      platformApi.post("/schools", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pf","schools"] }),
+  });
+};
 
 export const useExtendTrial = () => {
   const qc = useQueryClient();
@@ -173,5 +188,35 @@ export const useCreateStaff = () => {
   return useMutation({
     mutationFn: (body: { email: string; password: string; full_name: string; role: string }) => platformApi.post("/staff", body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pf","staff"] }),
+  });
+};
+
+// ── Assessment Billing hooks ─────────────────────────────────────────────────
+
+export const useAssessmentBilling = (schoolId: string | undefined) =>
+  useQuery({
+    enabled: !!schoolId,
+    queryKey: ["pf","assessment-billing", schoolId],
+    queryFn: () => platformApi.get<AssessmentBillingRow[]>(`/schools/${schoolId}/assessment-billing`),
+  });
+
+export const useBillingStatus = (schoolId: string | undefined) =>
+  useQuery({
+    enabled: !!schoolId,
+    queryKey: ["pf","billing-status", schoolId],
+    queryFn: () => platformApi.get<any>(`/schools/${schoolId}/billing-status`),
+    staleTime: 15_000,
+  });
+
+export const useMarkAssessmentPaid = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ schoolId, assessmentId }: { schoolId: string; assessmentId?: string }) =>
+      platformApi.post(`/schools/${schoolId}/assessment-billing/mark-paid`, { assessment_id: assessmentId }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["pf","assessment-billing", vars.schoolId] });
+      qc.invalidateQueries({ queryKey: ["pf","billing-status", vars.schoolId] });
+      qc.invalidateQueries({ queryKey: ["pf","school", vars.schoolId] });
+    },
   });
 };
