@@ -328,7 +328,6 @@ export interface Assessment {
   start_date: string | null;
   end_date: string | null;
   status: AssessmentStatus;
-  curriculum_type?: "CBC" | "844";
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
@@ -547,20 +546,17 @@ export function useSubmitTask() {
 export interface TaskRoster {
   task: AssessmentTask & { stream_id: string | null };
   out_of: number;
-  curriculum_type?: "CBC" | "844";
-  subject_config?: {
-    calculation_type: string;
-    calculation_config: any;
-    uses_papers: boolean;
-  } | null;
   papers?: Array<{
     id: string;
     name: string;
-    code: string | null;
-    paper_type: "THEORY" | "PRACTICAL" | "ORAL" | "PROJECT";
     max_marks: number;
-    display_order: number;
+    paper_type: string;
+    weight?: number;
   }>;
+  subject_config?: {
+    calculation_type?: "GENERAL" | "SCIENCE" | "LANGUAGE" | string;
+    calculation_config?: Record<string, any>;
+  };
   students: Array<{
     id: string;
     first_name: string;
@@ -576,7 +572,6 @@ export interface TaskRoster {
       points: number | null;
       status: string;
       remarks: string | null;
-      grade_code?: string | null;
       paper_scores?: Record<string, number | null> | string | null;
     };
   }>;
@@ -617,7 +612,6 @@ export function useBulkSaveAssessmentMarks() {
   });
 }
 
-// 8-4-4 — bulk save per-paper marks
 export function useBulkSavePaperMarks() {
   const qc = useQueryClient();
   return useMutation({
@@ -628,7 +622,6 @@ export function useBulkSavePaperMarks() {
         student_id: string;
         subject_id: string;
         paper_scores: Record<string, number | null>;
-        status?: string;
         remarks?: string | null;
       }>;
     }) => api.post(`/assessments/marks/bulk-papers`, body),
@@ -912,22 +905,41 @@ export function useRcCards(runId?: string) {
 }
 
 // ---------------- ANALYTICS ----------------
-export function useAssessmentAnalytics(assessmentId?: string) {
+export function useAssessmentAnalytics(
+  assessmentId?: string,
+  filters?: { grade_id?: string; stream_id?: string; subject_id?: string },
+) {
+  const qp = new URLSearchParams();
+  if (filters?.grade_id) qp.set("grade_id", filters.grade_id);
+  if (filters?.stream_id) qp.set("stream_id", filters.stream_id);
+  if (filters?.subject_id) qp.set("subject_id", filters.subject_id);
+  const qs = qp.toString();
+  const suffix = qs ? `?${qs}` : "";
   return useQuery({
-    queryKey: ["assessment-analytics", assessmentId],
+    queryKey: ["assessment-analytics", assessmentId, qs],
     enabled: !!assessmentId,
     queryFn: async () => {
       const [overview, subjects, bands, levels, leaderboard, grades, streams] =
         await Promise.all([
-          api.get<any>(`/assessments/${assessmentId}/analytics/overview`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/subjects`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/bands`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/levels`),
           api.get<any>(
-            `/assessments/${assessmentId}/analytics/leaderboard?limit=25`,
+            `/assessments/${assessmentId}/analytics/overview${suffix}`,
           ),
-          api.get<any>(`/assessments/${assessmentId}/analytics/grades`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/streams`),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/subjects${suffix}`,
+          ),
+          api.get<any>(`/assessments/${assessmentId}/analytics/bands${suffix}`),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/levels${suffix}`,
+          ),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/leaderboard?limit=25${qs ? `&${qs}` : ""}`,
+          ),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/grades${suffix}`,
+          ),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/streams${suffix}`,
+          ),
         ]);
       return {
         overview: unwrap<any>(overview),
@@ -985,6 +997,34 @@ export function useDownloadRunZip() {
         `/assessments/report-cards/runs/${runId}/download.zip`,
         `report-cards-${runId}.zip`,
       ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDownloadRunCombinedPdf() {
+  return useMutation({
+    mutationFn: ({ runId }: { runId: string }) =>
+      downloadAuthed(
+        `/assessments/report-cards/runs/${runId}/download.pdf`,
+        `report-cards-${runId}.pdf`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDeleteReportCardRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (runId: string) => {
+      const res = await api.delete<any>(
+        `/assessments/report-cards/runs/${runId}`,
+      );
+      return unwrap<any>(res);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rc-runs"] });
+      toast.success("Run deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }

@@ -49,27 +49,31 @@ const BAND_COLORS: Record<string, string> = {
 export default function Analytics() {
   const { data: assessments = [] } = useAssessmentsList();
   const [assessmentId, setAssessmentId] = useState<string>("");
-  const { data, isLoading } = useAssessmentAnalytics(assessmentId);
   const dl = useDownloadAnalytics();
   const { data: previous = [] } = usePreviousAssessments(assessmentId);
   const [prevId, setPrevId] = useState<string>("");
   const { data: cmp } = useAssessmentComparison(assessmentId, prevId);
 
-  // --- Export filters ---
+  // --- Page filters (apply to displayed analytics AND exports) ---
   const { data: grades = [] } = useClasses();
-  const [exportGrade, setExportGrade] = useState<string>("all");
+  const [filterGrade, setFilterGrade] = useState<string>("all");
   const { data: streams = [] } = useStreams(
-    exportGrade !== "all" ? exportGrade : undefined,
+    filterGrade !== "all" ? filterGrade : undefined,
   );
   const { data: subjects = [] } = useSubjects();
-  const [exportStream, setExportStream] = useState<string>("all");
-  const [exportSubject, setExportSubject] = useState<string>("all");
+  const [filterStream, setFilterStream] = useState<string>("all");
+  const [filterSubject, setFilterSubject] = useState<string>("all");
 
   const buildFilters = () => ({
-    grade_id: exportGrade !== "all" ? exportGrade : undefined,
-    stream_id: exportStream !== "all" ? exportStream : undefined,
-    subject_id: exportSubject !== "all" ? exportSubject : undefined,
+    grade_id: filterGrade !== "all" ? filterGrade : undefined,
+    stream_id: filterStream !== "all" ? filterStream : undefined,
+    subject_id: filterSubject !== "all" ? filterSubject : undefined,
   });
+
+  const { data, isLoading } = useAssessmentAnalytics(
+    assessmentId,
+    buildFilters(),
+  );
 
   const overview = data?.overview;
   const subjectsData = data?.subjects || [];
@@ -118,18 +122,17 @@ export default function Analytics() {
           <CardContent className="p-4">
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex items-center gap-1 text-sm font-medium mr-2">
-                <Filter className="h-4 w-4 text-muted-foreground" /> Export
-                filters
+                <Filter className="h-4 w-4 text-muted-foreground" /> Filters
               </div>
               <div className="min-w-[160px]">
                 <label className="text-[11px] text-muted-foreground">
                   Class / Grade
                 </label>
                 <Select
-                  value={exportGrade}
+                  value={filterGrade}
                   onValueChange={(v) => {
-                    setExportGrade(v);
-                    setExportStream("all");
+                    setFilterGrade(v);
+                    setFilterStream("all");
                   }}
                 >
                   <SelectTrigger className="h-9">
@@ -149,7 +152,7 @@ export default function Analytics() {
                 <label className="text-[11px] text-muted-foreground">
                   Stream
                 </label>
-                <Select value={exportStream} onValueChange={setExportStream}>
+                <Select value={filterStream} onValueChange={setFilterStream}>
                   <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
@@ -167,7 +170,7 @@ export default function Analytics() {
                 <label className="text-[11px] text-muted-foreground">
                   Subject
                 </label>
-                <Select value={exportSubject} onValueChange={setExportSubject}>
+                <Select value={filterSubject} onValueChange={setFilterSubject}>
                   <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
@@ -181,34 +184,36 @@ export default function Analytics() {
                   </SelectContent>
                 </Select>
               </div>
-              <PermissionGate permission="reports:export"><div className="ml-auto flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  disabled={!assessmentId || dl.isPending}
-                  onClick={() =>
-                    dl.mutate({
-                      assessmentId,
-                      format: "pdf",
-                      filters: buildFilters(),
-                    })
-                  }
-                >
-                  <FileText className="h-4 w-4 mr-1" /> PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={!assessmentId || dl.isPending}
-                  onClick={() =>
-                    dl.mutate({
-                      assessmentId,
-                      format: "xlsx",
-                      filters: buildFilters(),
-                    })
-                  }
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
-                </Button>
-              </div></PermissionGate>
+              <PermissionGate permission="reports:export">
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!assessmentId || dl.isPending}
+                    onClick={() =>
+                      dl.mutate({
+                        assessmentId,
+                        format: "pdf",
+                        filters: buildFilters(),
+                      })
+                    }
+                  >
+                    <FileText className="h-4 w-4 mr-1" /> PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!assessmentId || dl.isPending}
+                    onClick={() =>
+                      dl.mutate({
+                        assessmentId,
+                        format: "xlsx",
+                        filters: buildFilters(),
+                      })
+                    }
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+                  </Button>
+                </div>
+              </PermissionGate>
             </div>
           </CardContent>
         </Card>

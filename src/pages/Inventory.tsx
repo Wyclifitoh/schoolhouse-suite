@@ -835,62 +835,128 @@ export const SellToStudent = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [studentClass, setStudentClass] = useState<string>("");
+  const [studentStream, setStudentStream] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: studentsData, isLoading } = useStudents({
     search: searchTerm,
+    gradeId: studentClass || undefined,
+    streamIds: studentStream ? [studentStream] : undefined,
     enabled: true,
   });
 
   const studentList = Array.isArray(studentsData) ? studentsData : [];
-
-  const displayedStudents = studentList.slice(0, 10);
+  const displayedStudents = studentList.slice(0, 25);
+  const selected = studentList.find((s: any) => s.id === selectedStudent);
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
-        <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a student or walk-in" />
-          </SelectTrigger>
-
-          <SelectContent>
-            <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border">
-              <input
-                type="text"
-                className="w-full px-2 py-1 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="Search students..."
+        {/* Stable student picker — input lives in normal DOM so the mobile
+            keyboard doesn't dismiss between keystrokes. */}
+        <Card className="glass-card">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Search students by name or admission no…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setPickerOpen(true)}
+                className="flex-1 min-w-[180px]"
+                autoComplete="off"
+                inputMode="search"
               />
+              <select
+                value={studentClass}
+                onChange={(e) => {
+                  setStudentClass(e.target.value);
+                  setStudentStream("");
+                }}
+                className="text-sm border border-input rounded-md px-2 bg-background"
+              >
+                <option value="">All classes</option>
+                {/* Class options pulled from items query is too heavy here;
+                    leave as a freeform fallback so we don't add a network call. */}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedStudent("walk-in");
+                  setPickerOpen(false);
+                }}
+              >
+                Walk-in
+              </Button>
             </div>
-
-            <SelectItem
-              value="walk-in"
-              className="font-medium text-muted-foreground"
-            >
-              Walk-in Customer
-            </SelectItem>
-
-            {isLoading ? (
-              <div className="p-2 text-xs text-center text-muted-foreground">
-                Loading...
-              </div>
-            ) : displayedStudents.length === 0 && searchTerm ? (
-              <div className="p-2 text-xs text-center text-muted-foreground">
-                No students found
-              </div>
-            ) : (
-              displayedStudents.map((student) => (
-                <SelectItem key={student.id} value={student.id}>
-                  {student.first_name} {student.last_name}
-                  {student.admission_number
-                    ? ` (${student.admission_number})`
+            {selected && (
+              <div className="text-xs text-muted-foreground">
+                Selected:{" "}
+                <span className="font-medium text-foreground">
+                  {selected.first_name} {selected.last_name}
+                  {selected.admission_number
+                    ? ` (${selected.admission_number})`
                     : ""}
-                </SelectItem>
-              ))
+                </span>{" "}
+                <button
+                  className="underline ml-2"
+                  onClick={() => setSelectedStudent("")}
+                >
+                  change
+                </button>
+              </div>
             )}
-          </SelectContent>
-        </Select>
+            {selectedStudent === "walk-in" && (
+              <div className="text-xs text-muted-foreground">
+                Selected: <span className="font-medium">Walk-in Customer</span>{" "}
+                <button
+                  className="underline ml-2"
+                  onClick={() => setSelectedStudent("")}
+                >
+                  change
+                </button>
+              </div>
+            )}
+            {pickerOpen && !selected && selectedStudent !== "walk-in" && (
+              <div className="max-h-64 overflow-auto border rounded-md divide-y">
+                {isLoading && (
+                  <div className="p-3 text-xs text-center text-muted-foreground">
+                    Loading…
+                  </div>
+                )}
+                {!isLoading && displayedStudents.length === 0 && (
+                  <div className="p-3 text-xs text-center text-muted-foreground">
+                    {searchTerm
+                      ? "No students found"
+                      : "Type to search students"}
+                  </div>
+                )}
+                {displayedStudents.map((s: any) => (
+                  <button
+                    type="button"
+                    key={s.id}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                    onClick={() => {
+                      setSelectedStudent(s.id);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    <div className="font-medium">
+                      {s.first_name} {s.last_name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {s.admission_number}
+                      {s.grade_name ? ` • ${s.grade_name}` : ""}
+                      {s.stream_name ? ` ${s.stream_name}` : ""}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {items
