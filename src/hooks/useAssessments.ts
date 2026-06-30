@@ -641,7 +641,9 @@ export function useBulkSavePaperMarks() {
   });
 }
 
-export function useAssessmentMarksList(filters: Record<string, string | undefined> = {}) {
+export function useAssessmentMarksList(
+  filters: Record<string, string | undefined> = {},
+) {
   return useQuery({
     queryKey: ["assessment-marks", filters],
     enabled: !!filters.assessment_id,

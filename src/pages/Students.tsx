@@ -762,15 +762,11 @@ const EditStudentDialog = ({
   const { data: allParents, isLoading: parentsLoading } = useStudentParents(
     student?.id,
   );
-  // Only the PRIMARY parent (guardian) is shown / editable on this form.
-  // If no parent is flagged primary, fall back to the first linked parent.
-  const parents = (() => {
-    if (!allParents || allParents.length === 0) return [];
-    const primary = allParents.find(
-      (p: any) => p.is_primary || p.is_primary_contact,
-    );
-    return [primary || allParents[0]];
-  })();
+  // All linked parents — show every guardian so they can all be edited.
+  const linkedParents: any[] = allParents && allParents.length > 0 ? allParents : [];
+
+  // Legacy parent form state (used when no linked parents exist in student_parents)
+  const [legacyParent, setLegacyParent] = useState<Record<string, any>>({});
   const [parentForms, setParentForms] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -790,14 +786,20 @@ const EditStudentDialog = ({
         upi: (student as any).upi || "",
         status: student.status || "active",
       });
+      // Seed legacy parent from student columns
+      setLegacyParent({
+        parent_name: student.parent_name || "",
+        parent_phone: student.parent_phone || "",
+      });
       setActiveTab("student");
     }
   }, [student, open]);
 
+  // Seed per-parent form state whenever linked parents load / dialog opens
   useEffect(() => {
-    if (parents.length && open) {
+    if (open) {
       const pForms: Record<string, any> = {};
-      parents.forEach((p: any) => {
+      (allParents || []).forEach((p: any) => {
         pForms[p.id] = {
           first_name: p.first_name || "",
           last_name: p.last_name || "",
@@ -820,12 +822,29 @@ const EditStudentDialog = ({
     }
 
     try {
-      // 1. Update Student
-      await updateStudent.mutateAsync({ id: student.id, data: form as any });
+      // Build student payload — resolve grade/stream display names if IDs changed
+      const studentPayload: any = { ...form };
+      if (form.current_grade_id) {
+        const g = (gradesList as any[]).find((gr: any) => gr.id === form.current_grade_id);
+        if (g) studentPayload.grade = g.name;
+      }
+      if (form.current_stream_id) {
+        const s = (streamsList as any[]).find((st: any) => st.id === form.current_stream_id);
+        if (s) studentPayload.stream = s.name;
+      }
 
-      // 2. Update Parents (if any changed)
-      if (parents && parents.length > 0) {
-        const parentPromises = parents.map((p) => {
+      // When no linked parents exist, persist changes via legacy columns on student
+      if (linkedParents.length === 0) {
+        studentPayload.parent_name = legacyParent.parent_name || null;
+        studentPayload.parent_phone = legacyParent.parent_phone || null;
+      }
+
+      // 1. Update Student
+      await updateStudent.mutateAsync({ id: student.id, data: studentPayload });
+
+      // 2. Update linked Parents (if any)
+      if (linkedParents.length > 0) {
+        const parentPromises = linkedParents.map((p: any) => {
           const pData = parentForms[p.id];
           if (!pData) return Promise.resolve();
           return updateParent.mutateAsync({ id: p.id, data: pData });
@@ -1038,9 +1057,9 @@ const EditStudentDialog = ({
           <TabsContent value="parents" className="space-y-4 mt-4">
             {parentsLoading ? (
               <Skeleton className="h-32 w-full" />
-            ) : parents && parents.length > 0 ? (
+            ) : linkedParents.length > 0 ? (
               <div className="space-y-6">
-                {parents.map((p) => (
+                {linkedParents.map((p: any) => (
                   <div
                     key={p.id}
                     className="grid gap-3 p-4 border rounded-md relative pt-6"
@@ -1153,8 +1172,38 @@ const EditStudentDialog = ({
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground border rounded-md border-dashed">
-                No parent/guardian records found for this student.
+              // Fallback: student has only legacy parent_name / parent_phone columns
+              <div className="grid gap-3 p-4 border rounded-md relative pt-6">
+                <div className="absolute -top-3 left-3 bg-background px-1 text-xs font-semibold text-muted-foreground border rounded-full shadow-sm">
+                  Primary Guardian
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  No linked parent record found. You can update the guardian's name and phone below.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Guardian Full Name</Label>
+                    <Input
+                      className="h-9"
+                      placeholder="e.g. John Kamau"
+                      value={legacyParent.parent_name || ""}
+                      onChange={(e) =>
+                        setLegacyParent((prev) => ({ ...prev, parent_name: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Phone Number</Label>
+                    <Input
+                      className="h-9"
+                      placeholder="0712345678"
+                      value={legacyParent.parent_phone || ""}
+                      onChange={(e) =>
+                        setLegacyParent((prev) => ({ ...prev, parent_phone: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </TabsContent>

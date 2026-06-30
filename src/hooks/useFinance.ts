@@ -281,6 +281,84 @@ export function useRecordPayment() {
   });
 }
 
+export function useVoidPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      paymentId,
+      reason,
+    }: {
+      paymentId: string;
+      reason: string;
+    }) => api.patch<any>(`/payments/${paymentId}/void`, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["payment-stats"] });
+      qc.invalidateQueries({ queryKey: ["student-payments"] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items"] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations"] });
+      qc.invalidateQueries({ queryKey: ["excess-credits"] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits"] });
+      qc.invalidateQueries({ queryKey: ["finance-audit-logs"] });
+      toast.success("Payment voided and balances reversed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useBulkVoidPayments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { payment_ids: string[]; reason: string }) =>
+      api.post<any>("/payments/bulk-void", body),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["payment-stats"] });
+      qc.invalidateQueries({ queryKey: ["student-payments"] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items"] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations"] });
+      qc.invalidateQueries({ queryKey: ["excess-credits"] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits"] });
+      qc.invalidateQueries({ queryKey: ["finance-audit-logs"] });
+      const failed = Number(res?.failed || 0);
+      if (failed > 0)
+        toast.warning(`Bulk void completed with ${failed} failure(s)`);
+      else toast.success(`Voided ${Number(res?.succeeded || 0)} payments`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useTransferPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      paymentId,
+      toStudentId,
+      reason,
+    }: {
+      paymentId: string;
+      toStudentId: string;
+      reason: string;
+    }) =>
+      api.post<any>(`/payments/${paymentId}/transfer`, {
+        to_student_id: toStudentId,
+        reason,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["student-payments"] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items"] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations"] });
+      qc.invalidateQueries({ queryKey: ["excess-credits"] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits"] });
+      qc.invalidateQueries({ queryKey: ["finance-audit-logs"] });
+      toast.success("Payment transferred and balances reallocated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ---- Phase 4 ----
 export function useFinanceAuditLogs(filters?: {
   action?: string;

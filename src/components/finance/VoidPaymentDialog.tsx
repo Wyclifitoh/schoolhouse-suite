@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { AlertTriangle, Loader2, ShieldAlert, Lock } from "lucide-react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -76,7 +81,9 @@ export function VoidPaymentDialog({
               </AlertDescription>
             </Alert>
             <DialogFooter>
-              <Button variant="outline" onClick={() => handleClose(false)}>Close</Button>
+              <Button variant="outline" onClick={() => handleClose(false)}>
+                Close
+              </Button>
             </DialogFooter>
           </div>
         ) : step === 1 ? (
@@ -85,19 +92,27 @@ export function VoidPaymentDialog({
             <div className="rounded-lg border p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Student</span>
-                <span className="font-semibold text-foreground">{payment.studentName}</span>
+                <span className="font-semibold text-foreground">
+                  {payment.studentName}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Amount</span>
-                <span className="font-bold text-foreground">{formatKES(payment.amount)}</span>
+                <span className="font-bold text-foreground">
+                  {formatKES(payment.amount)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Method</span>
-                <Badge variant="secondary" className="capitalize">{payment.method}</Badge>
+                <Badge variant="secondary" className="capitalize">
+                  {payment.method}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Reference</span>
-                <span className="font-mono text-xs text-foreground">{payment.reference}</span>
+                <span className="font-mono text-xs text-foreground">
+                  {payment.reference}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date</span>
@@ -111,7 +126,9 @@ export function VoidPaymentDialog({
               <AlertDescription className="text-xs">
                 Voiding this payment will:
                 <ul className="list-disc pl-4 mt-1 space-y-0.5">
-                  <li>Reverse all fee allocations ({formatKES(payment.amount)})</li>
+                  <li>
+                    Reverse all fee allocations ({formatKES(payment.amount)})
+                  </li>
                   <li>Update the student's outstanding balance</li>
                   <li>Create a permanent audit trail entry</li>
                 </ul>
@@ -122,17 +139,21 @@ export function VoidPaymentDialog({
               <Label>Reason for voiding (min 20 characters) *</Label>
               <Textarea
                 value={reason}
-                onChange={e => setReason(e.target.value)}
+                onChange={(e) => setReason(e.target.value)}
                 placeholder="Provide a detailed reason for this reversal..."
                 rows={3}
               />
               {reason.length > 0 && reason.length < 20 && (
-                <p className="text-xs text-destructive">{20 - reason.length} more characters required</p>
+                <p className="text-xs text-destructive">
+                  {20 - reason.length} more characters required
+                </p>
               )}
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => handleClose(false)}>
+                Cancel
+              </Button>
               <Button
                 variant="destructive"
                 disabled={reason.length < 20}
@@ -144,30 +165,36 @@ export function VoidPaymentDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <Alert variant="destructive" className="border-warning bg-warning/5 text-warning">
+            <Alert
+              variant="destructive"
+              className="border-warning bg-warning/5 text-warning"
+            >
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Final Confirmation</AlertTitle>
               <AlertDescription>
-                Enter your password to confirm the reversal of {formatKES(payment.amount)}.
+                Type VOID to confirm the reversal of {formatKES(payment.amount)}
+                .
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
-              <Label>Enter your password to confirm</Label>
+              <Label>Type VOID to confirm</Label>
               <Input
-                type="password"
+                type="text"
                 value={reAuthPassword}
-                onChange={e => setReAuthPassword(e.target.value)}
-                placeholder="Your account password"
+                onChange={(e) => setReAuthPassword(e.target.value)}
+                placeholder="VOID"
                 autoFocus
               />
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <Button variant="outline" onClick={() => setStep(1)}>
+                Back
+              </Button>
               <Button
                 variant="destructive"
-                disabled={!reAuthPassword || isSubmitting}
+                disabled={reAuthPassword !== "VOID" || isSubmitting}
                 onClick={() => onConfirm(payment.id, reason)}
               >
                 {isSubmitting ? (

@@ -205,7 +205,11 @@ export const ProductCatalog = () => {
   const [catFilter, setCatFilter] = useState("all");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const perms = usePermissions(["inventory:create","inventory:update","inventory:delete"]);
+  const perms = usePermissions([
+    "inventory:create",
+    "inventory:update",
+    "inventory:delete",
+  ]);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -217,10 +221,15 @@ export const ProductCatalog = () => {
     unit: "",
   });
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  const [editing, setEditing] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState<any | null>(null);
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["inventory-items", schoolId],
 
-    queryFn: () => api.get<any[]>("/inventory/items"),
+    queryFn: () => api.get<any[]>("/inventory/items?limit=1000"),
 
     enabled: !!schoolId,
   });
@@ -244,10 +253,42 @@ export const ProductCatalog = () => {
     },
   });
 
-  const filtered = items.filter(
-    (i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.sku?.toLowerCase().includes(search.toLowerCase()),
+  const updateMutation = useMutation({
+    mutationFn: (payload: any) =>
+      api.put(`/inventory/items/${payload.id}`, payload.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      toast({ title: "Product updated" });
+      setEditing(null);
+    },
+    onError: (err: Error) =>
+      toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/inventory/items/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      toast({ title: "Product deleted" });
+      setDeleting(null);
+    },
+    onError: (err: Error) =>
+      toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const filtered = items.filter((i) => {
+    const matchSearch =
+      i.name?.toLowerCase().includes(search.toLowerCase()) ||
+      i.sku?.toLowerCase().includes(search.toLowerCase());
+    const matchCat = catFilter === "all" || i.category_id === catFilter;
+    return matchSearch && matchCat;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
   );
 
   return (
@@ -258,119 +299,124 @@ export const ProductCatalog = () => {
             Product Catalog ({items.length})
           </CardTitle>
 
-          {perms["inventory:create"] && <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm" className="rounded-lg">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>New Product</DialogTitle>
-              </DialogHeader>
-
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label>Name</Label>
-                    <Input
-                      value={productForm.name}
-                      onChange={(e) =>
-                        setProductForm({ ...productForm, name: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Category</Label>
-
-                    <Select
-                      onValueChange={(v) =>
-                        setProductForm({ ...productForm, category_id: v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        {categories.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <Label>Cost</Label>
-                    <Input
-                      type="number"
-                      value={productForm.cost_price}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          cost_price: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Selling</Label>
-                    <Input
-                      type="number"
-                      value={productForm.selling_price}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          selling_price: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Stock</Label>
-                    <Input
-                      type="number"
-                      value={productForm.quantity_in_stock}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          quantity_in_stock: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label>SKU</Label>
-                  <Input
-                    value={productForm.sku}
-                    onChange={(e) =>
-                      setProductForm({ ...productForm, sku: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  onClick={() => addProductMutation.mutate()}
-                  className="w-full"
-                >
-                  Save Product
+          {perms["inventory:create"] && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-lg">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Product
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>}
+              </DialogTrigger>
+
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>New Product</DialogTitle>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label>Name</Label>
+                      <Input
+                        value={productForm.name}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>Category</Label>
+
+                      <Select
+                        onValueChange={(v) =>
+                          setProductForm({ ...productForm, category_id: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          {categories.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label>Cost</Label>
+                      <Input
+                        type="number"
+                        value={productForm.cost_price}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            cost_price: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>Selling</Label>
+                      <Input
+                        type="number"
+                        value={productForm.selling_price}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            selling_price: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>Stock</Label>
+                      <Input
+                        type="number"
+                        value={productForm.quantity_in_stock}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            quantity_in_stock: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label>SKU</Label>
+                    <Input
+                      value={productForm.sku}
+                      onChange={(e) =>
+                        setProductForm({ ...productForm, sku: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    onClick={() => addProductMutation.mutate()}
+                    className="w-full"
+                  >
+                    Save Product
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </CardHeader>
 
@@ -431,7 +477,7 @@ export const ProductCatalog = () => {
             </TableHeader>
 
             <TableBody>
-              {filtered.map((item) => {
+              {pageItems.map((item) => {
                 const status =
                   item.quantity_in_stock <= 0
                     ? "out_of_stock"
@@ -470,30 +516,245 @@ export const ProductCatalog = () => {
                     </TableCell>
 
                     <TableCell>
-                      {(perms["inventory:update"] || perms["inventory:delete"]) && <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
+                      {(perms["inventory:update"] ||
+                        perms["inventory:delete"]) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
 
-                        <DropdownMenuContent align="end">
-                          {perms["inventory:update"] && <DropdownMenuItem>Restock</DropdownMenuItem>}
-                          {perms["inventory:update"] && <DropdownMenuItem>Edit</DropdownMenuItem>}
-                          <DropdownMenuItem>Price History</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>}
+                          <DropdownMenuContent align="end">
+                            {perms["inventory:update"] && (
+                              <DropdownMenuItem
+                                onClick={() => setEditing(item)}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {perms["inventory:delete"] && (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleting(item)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
               })}
+              {!pageItems.length && (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    {isLoading ? "Loading..." : "No products found"}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between mt-4 px-1">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}-
+              {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
+              {filtered.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit dialog */}
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Product</DialogTitle>
+            </DialogHeader>
+            {editing && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>Name</Label>
+                    <Input
+                      value={editing.name || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Category</Label>
+                    <Select
+                      value={editing.category_id || ""}
+                      onValueChange={(v) =>
+                        setEditing({ ...editing, category_id: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label>Cost</Label>
+                    <Input
+                      type="number"
+                      value={editing.cost_price ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          cost_price: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Selling</Label>
+                    <Input
+                      type="number"
+                      value={editing.selling_price ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          selling_price: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Stock</Label>
+                    <Input
+                      type="number"
+                      value={editing.quantity_in_stock ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          quantity_in_stock: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>SKU</Label>
+                    <Input
+                      value={editing.sku || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, sku: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Reorder Level</Label>
+                    <Input
+                      type="number"
+                      value={editing.reorder_level ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          reorder_level: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  editing &&
+                  updateMutation.mutate({
+                    id: editing.id,
+                    data: {
+                      name: editing.name,
+                      sku: editing.sku,
+                      category_id: editing.category_id || null,
+                      cost_price: editing.cost_price,
+                      selling_price: editing.selling_price,
+                      quantity_in_stock: editing.quantity_in_stock,
+                      reorder_level: editing.reorder_level,
+                    },
+                  })
+                }
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete confirm */}
+        <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete product?</DialogTitle>
+              <DialogDescription>
+                {deleting?.name} will be permanently removed. This cannot be
+                undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleting && deleteMutation.mutate(deleting.id)}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
@@ -1114,7 +1375,11 @@ export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
-  const perms = usePermissions(["inventory:create","inventory:update","inventory:delete"]);
+  const perms = usePermissions([
+    "inventory:create",
+    "inventory:update",
+    "inventory:delete",
+  ]);
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -1203,53 +1468,57 @@ export const CategoriesOverview = () => {
     <>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Categories</h2>
-        {perms["inventory:create"] && <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>New Category</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Input
-                placeholder="Category Name"
-                value={catForm.name}
-                onChange={(e) =>
-                  setCatForm({ ...catForm, name: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Description"
-                value={catForm.description}
-                onChange={(e) =>
-                  setCatForm({ ...catForm, description: e.target.value })
-                }
-              />
-              <Button
-                className="w-full"
-                onClick={() => addCatMutation.mutate()}
-                disabled={addCatMutation.isPending || !catForm.name}
-              >
-                {addCatMutation.isPending ? "Saving..." : "Save Category"}
+        {perms["inventory:create"] && (
+          <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Category
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>}
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>New Category</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <Input
+                  placeholder="Category Name"
+                  value={catForm.name}
+                  onChange={(e) =>
+                    setCatForm({ ...catForm, name: e.target.value })
+                  }
+                />
+                <Input
+                  placeholder="Description"
+                  value={catForm.description}
+                  onChange={(e) =>
+                    setCatForm({ ...catForm, description: e.target.value })
+                  }
+                />
+                <Button
+                  className="w-full"
+                  onClick={() => addCatMutation.mutate()}
+                  disabled={addCatMutation.isPending || !catForm.name}
+                >
+                  {addCatMutation.isPending ? "Saving..." : "Save Category"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Add category card */}
-        {perms["inventory:create"] && <div
-          className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
-          onClick={() => setIsCatOpen(true)}
-        >
-          <Plus className="h-8 w-8 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground">Add New Category</p>
-        </div>}
+        {perms["inventory:create"] && (
+          <div
+            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
+            onClick={() => setIsCatOpen(true)}
+          >
+            <Plus className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">Add New Category</p>
+          </div>
+        )}
 
         {/* Categories list */}
         {categories.map((cat: any) => (
@@ -1265,22 +1534,26 @@ export const CategoriesOverview = () => {
 
               {/* Action buttons */}
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {perms["inventory:update"] && <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleEdit(cat)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>}
-                {perms["inventory:delete"] && <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(cat)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>}
+                {perms["inventory:update"] && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleEdit(cat)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+                {perms["inventory:delete"] && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(cat)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
