@@ -33,6 +33,7 @@ import {
   useStudentParents,
   useStudentSiblings,
 } from "@/hooks/useStudents";
+import { useUpdateParent } from "@/hooks/useParents";
 import { useStudentExcessCredits } from "@/hooks/useFinance";
 import { useGrades } from "@/hooks/useGrades";
 import {
@@ -73,10 +74,14 @@ const StudentProfile = () => {
   );
   const { data: grades = [] } = useGrades();
   const updateStudent = useUpdateStudent();
+  const updateParent = useUpdateParent();
   const { data: excessCredits = [] } = useStudentExcessCredits(studentId);
   const softDelete = useSoftDeleteStudent();
 
   const [editData, setEditData] = useState<Record<string, any>>({});
+  // Separate state for the primary linked parent (if any)
+  const [editParentData, setEditParentData] = useState<Record<string, any>>({});
+  const [primaryParent, setPrimaryParent] = useState<any>(null);
 
   // Sync edit data when student loads
   const startEditing = () => {
@@ -98,6 +103,22 @@ const StudentProfile = () => {
         special_needs: student.special_needs || "",
         status: student.status,
       });
+      // Seed primary parent edit form
+      const primary =
+        (parentLinks as any[]).find((p: any) => p.is_primary || p.is_primary_contact) ||
+        (parentLinks as any[])[0] ||
+        null;
+      setPrimaryParent(primary);
+      if (primary) {
+        setEditParentData({
+          first_name: primary.first_name || "",
+          last_name: primary.last_name || "",
+          phone: primary.phone || "",
+          email: primary.email || "",
+          occupation: primary.occupation || "",
+          id_number: primary.id_number || "",
+        });
+      }
       setIsEditing(true);
     }
   };
@@ -139,13 +160,23 @@ const StudentProfile = () => {
     .join("")
     .substring(0, 2);
 
-  const handleSave = () => {
-    updateStudent.mutate(
-      { id: student.id, data: editData },
-      {
-        onSuccess: () => setIsEditing(false),
-      },
-    );
+  const handleSave = async () => {
+    try {
+      // Resolve grade name if grade ID changed
+      const payload: any = { ...editData };
+      if (editData.current_grade_id) {
+        const g = (grades as any[]).find((gr: any) => gr.id === editData.current_grade_id);
+        if (g) payload.grade = g.name;
+      }
+      await updateStudent.mutateAsync({ id: student.id, data: payload });
+      // Update primary linked parent if one exists
+      if (primaryParent?.id && Object.keys(editParentData).length > 0) {
+        await updateParent.mutateAsync({ id: primaryParent.id, data: editParentData });
+      }
+      setIsEditing(false);
+    } catch {
+      // Errors handled by mutations
+    }
   };
 
   const handleDelete = () => {
@@ -218,10 +249,10 @@ const StudentProfile = () => {
                 size="sm"
                 className="bg-success hover:bg-success/90"
                 onClick={handleSave}
-                disabled={updateStudent.isPending}
+                disabled={updateStudent.isPending || updateParent.isPending}
               >
                 <CheckCircle className="h-4 w-4 mr-1.5" />
-                {updateStudent.isPending ? "Saving..." : "Save Changes"}
+                {updateStudent.isPending || updateParent.isPending ? "Saving..." : "Save Changes"}
               </Button>
               </PermissionGate>
             </>
@@ -579,13 +610,116 @@ const StudentProfile = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {parentLinks.length > 0 ? (
+                {isEditing ? (
+                  // ── EDIT MODE ──────────────────────────────────────────
+                  primaryParent ? (
+                    // Linked parent record — edit the parent table
+                    <div className="grid gap-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">First Name</Label>
+                          <Input
+                            className="h-9"
+                            value={editParentData.first_name || ""}
+                            onChange={(e) =>
+                              setEditParentData({ ...editParentData, first_name: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Last Name</Label>
+                          <Input
+                            className="h-9"
+                            value={editParentData.last_name || ""}
+                            onChange={(e) =>
+                              setEditParentData({ ...editParentData, last_name: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Phone</Label>
+                          <Input
+                            className="h-9"
+                            value={editParentData.phone || ""}
+                            onChange={(e) =>
+                              setEditParentData({ ...editParentData, phone: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Email</Label>
+                          <Input
+                            className="h-9"
+                            type="email"
+                            value={editParentData.email || ""}
+                            onChange={(e) =>
+                              setEditParentData({ ...editParentData, email: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Occupation</Label>
+                          <Input
+                            className="h-9"
+                            value={editParentData.occupation || ""}
+                            onChange={(e) =>
+                              setEditParentData({ ...editParentData, occupation: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">ID Number</Label>
+                          <Input
+                            className="h-9"
+                            value={editParentData.id_number || ""}
+                            onChange={(e) =>
+                              setEditParentData({ ...editParentData, id_number: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Legacy parent fields — edit on student record
+                    <div className="grid gap-3">
+                      <p className="text-xs text-muted-foreground">
+                        No linked parent record. Edit guardian name and phone below.
+                      </p>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Guardian Full Name</Label>
+                        <Input
+                          className="h-9"
+                          value={editData.parent_name || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, parent_name: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Phone Number</Label>
+                        <Input
+                          className="h-9"
+                          value={editData.parent_phone || ""}
+                          onChange={(e) =>
+                            setEditData({ ...editData, parent_phone: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  // ── VIEW MODE ──────────────────────────────────────────
+                  (parentLinks as any[]).length > 0 ? (
                   (() => {
                     // Show only the PRIMARY guardian (fallback: first linked parent)
                     const primary =
-                      parentLinks.find(
+                      (parentLinks as any[]).find(
                         (p: any) => p.is_primary || p.is_primary_contact,
-                      ) || parentLinks[0];
+                      ) || (parentLinks as any[])[0];
                     const link: any = primary;
                     return (
                       <div
@@ -594,12 +728,12 @@ const StudentProfile = () => {
                       >
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground font-bold text-sm">
-                            {link.parent?.first_name?.[0]}
-                            {link.parent?.last_name?.[0]}
+                            {link.first_name?.[0]}
+                            {link.last_name?.[0]}
                           </div>
                           <div>
                             <p className="font-semibold text-foreground">
-                              {link.parent?.first_name} {link.parent?.last_name}
+                              {link.first_name} {link.last_name}
                             </p>
                             <div className="flex gap-1.5">
                               <Badge
@@ -621,7 +755,7 @@ const StudentProfile = () => {
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Phone className="h-3.5 w-3.5" />
-                          <span className="text-xs">{link.parent?.phone}</span>
+                          <span className="text-xs">{link.phone}</span>
                         </div>
                       </div>
                     );
@@ -653,6 +787,7 @@ const StudentProfile = () => {
                       </div>
                     )}
                   </div>
+                )
                 )}
               </CardContent>
             </Card>
