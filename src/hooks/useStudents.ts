@@ -242,15 +242,15 @@ export function useStudentParents(studentId: string | undefined) {
 
 export function useStudentSiblings(
   studentId: string | undefined,
-  parentPhone: string | null | undefined,
+  parentId: string | null | undefined,
 ) {
   return useQuery({
-    queryKey: ["student-siblings", studentId, parentPhone],
+    queryKey: ["student-siblings", studentId, parentId],
     queryFn: () =>
       api.get<any[]>(
-        `/students/siblings?parent_phone=${parentPhone}&exclude_id=${studentId}`,
+        `/students/siblings?parent_id=${parentId}&exclude_id=${studentId}`,
       ),
-    enabled: !!studentId && !!parentPhone,
+    enabled: !!studentId && !!parentId,
   });
 }
 

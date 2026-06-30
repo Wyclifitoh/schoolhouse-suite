@@ -17,6 +17,8 @@ export interface ParentRow {
   user_id: string | null;
   created_at: string | null;
   updated_at: string | null;
+  students_count?: number;
+  has_portal_account?: number;
 }
 
 export interface PortalAccount {
@@ -29,14 +31,120 @@ export interface PortalAccount {
 }
 
 export function useParents(search?: string) {
+  // Back-compat: returns ParentRow[] (no pagination). Prefer useParentsPaged.
   return useQuery({
     queryKey: ["parents", search],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
+      params.set("limit", "1000");
       const result = await api.get<any>(`/parents?${params}`);
       return (result?.data || result || []) as ParentRow[];
     },
+  });
+}
+
+export interface ParentsPagedResult {
+  data: ParentRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export function useParentsPaged(filters: {
+  search?: string;
+  page?: number;
+  limit?: number;
+  hasPortal?: "1" | "0";
+  students?: "with" | "none";
+}) {
+  const page = filters.page || 1;
+  const limit = filters.limit || 20;
+  return useQuery({
+    queryKey: ["parents-paged", filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.search) params.set("search", filters.search);
+      if (filters.hasPortal) params.set("has_portal", filters.hasPortal);
+      if (filters.students) params.set("students", filters.students);
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+      const result = await api.get<any>(`/parents?${params}`);
+      return {
+        data: (result?.data || []) as ParentRow[],
+        total: Number(result?.total || 0),
+        page: Number(result?.page || page),
+        limit: Number(result?.limit || limit),
+      } as ParentsPagedResult;
+    },
+  });
+}
+
+export function useLinkStudentsToParent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      parentId,
+      studentIds,
+      relationship,
+      setPrimary,
+    }: {
+      parentId: string;
+      studentIds: string[];
+      relationship?: "father" | "mother" | "guardian" | "other";
+      setPrimary?: boolean;
+    }) =>
+      api.post<{ linked: number; skipped: number; failed: any[] }>(
+        `/parents/${parentId}/link-students`,
+        {
+          student_ids: studentIds,
+          relationship,
+          set_primary: setPrimary,
+        },
+      ),
+    onSuccess: (data, vars) => {
+      qc.invalidateQueries({ queryKey: ["parents"] });
+      qc.invalidateQueries({ queryKey: ["parents-paged"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-paged"] });
+      qc.invalidateQueries({ queryKey: ["student-parents"] });
+      qc.invalidateQueries({
+        queryKey: ["parent-children-list", vars.parentId],
+      });
+      const d: any = (data as any)?.data ?? data;
+      toast.success(
+        `Linked ${d?.linked || 0} student(s).${d?.skipped ? ` ${d.skipped} already linked.` : ""}`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useSetPrimaryParent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      studentId,
+      parentId,
+      relationship,
+    }: {
+      studentId: string;
+      parentId: string;
+      relationship?: string;
+    }) =>
+      api.post(`/students/${studentId}/set-primary-parent`, {
+        parent_id: parentId,
+        relationship,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["students-paged"] });
+      qc.invalidateQueries({ queryKey: ["student-parents"] });
+      qc.invalidateQueries({ queryKey: ["parents"] });
+      qc.invalidateQueries({ queryKey: ["parents-paged"] });
+      toast.success("Primary parent updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 }
 
