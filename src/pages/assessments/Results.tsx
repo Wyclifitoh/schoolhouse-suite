@@ -90,12 +90,13 @@ export default function Results() {
     assessmentId,
     filters,
   );
-  
-  const { data: rawMarks = [], isLoading: marksLoading } = useAssessmentMarksList({
-    assessment_id: assessmentId,
-    grade_id: gradeId || undefined,
-    stream_id: streamId || undefined,
-  });
+
+  const { data: rawMarks = [], isLoading: marksLoading } =
+    useAssessmentMarksList({
+      assessment_id: assessmentId,
+      grade_id: gradeId || undefined,
+      stream_id: streamId || undefined,
+    });
   const compute = useComputeResults();
   const positions = useRecomputeResultPositions();
   const setStatus = useBulkResultStatus();
@@ -163,19 +164,24 @@ export default function Results() {
         subjMap.set(m.subject_id, { id: m.subject_id, name: m.subject_name });
       }
       if (!stuMap.has(m.student_id)) {
-        stuMap.set(m.student_id, { 
-          id: m.student_id, 
-          name: `${m.first_name} ${m.last_name}`, 
-          adm: m.admission_number, 
-          className: `${m.grade_name || ""}${m.stream_name ? ' · ' + m.stream_name : ''}`,
-          marks: {} 
+        stuMap.set(m.student_id, {
+          id: m.student_id,
+          name: `${m.first_name} ${m.last_name}`,
+          adm: m.admission_number,
+          className: `${m.grade_name || ""}${m.stream_name ? " · " + m.stream_name : ""}`,
+          marks: {},
         });
       }
-      stuMap.get(m.student_id).marks[m.subject_id] = m.score != null ? Math.round(Number(m.score)) : null;
+      stuMap.get(m.student_id).marks[m.subject_id] =
+        m.score != null ? Math.round(Number(m.score)) : null;
     });
-    
-    const subjects = Array.from(subjMap.values()).sort((a,b) => a.name.localeCompare(b.name));
-    const students = Array.from(stuMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+
+    const subjects = Array.from(subjMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const students = Array.from(stuMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
     return { subjects, students };
   }, [rawMarks]);
 
@@ -240,28 +246,45 @@ export default function Results() {
   };
 
   const exportPreviewPdf = () => {
-    if (!broadsheet.students.length) return toast.error("No preview data available");
-    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    if (!broadsheet.students.length)
+      return toast.error("No preview data available");
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
     doc.setFontSize(14);
     doc.text(`${assessmentName} - Broadsheet Preview`, 40, 36);
     doc.setFontSize(10);
     doc.setTextColor(120);
-    doc.text(`Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`, 40, 54);
+    doc.text(
+      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`,
+      40,
+      54,
+    );
     doc.setTextColor(0);
-    
-    const head = [["Student", "Adm", ...broadsheet.subjects.map(s => s.name)]];
-    const body = broadsheet.students.map(stu => [
+
+    const head = [
+      ["Student", "Adm", ...broadsheet.subjects.map((s) => s.name)],
+    ];
+    const body = broadsheet.students.map((stu) => [
       stu.name,
       stu.adm,
-      ...broadsheet.subjects.map(s => stu.marks[s.id] != null ? String(stu.marks[s.id]) : "—")
+      ...broadsheet.subjects.map((s) =>
+        stu.marks[s.id] != null ? String(stu.marks[s.id]) : "—",
+      ),
     ]);
-    
+
     autoTable(doc, {
       head,
       body,
       startY: 70,
       styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: "bold",
+      },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       margin: { left: 40, right: 40 },
     });
@@ -466,13 +489,20 @@ export default function Results() {
             </div>
             <div className="flex flex-wrap gap-2">
               {viewMode === "preview" && (
-                <Button size="sm" variant="outline" onClick={exportPreviewPdf} disabled={!broadsheet.students.length}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={exportPreviewPdf}
+                  disabled={!broadsheet.students.length}
+                >
                   <FileText className="h-4 w-4 mr-1" /> Download Preview PDF
                 </Button>
               )}
               {viewMode === "results" && (
                 <>
-                  <PermissionGate permission={["exams:update", "exams:publish"]}>
+                  <PermissionGate
+                    permission={["exams:update", "exams:publish"]}
+                  >
                     <Button
                       size="sm"
                       variant="outline"
@@ -514,106 +544,106 @@ export default function Results() {
           <CardContent className="p-0">
             {viewMode === "results" ? (
               <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={(v) =>
-                        setSelected(
-                          v ? new Set(results.map((r) => r.id)) : new Set(),
-                        )
-                      }
-                    />
-                  </TableHead>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Mean %</TableHead>
-                  <TableHead>AL</TableHead>
-                  <TableHead>Band</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {results.map((r, i) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selected.has(r.id)}
-                        onCheckedChange={() => toggle(r.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {r.class_position ?? i + 1}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">
-                        {r.first_name} {r.last_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.admission_number}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {r.grade_name}
-                      {r.stream_name ? ` · ${r.stream_name}` : ""}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {Number(r.total_score).toFixed(0)} /{" "}
-                      {Number(r.total_out_of).toFixed(0)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {Number(r.percentage || 0).toFixed(1)}
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const pts = (r as any).total_points;
-                        if (pts != null && !isNaN(Number(pts))) {
-                          return (
-                            <Badge variant="outline">
-                              AL{Math.round(Number(pts))}
-                            </Badge>
-                          );
-                        }
-                        return r.overall_al ? (
-                          <Badge variant="outline">{r.overall_al}</Badge>
-                        ) : (
-                          "—"
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>
-                      {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}
-                      >
-                        {r.status.replace("_", " ")}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!results.length && (
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      className="text-center text-muted-foreground py-10"
-                    >
-                      {!assessmentId
-                        ? "Select an assessment to view results."
-                        : isLoading
-                          ? "Loading…"
-                          : "No results yet — click Compute."}
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(v) =>
+                          setSelected(
+                            v ? new Set(results.map((r) => r.id)) : new Set(),
+                          )
+                        }
+                      />
+                    </TableHead>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Mean %</TableHead>
+                    <TableHead>AL</TableHead>
+                    <TableHead>Band</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {results.map((r, i) => (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selected.has(r.id)}
+                          onCheckedChange={() => toggle(r.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {r.class_position ?? i + 1}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">
+                          {r.first_name} {r.last_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.admission_number}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {r.grade_name}
+                        {r.stream_name ? ` · ${r.stream_name}` : ""}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {Number(r.total_score).toFixed(0)} /{" "}
+                        {Number(r.total_out_of).toFixed(0)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {Number(r.percentage || 0).toFixed(1)}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const pts = (r as any).total_points;
+                          if (pts != null && !isNaN(Number(pts))) {
+                            return (
+                              <Badge variant="outline">
+                                AL{Math.round(Number(pts))}
+                              </Badge>
+                            );
+                          }
+                          return r.overall_al ? (
+                            <Badge variant="outline">{r.overall_al}</Badge>
+                          ) : (
+                            "—"
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}
+                        >
+                          {r.status.replace("_", " ")}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!results.length && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={9}
+                        className="text-center text-muted-foreground py-10"
+                      >
+                        {!assessmentId
+                          ? "Select an assessment to view results."
+                          : isLoading
+                            ? "Loading…"
+                            : "No results yet — click Compute."}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -621,31 +651,47 @@ export default function Results() {
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>Student</TableHead>
-                      {broadsheet.subjects.map(s => (
-                        <TableHead key={s.id} className="text-center">{s.name}</TableHead>
+                      {broadsheet.subjects.map((s) => (
+                        <TableHead key={s.id} className="text-center">
+                          {s.name}
+                        </TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {broadsheet.students.map((stu, i) => (
                       <TableRow key={stu.id}>
-                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {i + 1}
+                        </TableCell>
                         <TableCell>
                           <div className="font-medium">{stu.name}</div>
-                          <div className="text-xs text-muted-foreground">{stu.adm}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {stu.adm}
+                          </div>
                         </TableCell>
-                        {broadsheet.subjects.map(s => (
-                          <TableCell key={s.id} className="text-center tabular-nums">
-                            {stu.marks[s.id] != null
-                              ? stu.marks[s.id]
-                              : <span className="text-muted-foreground/30">—</span>}
+                        {broadsheet.subjects.map((s) => (
+                          <TableCell
+                            key={s.id}
+                            className="text-center tabular-nums"
+                          >
+                            {stu.marks[s.id] != null ? (
+                              stu.marks[s.id]
+                            ) : (
+                              <span className="text-muted-foreground/30">
+                                —
+                              </span>
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
                     ))}
                     {!broadsheet.students.length && (
                       <TableRow>
-                        <TableCell colSpan={broadsheet.subjects.length + 2} className="text-center text-muted-foreground py-10">
+                        <TableCell
+                          colSpan={broadsheet.subjects.length + 2}
+                          className="text-center text-muted-foreground py-10"
+                        >
                           {!assessmentId
                             ? "Select an assessment to preview marks."
                             : marksLoading
