@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RTooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import {
   useAssessmentsList,
   useAssessmentAnalytics,
@@ -37,6 +52,9 @@ import {
   ArrowUp,
   ArrowDown,
   Filter,
+  Info,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 const BAND_COLORS: Record<string, string> = {
@@ -45,6 +63,72 @@ const BAND_COLORS: Record<string, string> = {
   AE: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   BE: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
 };
+const BAND_HEX: Record<string, string> = {
+  EE: "#10b981",
+  ME: "#3b82f6",
+  AE: "#f59e0b",
+  BE: "#ef4444",
+};
+const BAND_LABELS: Record<string, string> = {
+  EE: "Exceeding Expectation",
+  ME: "Meeting Expectation",
+  AE: "Approaching Expectation",
+  BE: "Below Expectation",
+};
+
+function InfoHint({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3.5 w-3.5 text-muted-foreground inline ml-1 cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs text-xs">{text}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function Pager({
+  page,
+  pages,
+  onChange,
+  total,
+}: {
+  page: number;
+  pages: number;
+  onChange: (p: number) => void;
+  total: number;
+}) {
+  if (pages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 px-4 py-2 border-t text-xs text-muted-foreground">
+      <div>
+        Page {page} of {pages} · {total} record{total !== 1 ? "s" : ""}
+      </div>
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2"
+          disabled={page <= 1}
+          onClick={() => onChange(page - 1)}
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2"
+          disabled={page >= pages}
+          onClick={() => onChange(page + 1)}
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function Analytics() {
   const { data: assessments = [] } = useAssessmentsList();
@@ -78,10 +162,40 @@ export default function Analytics() {
   const overview = data?.overview;
   const subjectsData = data?.subjects || [];
   const bands = data?.bands || [];
+  const levels = data?.levels || [];
   const leaderboard = data?.leaderboard || [];
   const gradesData = data?.grades || [];
   const streamsData = data?.streams || [];
   const bandTotal = bands.reduce((s, b) => s + Number(b.n || 0), 0) || 1;
+  const levelTotal = levels.reduce((s, l) => s + Number(l.n || 0), 0) || 1;
+
+  // Pagination state
+  const PAGE = 15;
+  const [subjPage, setSubjPage] = useState(1);
+  const [lbPage, setLbPage] = useState(1);
+  const subjPages = Math.max(1, Math.ceil(subjectsData.length / PAGE));
+  const lbPages = Math.max(1, Math.ceil(leaderboard.length / PAGE));
+  const subjPageData = useMemo(
+    () => subjectsData.slice((subjPage - 1) * PAGE, subjPage * PAGE),
+    [subjectsData, subjPage],
+  );
+  const rankedLb = useMemo(
+    () =>
+      leaderboard
+        .slice()
+        .sort(
+          (a: any, b: any) =>
+            Number(b.percentage || 0) - Number(a.percentage || 0),
+        )
+        .map((r: any, i: number) => ({ ...r, _rank: i + 1 })),
+    [leaderboard],
+  );
+  const lbPageData = useMemo(
+    () => rankedLb.slice((lbPage - 1) * PAGE, lbPage * PAGE),
+    [rankedLb, lbPage],
+  );
+
+  const subjectFiltered = filterSubject !== "all";
 
   return (
     <DashboardLayout>
@@ -93,7 +207,7 @@ export default function Analytics() {
               Analytics
             </h1>
             <p className="text-muted-foreground">
-              CBC band distribution, subject means and class leaderboards.
+              CBE band distribution, subject means and class leaderboards.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
@@ -117,7 +231,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Export filters bar */}
+        {/* Page filters bar (drives display + PDF/Excel exports) */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-wrap items-end gap-2">
@@ -217,6 +331,40 @@ export default function Analytics() {
             </div>
           </CardContent>
         </Card>
+
+        {/* How-to-read guide */}
+        {assessmentId && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-sm text-muted-foreground space-y-1">
+              <div className="flex items-center gap-2 font-medium text-foreground">
+                <Info className="h-4 w-4" /> How to read this page
+              </div>
+              <ul className="list-disc pl-5 space-y-0.5">
+                <li>
+                  <b>Students</b> = number of learners with at least one mark in
+                  this assessment (respects filters).
+                </li>
+                <li>
+                  <b>Marks recorded</b> = total subject × student cells entered.
+                </li>
+                <li>
+                  <b>Mean %</b> = average of every mark as a percentage of its
+                  out-of.
+                </li>
+                <li>
+                  <b>Performance Band / Achievement Level Distribution</b> =
+                  number of <i>learners</i> in each overall band / AL. When a
+                  subject filter is applied, it counts learners by their band /
+                  AL in that subject.
+                </li>
+                <li>
+                  <b>Leaderboard</b> = every learner ranked by overall mean %.
+                  Missing marks count as 0 so ranks stay fair.
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {assessmentId && previous.length > 0 && (
           <Card>
@@ -389,9 +537,42 @@ export default function Analytics() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>CBC band distribution</CardTitle>
+              <CardTitle className="flex items-center">
+                Performance Band Distribution
+                <InfoHint
+                  text={
+                    subjectFiltered
+                      ? "Learners counted by their band in the selected subject."
+                      : "Learners counted by their overall assessment band (one per learner)."
+                  }
+                />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {bands.length > 0 && (
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={bands}>
+                      <XAxis dataKey="band_code" fontSize={11} />
+                      <YAxis allowDecimals={false} fontSize={11} />
+                      <RTooltip
+                        formatter={(v: any) => [v, "Learners"]}
+                        labelFormatter={(l: any) =>
+                          `${l} — ${BAND_LABELS[l] || ""}`
+                        }
+                      />
+                      <Bar dataKey="n" radius={[6, 6, 0, 0]}>
+                        {bands.map((b: any) => (
+                          <Cell
+                            key={b.band_code}
+                            fill={BAND_HEX[b.band_code] || "#64748b"}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
               {bands.map((b) => {
                 const pct = (Number(b.n) / bandTotal) * 100;
                 return (
@@ -400,10 +581,11 @@ export default function Analytics() {
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs font-semibold ${BAND_COLORS[b.band_code] || ""}`}
                       >
-                        {b.band_code}
+                        {b.band_code} — {BAND_LABELS[b.band_code] || ""}
                       </span>
                       <span className="tabular-nums text-muted-foreground">
-                        {b.n} ({pct.toFixed(1)}%)
+                        {b.n} learner{Number(b.n) !== 1 ? "s" : ""} (
+                        {pct.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -429,7 +611,54 @@ export default function Analytics() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Subject means</CardTitle>
+              <CardTitle className="flex items-center">
+                Achievement Level Distribution
+                <InfoHint
+                  text={
+                    subjectFiltered
+                      ? "Learners counted by their AL in the selected subject."
+                      : "Learners counted by their overall AL (one per learner)."
+                  }
+                />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {levels.length === 0 && (
+                <div className="text-center text-muted-foreground text-sm py-4">
+                  No AL data.
+                </div>
+              )}
+              {levels.map((l: any) => {
+                const pct = (Number(l.n) / levelTotal) * 100;
+                return (
+                  <div key={l.code} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <Badge variant="outline">{l.code}</Badge>
+                      <span className="tabular-nums text-muted-foreground">
+                        {l.n} learner{Number(l.n) !== 1 ? "s" : ""} (
+                        {pct.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                Subject means
+                <InfoHint text="Average % score per subject across all learners in the filter." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -442,7 +671,7 @@ export default function Analytics() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subjectsData.map((s: any) => (
+                  {subjPageData.map((s: any) => (
                     <TableRow key={s.subject_id}>
                       <TableCell className="font-medium">
                         {s.subject_name}
@@ -471,6 +700,12 @@ export default function Analytics() {
                   )}
                 </TableBody>
               </Table>
+              <Pager
+                page={subjPage}
+                pages={subjPages}
+                onChange={setSubjPage}
+                total={subjectsData.length}
+              />
             </CardContent>
           </Card>
         </div>
@@ -478,13 +713,16 @@ export default function Analytics() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Leaderboard</CardTitle>
+              <CardTitle className="flex items-center">
+                Leaderboard
+                <InfoHint text="All learners ranked by overall mean %. Rank is global across the filtered set. Missing marks count as 0." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10">#</TableHead>
+                    <TableHead className="w-14">Rank</TableHead>
                     <TableHead>Student</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead className="text-right">Mean %</TableHead>
@@ -493,10 +731,10 @@ export default function Analytics() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leaderboard.map((r: any, i: number) => (
+                  {lbPageData.map((r: any) => (
                     <TableRow key={r.student_id}>
                       <TableCell>
-                        <Badge>{i + 1}</Badge>
+                        <Badge>{r._rank}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="font-medium">
@@ -545,6 +783,12 @@ export default function Analytics() {
                   )}
                 </TableBody>
               </Table>
+              <Pager
+                page={lbPage}
+                pages={lbPages}
+                onChange={setLbPage}
+                total={leaderboard.length}
+              />
             </CardContent>
           </Card>
 

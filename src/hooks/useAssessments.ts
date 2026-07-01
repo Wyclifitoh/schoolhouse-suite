@@ -932,7 +932,7 @@ export function useAssessmentAnalytics(
             `/assessments/${assessmentId}/analytics/levels${suffix}`,
           ),
           api.get<any>(
-            `/assessments/${assessmentId}/analytics/leaderboard?limit=25${qs ? `&${qs}` : ""}`,
+            `/assessments/${assessmentId}/analytics/leaderboard?limit=500${qs ? `&${qs}` : ""}`,
           ),
           api.get<any>(
             `/assessments/${assessmentId}/analytics/grades${suffix}`,
