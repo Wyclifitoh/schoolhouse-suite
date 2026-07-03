@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermission";
 import SubjectPapersDialog from "@/components/academics/SubjectPapersDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CATEGORIES = [
   "Core",
@@ -50,11 +51,14 @@ const CATEGORIES = [
 ];
 
 const Subjects = () => {
-  const perms = usePermissions([
+  const { primaryRole } = useAuth();
+  const rawPerms = usePermissions([
     "classes:create",
     "classes:update",
     "classes:delete",
   ]);
+  const isTeacher = primaryRole === "teacher";
+  const perms = isTeacher ? { "classes:create": false, "classes:update": false, "classes:delete": false } : rawPerms;
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
@@ -162,6 +166,8 @@ const Subjects = () => {
               No subjects found.
             </p>
           ) : (
+            <>
+            <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -232,6 +238,71 @@ const Subjects = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
+
+            {/* Mobile View Subjects */}
+            <div className="md:hidden flex flex-col gap-3 p-4">
+              {filtered.map((s) => (
+                <Card key={s.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col gap-1">
+                      <div className="font-medium text-lg flex items-center gap-2">
+                        {s.name}
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {s.code}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2 mt-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {s.category || "Core"}
+                        </Badge>
+                        <Badge
+                          variant={
+                            (s.status || "active") === "active"
+                              ? "default"
+                              : "outline"
+                          }
+                          className="text-xs"
+                        >
+                          {s.status || "active"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-1 mt-2 border-t pt-2">
+                    {perms["classes:update"] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(s)}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {perms["classes:update"] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="8-4-4 paper structure"
+                        onClick={() => setPapersFor(s)}
+                      >
+                        <Layers className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {perms["classes:delete"] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(s.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

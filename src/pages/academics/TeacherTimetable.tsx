@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,22 @@ import { useTeachers } from "@/hooks/useClasses";
 import { useEntries, usePeriods } from "@/hooks/useTimetable";
 import { Clock, Download, AlertCircle } from "lucide-react";
 import { useSeo } from "@/hooks/useSeo";
+import { useAuth } from "@/contexts/AuthContext";
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 const TeacherTimetable = () => {
   useSeo("Teacher Timetable", "Individual teacher weekly schedule view.");
+  
+  const { primaryRole, profile } = useAuth();
+  const isTeacher = primaryRole === "teacher";
   const [selectedTeacher, setSelectedTeacher] = useState("");
+
+  useEffect(() => {
+    if (isTeacher && profile?.teacher_id) {
+      setSelectedTeacher(profile.teacher_id);
+    }
+  }, [isTeacher, profile?.teacher_id]);
 
   const { data: teachers = [] } = useTeachers();
   const { data: periods = [] } = usePeriods();
@@ -90,22 +100,24 @@ const TeacherTimetable = () => {
                 <Clock className="h-4 w-4 text-primary" /> Teacher Schedule
               </CardTitle>
               <div className="flex items-center gap-2">
-                <Select
-                  value={selectedTeacher}
-                  onValueChange={setSelectedTeacher}
-                >
-                  <SelectTrigger className="w-64 h-9">
-                    <SelectValue placeholder="Select Teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers.map((t) => (
-                      <SelectItem key={t.teacher_id} value={t.teacher_id}>
-                        {t.first_name} {t.last_name}
-                        {t.specialization ? ` · ${t.specialization}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {!isTeacher && (
+                  <Select
+                    value={selectedTeacher}
+                    onValueChange={setSelectedTeacher}
+                  >
+                    <SelectTrigger className="w-64 h-9">
+                      <SelectValue placeholder="Select Teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers.map((t) => (
+                        <SelectItem key={t.teacher_id} value={t.teacher_id}>
+                          {t.first_name} {t.last_name}
+                          {t.specialization ? ` · ${t.specialization}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <PermissionGate permission="reports:export">
                   <Button size="sm" variant="outline">
                     <Download className="h-4 w-4 mr-1.5" />
