@@ -124,7 +124,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminLayout({ children }: { children: ReactNode }) {
+export function AdminLayout({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-muted/50 via-background to-muted/30">

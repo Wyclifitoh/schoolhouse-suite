@@ -328,6 +328,7 @@ export interface Assessment {
   start_date: string | null;
   end_date: string | null;
   status: AssessmentStatus;
+  created_at?: string;
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
