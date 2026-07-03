@@ -58,6 +58,16 @@ import {
   Eye,
 } from "lucide-react";
 
+import { useAuth } from "@/contexts/AuthContext";
+
+const APPROVER_ROLES = [
+  "super_admin",
+  "admin",
+  "school_admin",
+  "deputy_admin",
+  "manager",
+];
+
 export default function ReportCardsV2() {
   const { data: templates = [] } = useRcTemplates();
   const { data: runs = [] } = useRcRuns();
@@ -71,6 +81,9 @@ export default function ReportCardsV2() {
   const downloadPdf = useDownloadRunCombinedPdf();
   const deleteRun = useDeleteReportCardRun();
   const [viewRunId, setViewRunId] = useState<string | null>(null);
+
+  const { hasAnyRole } = useAuth();
+  const canApprove = hasAnyRole(APPROVER_ROLES as any);
 
   const [tplName, setTplName] = useState("");
   const [tplKind, setTplKind] = useState<"CBC" | "844" | "HYBRID">("CBC");
@@ -96,7 +109,8 @@ export default function ReportCardsV2() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Templates */}
-          <Card>
+          {canApprove && (
+            <Card>
             <CardHeader>
               <CardTitle>Templates</CardTitle>
             </CardHeader>
@@ -213,9 +227,11 @@ export default function ReportCardsV2() {
               </Table>
             </CardContent>
           </Card>
+          )}
 
           {/* Generate run */}
-          <Card>
+          {canApprove && (
+            <Card>
             <CardHeader>
               <CardTitle>Generate batch</CardTitle>
             </CardHeader>
@@ -288,6 +304,7 @@ export default function ReportCardsV2() {
               </p>
             </CardContent>
           </Card>
+          )}
         </div>
 
         <Card>
@@ -354,7 +371,7 @@ export default function ReportCardsV2() {
                         >
                           <FileText className="h-4 w-4 mr-1" /> PDF
                         </Button>
-                        {r.status !== "published" && (
+                        {r.status !== "published" && canApprove && (
                           <Button
                             size="sm"
                             disabled={publish.isPending}
@@ -363,11 +380,12 @@ export default function ReportCardsV2() {
                             <Send className="h-4 w-4 mr-1" /> Publish
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={deleteRun.isPending}
-                          onClick={() => {
+                        {canApprove && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={deleteRun.isPending}
+                            onClick={() => {
                             if (
                               confirm(
                                 "Delete this run and all its generated report cards?",
@@ -379,6 +397,7 @@ export default function ReportCardsV2() {
                         >
                           <Trash2 className="h-4 w-4 text-rose-500" />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
