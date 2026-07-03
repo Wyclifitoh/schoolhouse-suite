@@ -29,7 +29,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useGrades } from "@/hooks/useGrades";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGrades, useStreams } from "@/hooks/useGrades";
 import {
   useStudentAttendance,
   useSaveAttendance,
@@ -54,8 +55,6 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
 import { usePermission } from "@/hooks/usePermission";
-import { useStreams } from "@/hooks/useClasses";
-import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 
@@ -88,23 +87,22 @@ const STATUS_META: Record<
 type StatusMap = Record<string, { status: AttendanceStatus; remarks?: string }>;
 
 const Attendance = () => {
-  const canUpdate = usePermission("attendance:update");
-  const canCreate = usePermission("attendance:create");
-  const { user, hasAnyRole } = useAuth();
-  const isTeacher = hasAnyRole(["teacher"]);
-  const canEditAttendance = canUpdate || canCreate;
+  const { user, profile, primaryRole } = useAuth();
+  const canEditAttendance = usePermission("attendance:update");
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const { data: streams = [] } = useStreams(
     gradeFilter !== "all" ? gradeFilter : undefined,
   );
+  
+  const isTeacher = primaryRole === "teacher";
   // Class-teacher scoping: when a teacher opens a grade they don't own,
   // show them an informational banner and disable editing.
   const isNotMyClass =
     isTeacher &&
     gradeFilter !== "all" &&
     streams.length > 0 &&
-    !streams.some((s) => s.class_teacher_id && s.class_teacher_id === user?.id);
+    !streams.some((s) => s.class_teacher_id && s.class_teacher_id === profile?.teacher_id);
   const classTeacherName = (() => {
     const s = streams.find((x) => x.class_teacher_id);
     return s ? "the assigned class teacher" : "no class teacher yet";
@@ -148,6 +146,13 @@ const Attendance = () => {
       remarks: s.remarks ?? "",
     };
 
+  const isAllowedToEdit = (s: StudentAttendanceRow) => {
+    if (!canEditAttendance) return false;
+    if (primaryRole !== "teacher") return true; // Admins can edit all
+    const stream = streams.find((str: any) => str.id === s.stream_id);
+    return stream?.class_teacher_id === profile?.teacher_id;
+  };
+
   const filtered = useMemo(
     () =>
       serverRecords.filter((r) => {
@@ -182,11 +187,14 @@ const Attendance = () => {
 
   const markAll = (status: AttendanceStatus) => {
     const next: StatusMap = {};
-    for (const r of filtered)
-      next[r.student_id] = {
-        status,
-        remarks: overrides[r.student_id]?.remarks,
-      };
+    for (const r of filtered) {
+      if (isAllowedToEdit(r)) {
+        next[r.student_id] = {
+          status,
+          remarks: overrides[r.student_id]?.remarks,
+        };
+      }
+    }
     setOverrides((prev) => ({ ...prev, ...next }));
   };
 
@@ -199,15 +207,23 @@ const Attendance = () => {
       toast.error("No students loaded for this date/grade.");
       return;
     }
-    // Persist EVERY student so the day is fully captured (default-present model)
-    const records = serverRecords.map((s) => {
-      const eff = effective(s);
-      return {
-        student_id: s.student_id,
-        status: eff.status,
-        remarks: eff.remarks?.trim() || undefined,
-      };
-    });
+    // Persist only students the user is allowed to edit
+    const records = serverRecords
+      .filter((s) => isAllowedToEdit(s))
+      .map((s) => {
+        const eff = effective(s);
+        return {
+          student_id: s.student_id,
+          status: eff.status,
+          remarks: eff.remarks?.trim() || undefined,
+        };
+      });
+
+    if (records.length === 0) {
+      toast.error("No students found that you are authorized to edit.");
+      return;
+    }
+
     saveAttendance(
       { date: selectedDate, records },
       {
@@ -605,7 +621,7 @@ const Attendance = () => {
                                 ).map((st) => (
                                   <button
                                     key={st}
-                                    disabled={editingBlocked}
+                                    disabled={!isAllowedToEdit(s)}
                                     onClick={() => setStatus(s.student_id, st)}
                                     className={`h-7 px-2 rounded-md text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                                       eff.status === st
@@ -627,6 +643,7 @@ const Attendance = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
+                                disabled={!isAllowedToEdit(s)}
                                 onClick={() => {
                                   setRemarkOpen(s.student_id);
                                   setRemarkDraft(eff.remarks || "");

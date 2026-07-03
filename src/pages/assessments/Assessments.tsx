@@ -119,7 +119,7 @@ function NewAssessmentDialog() {
             <Plus className="h-4 w-4 mr-1" /> New Assessment
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Assessment</DialogTitle>
           </DialogHeader>
@@ -220,7 +220,7 @@ function NewAssessmentDialog() {
             </div>
             <div>
               <Label>Classes *</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto p-2 rounded border">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto p-2 rounded border mobile-grid-keep">
                 {(grades as any[]).map((g) => {
                   const checked = form.grade_ids.includes(g.id);
                   return (
