@@ -9,6 +9,7 @@ import { PlatformAuthProvider } from "@/contexts/PlatformAuthContext";
 import { SchoolProvider } from "@/contexts/SchoolContext";
 import { TermProvider } from "@/contexts/TermContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PermissionGate } from "@/components/PermissionGate";
 import { PortalProtectedRoute } from "@/components/PortalProtectedRoute";
 import { PlatformProtectedRoute } from "@/components/admin/PlatformProtectedRoute";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -108,6 +109,7 @@ import AssessmentReportCards from "./pages/assessments/ReportCards";
 import AssessmentReportCardTemplates from "./pages/assessments/ReportCardTemplates";
 import AssessmentAnalytics from "./pages/assessments/Analytics";
 import AssessmentRemarkBands from "./pages/assessments/RemarkBands";
+import SummativeReports from "./pages/assessments/SummativeReports";
 import Events from "./pages/Events";
 
 // Academic Module
@@ -503,6 +505,14 @@ const App = () => (
                         >
                           <AssessmentReportCards />
                         </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/assessments/summative"
+                      element={
+                        <PermissionGate permission="reports:export">
+                          <SummativeReports />
+                        </PermissionGate>
                       }
                     />
                     <Route
