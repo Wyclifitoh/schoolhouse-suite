@@ -84,6 +84,8 @@ import { api } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import PurchaseOrders from "@/components/inventory/PurchaseOrders";
 import { useStudents } from "@/hooks/useStudents";
+import MakeOrderDialog from "@/components/inventory/MakeOrderDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const statusConfig = {
   in_stock: {
@@ -225,6 +227,8 @@ export const ProductCatalog = () => {
   const PAGE_SIZE = 20;
   const [editing, setEditing] = useState<any | null>(null);
   const [deleting, setDeleting] = useState<any | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [orderOpen, setOrderOpen] = useState(false);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["inventory-items", schoolId],
@@ -299,124 +303,140 @@ export const ProductCatalog = () => {
             Product Catalog ({items.length})
           </CardTitle>
 
-          {perms["inventory:create"] && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" className="rounded-lg">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Add Product
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>New Product</DialogTitle>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label>Name</Label>
-                      <Input
-                        value={productForm.name}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            name: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label>Category</Label>
-
-                      <Select
-                        onValueChange={(v) =>
-                          setProductForm({ ...productForm, category_id: v })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          {categories.map((c: any) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <Label>Cost</Label>
-                      <Input
-                        type="number"
-                        value={productForm.cost_price}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            cost_price: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label>Selling</Label>
-                      <Input
-                        type="number"
-                        value={productForm.selling_price}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            selling_price: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label>Stock</Label>
-                      <Input
-                        type="number"
-                        value={productForm.quantity_in_stock}
-                        onChange={(e) =>
-                          setProductForm({
-                            ...productForm,
-                            quantity_in_stock: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>SKU</Label>
-                    <Input
-                      value={productForm.sku}
-                      onChange={(e) =>
-                        setProductForm({ ...productForm, sku: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    onClick={() => addProductMutation.mutate()}
-                    className="w-full"
-                  >
-                    Save Product
+          <div className="flex items-center gap-2">
+            {perms["inventory:create"] && selected.size > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => setOrderOpen(true)}
+              >
+                <ShoppingCart className="h-4 w-4 mr-1.5" />
+                Make Order ({selected.size})
+              </Button>
+            )}
+            {perms["inventory:create"] && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="rounded-lg">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Product
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+                </DialogTrigger>
+
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>New Product</DialogTitle>
+                  </DialogHeader>
+
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>Name</Label>
+                        <Input
+                          value={productForm.name}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              name: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label>Category</Label>
+
+                        <Select
+                          onValueChange={(v) =>
+                            setProductForm({ ...productForm, category_id: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {categories.map((c: any) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label>Cost</Label>
+                        <Input
+                          type="number"
+                          value={productForm.cost_price}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              cost_price: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label>Selling</Label>
+                        <Input
+                          type="number"
+                          value={productForm.selling_price}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              selling_price: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label>Stock</Label>
+                        <Input
+                          type="number"
+                          value={productForm.quantity_in_stock}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              quantity_in_stock: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>SKU</Label>
+                      <Input
+                        value={productForm.sku}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            sku: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      onClick={() => addProductMutation.mutate()}
+                      className="w-full"
+                    >
+                      Save Product
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -454,6 +474,22 @@ export const ProductCatalog = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                <TableHead className="w-8">
+                  <Checkbox
+                    checked={
+                      pageItems.length > 0 &&
+                      pageItems.every((i) => selected.has(i.id))
+                    }
+                    onCheckedChange={(v) => {
+                      setSelected((s) => {
+                        const next = new Set(s);
+                        if (v) pageItems.forEach((i) => next.add(i.id));
+                        else pageItems.forEach((i) => next.delete(i.id));
+                        return next;
+                      });
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="font-semibold">Product</TableHead>
 
                 <TableHead className="font-semibold">Category</TableHead>
@@ -489,6 +525,19 @@ export const ProductCatalog = () => {
 
                 return (
                   <TableRow key={item.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(item.id)}
+                        onCheckedChange={(v) =>
+                          setSelected((s) => {
+                            const next = new Set(s);
+                            if (v) next.add(item.id);
+                            else next.delete(item.id);
+                            return next;
+                          })
+                        }
+                      />
+                    </TableCell>
                     <TableCell>
                       <p className="font-medium">{item.name}</p>
                       <p className="text-xs font-mono">{item.sku}</p>
@@ -555,7 +604,7 @@ export const ProductCatalog = () => {
               {!pageItems.length && (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="text-center text-muted-foreground py-8"
                   >
                     {isLoading ? "Loading..." : "No products found"}
@@ -755,6 +804,13 @@ export const ProductCatalog = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <MakeOrderDialog
+          open={orderOpen}
+          onOpenChange={setOrderOpen}
+          products={items.filter((i) => selected.has(i.id))}
+          onDone={() => setSelected(new Set())}
+        />
       </CardContent>
     </Card>
   );
