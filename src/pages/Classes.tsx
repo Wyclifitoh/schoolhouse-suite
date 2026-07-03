@@ -539,7 +539,8 @@ const Classes = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </Table>
+                  </TableBody>
+                </Table>
                   </div>
                   
                   {/* Mobile View Streams */}
