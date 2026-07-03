@@ -272,7 +272,7 @@ const navigationGroups: NavGroup[] = [
         title: "Class Timetable",
         url: "/class-timetable",
         icon: TableProperties,
-        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        roles: ADMIN_ROLES,
         permissions: ["classes:read"],
       },
       {
