@@ -440,23 +440,25 @@ export default function Results() {
                 </SelectContent>
               </Select>
             </div>
-            <PermissionGate permission="exams:update">
-              <Button
-                variant="outline"
-                disabled={!assessmentId || compute.isPending}
-                onClick={() => compute.mutate(assessmentId)}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                {compute.isPending ? "Computing…" : "Compute"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={!assessmentId || positions.isPending}
-                onClick={() => positions.mutate(assessmentId)}
-              >
-                <Trophy className="h-4 w-4 mr-1" /> Rank
-              </Button>
-            </PermissionGate>
+            {canApprove && (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || compute.isPending}
+                  onClick={() => compute.mutate(assessmentId)}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  {compute.isPending ? "Computing…" : "Compute"}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || positions.isPending}
+                  onClick={() => positions.mutate(assessmentId)}
+                >
+                  <Trophy className="h-4 w-4 mr-1" /> Rank
+                </Button>
+              </>
+            )}
             <PermissionGate permission="reports:export">
               <Button
                 variant="outline"
