@@ -60,6 +60,7 @@ import {
   ListChecks,
   Sparkles,
   Activity,
+  LayoutGrid,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -272,7 +273,7 @@ const navigationGroups: NavGroup[] = [
         title: "Class Timetable",
         url: "/class-timetable",
         icon: TableProperties,
-        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        roles: ADMIN_ROLES,
         permissions: ["classes:read"],
       },
       {
@@ -336,6 +337,13 @@ const navigationGroups: NavGroup[] = [
         title: "Report Cards",
         url: "/assessments/report-cards",
         icon: FileBadge,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:publish", "exams:read"],
+      },
+      {
+        title: "Summative Reports",
+        url: "/assessments/summative",
+        icon: LayoutGrid,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
         permissions: ["exams:publish", "exams:read"],
       },
