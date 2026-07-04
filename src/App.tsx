@@ -199,7 +199,6 @@ const App = () => (
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/unauthorized" element={<Unauthorized />} />
 
-                    {/* Portal routes (parent/student) */}
                     <Route
                       path="/portal/parent"
                       element={
