@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
@@ -124,7 +124,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminLayout({ children }: { children: ReactNode }) {
+export function AdminLayout({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-muted/50 via-background to-muted/30">
@@ -165,7 +165,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </Sheet>
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto">{children || <Outlet />}</main>
       </div>
     </div>
   );

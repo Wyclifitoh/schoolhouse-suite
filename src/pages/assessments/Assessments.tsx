@@ -58,6 +58,7 @@ import {
   type AssessmentStatus,
 } from "@/hooks/useAssessments";
 import { useGrades } from "@/hooks/useGrades";
+import { useAuth } from "@/contexts/AuthContext";
 
 const STATUS_STYLES: Record<AssessmentStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -119,7 +120,7 @@ function NewAssessmentDialog() {
             <Plus className="h-4 w-4 mr-1" /> New Assessment
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Assessment</DialogTitle>
           </DialogHeader>
@@ -220,7 +221,7 @@ function NewAssessmentDialog() {
             </div>
             <div>
               <Label>Classes *</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto p-2 rounded border">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto p-2 rounded border mobile-grid-keep">
                 {(grades as any[]).map((g) => {
                   const checked = form.grade_ids.includes(g.id);
                   return (
@@ -267,6 +268,8 @@ function NewAssessmentDialog() {
 }
 
 export default function Assessments() {
+  const { primaryRole } = useAuth();
+  const isTeacher = primaryRole === "teacher";
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("");
   const { data: list = [], isLoading } = useAssessmentsList({
@@ -305,17 +308,19 @@ export default function Assessments() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Link to="/assessments/settings">
-              <Button variant="outline">
-                <Settings className="h-4 w-4 mr-1" /> Settings
-              </Button>
-            </Link>
+            {!isTeacher && (
+              <Link to="/assessments/settings">
+                <Button variant="outline">
+                  <Settings className="h-4 w-4 mr-1" /> Settings
+                </Button>
+              </Link>
+            )}
             <Link to="/assessments/tasks">
               <Button variant="outline">
                 <FileText className="h-4 w-4 mr-1" /> My Tasks
               </Button>
             </Link>
-            <NewAssessmentDialog />
+            {!isTeacher && <NewAssessmentDialog />}
           </div>
         </div>
 
@@ -372,8 +377,8 @@ export default function Assessments() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="p-0 sm:p-6">
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -552,6 +557,168 @@ export default function Assessments() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+            
+            {/* Mobile View */}
+            <div className="md:hidden flex flex-col gap-3 p-4">
+              {isLoading &&
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="p-4 flex flex-col gap-3">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-full" />
+                  </Card>
+                ))}
+              {!isLoading && (list as any[]).length === 0 && (
+                <div className="text-center text-muted-foreground py-8 border rounded-lg">
+                  No assessments yet. {isTeacher ? "" : "Click New Assessment to create one."}
+                </div>
+              )}
+              {!isLoading &&
+                (list as any[]).map((a) => {
+                  const pct = a.task_count
+                    ? Math.round((a.task_done / a.task_count) * 100)
+                    : 0;
+                  return (
+                    <Card key={a.id} className="p-4 flex flex-col gap-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <Link
+                            to={`/assessments/${a.id}`}
+                            className="font-medium hover:underline text-lg"
+                          >
+                            {a.name}
+                          </Link>
+                          {a.description && (
+                            <div className="text-sm text-muted-foreground line-clamp-1 mt-1">
+                              {a.description}
+                            </div>
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={STATUS_STYLES[a.status as AssessmentStatus]}
+                        >
+                          {a.status.replace("_", " ")}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                        <div>
+                          <span className="block text-xs uppercase opacity-70">Type</span>
+                          {a.type_name ? (
+                            <span className="font-medium text-foreground">{a.type_code} · {a.type_weight}%</span>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="block text-xs uppercase opacity-70">Window</span>
+                          <span className="font-medium text-foreground">{a.start_date || "—"} → {a.end_date || "—"}</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs uppercase opacity-70">Scope</span>
+                          <span className="font-medium text-foreground">{a.class_count} classes, {a.subject_count} subj</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs uppercase opacity-70">Tasks</span>
+                          <span className="font-medium text-foreground">{a.task_done}/{a.task_count} done</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 mt-1">
+                        <div className="flex justify-between text-xs">
+                          <span>Progress</span>
+                          <span className="font-medium">{pct}%</span>
+                        </div>
+                        <Progress value={pct} className="h-2" />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-2 border-t mt-1">
+                        <PermissionGate permission="exams:publish">
+                          {a.status === "draft" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => publish.mutate(a.id)}
+                            >
+                              <PlayCircle className="h-4 w-4 mr-1" /> Publish
+                            </Button>
+                          )}
+                          {(a.status === "published" || a.status === "in_progress") && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setStatusM.mutate({
+                                  id: a.id,
+                                  status: "locked",
+                                })
+                              }
+                            >
+                              <Lock className="h-4 w-4 mr-1" /> Lock
+                            </Button>
+                          )}
+                          {a.status === "locked" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setStatusM.mutate({
+                                    id: a.id,
+                                    status: "published",
+                                  })
+                                }
+                              >
+                                <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setStatusM.mutate({
+                                    id: a.id,
+                                    status: "archived",
+                                  })
+                                }
+                              >
+                                <Archive className="h-4 w-4 mr-1" /> Archive
+                              </Button>
+                            </>
+                          )}
+                          {a.status === "archived" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setStatusM.mutate({
+                                  id: a.id,
+                                  status: "draft",
+                                })
+                              }
+                            >
+                              <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
+                            </Button>
+                          )}
+                        </PermissionGate>
+                        <PermissionGate permission="exams:delete">
+                          {a.status === "draft" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm("Delete this assessment?")) remove.mutate(a.id);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </PermissionGate>
+                      </div>
+                    </Card>
+                  );
+                })}
             </div>
           </CardContent>
         </Card>

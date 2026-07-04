@@ -29,7 +29,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useGrades } from "@/hooks/useGrades";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGrades, useStreams } from "@/hooks/useGrades";
 import {
   useStudentAttendance,
   useSaveAttendance,
@@ -54,6 +55,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
 import { usePermission } from "@/hooks/usePermission";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 const STATUS_META: Record<
   AttendanceStatus,
@@ -84,9 +87,27 @@ const STATUS_META: Record<
 type StatusMap = Record<string, { status: AttendanceStatus; remarks?: string }>;
 
 const Attendance = () => {
+  const { user, profile, primaryRole } = useAuth();
   const canEditAttendance = usePermission("attendance:update");
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
+  const { data: streams = [] } = useStreams(
+    gradeFilter !== "all" ? gradeFilter : undefined,
+  );
+  
+  const isTeacher = primaryRole === "teacher";
+  // Class-teacher scoping: when a teacher opens a grade they don't own,
+  // show them an informational banner and disable editing.
+  const isNotMyClass =
+    isTeacher &&
+    gradeFilter !== "all" &&
+    streams.length > 0 &&
+    !streams.some((s) => s.class_teacher_id && s.class_teacher_id === profile?.teacher_id);
+  const classTeacherName = (() => {
+    const s = streams.find((x) => x.class_teacher_id);
+    return s ? "the assigned class teacher" : "no class teacher yet";
+  })();
+  const editingBlocked = !canEditAttendance || (isTeacher && isNotMyClass);
   const [selectedDate, setSelectedDate] = useState(
     format(new Date(), "yyyy-MM-dd"),
   );
@@ -125,6 +146,13 @@ const Attendance = () => {
       remarks: s.remarks ?? "",
     };
 
+  const isAllowedToEdit = (s: StudentAttendanceRow) => {
+    if (!canEditAttendance) return false;
+    if (primaryRole !== "teacher") return true; // Admins can edit all
+    const stream = streams.find((str: any) => str.id === s.stream_id);
+    return stream?.class_teacher_id === profile?.teacher_id;
+  };
+
   const filtered = useMemo(
     () =>
       serverRecords.filter((r) => {
@@ -159,11 +187,14 @@ const Attendance = () => {
 
   const markAll = (status: AttendanceStatus) => {
     const next: StatusMap = {};
-    for (const r of filtered)
-      next[r.student_id] = {
-        status,
-        remarks: overrides[r.student_id]?.remarks,
-      };
+    for (const r of filtered) {
+      if (isAllowedToEdit(r)) {
+        next[r.student_id] = {
+          status,
+          remarks: overrides[r.student_id]?.remarks,
+        };
+      }
+    }
     setOverrides((prev) => ({ ...prev, ...next }));
   };
 
@@ -176,15 +207,23 @@ const Attendance = () => {
       toast.error("No students loaded for this date/grade.");
       return;
     }
-    // Persist EVERY student so the day is fully captured (default-present model)
-    const records = serverRecords.map((s) => {
-      const eff = effective(s);
-      return {
-        student_id: s.student_id,
-        status: eff.status,
-        remarks: eff.remarks?.trim() || undefined,
-      };
-    });
+    // Persist only students the user is allowed to edit
+    const records = serverRecords
+      .filter((s) => isAllowedToEdit(s))
+      .map((s) => {
+        const eff = effective(s);
+        return {
+          student_id: s.student_id,
+          status: eff.status,
+          remarks: eff.remarks?.trim() || undefined,
+        };
+      });
+
+    if (records.length === 0) {
+      toast.error("No students found that you are authorized to edit.");
+      return;
+    }
+
     saveAttendance(
       { date: selectedDate, records },
       {
@@ -249,7 +288,7 @@ const Attendance = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="daily" className="space-y-4">
+        <TabsContent value="daily" className="space-y-4 pb-24 sm:pb-0">
           {/* Stat cards */}
           <div className="grid gap-3 sm:grid-cols-4">
             {[
@@ -300,8 +339,8 @@ const Attendance = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                   <CardTitle className="text-base font-semibold">
                     Register
                   </CardTitle>
@@ -320,65 +359,80 @@ const Attendance = () => {
                       <Download className="h-4 w-4 mr-1.5" /> Export CSV
                     </Button>
                   </PermissionGate>
-                  <PermissionGate permission="attendance:update">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={resetOverrides}
-                      disabled={dirtyCount === 0}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-1.5" /> Reset
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      disabled={isSaving || isLoading}
-                    >
-                      <Save className="h-4 w-4 mr-1.5" />{" "}
-                      {isSaving ? "Saving…" : "Save Day"}
-                    </Button>
-                  </PermissionGate>
+                  {canEditAttendance && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={resetOverrides}
+                        disabled={dirtyCount === 0}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1.5" /> Reset
+                      </Button>
+                      {/* Desktop save button — hidden on mobile (shown in sticky bar) */}
+                      <Button
+                        size="sm"
+                        className="hidden sm:inline-flex"
+                        onClick={handleSave}
+                        disabled={isSaving || isLoading || editingBlocked}
+                      >
+                        <Save className="h-4 w-4 mr-1.5" />{" "}
+                        {isSaving ? "Saving…" : "Save Day"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </CardHeader>
             <CardContent>
+              {isTeacher && isNotMyClass && (
+                <Alert className="mb-4">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    You are not the class teacher for this class. Only{" "}
+                    {classTeacherName} can mark attendance here.
+                  </AlertDescription>
+                </Alert>
+              )}
               {/* Filter bar */}
-              <div className="flex flex-wrap items-center gap-2 mb-4">
-                <div className="relative flex-1 min-w-[200px]">
+              <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="relative flex-1 min-w-0 sm:min-w-[180px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search name or admission no…"
-                    className="pl-9 h-9"
+                    className="pl-9 h-9 w-full"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <Input
-                  type="date"
-                  className="w-44 h-9"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-                <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                  <SelectTrigger className="w-44 h-9">
-                    <SelectValue placeholder="Grade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All grades</SelectItem>
-                    {grades.map((g: any) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="ml-auto flex items-center gap-1 text-xs">
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    className="flex-1 h-9 sm:w-44 sm:flex-none"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                  <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                    <SelectTrigger className="flex-1 h-9 sm:w-44 sm:flex-none">
+                      <SelectValue placeholder="Grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All grades</SelectItem>
+                      {grades.map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-1 text-xs sm:ml-auto">
                   <span className="text-muted-foreground mr-1">Bulk:</span>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-7 text-xs"
-                    disabled={!canEditAttendance}
+                    disabled={editingBlocked}
                     onClick={() => markAll("present")}
                   >
                     All present
@@ -387,7 +441,7 @@ const Attendance = () => {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-xs"
-                    disabled={!canEditAttendance}
+                    disabled={editingBlocked}
                     onClick={() => markAll("absent")}
                   >
                     All absent
@@ -395,8 +449,100 @@ const Attendance = () => {
                 </div>
               </div>
 
-              {/* Table */}
-              <div className="rounded-md border overflow-hidden">
+              {/* Mobile card list — shown below md */}
+              <div className="md:hidden space-y-3">
+                {isLoading ? (
+                  [1, 2, 3].map((i) => (
+                    <div key={i} className="rounded-lg border p-3">
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ))
+                ) : filtered.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-muted-foreground">
+                    No active students for this filter.
+                  </div>
+                ) : (
+                  filtered.map((s) => {
+                    const eff = effective(s);
+                    const meta = STATUS_META[eff.status];
+                    return (
+                      <div
+                        key={s.student_id}
+                        className="rounded-lg border p-3 space-y-3 bg-card"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                            {s.student_name
+                              ?.split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .substring(0, 2)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {s.student_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {s.admission_number}
+                              {s.grade_name ? ` · ${s.grade_name}` : ""}
+                              {s.stream_name ? ` ${s.stream_name}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${meta.dot}`}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setRemarkOpen(s.student_id);
+                                setRemarkDraft(eff.remarks || "");
+                              }}
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Status buttons — full-width grid, big tap targets */}
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {(
+                            [
+                              "present",
+                              "absent",
+                              "late",
+                              "excused",
+                            ] as AttendanceStatus[]
+                          ).map((st) => (
+                            <button
+                              key={st}
+                              disabled={editingBlocked}
+                              onClick={() => setStatus(s.student_id, st)}
+                              className={`py-3 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                eff.status === st
+                                  ? STATUS_META[st].chip +
+                                    " ring-2 ring-current"
+                                  : "text-muted-foreground bg-muted/50 hover:bg-muted active:bg-muted"
+                              }`}
+                            >
+                              {STATUS_META[st].label}
+                            </button>
+                          ))}
+                        </div>
+                        {eff.remarks && (
+                          <p className="text-[11px] text-muted-foreground italic px-1">
+                            “{eff.remarks}”
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Desktop table — hidden below md */}
+              <div className="hidden md:block rounded-md border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -475,7 +621,7 @@ const Attendance = () => {
                                 ).map((st) => (
                                   <button
                                     key={st}
-                                    disabled={!canEditAttendance}
+                                    disabled={!isAllowedToEdit(s)}
                                     onClick={() => setStatus(s.student_id, st)}
                                     className={`h-7 px-2 rounded-md text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                                       eff.status === st
@@ -497,6 +643,7 @@ const Attendance = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
+                                disabled={!isAllowedToEdit(s)}
                                 onClick={() => {
                                   setRemarkOpen(s.student_id);
                                   setRemarkDraft(eff.remarks || "");
@@ -514,8 +661,8 @@ const Attendance = () => {
                 </Table>
               </div>
 
-              <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-                <span>
+              <div className="flex flex-wrap items-center justify-between mt-3 gap-2 text-xs text-muted-foreground">
+                <span className="hidden sm:block">
                   Tip: everyone is Present by default — only flip the ones who
                   aren't.
                 </span>
@@ -540,6 +687,39 @@ const Attendance = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Sticky mobile Save button — fixed bottom bar, visible only on small screens */}
+        <PermissionGate permission="attendance:update">
+          <div className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-background/95 backdrop-blur border-t p-3 flex gap-2">
+            <div className="flex-1 text-xs text-muted-foreground flex items-center gap-1">
+              {dirtyCount > 0 ? (
+                <span className="font-medium text-warning">
+                  {dirtyCount} pending
+                </span>
+              ) : (
+                <span>{format(new Date(selectedDate), "EEE, dd MMM")}</span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={resetOverrides}
+              disabled={dirtyCount === 0}
+              className="h-9"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              className="h-9 px-6"
+              onClick={handleSave}
+              disabled={isSaving || isLoading}
+            >
+              <Save className="h-4 w-4 mr-1.5" />
+              {isSaving ? "Saving…" : "Save Day"}
+            </Button>
+          </div>
+        </PermissionGate>
 
         <TabsContent value="summary" className="space-y-4">
           <Card>

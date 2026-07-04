@@ -36,6 +36,7 @@ import {
   Area,
 } from "recharts";
 import { format } from "date-fns";
+import { ClockInOutCard } from "@/components/staff/ClockInOutCard";
 
 const CHART_COLORS = [
   "hsl(221, 83%, 53%)",
@@ -157,6 +158,9 @@ const AdminDashboard = () => {
 
   return (
     <>
+      <div className="mb-4">
+        <ClockInOutCard />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <StatCard
           title="Total Students"
@@ -517,38 +521,131 @@ const AccountantDashboard = () => {
 };
 
 // ============== TEACHER ==============
-const TeacherDashboard = () => (
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-    <StatCard
-      title="My Classes"
-      value="—"
-      icon={BookOpen}
-      color="text-primary"
-      bg="bg-primary/10"
-    />
-    <StatCard
-      title="My Students"
-      value="—"
-      icon={Users}
-      color="text-info"
-      bg="bg-info/10"
-    />
-    <StatCard
-      title="Today's Attendance"
-      value="—"
-      icon={CalendarCheck}
-      color="text-success"
-      bg="bg-success/10"
-    />
-    <StatCard
-      title="Pending Marks"
-      value="—"
-      icon={AlertTriangle}
-      color="text-warning"
-      bg="bg-warning/10"
-    />
-  </div>
-);
+const TeacherDashboard = () => {
+  const { data: stats, isLoading } = useDashboardStats();
+
+  const teacherStats = [
+    {
+      title: "Total Students",
+      value: stats?.totalStudents || 0,
+      icon: Users,
+      color: "text-primary",
+      bg: "bg-primary/10",
+    },
+    {
+      title: "Active Students",
+      value: stats?.activeStudents || 0,
+      icon: GraduationCap,
+      color: "text-info",
+      bg: "bg-info/10",
+    },
+    {
+      title: "Attendance Rate",
+      value: `${stats?.attendanceRate || 0}%`,
+      icon: CalendarCheck,
+      color: "text-success",
+      bg: "bg-success/10",
+    },
+    {
+      title: "Total Staff",
+      value: stats?.totalStaff || 0,
+      icon: BookOpen,
+      color: "text-warning",
+      bg: "bg-warning/10",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <ClockInOutCard />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-2">
+        {teacherStats.map((s) => (
+          <StatCard
+            key={s.title}
+            title={s.title}
+            value={s.value}
+            icon={s.icon}
+            color={s.color}
+            bg={s.bg}
+            loading={isLoading}
+          />
+        ))}
+      </div>
+
+      {/* Quick overview */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="sm:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold">School Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: "Parents",
+                  value: stats?.totalParents || 0,
+                  color: "text-primary",
+                },
+                {
+                  label: "Staff Members",
+                  value: stats?.totalStaff || 0,
+                  color: "text-info",
+                },
+                {
+                  label: "Attendance Rate",
+                  value: `${stats?.attendanceRate || 0}%`,
+                  color: "text-success",
+                },
+                {
+                  label: "Active Students",
+                  value: stats?.activeStudents || 0,
+                  color: "text-warning",
+                },
+              ].map((item) => (
+                <div key={item.label} className="p-3 rounded-lg bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                    {item.label}
+                  </p>
+                  {isLoading ? (
+                    <Skeleton className="h-6 w-16 mt-1" />
+                  ) : (
+                    <p
+                      className={`text-lg font-extrabold mt-0.5 ${item.color}`}
+                    >
+                      {item.value}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { label: "Take Attendance", href: "/attendance" },
+              { label: "View Students", href: "/students" },
+              { label: "Assessments", href: "/assessments" },
+            ].map((action) => (
+              <a
+                key={action.label}
+                href={action.href}
+                className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-muted/50 transition-colors text-sm font-medium"
+              >
+                {action.label}
+                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
 
 // ============== PARENT / STUDENT ==============
 const PortalDashboard = ({ primaryRole }: { primaryRole: string }) => (

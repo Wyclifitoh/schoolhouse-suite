@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 export type AppRole =
@@ -38,6 +39,8 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  teacher_id?: string | null;
+  staff_id?: string | null;
 }
 
 export interface UserRoleEntry {
@@ -146,14 +149,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [legacyRole, setLegacyRole] = useState<UserRole>("admin");
 
+  const queryClient = useQueryClient();
+
   const clearAuth = useCallback(() => {
     setUser(null);
     setProfile(null);
     setRoles([]);
     setToken(null);
-    localStorage.removeItem("chuo-token");
+    localStorage.clear();
+    sessionStorage.clear();
+    queryClient.clear();
     api.setToken(null);
-  }, []);
+    api.setSchoolId(null);
+  }, [queryClient]);
 
   // Restore session on mount
   useEffect(() => {

@@ -1,24 +1,34 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, ShieldX, ShieldCheck, Calendar, Receipt, Check } from "lucide-react";
+import {
+  Loader2, ArrowLeft, ShieldX, ShieldCheck, Calendar, Receipt,
+  Check, CreditCard, AlertTriangle, Clock, RefreshCw, DollarSign,
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   useSchoolDetail, useExtendTrial, useTerminateTrial, useSetSubStatus, useSetSchoolActive,
   useActivateSubscription, useCreateInvoice, useConfirmInvoice, useVoidInvoice, usePlatformPlans,
+  useAssessmentBilling, useBillingStatus, useMarkAssessmentPaid,
 } from "@/hooks/usePlatform";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+
+const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  paid: "default", pending: "secondary", waived: "outline",
+};
 
 export default function AdminSchoolDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data, isLoading } = useSchoolDetail(id);
   const { data: plans = [] } = usePlatformPlans();
+  const { data: assessmentBilling = [] } = useAssessmentBilling(id);
+  const { data: billingStatus } = useBillingStatus(id);
 
   const extend = useExtendTrial();
   const terminate = useTerminateTrial();
@@ -28,6 +38,7 @@ export default function AdminSchoolDetail() {
   const createInv = useCreateInvoice();
   const confirmInv = useConfirmInvoice();
   const voidInv = useVoidInvoice();
+  const markPaid = useMarkAssessmentPaid();
 
   const [extendDays, setExtendDays] = useState("7");
   const [activatePlan, setActivatePlan] = useState("");
@@ -44,17 +55,57 @@ export default function AdminSchoolDetail() {
     catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
   };
 
+  const trialDaysLeft = subscription?.trial_ends_at
+    ? Math.ceil((new Date(subscription.trial_ends_at).getTime() - Date.now()) / 86400000)
+    : null;
+  const trialActive = trialDaysLeft !== null && trialDaysLeft > 0;
+
+  const pendingBilling = assessmentBilling.filter(b => b.status === "pending");
+  const outstandingBalance = pendingBilling.reduce((a, b) => a + Number(b.total_amount || 0), 0);
+
   return (
     <div className="p-6 space-y-6 max-w-[1400px]">
+      {/* Header */}
       <div>
         <Button variant="ghost" size="sm" onClick={() => nav("/admin/schools")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to schools
         </Button>
-        <h1 className="text-3xl font-black mt-2">{school.name}</h1>
-        <p className="text-muted-foreground">{school.email || "—"} · {school.phone || "—"} · {school.curriculum_type}</p>
+        <div className="flex items-start justify-between mt-2 flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-black">{school.name}</h1>
+            <p className="text-muted-foreground">{school.email || "—"} · {school.phone || "—"} · {school.curriculum_type}</p>
+          </div>
+          <div className="flex gap-2">
+            {school.is_active ? (
+              <Button size="sm" variant="destructive" onClick={() => guard("School suspended", () => setActive.mutateAsync({ id, active: false }))}>
+                <ShieldX className="h-3 w-3 mr-1" /> Suspend
+              </Button>
+            ) : (
+              <Button size="sm" variant="default" onClick={() => guard("School reactivated", () => setActive.mutateAsync({ id, active: true }))}>
+                <ShieldCheck className="h-3 w-3 mr-1" /> Reactivate
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Counts */}
+      {/* Billing status alert */}
+      {billingStatus && !billingStatus.gate?.allowed && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-destructive">Assessment creation is BLOCKED</p>
+              <p className="text-sm text-muted-foreground mt-1">{billingStatus.gate?.reason}</p>
+              <p className="text-sm font-semibold mt-2">
+                Outstanding balance: KSh {Number(billingStatus.balance?.balance || 0).toLocaleString()} ({billingStatus.balance?.pending_count || 0} assessments unpaid)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Active students", v: counts.active_students },
@@ -72,28 +123,26 @@ export default function AdminSchoolDetail() {
       {/* Subscription */}
       <Card>
         <CardContent className="p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-bold">Subscription</h3>
-              <p className="text-sm text-muted-foreground">
-                {subscription?.plan_name || "No plan"} · <Badge variant="outline">{subscription?.status || "no sub"}</Badge>
+              <h3 className="font-bold flex items-center gap-2"><Clock className="h-4 w-4" /> Subscription & Trial</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {subscription?.plan_name || "No plan"} ·{" "}
+                <Badge variant="outline">{subscription?.status || "no sub"}</Badge>
               </p>
               <div className="text-xs text-muted-foreground mt-1">
-                {subscription?.trial_ends_at && <>Trial ends {new Date(subscription.trial_ends_at).toLocaleDateString()} · </>}
-                {subscription?.current_period_end && <>Period ends {new Date(subscription.current_period_end).toLocaleDateString()}</>}
+                {subscription?.trial_ends_at && (
+                  <span className={trialDaysLeft !== null && trialDaysLeft <= 7 ? "text-amber-600 font-semibold" : ""}>
+                    Trial ends {new Date(subscription.trial_ends_at).toLocaleDateString()}
+                    {trialDaysLeft !== null && ` (${trialDaysLeft > 0 ? `${trialDaysLeft}d remaining` : "EXPIRED"})`}
+                  </span>
+                )}
+                {subscription?.current_period_end && <> · Period ends {new Date(subscription.current_period_end).toLocaleDateString()}</>}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {school.is_active ? (
-                <Button size="sm" variant="destructive" onClick={() => guard("School suspended", () => setActive.mutateAsync({ id, active: false }))}>
-                  <ShieldX className="h-3 w-3 mr-1" /> Suspend
-                </Button>
-              ) : (
-                <Button size="sm" variant="default" onClick={() => guard("School reactivated", () => setActive.mutateAsync({ id, active: true }))}>
-                  <ShieldCheck className="h-3 w-3 mr-1" /> Reactivate
-                </Button>
-              )}
               <Button size="sm" variant="outline" onClick={() => guard("Marked past due", () => setStatus.mutateAsync({ id, status: "past_due" }))}>Past due</Button>
+              <Button size="sm" variant="outline" onClick={() => guard("Marked active", () => setStatus.mutateAsync({ id, status: "active" }))}>Mark active</Button>
               <Button size="sm" variant="outline" onClick={() => guard("Cancelled", () => setStatus.mutateAsync({ id, status: "cancelled" }))}>Cancel</Button>
             </div>
           </div>
@@ -110,7 +159,9 @@ export default function AdminSchoolDetail() {
                   </SelectContent>
                 </Select>
                 <Button size="sm" onClick={() => guard("Trial extended", () => extend.mutateAsync({ id, days: Number(extendDays) }))}>Extend trial</Button>
-                <Button size="sm" variant="destructive" onClick={() => { if (confirm("Terminate trial now? School will be locked.")) guard("Trial terminated", () => terminate.mutateAsync(id)); }}>Terminate</Button>
+                <Button size="sm" variant="destructive" onClick={() => {
+                  if (confirm("Terminate trial now? School will be locked.")) guard("Trial terminated", () => terminate.mutateAsync(id));
+                }}>Terminate</Button>
               </div>
             </div>
 
@@ -128,9 +179,109 @@ export default function AdminSchoolDetail() {
                   Activate
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Period is computed from the plan cycle. Use the Invoices section below for offline payments.</p>
+              <p className="text-xs text-muted-foreground">Period is computed from the plan cycle. Use Invoices for offline payments.</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Assessment Billing ──────────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div>
+              <h3 className="font-bold flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-primary" /> Assessment Billing
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                KSh 10 per active student per assessment · Charged after 30-day trial
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {outstandingBalance > 0 && (
+                <div className="text-right">
+                  <p className="text-[11px] uppercase text-muted-foreground">Outstanding</p>
+                  <p className="text-lg font-black text-destructive">KSh {outstandingBalance.toLocaleString()}</p>
+                </div>
+              )}
+              {pendingBilling.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => {
+                    if (confirm(`Mark ALL ${pendingBilling.length} pending assessment(s) as paid? (KSh ${outstandingBalance.toLocaleString()})`)) {
+                      guard("All assessments marked paid", () => markPaid.mutateAsync({ schoolId: id }));
+                    }
+                  }}
+                  disabled={markPaid.isPending}
+                >
+                  {markPaid.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                  Mark all paid
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {assessmentBilling.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No assessment billing records yet.</p>
+              <p className="text-xs mt-1">Records appear when assessments are created after the trial period.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-muted-foreground border-b bg-muted/30">
+                  <tr>
+                    <th className="p-2">Assessment</th>
+                    <th className="p-2 text-right">Students</th>
+                    <th className="p-2 text-right">Rate</th>
+                    <th className="p-2 text-right">Amount</th>
+                    <th className="p-2">Status</th>
+                    <th className="p-2">Date</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assessmentBilling.map((b: any) => (
+                    <tr key={b.id} className="border-b hover:bg-muted/30">
+                      <td className="p-2 font-medium">{b.assessment_name || "—"}</td>
+                      <td className="p-2 text-right">{Number(b.student_count).toLocaleString()}</td>
+                      <td className="p-2 text-right">KSh {Number(b.price_per_student).toLocaleString()}</td>
+                      <td className="p-2 text-right font-semibold">KSh {Number(b.total_amount).toLocaleString()}</td>
+                      <td className="p-2">
+                        <Badge variant={STATUS_COLORS[b.status] || "outline"}>
+                          {b.status}
+                        </Badge>
+                      </td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {new Date(b.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="p-2 text-right">
+                        {b.status === "pending" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => guard("Assessment marked paid", () => markPaid.mutateAsync({ schoolId: id, assessmentId: b.assessment_id }))}
+                            disabled={markPaid.isPending}
+                          >
+                            <Check className="h-3 w-3 mr-1" /> Paid
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t bg-muted/20">
+                  <tr>
+                    <td colSpan={3} className="p-2 text-right text-xs text-muted-foreground font-semibold">Total outstanding</td>
+                    <td className="p-2 text-right font-black">KSh {outstandingBalance.toLocaleString()}</td>
+                    <td colSpan={3}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -138,7 +289,7 @@ export default function AdminSchoolDetail() {
       <Card>
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold">Invoices</h3>
+            <h3 className="font-bold flex items-center gap-2"><Receipt className="h-4 w-4" /> Subscription Invoices</h3>
             <Button size="sm" onClick={() => setInvDialog(true)}>+ New invoice</Button>
           </div>
           <div className="overflow-x-auto">
@@ -149,7 +300,7 @@ export default function AdminSchoolDetail() {
               <tbody>
                 {invoices.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No invoices yet.</td></tr>}
                 {invoices.map((i: any) => (
-                  <tr key={i.id} className="border-b">
+                  <tr key={i.id} className="border-b hover:bg-muted/30">
                     <td className="p-2">{new Date(i.created_at).toLocaleDateString()}</td>
                     <td className="p-2 font-semibold">KSh {Number(i.amount).toLocaleString()}</td>
                     <td className="p-2 text-xs text-muted-foreground">{i.period_start || "—"} → {i.period_end || "—"}</td>
@@ -185,7 +336,7 @@ export default function AdminSchoolDetail() {
               </thead>
               <tbody>
                 {users.map((u: any) => (
-                  <tr key={u.id} className="border-b">
+                  <tr key={u.id} className="border-b hover:bg-muted/30">
                     <td className="p-2 font-medium">{u.full_name}</td>
                     <td className="p-2">{u.email}</td>
                     <td className="p-2 text-xs">{u.roles || "—"}</td>
@@ -198,6 +349,7 @@ export default function AdminSchoolDetail() {
         </CardContent>
       </Card>
 
+      {/* Create invoice dialog */}
       <Dialog open={invDialog} onOpenChange={setInvDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Create invoice for {school.name}</DialogTitle></DialogHeader>

@@ -179,11 +179,25 @@ export default function Results() {
     const subjects = Array.from(subjMap.values()).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
-    const students = Array.from(stuMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
+    const students = Array.from(stuMap.values())
+      .map((stu) => {
+        const res = results.find((r) => r.student_id === stu.id);
+        return {
+          ...stu,
+          total: res ? Number(res.total_score || 0) : null,
+          mean: res ? Number(res.percentage || 0) : null,
+          rank: res?.class_position ?? null,
+          al: res?.overall_al || "",
+          band: res?.overall_band || "",
+          status: res?.status || "draft",
+        };
+      })
+      .sort((a, b) => {
+        if (a.rank && b.rank) return a.rank - b.rank;
+        return a.name.localeCompare(b.name);
+      });
     return { subjects, students };
-  }, [rawMarks]);
+  }, [rawMarks, results]);
 
   const assessmentName = useMemo(
     () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
@@ -247,7 +261,7 @@ export default function Results() {
 
   const exportPreviewPdf = () => {
     if (!broadsheet.students.length)
-      return toast.error("No preview data available");
+      return toast.error("No marklist data available");
     const doc = new jsPDF({
       orientation: "landscape",
       unit: "pt",
@@ -265,14 +279,19 @@ export default function Results() {
     doc.setTextColor(0);
 
     const head = [
-      ["Student", "Adm", ...broadsheet.subjects.map((s) => s.name)],
+      ["Rank", "Student", "Adm", ...broadsheet.subjects.map((s) => s.name), "Total", "Mean %", "AL", "Band"],
     ];
     const body = broadsheet.students.map((stu) => [
+      stu.rank ?? "—",
       stu.name,
       stu.adm,
       ...broadsheet.subjects.map((s) =>
         stu.marks[s.id] != null ? String(stu.marks[s.id]) : "—",
       ),
+      stu.total != null ? stu.total.toFixed(0) : "—",
+      stu.mean != null ? stu.mean.toFixed(1) : "—",
+      stu.al || "—",
+      stu.band || "—",
     ]);
 
     autoTable(doc, {
@@ -288,7 +307,35 @@ export default function Results() {
       alternateRowStyles: { fillColor: [245, 247, 250] },
       margin: { left: 40, right: 40 },
     });
-    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_preview.pdf`);
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist.pdf`);
+  };
+
+  const exportPreviewExcel = () => {
+    if (!broadsheet.students.length) return toast.error("No marklist data available");
+    
+    const rows = broadsheet.students.map((stu) => {
+      const row: any = {
+        "Rank": stu.rank ?? "—",
+        "Student": stu.name,
+        "Adm": stu.adm,
+        "Class": stu.className,
+      };
+      
+      broadsheet.subjects.forEach((s) => {
+        row[s.name] = stu.marks[s.id] != null ? stu.marks[s.id] : "—";
+      });
+      
+      row["Total"] = stu.total != null ? stu.total.toFixed(0) : "—";
+      row["Mean %"] = stu.mean != null ? stu.mean.toFixed(1) : "—";
+      row["AL"] = stu.al || "—";
+      row["Band"] = stu.band || "—";
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Marklist");
+    XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist.xlsx`);
   };
 
   return (
@@ -393,23 +440,25 @@ export default function Results() {
                 </SelectContent>
               </Select>
             </div>
-            <PermissionGate permission="exams:update">
-              <Button
-                variant="outline"
-                disabled={!assessmentId || compute.isPending}
-                onClick={() => compute.mutate(assessmentId)}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                {compute.isPending ? "Computing…" : "Compute"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={!assessmentId || positions.isPending}
-                onClick={() => positions.mutate(assessmentId)}
-              >
-                <Trophy className="h-4 w-4 mr-1" /> Rank
-              </Button>
-            </PermissionGate>
+            {canApprove && (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || compute.isPending}
+                  onClick={() => compute.mutate(assessmentId)}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  {compute.isPending ? "Computing…" : "Compute"}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || positions.isPending}
+                  onClick={() => positions.mutate(assessmentId)}
+                >
+                  <Trophy className="h-4 w-4 mr-1" /> Rank
+                </Button>
+              </>
+            )}
             <PermissionGate permission="reports:export">
               <Button
                 variant="outline"
@@ -483,20 +532,30 @@ export default function Results() {
                   className={`px-3 py-1 text-sm rounded-sm transition-colors ${viewMode === "preview" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
                   onClick={() => setViewMode("preview")}
                 >
-                  Marks Preview
+                  Marklist (Broadsheet)
                 </button>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {viewMode === "preview" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={exportPreviewPdf}
-                  disabled={!broadsheet.students.length}
-                >
-                  <FileText className="h-4 w-4 mr-1" /> Download Preview PDF
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={exportPreviewExcel}
+                    disabled={!broadsheet.students.length}
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={exportPreviewPdf}
+                    disabled={!broadsheet.students.length}
+                  >
+                    <FileText className="h-4 w-4 mr-1" /> PDF
+                  </Button>
+                </>
               )}
               {viewMode === "results" && (
                 <>
@@ -656,6 +715,10 @@ export default function Results() {
                           {s.name}
                         </TableHead>
                       ))}
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Mean %</TableHead>
+                      <TableHead>AL</TableHead>
+                      <TableHead>Band</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -684,6 +747,18 @@ export default function Results() {
                             )}
                           </TableCell>
                         ))}
+                        <TableCell className="text-right tabular-nums font-medium">
+                          {stu.total != null ? stu.total.toFixed(0) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">
+                          {stu.mean != null ? stu.mean.toFixed(1) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {stu.al ? <Badge variant="outline">{stu.al}</Badge> : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {stu.band ? <Badge>{stu.band}</Badge> : "—"}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {!broadsheet.students.length && (

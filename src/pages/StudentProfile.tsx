@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionGate } from "@/components/PermissionGate";
+import { usePermission } from "@/hooks/usePermission";
 import {
   useStudentWithFees,
   useUpdateStudent,
@@ -65,12 +66,17 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const canViewFinance = usePermission("finance:fees:read");
 
   const { data: student, isLoading } = useStudentWithFees(studentId);
   const { data: parentLinks = [] } = useStudentParents(studentId);
+
+  const primaryParentId =
+    parentLinks.find((p) => p.is_primary)?.id || parentLinks[0]?.id || null;
+
   const { data: siblings = [] } = useStudentSiblings(
     studentId,
-    student?.parent_phone,
+    primaryParentId,
   );
   const { data: grades = [] } = useGrades();
   const updateStudent = useUpdateStudent();
@@ -105,7 +111,9 @@ const StudentProfile = () => {
       });
       // Seed primary parent edit form
       const primary =
-        (parentLinks as any[]).find((p: any) => p.is_primary || p.is_primary_contact) ||
+        (parentLinks as any[]).find(
+          (p: any) => p.is_primary || p.is_primary_contact,
+        ) ||
         (parentLinks as any[])[0] ||
         null;
       setPrimaryParent(primary);
@@ -165,13 +173,18 @@ const StudentProfile = () => {
       // Resolve grade name if grade ID changed
       const payload: any = { ...editData };
       if (editData.current_grade_id) {
-        const g = (grades as any[]).find((gr: any) => gr.id === editData.current_grade_id);
+        const g = (grades as any[]).find(
+          (gr: any) => gr.id === editData.current_grade_id,
+        );
         if (g) payload.grade = g.name;
       }
       await updateStudent.mutateAsync({ id: student.id, data: payload });
       // Update primary linked parent if one exists
       if (primaryParent?.id && Object.keys(editParentData).length > 0) {
-        await updateParent.mutateAsync({ id: primaryParent.id, data: editParentData });
+        await updateParent.mutateAsync({
+          id: primaryParent.id,
+          data: editParentData,
+        });
       }
       setIsEditing(false);
     } catch {
@@ -194,45 +207,53 @@ const StudentProfile = () => {
       subtitle={`${fullName} · ${student.admission_number}`}
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/students")}>
+      <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start"
+          onClick={() => navigate("/students")}
+        >
           <ArrowLeft className="h-4 w-4 mr-1.5" />
           Back to Students
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => toast.success("ID card sent to print queue")}
           >
             <Printer className="h-4 w-4 mr-1.5" />
-            Print ID
+            <span className="hidden xs:inline">Print ID</span>
+            <span className="xs:hidden">Print</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.success("Fee statement downloaded")}
-          >
-            <Download className="h-4 w-4 mr-1.5" />
-            Statement
-          </Button>
+          {canViewFinance && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.success("Fee statement downloaded")}
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              Statement
+            </Button>
+          )}
           {!isEditing ? (
             <>
               <PermissionGate permission="students:update">
-              <Button size="sm" onClick={startEditing}>
-                <Edit className="h-4 w-4 mr-1.5" />
-                Edit
-              </Button>
+                <Button size="sm" onClick={startEditing}>
+                  <Edit className="h-4 w-4 mr-1.5" />
+                  Edit
+                </Button>
               </PermissionGate>
               <PermissionGate permission="students:delete">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                Deactivate
-              </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Deactivate
+                </Button>
               </PermissionGate>
             </>
           ) : (
@@ -245,15 +266,17 @@ const StudentProfile = () => {
                 Cancel
               </Button>
               <PermissionGate permission="students:update">
-              <Button
-                size="sm"
-                className="bg-success hover:bg-success/90"
-                onClick={handleSave}
-                disabled={updateStudent.isPending || updateParent.isPending}
-              >
-                <CheckCircle className="h-4 w-4 mr-1.5" />
-                {updateStudent.isPending || updateParent.isPending ? "Saving..." : "Save Changes"}
-              </Button>
+                <Button
+                  size="sm"
+                  className="bg-success hover:bg-success/90"
+                  onClick={handleSave}
+                  disabled={updateStudent.isPending || updateParent.isPending}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1.5" />
+                  {updateStudent.isPending || updateParent.isPending
+                    ? "Saving..."
+                    : "Save Changes"}
+                </Button>
               </PermissionGate>
             </>
           )}
@@ -262,14 +285,14 @@ const StudentProfile = () => {
 
       {/* Profile Header Card */}
       <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-6">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-bold text-2xl shadow-lg shrink-0">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+            <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-bold text-xl sm:text-2xl shadow-lg shrink-0 self-start">
               {initials}
             </div>
-            <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold text-foreground">
+            <div className="flex-1 space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-bold text-foreground">
                   {fullName}
                 </h1>
                 <Badge
@@ -282,7 +305,7 @@ const StudentProfile = () => {
                   {student.status}
                 </Badge>
               </div>
-              <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <GraduationCap className="h-4 w-4" />
                   {student.grade || "N/A"} · {student.stream || "N/A"}
@@ -297,29 +320,31 @@ const StudentProfile = () => {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-6 mt-2">
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Balance:
-                  </span>
-                  <span
-                    className={`text-sm font-bold ${student.balance > 0 ? "text-destructive" : student.balance === 0 ? "text-muted-foreground" : "text-success"}`}
+              {canViewFinance && (
+                <div className="flex flex-wrap items-center gap-3 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Balance:
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${student.balance > 0 ? "text-destructive" : student.balance === 0 ? "text-muted-foreground" : "text-success"}`}
+                    >
+                      {student.balance === 0
+                        ? "Cleared"
+                        : formatKES(student.balance)}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/student-fees/${student.id}`)}
                   >
-                    {student.balance === 0
-                      ? "Cleared"
-                      : formatKES(student.balance)}
-                  </span>
+                    <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+                    Fees & Payments
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate(`/student-fees/${student.id}`)}
-                >
-                  <CreditCard className="h-3.5 w-3.5 mr-1.5" />
-                  Fees & Payments
-                </Button>
-              </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -327,28 +352,46 @@ const StudentProfile = () => {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="personal" className="space-y-4">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="personal" className="gap-1.5">
-            <User className="h-3.5 w-3.5" />
-            Personal
-          </TabsTrigger>
-          <TabsTrigger value="guardian" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Guardian & Siblings
-          </TabsTrigger>
-          <TabsTrigger value="academic" className="gap-1.5">
-            <BookOpen className="h-3.5 w-3.5" />
-            Academic
-          </TabsTrigger>
-          <TabsTrigger value="fees" className="gap-1.5">
-            <Wallet className="h-3.5 w-3.5" />
-            Fee Summary
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="gap-1.5">
-            <FileText className="h-3.5 w-3.5" />
-            Documents
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <TabsList className="bg-muted/50 p-1 w-max min-w-full sm:w-auto">
+            <TabsTrigger
+              value="personal"
+              className="gap-1.5 text-xs sm:text-sm"
+            >
+              <User className="h-3.5 w-3.5" />
+              <span className="hidden xs:inline">Personal</span>
+              <span className="xs:hidden">Info</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="guardian"
+              className="gap-1.5 text-xs sm:text-sm"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span className="hidden xs:inline">Guardian & Siblings</span>
+              <span className="xs:hidden">Guardian</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="academic"
+              className="gap-1.5 text-xs sm:text-sm"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Academic
+            </TabsTrigger>
+            {canViewFinance && (
+              <TabsTrigger value="fees" className="gap-1.5 text-xs sm:text-sm">
+                <Wallet className="h-3.5 w-3.5" />
+                Fees
+              </TabsTrigger>
+            )}
+            <TabsTrigger
+              value="documents"
+              className="gap-1.5 text-xs sm:text-sm"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Docs
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="personal">
           <div className="grid gap-6 md:grid-cols-2">
@@ -622,7 +665,10 @@ const StudentProfile = () => {
                             className="h-9"
                             value={editParentData.first_name || ""}
                             onChange={(e) =>
-                              setEditParentData({ ...editParentData, first_name: e.target.value })
+                              setEditParentData({
+                                ...editParentData,
+                                first_name: e.target.value,
+                              })
                             }
                           />
                         </div>
@@ -632,7 +678,10 @@ const StudentProfile = () => {
                             className="h-9"
                             value={editParentData.last_name || ""}
                             onChange={(e) =>
-                              setEditParentData({ ...editParentData, last_name: e.target.value })
+                              setEditParentData({
+                                ...editParentData,
+                                last_name: e.target.value,
+                              })
                             }
                           />
                         </div>
@@ -644,7 +693,10 @@ const StudentProfile = () => {
                             className="h-9"
                             value={editParentData.phone || ""}
                             onChange={(e) =>
-                              setEditParentData({ ...editParentData, phone: e.target.value })
+                              setEditParentData({
+                                ...editParentData,
+                                phone: e.target.value,
+                              })
                             }
                           />
                         </div>
@@ -655,7 +707,10 @@ const StudentProfile = () => {
                             type="email"
                             value={editParentData.email || ""}
                             onChange={(e) =>
-                              setEditParentData({ ...editParentData, email: e.target.value })
+                              setEditParentData({
+                                ...editParentData,
+                                email: e.target.value,
+                              })
                             }
                           />
                         </div>
@@ -667,7 +722,10 @@ const StudentProfile = () => {
                             className="h-9"
                             value={editParentData.occupation || ""}
                             onChange={(e) =>
-                              setEditParentData({ ...editParentData, occupation: e.target.value })
+                              setEditParentData({
+                                ...editParentData,
+                                occupation: e.target.value,
+                              })
                             }
                           />
                         </div>
@@ -677,7 +735,10 @@ const StudentProfile = () => {
                             className="h-9"
                             value={editParentData.id_number || ""}
                             onChange={(e) =>
-                              setEditParentData({ ...editParentData, id_number: e.target.value })
+                              setEditParentData({
+                                ...editParentData,
+                                id_number: e.target.value,
+                              })
                             }
                           />
                         </div>
@@ -687,7 +748,8 @@ const StudentProfile = () => {
                     // Legacy parent fields — edit on student record
                     <div className="grid gap-3">
                       <p className="text-xs text-muted-foreground">
-                        No linked parent record. Edit guardian name and phone below.
+                        No linked parent record. Edit guardian name and phone
+                        below.
                       </p>
                       <div className="space-y-1.5">
                         <Label className="text-xs">Guardian Full Name</Label>
@@ -695,7 +757,10 @@ const StudentProfile = () => {
                           className="h-9"
                           value={editData.parent_name || ""}
                           onChange={(e) =>
-                            setEditData({ ...editData, parent_name: e.target.value })
+                            setEditData({
+                              ...editData,
+                              parent_name: e.target.value,
+                            })
                           }
                         />
                       </div>
@@ -705,15 +770,17 @@ const StudentProfile = () => {
                           className="h-9"
                           value={editData.parent_phone || ""}
                           onChange={(e) =>
-                            setEditData({ ...editData, parent_phone: e.target.value })
+                            setEditData({
+                              ...editData,
+                              parent_phone: e.target.value,
+                            })
                           }
                         />
                       </div>
                     </div>
                   )
-                ) : (
-                  // ── VIEW MODE ──────────────────────────────────────────
-                  (parentLinks as any[]).length > 0 ? (
+                ) : // ── VIEW MODE ──────────────────────────────────────────
+                (parentLinks as any[]).length > 0 ? (
                   (() => {
                     // Show only the PRIMARY guardian (fallback: first linked parent)
                     const primary =
@@ -787,7 +854,6 @@ const StudentProfile = () => {
                       </div>
                     )}
                   </div>
-                )
                 )}
               </CardContent>
             </Card>
@@ -858,74 +924,82 @@ const StudentProfile = () => {
         </TabsContent>
 
         <TabsContent value="fees">
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs text-muted-foreground">Total Fees</p>
-                  <p className="text-xl font-bold text-foreground mt-1">
-                    {formatKES(student.total_fees)}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs text-muted-foreground">Paid</p>
-                  <p className="text-xl font-bold text-success mt-1">
-                    {formatKES(student.total_paid)}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs text-muted-foreground">Balance</p>
-                  <p
-                    className={`text-xl font-bold mt-1 ${student.balance > 0 ? "text-destructive" : "text-success"}`}
-                  >
-                    {formatKES(student.balance)}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-            {excessCredits.length > 0 && (
-              <Card className="border-success/40 bg-success/5">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Available Excess / Advance Credits
-                      </p>
-                      <p className="text-2xl font-bold text-success mt-1">
-                        {formatKES(
-                          excessCredits.reduce(
-                            (s: number, c: any) =>
-                              s + Number(c.remaining_amount || c.amount || 0),
-                            0,
-                          ),
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {excessCredits.length} active credit
-                        {excessCredits.length === 1 ? "" : "s"} — applicable on
-                        next charge
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate("/excess-payments")}
+          {!canViewFinance ? (
+            <Card>
+              <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                You do not have permission to view financial information.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Total Fees</p>
+                    <p className="text-xl font-bold text-foreground mt-1">
+                      {formatKES(student.total_fees)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Paid</p>
+                    <p className="text-xl font-bold text-success mt-1">
+                      {formatKES(student.total_paid)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Balance</p>
+                    <p
+                      className={`text-xl font-bold mt-1 ${student.balance > 0 ? "text-destructive" : "text-success"}`}
                     >
-                      Manage
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <Button onClick={() => navigate(`/student-fees/${student.id}`)}>
-              <Wallet className="h-4 w-4 mr-1.5" />
-              View Full Fee Details & Payments
-            </Button>
-          </div>
+                      {formatKES(student.balance)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+              {excessCredits.length > 0 && (
+                <Card className="border-success/40 bg-success/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Available Excess / Advance Credits
+                        </p>
+                        <p className="text-2xl font-bold text-success mt-1">
+                          {formatKES(
+                            excessCredits.reduce(
+                              (s: number, c: any) =>
+                                s + Number(c.remaining_amount || c.amount || 0),
+                              0,
+                            ),
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {excessCredits.length} active credit
+                          {excessCredits.length === 1 ? "" : "s"} — applicable
+                          on next charge
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate("/excess-payments")}
+                      >
+                        Manage
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              <Button onClick={() => navigate(`/student-fees/${student.id}`)}>
+                <Wallet className="h-4 w-4 mr-1.5" />
+                View Full Fee Details & Payments
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="documents">

@@ -23,19 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from "@/components/ui/command";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -49,9 +36,33 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useStudents } from "@/hooks/useStudents";
-import { Check, X, Trash2, Plus, Package, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  Check,
+  X,
+  Trash2,
+  Plus,
+  Package,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+} from "lucide-react";
 import { formatDate } from "@/utils/date";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
@@ -62,6 +73,9 @@ export default function InKindPayments() {
     "supplier_offset",
   );
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   const { data: records = [] } = useQuery({
     queryKey: ["in-kind", schoolId, tab],
@@ -74,6 +88,33 @@ export default function InKindPayments() {
     enabled: !!schoolId && tab === "supplier_offset",
   });
   const { data: students = [] } = useStudents({ enabled: !!schoolId });
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return records;
+    const q = search.toLowerCase();
+    return (records as any[]).filter((r) =>
+      [
+        r.student_name,
+        r.admission_number,
+        r.supplier_name,
+        r.goods_description,
+        r.reference,
+        r.notes,
+      ]
+        .filter(Boolean)
+        .some((v: string) => String(v).toLowerCase().includes(q)),
+    );
+  }, [records, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  // Reset to first page when the tab or search changes
+  const resetPage = () => setPage(1);
 
   const createMut = useMutation({
     mutationFn: (body: any) => api.post(`/in-kind-payments`, body),
@@ -145,13 +186,31 @@ export default function InKindPayments() {
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList>
-            <TabsTrigger value="supplier_offset">Supplier Offset</TabsTrigger>
-            <TabsTrigger value="parent_goods">Parent Goods</TabsTrigger>
+            <TabsTrigger value="supplier_offset" onClick={resetPage}>
+              Supplier Offset
+            </TabsTrigger>
+            <TabsTrigger value="parent_goods" onClick={resetPage}>
+              Parent Goods
+            </TabsTrigger>
           </TabsList>
           <TabsContent value={tab} className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Records</CardTitle>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle>Records ({filtered.length})</CardTitle>
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by student, supplier, ref, item…"
+                      className="pl-9 h-9"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                      }}
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -169,17 +228,17 @@ export default function InKindPayments() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {records.length === 0 ? (
+                    {pageRows.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={7}
                           className="text-center text-muted-foreground py-6"
                         >
-                          No records
+                          {search ? "No matches for your search" : "No records"}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      records.map((r: any) => (
+                      pageRows.map((r: any) => (
                         <TableRow key={r.id}>
                           <TableCell>{formatDate(r.created_at)}</TableCell>
                           <TableCell>
@@ -241,6 +300,39 @@ export default function InKindPayments() {
                     )}
                   </TableBody>
                 </Table>
+
+                {filtered.length > PAGE_SIZE && (
+                  <div className="flex items-center justify-between mt-4 flex-col sm:flex-row gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+                      {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
+                      {filtered.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" /> Prev
+                      </Button>
+                      <span className="text-xs">
+                        Page {currentPage} / {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                      >
+                        Next <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -260,7 +352,6 @@ function InKindForm({
 }: any) {
   const [supplierId, setSupplierId] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [studentOpen, setStudentOpen] = useState(false);
   const [desc, setDesc] = useState("");
   const [qty, setQty] = useState("1");
   const [unit, setUnit] = useState("");
@@ -306,71 +397,18 @@ function InKindForm({
       )}
       <div className="space-y-2">
         <Label>Student (fees credited) *</Label>
-        <Popover open={studentOpen} onOpenChange={setStudentOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              role="combobox"
-              className={cn(
-                "w-full justify-between font-normal",
-                !studentId && "text-muted-foreground",
-              )}
-            >
-              {studentId
-                ? (() => {
-                    const s = students.find((x: any) => x.id === studentId);
-                    return s
-                      ? `${s.full_name} (${s.admission_number})`
-                      : "Select student";
-                  })()
-                : "Select student"}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-[--radix-popover-trigger-width] p-0"
-            align="start"
-          >
-            <Command
-              filter={(value, search) =>
-                value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
-              }
-            >
-              <CommandInput placeholder="Search by name or admission #..." />
-              <CommandList>
-                <CommandEmpty>No students found.</CommandEmpty>
-                <CommandGroup>
-                  {students.map((s: any) => {
-                    const label = `${s.full_name} ${s.admission_number} ${s.grade || ""} ${s.stream || ""}`;
-                    return (
-                      <CommandItem
-                        key={s.id}
-                        value={label}
-                        onSelect={() => {
-                          setStudentId(s.id);
-                          setStudentOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            studentId === s.id ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        <span className="flex-1 truncate">{s.full_name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {s.admission_number}
-                          {s.grade ? ` · ${s.grade}` : ""}
-                        </span>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <Select value={studentId} onValueChange={setStudentId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select student" />
+          </SelectTrigger>
+          <SelectContent>
+            {students.slice(0, 200).map((s: any) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.full_name} ({s.admission_number})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label>Goods / Services *</Label>

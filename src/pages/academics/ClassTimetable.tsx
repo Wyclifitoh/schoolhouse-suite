@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSeo } from "@/hooks/useSeo";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useClasses,
   useStreams,
@@ -841,6 +842,9 @@ const ClassTimetable = () => {
     "Class Timetable",
     "Automated timetable generation with period setup, lesson requirements, and clash detection.",
   );
+  
+  const { primaryRole } = useAuth();
+  const isTeacher = primaryRole === "teacher";
 
   return (
     <DashboardLayout
@@ -850,26 +854,34 @@ const ClassTimetable = () => {
       <Tabs defaultValue="class" className="space-y-4 print:space-y-0">
         <TabsList className="print:hidden">
           <TabsTrigger value="class">Class View</TabsTrigger>
-          <TabsTrigger value="teacher">Teacher View</TabsTrigger>
-          <TabsTrigger value="periods">Period Setup</TabsTrigger>
-          <TabsTrigger value="requirements">Lesson Requirements</TabsTrigger>
-          <TabsTrigger value="generate">Auto-Generate</TabsTrigger>
+          {!isTeacher && (
+            <>
+              <TabsTrigger value="teacher">Teacher View</TabsTrigger>
+              <TabsTrigger value="periods">Period Setup</TabsTrigger>
+              <TabsTrigger value="requirements">Lesson Requirements</TabsTrigger>
+              <TabsTrigger value="generate">Auto-Generate</TabsTrigger>
+            </>
+          )}
         </TabsList>
         <TabsContent value="class">
           <ClassView />
         </TabsContent>
-        <TabsContent value="teacher">
-          <TeacherView />
-        </TabsContent>
-        <TabsContent value="periods">
-          <PeriodSetup />
-        </TabsContent>
-        <TabsContent value="requirements">
-          <LessonRequirements />
-        </TabsContent>
-        <TabsContent value="generate">
-          <AutoGenerate />
-        </TabsContent>
+        {!isTeacher && (
+          <>
+            <TabsContent value="teacher">
+              <TeacherView />
+            </TabsContent>
+            <TabsContent value="periods">
+              <PeriodSetup />
+            </TabsContent>
+            <TabsContent value="requirements">
+              <LessonRequirements />
+            </TabsContent>
+            <TabsContent value="generate">
+              <AutoGenerate />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </DashboardLayout>
   );

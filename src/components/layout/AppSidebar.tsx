@@ -44,6 +44,7 @@ import {
   Sparkles,
   Shield,
   Activity,
+  LayoutGrid,
 } from "lucide-react";
 import { ArrowUpRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -193,7 +194,7 @@ const navConfig = {
         title: "Class Timetable",
         url: "/class-timetable",
         icon: TableProperties,
-        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        roles: ADMIN_ROLES,
       },
       {
         title: "Teacher Timetable",
@@ -248,6 +249,12 @@ const navConfig = {
         title: "Report Cards",
         url: "/report-cards",
         icon: FileBadge,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+      },
+      {
+        title: "Summative Reports",
+        url: "/assessments/summative",
+        icon: LayoutGrid,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
