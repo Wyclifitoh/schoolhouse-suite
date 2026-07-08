@@ -279,7 +279,16 @@ export default function Results() {
     doc.setTextColor(0);
 
     const head = [
-      ["Rank", "Student", "Adm", ...broadsheet.subjects.map((s) => s.name), "Total", "Mean %", "AL", "Band"],
+      [
+        "Rank",
+        "Student",
+        "Adm",
+        ...broadsheet.subjects.map((s) => s.name),
+        "Total",
+        "Mean %",
+        "AL",
+        "Band",
+      ],
     ];
     const body = broadsheet.students.map((stu) => [
       stu.rank ?? "—",
@@ -311,20 +320,21 @@ export default function Results() {
   };
 
   const exportPreviewExcel = () => {
-    if (!broadsheet.students.length) return toast.error("No marklist data available");
-    
+    if (!broadsheet.students.length)
+      return toast.error("No marklist data available");
+
     const rows = broadsheet.students.map((stu) => {
       const row: any = {
-        "Rank": stu.rank ?? "—",
-        "Student": stu.name,
-        "Adm": stu.adm,
-        "Class": stu.className,
+        Rank: stu.rank ?? "—",
+        Student: stu.name,
+        Adm: stu.adm,
+        Class: stu.className,
       };
-      
+
       broadsheet.subjects.forEach((s) => {
         row[s.name] = stu.marks[s.id] != null ? stu.marks[s.id] : "—";
       });
-      
+
       row["Total"] = stu.total != null ? stu.total.toFixed(0) : "—";
       row["Mean %"] = stu.mean != null ? stu.mean.toFixed(1) : "—";
       row["AL"] = stu.al || "—";
@@ -335,7 +345,10 @@ export default function Results() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Marklist");
-    XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist.xlsx`);
+    XLSX.writeFile(
+      wb,
+      `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist.xlsx`,
+    );
   };
 
   return (
@@ -754,7 +767,11 @@ export default function Results() {
                           {stu.mean != null ? stu.mean.toFixed(1) : "—"}
                         </TableCell>
                         <TableCell>
-                          {stu.al ? <Badge variant="outline">{stu.al}</Badge> : "—"}
+                          {stu.al ? (
+                            <Badge variant="outline">{stu.al}</Badge>
+                          ) : (
+                            "—"
+                          )}
                         </TableCell>
                         <TableCell>
                           {stu.band ? <Badge>{stu.band}</Badge> : "—"}

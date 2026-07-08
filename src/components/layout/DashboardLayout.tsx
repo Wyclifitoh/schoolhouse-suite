@@ -753,33 +753,33 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Administration
-  {
-    label: "Administration",
-    icon: Settings,
-    items: [
-      {
-        title: "Academic Settings",
-        url: "/settings/academics",
-        icon: BookOpen,
-        roles: ADMIN_ROLES,
-        permissions: ["settings:read"],
-      },
-      {
-        title: "Archives",
-        url: "/archives",
-        icon: ArchiveIcon,
-        roles: ADMIN_ROLES,
-        permissions: ["settings:read"],
-      },
-      {
-        title: "Public API Keys",
-        url: "/settings/api-keys",
-        icon: Shield,
-        roles: ADMIN_ROLES,
-        permissions: ["settings:read"],
-      },
-    ],
-  },
+  // {
+  //   label: "Administration",
+  //   icon: Settings,
+  //   items: [
+  //     {
+  //       title: "Academic Settings",
+  //       url: "/settings/academics",
+  //       icon: BookOpen,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //     {
+  //       title: "Archives",
+  //       url: "/archives",
+  //       icon: ArchiveIcon,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //     {
+  //       title: "Public API Keys",
+  //       url: "/settings/api-keys",
+  //       icon: Shield,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //   ],
+  // },
 ];
 
 /* ── Session Timeout Hook ── */

@@ -227,7 +227,8 @@ export default function AssessmentTasks() {
                           <PermissionGate permission="exams:update">
                             <Link to={`/assessments/marks/${t.id}`}>
                               <Button size="sm" variant="outline">
-                                <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter
+                                <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
+                                Enter
                               </Button>
                             </Link>
                           </PermissionGate>

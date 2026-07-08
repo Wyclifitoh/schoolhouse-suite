@@ -163,42 +163,42 @@ export default function AssessmentDetail() {
                     <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
                   </Button>
                 )}
-              {a.status === "draft" && (
-                <Button onClick={() => publish.mutate(a.id)}>
-                  <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
-                  tasks
-                </Button>
-              )}
-              {(a.status === "published" || a.status === "in_progress") && (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setStatus.mutate({ id: a.id, status: "locked" })
-                  }
-                >
-                  <Lock className="h-4 w-4 mr-1" /> Lock
-                </Button>
-              )}
-              {a.status === "locked" && (
-                <>
+                {a.status === "draft" && (
+                  <Button onClick={() => publish.mutate(a.id)}>
+                    <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
+                    tasks
+                  </Button>
+                )}
+                {(a.status === "published" || a.status === "in_progress") && (
                   <Button
                     variant="outline"
                     onClick={() =>
-                      setStatus.mutate({ id: a.id, status: "published" })
+                      setStatus.mutate({ id: a.id, status: "locked" })
                     }
                   >
-                    <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                    <Lock className="h-4 w-4 mr-1" /> Lock
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      setStatus.mutate({ id: a.id, status: "archived" })
-                    }
-                  >
-                    <Archive className="h-4 w-4 mr-1" /> Archive
-                  </Button>
-                </>
-              )}
+                )}
+                {a.status === "locked" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setStatus.mutate({ id: a.id, status: "published" })
+                      }
+                    >
+                      <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setStatus.mutate({ id: a.id, status: "archived" })
+                      }
+                    >
+                      <Archive className="h-4 w-4 mr-1" /> Archive
+                    </Button>
+                  </>
+                )}
                 {a.status === "archived" && (
                   <Button
                     variant="outline"
