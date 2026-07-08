@@ -15,6 +15,10 @@ router.use("/portal", require("../modules/portal/portal.routes"));
 // M-Pesa webhook (no auth)
 router.post("/webhooks/mpesa/callback", paymentsController.mpesaCallback);
 
+// Public bank/API payments endpoint (uses its own X-API-Key auth internally,
+// but the bank-compatible /v1/payments route bypasses it — see module).
+router.use("/public", require("../modules/public-api/public-api.routes"));
+
 // Protected routes - require auth
 router.use(authenticate);
 
