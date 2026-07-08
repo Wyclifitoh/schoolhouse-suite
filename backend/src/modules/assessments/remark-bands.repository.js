@@ -27,12 +27,106 @@ const DEFAULTS = [
   },
 ];
 
+// 8-4-4 default remark bands (letter-grade keyed). Seeded alongside CBC
+// defaults so the auto-remark resolver works for both curricula.
+const DEFAULTS_844 = [
+  {
+    level_code: "A",
+    descriptor: "Excellent",
+    remark: "Excellent performance — keep it up!",
+  },
+  {
+    level_code: "A-",
+    descriptor: "Very good",
+    remark: "Very good work; aim for an A next time.",
+  },
+  {
+    level_code: "B+",
+    descriptor: "Good",
+    remark: "Good performance; keep working hard.",
+  },
+  {
+    level_code: "B",
+    descriptor: "Above average",
+    remark: "Above average — push for higher.",
+  },
+  {
+    level_code: "B-",
+    descriptor: "Average",
+    remark: "Average; revise to improve.",
+  },
+  {
+    level_code: "C+",
+    descriptor: "Fairly good",
+    remark: "Fairly good; needs more practice.",
+  },
+  {
+    level_code: "C",
+    descriptor: "Average",
+    remark: "Average; can improve with effort.",
+  },
+  {
+    level_code: "C-",
+    descriptor: "Below average",
+    remark: "Below average — needs attention.",
+  },
+  {
+    level_code: "D+",
+    descriptor: "Weak",
+    remark: "Weak — needs serious effort.",
+  },
+  {
+    level_code: "D",
+    descriptor: "Poor",
+    remark: "Poor — needs more practice.",
+  },
+  {
+    level_code: "D-",
+    descriptor: "Very poor",
+    remark: "Very poor — seek extra help.",
+  },
+  {
+    level_code: "E",
+    descriptor: "Fail",
+    remark: "Fail — serious effort required.",
+  },
+];
+
 async function ensureDefaults(schoolId) {
   const row = await queryOne(
     "SELECT COUNT(*) AS c FROM subject_remark_bands WHERE school_id=?",
     [schoolId],
   );
-  if (row && Number(row.c) > 0) return;
+  if (row && Number(row.c) > 0) {
+    // Top-up 8-4-4 defaults if missing (legacy schools created before 8-4-4).
+    const has844 = await queryOne(
+      "SELECT COUNT(*) AS c FROM subject_remark_bands WHERE school_id=? AND level_code IN ('A','A-','B+','B','B-','C+','C','C-','D+','D','D-','E')",
+      [schoolId],
+    );
+    if (has844 && Number(has844.c) > 0) return;
+    let sort = 100;
+    for (const d of DEFAULTS_844) {
+      await execute(
+        `INSERT INTO subject_remark_bands
+          (id, school_id, subject_id, grade_id, level_code, min_pct, max_pct,
+           remark, descriptor, sort_order, is_active)
+         VALUES (?,?,?,?,?,?,?,?,?,?,1)`,
+        [
+          uuid(),
+          schoolId,
+          null,
+          null,
+          d.level_code,
+          null,
+          null,
+          d.remark,
+          d.descriptor,
+          sort++,
+        ],
+      );
+    }
+    return;
+  }
   // Seed only when achievement_levels exist for this school; otherwise leave
   // empty so the admin can configure once levels are set up.
   const levels = await query(
@@ -59,6 +153,28 @@ async function ensureDefaults(schoolId) {
         d.remark,
         d.descriptor,
         sort++,
+      ],
+    );
+  }
+  // Always also seed the 8-4-4 defaults so schools have a starting set.
+  let s2 = 100;
+  for (const d of DEFAULTS_844) {
+    await execute(
+      `INSERT INTO subject_remark_bands
+        (id, school_id, subject_id, grade_id, level_code, min_pct, max_pct,
+         remark, descriptor, sort_order, is_active)
+       VALUES (?,?,?,?,?,?,?,?,?,?,1)`,
+      [
+        uuid(),
+        schoolId,
+        null,
+        null,
+        d.level_code,
+        null,
+        null,
+        d.remark,
+        d.descriptor,
+        s2++,
       ],
     );
   }

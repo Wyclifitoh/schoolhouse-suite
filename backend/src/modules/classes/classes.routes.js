@@ -11,6 +11,18 @@ router.get("/subjects", classesController.listSubjects);
 router.post("/subjects", classesController.createSubject);
 router.put("/subjects/:id", classesController.updateSubject);
 router.delete("/subjects/:id", classesController.deleteSubject);
+// Subject papers (8-4-4 support) and per-subject calculation config
+router.get("/subjects/:id/papers", classesController.listSubjectPapers);
+router.post("/subjects/:id/papers", classesController.createSubjectPaper);
+router.put(
+  "/subjects/:id/papers/:paperId",
+  classesController.updateSubjectPaper,
+);
+router.delete(
+  "/subjects/:id/papers/:paperId",
+  classesController.deleteSubjectPaper,
+);
+router.put("/subjects/:id/config", classesController.updateSubjectConfig);
 router.delete("/streams/:id", classesController.deleteStream);
 router.delete("/grades/:id", classesController.deleteGrade);
 router.get("/staff", classesController.listStaff);

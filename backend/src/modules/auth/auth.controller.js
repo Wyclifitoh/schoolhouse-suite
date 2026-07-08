@@ -1,5 +1,6 @@
 const authService = require("./auth.service");
 const { success, error } = require("../../utils/response");
+const { writeAudit, auditFromReq } = require("../../utils/audit");
 
 const login = async (req, res) => {
   try {
@@ -7,8 +8,26 @@ const login = async (req, res) => {
     if (!email || !password)
       return error(res, "Email and password are required", 400);
     const result = await authService.login(email, password);
+    writeAudit({
+      userId: result?.user?.id || null,
+      action: "LOGIN",
+      entityType: "user",
+      entityId: result?.user?.id || null,
+      ipAddress:
+        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+      newValues: { email },
+    });
     return success(res, result);
   } catch (err) {
+    writeAudit({
+      action: "LOGIN_FAILED",
+      entityType: "user",
+      ipAddress:
+        req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+      newValues: { email: req.body?.email, reason: err.message },
+    });
     return error(res, err.message, err.statusCode || 500);
   }
 };
@@ -59,6 +78,11 @@ const changePassword = async (req, res) => {
       current_password,
       new_password,
     );
+    auditFromReq(req, {
+      action: "PASSWORD_CHANGED",
+      entityType: "user",
+      entityId: req.user.id,
+    });
     return success(res, result);
   } catch (err) {
     return error(res, err.message, err.statusCode || 500);

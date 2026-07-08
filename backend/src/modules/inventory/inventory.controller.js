@@ -85,6 +85,25 @@ const adjustStock = async (req, res) => {
   }
 };
 
+const updateItem = async (req, res) => {
+  try {
+    const item = await svc.updateItem(req.params.id, req.schoolId, req.body);
+    if (!item) return error(res, "Item not found", 404);
+    return success(res, item);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const deleteItem = async (req, res) => {
+  try {
+    const result = await svc.deleteItem(req.params.id, req.schoolId);
+    return success(res, result);
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
 const listCategories = async (req, res) => {
   try {
     return success(res, await svc.listCategories(req.schoolId));
@@ -157,6 +176,29 @@ const createSupplier = async (req, res) => {
   }
 };
 
+const updateSupplier = async (req, res) => {
+  try {
+    const data = await svc.updateSupplier(
+      req.params.id,
+      req.schoolId,
+      req.body,
+    );
+    if (!data) return error(res, "Supplier not found", 404);
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, err.status || 500);
+  }
+};
+
+const deleteSupplier = async (req, res) => {
+  try {
+    const data = await svc.deleteSupplier(req.params.id, req.schoolId);
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, err.status || 500);
+  }
+};
+
 const listPOs = async (req, res) => {
   try {
     const data = await svc.listPOs(req.schoolId);
@@ -221,12 +263,16 @@ module.exports = {
   getItem,
   createItem,
   adjustStock,
+  updateItem,
+  deleteItem,
   listCategories,
   createCategory,
   listTransactions,
   createTransaction,
   listSuppliers,
   createSupplier,
+  updateSupplier,
+  deleteSupplier,
   listPOs,
   createPO,
   updatePOStatus,

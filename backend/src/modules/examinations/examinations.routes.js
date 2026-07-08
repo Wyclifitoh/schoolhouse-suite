@@ -132,6 +132,21 @@ router.delete(
   c.deleteMark,
 );
 
+// ===== 8-4-4 paper-level marks =====
+router.get("/paper-marks", c.listPaperMarks);
+router.post(
+  "/paper-marks",
+  requireExamRole("teacher"),
+  blockArchivedWrites,
+  c.recordPaperMark,
+);
+router.post(
+  "/paper-marks/bulk",
+  requireExamRole("teacher"),
+  blockArchivedWrites,
+  c.bulkPaperMarks,
+);
+
 // ===== Configuration: assessment types =====
 router.get("/assessment-types", x.listAssessmentTypes);
 router.post(

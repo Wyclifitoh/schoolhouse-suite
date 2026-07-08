@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { authenticate } = require("../middlewares/auth.middleware");
 const { requireSchool } = require("../middlewares/tenant.middleware");
 const { resolveSession } = require("../middlewares/session.middleware");
+const { auditMiddleware } = require("../middlewares/audit.middleware");
 
 const paymentsController = require("../modules/payments/payments.controller");
 
@@ -15,6 +16,10 @@ router.use("/portal", require("../modules/portal/portal.routes"));
 // M-Pesa webhook (no auth)
 router.post("/webhooks/mpesa/callback", paymentsController.mpesaCallback);
 
+// Public Payment Recording API (X-API-Key auth, no JWT)
+// Mounted before authenticate. Full path: /api/v1/public/v1/payments
+router.use("/public/v1", require("../modules/public-api/public-api.routes"));
+
 // Protected routes - require auth
 router.use(authenticate);
 
@@ -25,9 +30,11 @@ router.get("/schools/my-schools", schoolsController.getMySchools);
 // Protected routes that need school context
 router.use(requireSchool);
 router.use(resolveSession);
+router.use(auditMiddleware);
 
 router.use("/schools", require("../modules/schools/schools.routes"));
 router.use("/users", require("../modules/users/users.routes"));
+router.use("/roles", require("../modules/roles/roles.routes"));
 router.use("/students", require("../modules/students/students.routes"));
 router.use("/parents", require("../modules/parents/parents.routes"));
 router.use("/classes", require("../modules/classes/classes.routes"));
@@ -62,6 +69,13 @@ router.use(
   require("../modules/notifications/notifications.routes"),
 );
 router.use("/expenses", require("../modules/expenses/expenses.routes"));
+router.use("/income", require("../modules/income/income.routes"));
+router.use("/in-kind-payments", require("../modules/in-kind/in-kind.routes"));
+router.use(
+  "/bulk-payments",
+  require("../modules/bulk-payments/bulk-payments.routes"),
+);
+router.use("/api-keys", require("../modules/api-keys/api-keys.routes"));
 router.use("/clubs", require("../modules/clubs/clubs.routes"));
 router.use(
   "/lesson-plans",
