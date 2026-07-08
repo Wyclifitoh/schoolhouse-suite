@@ -154,6 +154,15 @@ import CommunicationTemplates from "./pages/communication/TemplatesPage";
 import CommunicationSmsLog from "./pages/communication/SmsLogPage";
 import CommunicationEmailLog from "./pages/communication/EmailLogPage";
 
+// New Communication Hub pages
+import CommDashboard from "./pages/communication/DashboardPage";
+import CommSend from "./pages/communication/SendMessagePage";
+import CommCampaigns from "./pages/communication/CampaignsPage";
+import CommAutomations from "./pages/communication/AutomationsPage";
+import CommScheduled from "./pages/communication/ScheduledPage";
+import CommHistory from "./pages/communication/HistoryPage";
+import CommSettings from "./pages/communication/SettingsPage";
+
 // Split inventory pages
 import InventoryCatalog from "./pages/inventory/CatalogPage";
 import InventorySell from "./pages/inventory/SellPage";
@@ -188,1244 +197,1307 @@ const App = () => (
                 <ErrorBoundary>
                   <Toaster />
                   <Sonner />
-                <BrowserRouter>
-                  <Routes>
-                    {/* Public routes */}
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/userLogin" element={<UserLogin />} />
-                    <Route
-                      path="/forgot-password"
-                      element={<ForgotPassword />}
-                    />
-                    <Route path="/reset-password" element={<ResetPassword />} />
-                    <Route path="/unauthorized" element={<Unauthorized />} />
+                  <BrowserRouter>
+                    <Routes>
+                      {/* Public routes */}
+                      <Route path="/" element={<LandingPage />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/userLogin" element={<UserLogin />} />
+                      <Route
+                        path="/forgot-password"
+                        element={<ForgotPassword />}
+                      />
+                      <Route
+                        path="/reset-password"
+                        element={<ResetPassword />}
+                      />
+                      <Route path="/unauthorized" element={<Unauthorized />} />
 
-                    <Route
-                      path="/portal/parent"
-                      element={
-                        <PortalProtectedRoute allow={["parent"]}>
-                          <ParentDashboard />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/student"
-                      element={
-                        <PortalProtectedRoute allow={["student"]}>
-                          <StudentDashboard />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/parent/results"
-                      element={
-                        <PortalProtectedRoute allow={["parent"]}>
-                          <ParentResults />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/parent/attendance"
-                      element={
-                        <PortalProtectedRoute allow={["parent"]}>
-                          <ParentAttendance />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/parent/fees"
-                      element={
-                        <PortalProtectedRoute allow={["parent"]}>
-                          <ParentFees />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/parent/profile"
-                      element={
-                        <PortalProtectedRoute allow={["parent"]}>
-                          <ParentProfilePage />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/student/results"
-                      element={
-                        <PortalProtectedRoute allow={["student"]}>
-                          <StudentResults />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/student/attendance"
-                      element={
-                        <PortalProtectedRoute allow={["student"]}>
-                          <StudentAttendance />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/student/fees"
-                      element={
-                        <PortalProtectedRoute allow={["student"]}>
-                          <PortalStudentFees />
-                        </PortalProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/portal/student/profile"
-                      element={
-                        <PortalProtectedRoute allow={["student"]}>
-                          <StudentProfilePage />
-                        </PortalProtectedRoute>
-                      }
-                    />
+                      <Route
+                        path="/portal/parent"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentDashboard />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/student"
+                        element={
+                          <PortalProtectedRoute allow={["student"]}>
+                            <StudentDashboard />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/results"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentResults />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/attendance"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentAttendance />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/fees"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentFees />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/profile"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentProfilePage />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/student/results"
+                        element={
+                          <PortalProtectedRoute allow={["student"]}>
+                            <StudentResults />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/student/attendance"
+                        element={
+                          <PortalProtectedRoute allow={["student"]}>
+                            <StudentAttendance />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/student/fees"
+                        element={
+                          <PortalProtectedRoute allow={["student"]}>
+                            <PortalStudentFees />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/student/profile"
+                        element={
+                          <PortalProtectedRoute allow={["student"]}>
+                            <StudentProfilePage />
+                          </PortalProtectedRoute>
+                        }
+                      />
 
-                    {/* Protected routes */}
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute>
-                          <Dashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/students"
-                      element={
-                        <ProtectedRoute>
-                          <Students />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/students/disabled"
-                      element={
-                        <ProtectedRoute
-                          roles={["super_admin", "manager", "admin"]}
-                        >
-                          <DisabledStudents />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/students/:studentId"
-                      element={
-                        <ProtectedRoute>
-                          <StudentProfile />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/parents"
-                      element={
-                        <ProtectedRoute>
-                          <Parents />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/parents/:id"
-                      element={
-                        <ProtectedRoute>
-                          <ParentProfile />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/staff/:id"
-                      element={
-                        <ProtectedRoute>
-                          <StaffProfile />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/attendance"
-                      element={
-                        <ProtectedRoute>
-                          <Attendance />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Protected routes */}
+                      <Route
+                        path="/dashboard"
+                        element={
+                          <ProtectedRoute>
+                            <Dashboard />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/students"
+                        element={
+                          <ProtectedRoute>
+                            <Students />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/students/disabled"
+                        element={
+                          <ProtectedRoute
+                            roles={["super_admin", "manager", "admin"]}
+                          >
+                            <DisabledStudents />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/students/:studentId"
+                        element={
+                          <ProtectedRoute>
+                            <StudentProfile />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/parents"
+                        element={
+                          <ProtectedRoute>
+                            <Parents />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/parents/:id"
+                        element={
+                          <ProtectedRoute>
+                            <ParentProfile />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/staff/:id"
+                        element={
+                          <ProtectedRoute>
+                            <StaffProfile />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/attendance"
+                        element={
+                          <ProtectedRoute>
+                            <Attendance />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Academic Module */}
-                    <Route
-                      path="/classes"
-                      element={
-                        <ProtectedRoute>
-                          <Classes />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Academic Module */}
+                      <Route
+                        path="/classes"
+                        element={
+                          <ProtectedRoute>
+                            <Classes />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    <Route
-                      path="/streams"
-                      element={
-                        <ProtectedRoute>
-                          <Streams />
-                        </ProtectedRoute>
-                      }
-                    />
+                      <Route
+                        path="/streams"
+                        element={
+                          <ProtectedRoute>
+                            <Streams />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    <Route
-                      path="/subjects"
-                      element={
-                        <ProtectedRoute>
-                          <Subjects />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/class-timetable"
-                      element={
-                        <ProtectedRoute>
-                          <ClassTimetable />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/teacher-timetable"
-                      element={
-                        <ProtectedRoute>
-                          <TeacherTimetable />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assign-class-teacher"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <AssignClassTeacher />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/subject-allocation"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <SubjectAllocation />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/teacher-allocation"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <TeacherAllocation />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/clubs"
-                      element={
-                        <ProtectedRoute>
-                          <Clubs />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/clubs/:id"
-                      element={
-                        <ProtectedRoute>
-                          <ClubDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    {/* Assessments (renamed from Examinations) */}
-                    <Route
-                      path="/assessments"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentsList />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/tasks"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentTasks />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/marks/:taskId"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentMarksEntry />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/results"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "teacher",
-                          ]}
-                        >
-                          <AssessmentResults />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/report-cards"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "teacher",
-                          ]}
-                        >
-                          <AssessmentReportCards />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/summative"
-                      element={
-                        <PermissionGate permission="reports:export">
-                          <SummativeReports />
-                        </PermissionGate>
-                      }
-                    />
-                    <Route
-                      path="/assessments/templates"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <AssessmentReportCardTemplates />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/analytics"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentAnalytics />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/remark-bands"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentRemarkBands />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/events"
-                      element={
-                        <ProtectedRoute>
-                          <Events />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/:id"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentDetail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/assessments/settings"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <AssessmentSettings />
-                        </ProtectedRoute>
-                      }
-                    />
-                    {/* Backward-compatible redirect for legacy /examinations */}
-                    <Route
-                      path="/examinations"
-                      element={
-                        <ProtectedRoute>
-                          <AssessmentsList />
-                        </ProtectedRoute>
-                      }
-                    />
-                    {/* Legacy exam pages (kept for migration) */}
-                    <Route
-                      path="/exams/entry"
-                      element={
-                        <ProtectedRoute>
-                          <MarksEntry />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/exams/review"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "teacher",
-                          ]}
-                        >
-                          <ExamReview />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/exams/analytics"
-                      element={
-                        <ProtectedRoute>
-                          <ExamAnalytics />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/cards"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "teacher",
-                          ]}
-                        >
-                          <ReportCards />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/settings/academics"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <AssessmentSettings />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/homework"
-                      element={
-                        <ProtectedRoute>
-                          <Homework />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/promotion"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <Promotion />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/communication"
-                      element={
-                        <ProtectedRoute>
-                          <Communication />
-                        </ProtectedRoute>
-                      }
-                    />
+                      <Route
+                        path="/subjects"
+                        element={
+                          <ProtectedRoute>
+                            <Subjects />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/class-timetable"
+                        element={
+                          <ProtectedRoute>
+                            <ClassTimetable />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/teacher-timetable"
+                        element={
+                          <ProtectedRoute>
+                            <TeacherTimetable />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assign-class-teacher"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <AssignClassTeacher />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/subject-allocation"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <SubjectAllocation />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/teacher-allocation"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <TeacherAllocation />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/clubs"
+                        element={
+                          <ProtectedRoute>
+                            <Clubs />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/clubs/:id"
+                        element={
+                          <ProtectedRoute>
+                            <ClubDetail />
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Assessments (renamed from Examinations) */}
+                      <Route
+                        path="/assessments"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentsList />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/tasks"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentTasks />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/marks/:taskId"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentMarksEntry />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/results"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "teacher",
+                            ]}
+                          >
+                            <AssessmentResults />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/report-cards"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "teacher",
+                            ]}
+                          >
+                            <AssessmentReportCards />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/summative"
+                        element={
+                          <PermissionGate permission="reports:export">
+                            <SummativeReports />
+                          </PermissionGate>
+                        }
+                      />
+                      <Route
+                        path="/assessments/templates"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <AssessmentReportCardTemplates />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/analytics"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentAnalytics />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/remark-bands"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentRemarkBands />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/events"
+                        element={
+                          <ProtectedRoute>
+                            <Events />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/:id"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentDetail />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/settings"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <AssessmentSettings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Backward-compatible redirect for legacy /examinations */}
+                      <Route
+                        path="/examinations"
+                        element={
+                          <ProtectedRoute>
+                            <AssessmentsList />
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Legacy exam pages (kept for migration) */}
+                      <Route
+                        path="/exams/entry"
+                        element={
+                          <ProtectedRoute>
+                            <MarksEntry />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/exams/review"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "teacher",
+                            ]}
+                          >
+                            <ExamReview />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/exams/analytics"
+                        element={
+                          <ProtectedRoute>
+                            <ExamAnalytics />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/cards"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "teacher",
+                            ]}
+                          >
+                            <ReportCards />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings/academics"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <AssessmentSettings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/homework"
+                        element={
+                          <ProtectedRoute>
+                            <Homework />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/promotion"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <Promotion />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication"
+                        element={
+                          <ProtectedRoute>
+                            <EntitlementGate module="communication">
+                              <CommDashboard />
+                            </EntitlementGate>
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Finance Module */}
-                    <Route
-                      path="/finance"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <Finance />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/fee-assignment"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <FeeAssignment />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/fee-discounts"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <FeeDiscounts />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/student-fees/:studentId"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "admin",
-                            "accountant",
-                            "finance_officer",
-                          ]}
-                        >
-                          <StudentFees />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/payments"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                            "front_office",
-                          ]}
-                        >
-                          <Payments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/excess-payments"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <ExcessPayments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/unallocated-payments"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <UnallocatedPayments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/fee-reminders"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <FeeReminders />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/fee-adjustments"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <FeeAdjustments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/finance-audit"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                            "auditor",
-                          ]}
-                        >
-                          <FinanceAudit />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/finance/brought-forward"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "admin",
-                            "accountant",
-                            "finance_officer",
-                          ]}
-                        >
-                          <BroughtForwardBalances />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/reconciliation"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                            "auditor",
-                          ]}
-                        >
-                          <Reconciliation />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Finance Module */}
+                      <Route
+                        path="/finance"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <Finance />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/fee-assignment"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <FeeAssignment />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/fee-discounts"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <FeeDiscounts />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/student-fees/:studentId"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                            ]}
+                          >
+                            <StudentFees />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payments"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                              "front_office",
+                            ]}
+                          >
+                            <Payments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/excess-payments"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <ExcessPayments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/unallocated-payments"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <UnallocatedPayments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/fee-reminders"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <FeeReminders />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/fee-adjustments"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <FeeAdjustments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance-audit"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                              "auditor",
+                            ]}
+                          >
+                            <FinanceAudit />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/brought-forward"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                            ]}
+                          >
+                            <BroughtForwardBalances />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/reconciliation"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                              "auditor",
+                            ]}
+                          >
+                            <Reconciliation />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Expenses Module */}
-                    <Route
-                      path="/expenses"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <Expenses />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Expenses Module */}
+                      <Route
+                        path="/expenses"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <Expenses />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    <Route
-                      path="/income"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "admin",
-                            "accountant",
-                            "school_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <Income />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/payments/in-kind"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "admin",
-                            "accountant",
-                            "finance_officer",
-                          ]}
-                        >
-                          <InKindPayments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/payments/bulk-bursary"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "admin",
-                            "accountant",
-                            "finance_officer",
-                          ]}
-                        >
-                          <BulkBursary />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/settings/api-keys"
-                      element={
-                        <ProtectedRoute
-                          roles={["super_admin", "school_admin", "admin"]}
-                        >
-                          <ApiKeysPage />
-                        </ProtectedRoute>
-                      }
-                    />
+                      <Route
+                        path="/income"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "admin",
+                              "accountant",
+                              "school_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <Income />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payments/in-kind"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                            ]}
+                          >
+                            <InKindPayments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payments/bulk-bursary"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                            ]}
+                          >
+                            <BulkBursary />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings/api-keys"
+                        element={
+                          <ProtectedRoute
+                            roles={["super_admin", "school_admin", "admin"]}
+                          >
+                            <ApiKeysPage />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* HR Module */}
-                    <Route
-                      path="/staff-directory"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <StaffDirectory />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/staff-attendance"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <StaffAttendance />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/leave-management"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <LeaveManagement />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/payroll"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                          ]}
-                        >
-                          <Payroll />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/departments"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "admin",
-                          ]}
-                        >
-                          <Departments />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/ratings"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "admin",
-                            "manager",
-                          ]}
-                        >
-                          <Ratings />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/change-password"
-                      element={
-                        <ProtectedRoute>
-                          <ChangePassword />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* HR Module */}
+                      <Route
+                        path="/staff-directory"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <StaffDirectory />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/staff-attendance"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <StaffAttendance />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/leave-management"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <LeaveManagement />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payroll"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                            ]}
+                          >
+                            <Payroll />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/departments"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "admin",
+                            ]}
+                          >
+                            <Departments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ratings"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "admin",
+                              "manager",
+                            ]}
+                          >
+                            <Ratings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/change-password"
+                        element={
+                          <ProtectedRoute>
+                            <ChangePassword />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Admin */}
-                    <Route
-                      path="/inventory"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "store_manager",
-                            "pos_attendant",
-                          ]}
-                        >
-                          <Inventory />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/library"
-                      element={
-                        <ProtectedRoute>
-                          <Library />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/settings"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <Settings />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/settings/roles"
-                      element={
-                        <ProtectedRoute roles={["super_admin", "school_admin"]}>
-                          <RolesList />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/settings/roles/:role/permissions"
-                      element={
-                        <ProtectedRoute roles={["super_admin", "school_admin"]}>
-                          <RolePermissionsEditor />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/archives"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "auditor",
-                          ]}
-                        >
-                          <Archives />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/parent-portal"
-                      element={
-                        <ProtectedRoute roles={["parent"]}>
-                          <ParentPortal />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/student-panel"
-                      element={
-                        <ProtectedRoute roles={["student"]}>
-                          <StudentPanel />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Admin */}
+                      <Route
+                        path="/inventory"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "store_manager",
+                              "pos_attendant",
+                            ]}
+                          >
+                            <Inventory />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/library"
+                        element={
+                          <ProtectedRoute>
+                            <Library />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <Settings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings/roles"
+                        element={
+                          <ProtectedRoute
+                            roles={["super_admin", "school_admin"]}
+                          >
+                            <RolesList />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings/roles/:role/permissions"
+                        element={
+                          <ProtectedRoute
+                            roles={["super_admin", "school_admin"]}
+                          >
+                            <RolePermissionsEditor />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/archives"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "auditor",
+                            ]}
+                          >
+                            <Archives />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/parent-portal"
+                        element={
+                          <ProtectedRoute roles={["parent"]}>
+                            <ParentPortal />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/student-panel"
+                        element={
+                          <ProtectedRoute roles={["student"]}>
+                            <StudentPanel />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Reports */}
-                    <Route
-                      path="/reports/finance"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "finance_officer",
-                            "auditor",
-                          ]}
-                        >
-                          <FinanceReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/students"
-                      element={
-                        <ProtectedRoute>
-                          <StudentReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/attendance"
-                      element={
-                        <ProtectedRoute>
-                          <AttendanceReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/examinations"
-                      element={
-                        <ProtectedRoute>
-                          <ExamReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/hr"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <HRReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/homework"
-                      element={
-                        <ProtectedRoute>
-                          <HomeworkReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/library"
-                      element={
-                        <ProtectedRoute>
-                          <LibraryReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/transport"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <TransportReports />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/user-logs"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                          ]}
-                        >
-                          <UserLogs />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/reports/audit-trail"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "auditor",
-                          ]}
-                        >
-                          <AuditTrail />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Reports */}
+                      <Route
+                        path="/reports/finance"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "finance_officer",
+                              "auditor",
+                            ]}
+                          >
+                            <FinanceReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/students"
+                        element={
+                          <ProtectedRoute>
+                            <StudentReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/attendance"
+                        element={
+                          <ProtectedRoute>
+                            <AttendanceReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/examinations"
+                        element={
+                          <ProtectedRoute>
+                            <ExamReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/hr"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <HRReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/homework"
+                        element={
+                          <ProtectedRoute>
+                            <HomeworkReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/library"
+                        element={
+                          <ProtectedRoute>
+                            <LibraryReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/transport"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <TransportReports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/user-logs"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                            ]}
+                          >
+                            <UserLogs />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/audit-trail"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "auditor",
+                            ]}
+                          >
+                            <AuditTrail />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Lesson Plans (CBE) */}
-                    <Route
-                      path="/lesson-plans"
-                      element={
-                        <ProtectedRoute>
-                          <LessonPlans />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/lesson-plans/new"
-                      element={
-                        <ProtectedRoute>
-                          <LessonPlanEditor />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/lesson-plans/:id"
-                      element={
-                        <ProtectedRoute>
-                          <LessonPlanEditor />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Lesson Plans (CBE) */}
+                      <Route
+                        path="/lesson-plans"
+                        element={
+                          <ProtectedRoute>
+                            <LessonPlans />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/lesson-plans/new"
+                        element={
+                          <ProtectedRoute>
+                            <LessonPlanEditor />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/lesson-plans/:id"
+                        element={
+                          <ProtectedRoute>
+                            <LessonPlanEditor />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Top-level shortcuts for audit + user logs */}
-                    <Route
-                      path="/audit-trail"
-                      element={
-                        <ProtectedRoute>
-                          <AuditTrail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/user-logs"
-                      element={
-                        <ProtectedRoute>
-                          <UserLogs />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Top-level shortcuts for audit + user logs */}
+                      <Route
+                        path="/audit-trail"
+                        element={
+                          <ProtectedRoute>
+                            <AuditTrail />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/user-logs"
+                        element={
+                          <ProtectedRoute>
+                            <UserLogs />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Designations (split from Departments) */}
-                    <Route
-                      path="/designations"
-                      element={
-                        <ProtectedRoute
-                          roles={[
-                            "super_admin",
-                            "school_admin",
-                            "deputy_admin",
-                            "admin",
-                          ]}
-                        >
-                          <Designations />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Designations (split from Departments) */}
+                      <Route
+                        path="/designations"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "deputy_admin",
+                              "admin",
+                            ]}
+                          >
+                            <Designations />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* Communication subpages */}
-                    <Route
-                      path="/communication/sms"
-                      element={
-                        <ProtectedRoute>
-                          <CommunicationSms />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/communication/email"
-                      element={
-                        <ProtectedRoute>
-                          <CommunicationEmail />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/communication/noticeboard"
-                      element={
-                        <ProtectedRoute>
-                          <CommunicationNoticeboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/communication/templates"
-                      element={
-                        <ProtectedRoute>
-                          <CommunicationTemplates />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/communication/sms-log"
-                      element={
-                        <ProtectedRoute>
-                          <CommunicationSmsLog />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/communication/email-log"
-                      element={
-                        <ProtectedRoute>
-                          <CommunicationEmailLog />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Communication subpages */}
+                      <Route
+                        path="/communication/send"
+                        element={
+                          <ProtectedRoute>
+                            <CommSend />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/campaigns"
+                        element={
+                          <ProtectedRoute>
+                            <CommCampaigns />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/automations"
+                        element={
+                          <ProtectedRoute>
+                            <CommAutomations />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/scheduled"
+                        element={
+                          <ProtectedRoute>
+                            <CommScheduled />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/history"
+                        element={
+                          <ProtectedRoute>
+                            <CommHistory />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/settings"
+                        element={
+                          <ProtectedRoute>
+                            <CommSettings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Legacy redirects */}
 
-                    {/* Inventory subpages */}
-                    <Route
-                      path="/inventory/catalog"
-                      element={
-                        <ProtectedRoute>
-                          <InventoryCatalog />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/inventory/sell"
-                      element={
-                        <ProtectedRoute>
-                          <InventorySell />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/inventory/history"
-                      element={
-                        <ProtectedRoute>
-                          <InventoryHistory />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/inventory/suppliers"
-                      element={
-                        <ProtectedRoute>
-                          <InventorySuppliers />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/inventory/purchase-orders"
-                      element={
-                        <ProtectedRoute>
-                          <InventoryPurchaseOrders />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/inventory/categories"
-                      element={
-                        <ProtectedRoute>
-                          <InventoryCategories />
-                        </ProtectedRoute>
-                      }
-                    />
+                      {/* Communication subpages */}
+                      <Route
+                        path="/communication/sms"
+                        element={
+                          <ProtectedRoute>
+                            <CommunicationSms />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/email"
+                        element={
+                          <ProtectedRoute>
+                            <CommunicationEmail />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/noticeboard"
+                        element={
+                          <ProtectedRoute>
+                            <CommunicationNoticeboard />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/templates"
+                        element={
+                          <ProtectedRoute>
+                            <CommunicationTemplates />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/sms-log"
+                        element={
+                          <ProtectedRoute>
+                            <CommunicationSmsLog />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/communication/email-log"
+                        element={
+                          <ProtectedRoute>
+                            <CommunicationEmailLog />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    {/* SaaS Admin Routes */}
-                    <Route path="/admin/login" element={<AdminLogin />} />
-                    <Route
-                      path="/admin"
-                      element={
-                        <PlatformProtectedRoute>
-                          <AdminLayout />
-                        </PlatformProtectedRoute>
-                      }
-                    >
-                      <Route index element={<AdminOverview />} />
-                      <Route path="schools" element={<AdminSchools />} />
-                      <Route path="schools/:id" element={<AdminSchoolDetail />} />
-                      <Route path="billing" element={<AdminBilling />} />
-                      <Route path="plans" element={<AdminPlans />} />
-                      <Route path="users" element={<AdminUsers />} />
-                      <Route path="staff" element={<AdminStaff />} />
-                      <Route path="audit" element={<AdminAudit />} />
-                    </Route>
+                      {/* Inventory subpages */}
+                      <Route
+                        path="/inventory/catalog"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryCatalog />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/sell"
+                        element={
+                          <ProtectedRoute>
+                            <InventorySell />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/history"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryHistory />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/suppliers"
+                        element={
+                          <ProtectedRoute>
+                            <InventorySuppliers />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/purchase-orders"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryPurchaseOrders />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/categories"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryCategories />
+                          </ProtectedRoute>
+                        }
+                      />
 
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </BrowserRouter>
-              </ErrorBoundary>
-            </TooltipProvider>
-          </TermProvider>
-        </SchoolProvider>
+                      {/* SaaS Admin Routes */}
+                      <Route path="/admin/login" element={<AdminLogin />} />
+                      <Route
+                        path="/admin"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout />
+                          </PlatformProtectedRoute>
+                        }
+                      >
+                        <Route index element={<AdminOverview />} />
+                        <Route path="schools" element={<AdminSchools />} />
+                        <Route
+                          path="schools/:id"
+                          element={<AdminSchoolDetail />}
+                        />
+                        <Route path="billing" element={<AdminBilling />} />
+                        <Route path="plans" element={<AdminPlans />} />
+                        <Route path="users" element={<AdminUsers />} />
+                        <Route path="staff" element={<AdminStaff />} />
+                        <Route path="audit" element={<AdminAudit />} />
+                      </Route>
+
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </BrowserRouter>
+                </ErrorBoundary>
+              </TooltipProvider>
+            </TermProvider>
+          </SchoolProvider>
         </PlatformAuthProvider>
       </PortalAuthProvider>
     </AuthProvider>
