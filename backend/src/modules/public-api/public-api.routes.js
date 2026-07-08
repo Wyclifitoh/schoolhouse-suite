@@ -90,7 +90,7 @@ const sendAllocationSms = async ({ schoolId, payment, allocations }) => {
               (SELECT p.phone FROM student_parents sp
                  JOIN parents p ON p.id = sp.parent_id
                 WHERE sp.student_id = s.id
-                ORDER BY sp.is_primary DESC, sp.created_at ASC LIMIT 1) AS linked_phone
+                ORDER BY sp.is_primary_contact DESC, sp.created_at ASC LIMIT 1) AS linked_phone
          FROM students s WHERE s.id = ?`,
       [payment.student_id],
     );
