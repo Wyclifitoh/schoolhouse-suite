@@ -682,9 +682,7 @@ const App = () => (
                         path="/communication"
                         element={
                           <ProtectedRoute>
-                            <EntitlementGate module="communication">
-                              <CommDashboard />
-                            </EntitlementGate>
+                            <CommDashboard />
                           </ProtectedRoute>
                         }
                       />
