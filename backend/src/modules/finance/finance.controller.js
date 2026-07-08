@@ -334,6 +334,17 @@ const revokeDiscount = async (req, res) => {
   }
 };
 
+const bulkRevokeDiscounts = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.bulkRevokeDiscounts(req.schoolId, req.body || {}),
+    );
+  } catch (err) {
+    return error(res, err.message, 400);
+  }
+};
+
 const closeTerm = async (req, res) => {
   try {
     return success(
@@ -398,6 +409,21 @@ const getReconciliationReport = async (req, res) => {
   }
 };
 
+const rebalanceStudent = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.rebalanceStudent(
+        req.schoolId,
+        req.params.studentId,
+        req.user?.id,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, 400);
+  }
+};
+
 module.exports = {
   getFeeTemplates,
   getFeeCategories,
@@ -427,9 +453,11 @@ module.exports = {
   listAppliedDiscounts,
   applyDiscount,
   revokeDiscount,
+  bulkRevokeDiscounts,
   closeTerm,
   createFeeAdjustment,
   listFeeAdjustments,
   decideFeeAdjustment,
   getReconciliationReport,
+  rebalanceStudent,
 };

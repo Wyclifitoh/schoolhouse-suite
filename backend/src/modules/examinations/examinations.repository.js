@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require("uuid");
 const { resolveGrade, defaultScaleForSchool } = require("./grading");
 const { writeAudit } = require("./audit");
 const { assertTransition, normalizeStatus } = require("./lifecycle");
+const { computeSubjectScore } = require("./subjectCalc");
 
 // ---------- helpers ----------
 const sessionWhere = (alias, session) => {
@@ -106,9 +107,28 @@ const createExam = async (data) => {
   }
   if (Array.isArray(data.subjects)) {
     for (const s of data.subjects) {
+      // For 8-4-4 exams, snapshot the subject's current calculation
+      // type/config + papers so future edits to the subject definition
+      // don't retroactively change historical exam results.
+      let calcType = s.calculation_type || null;
+      let calcConfig = s.calculation_config || null;
+      let usesPapers = 0;
+      if (s.subject_id) {
+        const subj = await queryOne(
+          `SELECT calculation_type, calculation_config, has_papers FROM subjects WHERE id = ? AND school_id = ?`,
+          [s.subject_id, data.school_id],
+        );
+        if (subj) {
+          calcType = calcType || subj.calculation_type || "GENERAL";
+          calcConfig = calcConfig || subj.calculation_config || null;
+          usesPapers =
+            data.curriculum_type === "844" && subj.has_papers ? 1 : 0;
+        }
+      }
       await query(
-        `INSERT INTO exam_subjects (id, exam_id, subject_id, subject_name, max_marks, pass_mark, weight, grading_scale_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO exam_subjects (id, exam_id, subject_id, subject_name, max_marks, pass_mark, weight, grading_scale_id,
+                                    calculation_type, calculation_config, uses_papers)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           uuidv4(),
           id,
@@ -118,6 +138,9 @@ const createExam = async (data) => {
           s.pass_mark ?? null,
           s.weight ?? 100,
           s.grading_scale_id || data.grading_scale_id || null,
+          calcType,
+          calcConfig ? JSON.stringify(calcConfig) : null,
+          usesPapers,
         ],
       );
     }
@@ -651,6 +674,280 @@ const upsertExamSubject = async (examId, s) => {
   return queryOne(`SELECT * FROM exam_subjects WHERE id = ?`, [id]);
 };
 
+// ============================================================
+// 8-4-4 paper-level marks
+// ============================================================
+
+/**
+ * Load all paper marks for an exam, optionally filtered by subject /
+ * grade / student. Joins student name + admission number for UI.
+ */
+const listPaperMarks = async (
+  schoolId,
+  { exam_id, subject_id, paper_id, student_id, grade_id, stream_id } = {},
+) => {
+  const where = ["pm.school_id = ?"];
+  const params = [schoolId];
+  if (exam_id) {
+    where.push("pm.exam_id = ?");
+    params.push(exam_id);
+  }
+  if (subject_id) {
+    where.push("pm.subject_id = ?");
+    params.push(subject_id);
+  }
+  if (paper_id) {
+    where.push("pm.paper_id = ?");
+    params.push(paper_id);
+  }
+  if (student_id) {
+    where.push("pm.student_id = ?");
+    params.push(student_id);
+  }
+  if (grade_id) {
+    where.push("st.grade_id = ?");
+    params.push(grade_id);
+  }
+  if (stream_id) {
+    where.push("st.stream_id = ?");
+    params.push(stream_id);
+  }
+
+  return query(
+    `SELECT pm.*, sp.name AS paper_name, sp.paper_type, sp.code AS paper_code,
+            CONCAT(st.first_name, ' ', st.last_name) AS student_name,
+            st.admission_number, st.grade_id, st.stream_id
+       FROM exam_paper_marks pm
+       JOIN subject_papers sp ON sp.id = pm.paper_id
+       LEFT JOIN students st ON st.id = pm.student_id
+      WHERE ${where.join(" AND ")}
+      ORDER BY student_name ASC, sp.display_order ASC`,
+    params,
+  );
+};
+
+/**
+ * Load the paper definitions used by a (exam, subject) pair. Falls
+ * back to subject_papers if exam_subjects didn't snapshot.
+ */
+async function _papersForExamSubject({
+  examId,
+  subjectId,
+  subjectName,
+  schoolId,
+}) {
+  // Prefer subject_id lookup; fall back to name match.
+  let sid = subjectId;
+  if (!sid && subjectName) {
+    const s = await queryOne(
+      `SELECT id FROM subjects WHERE school_id = ? AND name = ? LIMIT 1`,
+      [schoolId, subjectName],
+    );
+    sid = s?.id || null;
+  }
+  if (!sid) return [];
+  return query(
+    `SELECT id, name, code, paper_type, max_marks FROM subject_papers
+      WHERE subject_id = ? AND school_id = ? AND is_active = 1
+      ORDER BY display_order ASC, name ASC`,
+    [sid, schoolId],
+  );
+}
+
+/**
+ * Recompute the final subject mark for one (exam, student, subject)
+ * tuple from all stored paper marks. Writes the result into
+ * `exam_marks` so existing reports/rankings keep working unchanged.
+ */
+const recomputeSubjectFinal = async ({
+  schoolId,
+  examId,
+  studentId,
+  subjectId,
+  subjectName,
+  session = {},
+  actorId = null,
+}) => {
+  const examSubject = await queryOne(
+    `SELECT * FROM exam_subjects WHERE exam_id = ? AND ${subjectId ? "subject_id = ?" : "subject_name = ?"} LIMIT 1`,
+    [examId, subjectId || subjectName],
+  );
+  const papers = await _papersForExamSubject({
+    examId,
+    subjectId,
+    subjectName,
+    schoolId,
+  });
+  if (!papers.length) return null;
+
+  // Pull all this student's paper marks for these papers.
+  const paperIds = papers.map((p) => p.id);
+  const rows = await query(
+    `SELECT paper_id, score FROM exam_paper_marks
+      WHERE exam_id = ? AND student_id = ? AND paper_id IN (${paperIds.map(() => "?").join(",")})`,
+    [examId, studentId, ...paperIds],
+  );
+  const marks = {};
+  for (const r of rows) marks[r.paper_id] = r.score;
+
+  let calcConfig = examSubject?.calculation_config;
+  if (typeof calcConfig === "string") {
+    try {
+      calcConfig = JSON.parse(calcConfig);
+    } catch {
+      calcConfig = null;
+    }
+  }
+  const calc = computeSubjectScore({
+    papers,
+    marks,
+    calculationType: examSubject?.calculation_type || "GENERAL",
+    config: calcConfig || {},
+  });
+
+  // Store final percentage (0..100) as the score, with out_of=100 for
+  // backward-compatible display in existing reports/rankings.
+  const scaleId =
+    examSubject?.grading_scale_id ||
+    (await defaultScaleForSchool(schoolId))?.id ||
+    null;
+  const gradeInfo = scaleId
+    ? await resolveGrade(calc.percentage, scaleId)
+    : { grade: null, points: null, remark: null };
+
+  const subjName = examSubject?.subject_name || subjectName;
+  const existing = await queryOne(
+    `SELECT id, status FROM exam_marks
+      WHERE exam_id = ? AND student_id = ? AND subject_name = ?`,
+    [examId, studentId, subjName],
+  );
+  if (existing) {
+    if (existing.status === "LOCKED") return existing;
+    await query(
+      `UPDATE exam_marks SET score = ?, out_of = 100, grade = ?, points = ?,
+             remarks = COALESCE(remarks, ?), entered_by = ?, entered_at = NOW(),
+             version = version + 1
+        WHERE id = ?`,
+      [
+        calc.percentage,
+        gradeInfo.grade,
+        gradeInfo.points,
+        gradeInfo.remark,
+        actorId,
+        existing.id,
+      ],
+    );
+    return queryOne(`SELECT * FROM exam_marks WHERE id = ?`, [existing.id]);
+  }
+  const id = uuidv4();
+  await query(
+    `INSERT INTO exam_marks
+       (id, school_id, academic_year_id, term_id, exam_id, subject_id, subject_name,
+        score, out_of, grade, points, remarks, recorded_by, entered_by, entered_at, status, version, student_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, ?, ?, ?, ?, ?, NOW(), 'DRAFT', 1, ?)`,
+    [
+      id,
+      schoolId,
+      session.academicYearId || null,
+      session.termId || null,
+      examId,
+      subjectId || examSubject?.subject_id || null,
+      subjName,
+      calc.percentage,
+      gradeInfo.grade,
+      gradeInfo.points,
+      gradeInfo.remark,
+      actorId,
+      actorId,
+      studentId,
+    ],
+  );
+  return queryOne(`SELECT * FROM exam_marks WHERE id = ?`, [id]);
+};
+
+/**
+ * Upsert one paper mark and recompute the subject final.
+ */
+const upsertPaperMark = async (data, ctx = {}) => {
+  const { actorId = null, actorRole = null } = ctx;
+  // Validate against paper max_marks
+  const paper = await queryOne(
+    `SELECT id, max_marks, subject_id FROM subject_papers WHERE id = ? AND school_id = ?`,
+    [data.paper_id, data.school_id],
+  );
+  if (!paper) {
+    const e = new Error("Paper not found");
+    e.statusCode = 404;
+    throw e;
+  }
+  if (data.score != null) {
+    const max = Number(paper.max_marks);
+    const s = Number(data.score);
+    if (s < 0 || s > max) {
+      const e = new Error(`Score must be between 0 and ${max}`);
+      e.statusCode = 400;
+      throw e;
+    }
+  }
+
+  const existing = await queryOne(
+    `SELECT id FROM exam_paper_marks WHERE exam_id = ? AND student_id = ? AND paper_id = ?`,
+    [data.exam_id, data.student_id, data.paper_id],
+  );
+
+  if (existing) {
+    await query(
+      `UPDATE exam_paper_marks
+          SET score = ?, max_marks = ?, entered_by = ?, entered_at = NOW(), version = version + 1
+        WHERE id = ?`,
+      [data.score ?? null, paper.max_marks, actorId, existing.id],
+    );
+  } else {
+    await query(
+      `INSERT INTO exam_paper_marks
+         (id, school_id, academic_year_id, term_id, exam_id, student_id, subject_id, subject_name,
+          paper_id, score, max_marks, entered_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        uuidv4(),
+        data.school_id,
+        data.academic_year_id || null,
+        data.term_id || null,
+        data.exam_id,
+        data.student_id,
+        paper.subject_id,
+        data.subject_name,
+        data.paper_id,
+        data.score ?? null,
+        paper.max_marks,
+        actorId,
+      ],
+    );
+  }
+
+  // Recompute subject final and write to exam_marks
+  await recomputeSubjectFinal({
+    schoolId: data.school_id,
+    examId: data.exam_id,
+    studentId: data.student_id,
+    subjectId: paper.subject_id,
+    subjectName: data.subject_name,
+    session: { academicYearId: data.academic_year_id, termId: data.term_id },
+    actorId,
+  });
+
+  return queryOne(
+    `SELECT * FROM exam_paper_marks WHERE exam_id = ? AND student_id = ? AND paper_id = ?`,
+    [data.exam_id, data.student_id, data.paper_id],
+  );
+};
+
+const bulkUpsertPaperMarks = async (rows, ctx = {}) => {
+  const out = [];
+  for (const r of rows) out.push(await upsertPaperMark(r, ctx));
+  return out;
+};
+
 module.exports = {
   listExams,
   getExam,
@@ -670,4 +967,9 @@ module.exports = {
   listExamSubjects,
   upsertExamSubject,
   normalizeStatus,
+  // 8-4-4 paper-level marks
+  listPaperMarks,
+  upsertPaperMark,
+  bulkUpsertPaperMarks,
+  recomputeSubjectFinal,
 };

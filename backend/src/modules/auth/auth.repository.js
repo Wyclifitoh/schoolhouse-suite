@@ -57,7 +57,23 @@ const getUserRoles = async (userId) => {
 };
 
 const getProfile = async (userId) => {
-  return queryOne("SELECT * FROM profiles WHERE id = ?", [userId]);
+  const profile = await queryOne("SELECT * FROM profiles WHERE id = ?", [
+    userId,
+  ]);
+  const staff = await queryOne("SELECT id FROM staff WHERE user_id = ?", [
+    userId,
+  ]);
+  let teacherId = null;
+  if (staff) {
+    const teacher = await queryOne(
+      "SELECT id FROM teachers WHERE staff_id = ?",
+      [staff.id],
+    );
+    if (teacher) teacherId = teacher.id;
+  }
+  return profile
+    ? { ...profile, staff_id: staff?.id || null, teacher_id: teacherId }
+    : null;
 };
 
 module.exports = {

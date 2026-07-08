@@ -41,6 +41,7 @@ import {
   PencilLine,
   RefreshCw,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AssessmentDetail() {
   const { id } = useParams();
@@ -55,6 +56,8 @@ export default function AssessmentDetail() {
   const setStatus = useSetAssessmentStatus();
   const submit = useSubmitTask();
   const resync = useResyncAssessmentSubjects();
+  const { primaryRole } = useAuth();
+  const isTeacher = primaryRole === "teacher";
 
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [streamFilter, setStreamFilter] = useState<string>("all");
@@ -149,63 +152,65 @@ export default function AssessmentDetail() {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <PermissionGate permission={["exams:update", "exams:publish"]}>
-              {a.status !== "archived" && a.status !== "locked" && (
-                <Button
-                  variant="outline"
-                  onClick={() => resync.mutate(a.id)}
-                  disabled={resync.isPending}
-                >
-                  <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
-                </Button>
-              )}
-              {a.status === "draft" && (
-                <Button onClick={() => publish.mutate(a.id)}>
-                  <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
-                  tasks
-                </Button>
-              )}
-              {(a.status === "published" || a.status === "in_progress") && (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setStatus.mutate({ id: a.id, status: "locked" })
-                  }
-                >
-                  <Lock className="h-4 w-4 mr-1" /> Lock
-                </Button>
-              )}
-              {a.status === "locked" && (
-                <>
+            {!isTeacher && (
+              <PermissionGate permission={["exams:update", "exams:publish"]}>
+                {a.status !== "archived" && a.status !== "locked" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => resync.mutate(a.id)}
+                    disabled={resync.isPending}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
+                  </Button>
+                )}
+                {a.status === "draft" && (
+                  <Button onClick={() => publish.mutate(a.id)}>
+                    <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
+                    tasks
+                  </Button>
+                )}
+                {(a.status === "published" || a.status === "in_progress") && (
                   <Button
                     variant="outline"
                     onClick={() =>
-                      setStatus.mutate({ id: a.id, status: "published" })
+                      setStatus.mutate({ id: a.id, status: "locked" })
                     }
                   >
-                    <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                    <Lock className="h-4 w-4 mr-1" /> Lock
                   </Button>
+                )}
+                {a.status === "locked" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setStatus.mutate({ id: a.id, status: "published" })
+                      }
+                    >
+                      <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setStatus.mutate({ id: a.id, status: "archived" })
+                      }
+                    >
+                      <Archive className="h-4 w-4 mr-1" /> Archive
+                    </Button>
+                  </>
+                )}
+                {a.status === "archived" && (
                   <Button
                     variant="outline"
                     onClick={() =>
-                      setStatus.mutate({ id: a.id, status: "archived" })
+                      setStatus.mutate({ id: a.id, status: "draft" })
                     }
                   >
-                    <Archive className="h-4 w-4 mr-1" /> Archive
+                    <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
                   </Button>
-                </>
-              )}
-              {a.status === "archived" && (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setStatus.mutate({ id: a.id, status: "draft" })
-                  }
-                >
-                  <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
-                </Button>
-              )}
-            </PermissionGate>
+                )}
+              </PermissionGate>
+            )}
           </div>
         </div>
 

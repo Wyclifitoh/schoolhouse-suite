@@ -162,8 +162,8 @@ export function useLessonPlansPaginated(filters: Record<string, any> = {}) {
     queryFn: async () => {
       const path = `/lesson-plans?${qs(filters)}`;
       const url =
-        (import.meta.env.VITE_API_URL ||
-          "https://chuoapi.wikiteq.co.ke/api/v1") + path;
+        (import.meta.env.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1") +
+        path;
       const headers: Record<string, string> = {};
       const token = localStorage.getItem("chuo-token");
       const schoolId = localStorage.getItem("chuo-school-id");
@@ -272,7 +272,7 @@ export function useSetLessonStatus() {
 
 export async function downloadLessonPlanPdf(id: string) {
   const base =
-    import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+    import.meta.env.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1";
   const token = localStorage.getItem("chuo-token");
   const schoolId = localStorage.getItem("chuo-school-id");
   const r = await fetch(`${base}/lesson-plans/${id}/pdf`, {

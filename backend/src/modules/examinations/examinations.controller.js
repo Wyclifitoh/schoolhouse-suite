@@ -154,3 +154,37 @@ exports.markAudit = handle(async (req, res) =>
 exports.examAudit = handle(async (req, res) =>
   success(res, await listAuditForExam(req.params.id)),
 );
+
+// ============================================================
+// 8-4-4 paper-level marks
+// ============================================================
+exports.listPaperMarks = handle(async (req, res) =>
+  success(res, await repo.listPaperMarks(sid(req), req.query)),
+);
+
+const stampPaper = (req, r) => ({
+  ...r,
+  school_id: sid(req),
+  academic_year_id: r.academic_year_id || req.session?.academicYearId || null,
+  term_id: r.term_id || req.session?.termId || null,
+});
+
+exports.recordPaperMark = handle(async (req, res) => {
+  for (const k of ["exam_id", "student_id", "paper_id", "subject_name"]) {
+    if (!req.body?.[k]) return error(res, `${k} is required`, 400);
+  }
+  return success(
+    res,
+    await repo.upsertPaperMark(stampPaper(req, req.body), ctx(req)),
+  );
+});
+
+exports.bulkPaperMarks = handle(async (req, res) => {
+  const rows = Array.isArray(req.body?.marks) ? req.body.marks : [];
+  if (!rows.length) return error(res, "marks array required", 400);
+  const out = await repo.bulkUpsertPaperMarks(
+    rows.map((r) => stampPaper(req, r)),
+    ctx(req),
+  );
+  return success(res, { saved: out.length, marks: out });
+});

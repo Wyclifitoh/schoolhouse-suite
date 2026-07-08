@@ -20,6 +20,10 @@ async function requireSuperAdmin(req, res, next) {
 
 router.get("/", c.listByDate);
 router.get("/summary", c.summary);
+// Self-service (any authenticated staff — no super-admin gate)
+router.get("/self/status", c.selfStatus);
+router.post("/self/clock-in", c.selfClockIn);
+router.post("/self/clock-out", c.selfClockOut);
 router.post("/bulk", requireSuperAdmin, c.bulkSave);
 router.post("/check-in", requireSuperAdmin, c.checkIn);
 router.post("/check-out", requireSuperAdmin, c.checkOut);

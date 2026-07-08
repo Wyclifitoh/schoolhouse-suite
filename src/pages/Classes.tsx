@@ -78,17 +78,18 @@ const Classes = () => {
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: students = [] } = useStudents({ status: "active" });
   // (academic year context no longer needed here — backend handles defaults)
-  const { hasAnyRole } = useAuth();
+  const { hasAnyRole, primaryRole } = useAuth();
   const perms = usePermissions([
     "classes:create",
     "classes:update",
     "classes:delete",
   ]);
   const canManage =
-    perms["classes:create"] ||
-    perms["classes:update"] ||
-    perms["classes:delete"] ||
-    hasAnyRole(["super_admin", "school_admin", "deputy_admin"] as any);
+    primaryRole !== "teacher" &&
+    (perms["classes:create"] ||
+      perms["classes:update"] ||
+      perms["classes:delete"] ||
+      hasAnyRole(["super_admin", "school_admin", "deputy_admin"] as any));
   const qc = useQueryClient();
 
   const refreshStreams = () => {
@@ -475,6 +476,8 @@ const Classes = () => {
                   classes.
                 </p>
               ) : (
+                <>
+                  <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -538,6 +541,60 @@ const Classes = () => {
                     ))}
                   </TableBody>
                 </Table>
+                  </div>
+                  
+                  {/* Mobile View Streams */}
+                  <div className="md:hidden flex flex-col gap-3 p-4">
+                    {allStreams.map((s: any) => (
+                      <Card key={s.id} className="p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium text-lg">{s.name}</div>
+                            {s.description && (
+                              <div className="text-sm text-muted-foreground">{s.description}</div>
+                            )}
+                          </div>
+                          {canManage && (
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => openEditStream(s)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleDeleteStream(s)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <span className="block text-xs uppercase text-muted-foreground mb-1">Attached to Class</span>
+                          {(s.grade_names || []).length ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {s.grade_names.map((n: string) => (
+                                <Badge key={n} variant="secondary">
+                                  {n}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">
+                              Unassigned
+                            </span>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1009,6 +1066,8 @@ const Classes = () => {
                   No subjects configured.
                 </p>
               ) : (
+                <>
+                  <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -1035,6 +1094,25 @@ const Classes = () => {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
+                
+                {/* Mobile View Subjects */}
+                <div className="md:hidden flex flex-col gap-3 p-4">
+                  {subjects.map((s: any) => (
+                    <Card key={s.id} className="p-4 flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <div className="font-medium text-lg">{s.name}</div>
+                        <Badge variant="secondary" className="font-mono">
+                          {s.code}
+                        </Badge>
+                      </div>
+                      {s.description && (
+                        <div className="text-sm text-muted-foreground">{s.description}</div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>

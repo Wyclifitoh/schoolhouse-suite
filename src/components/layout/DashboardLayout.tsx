@@ -60,6 +60,7 @@ import {
   ListChecks,
   Sparkles,
   Activity,
+  LayoutGrid,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -272,7 +273,7 @@ const navigationGroups: NavGroup[] = [
         title: "Class Timetable",
         url: "/class-timetable",
         icon: TableProperties,
-        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        roles: ADMIN_ROLES,
         permissions: ["classes:read"],
       },
       {
@@ -336,6 +337,13 @@ const navigationGroups: NavGroup[] = [
         title: "Report Cards",
         url: "/assessments/report-cards",
         icon: FileBadge,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:publish", "exams:read"],
+      },
+      {
+        title: "Summative Reports",
+        url: "/assessments/summative",
+        icon: LayoutGrid,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
         permissions: ["exams:publish", "exams:read"],
       },
@@ -528,20 +536,81 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Communication
-  {
+ {
     label: "Communication",
     icon: MessageSquare,
     items: [
       {
-        title: "Communication",
+        title: "Dashboard",
         url: "/communication",
-        icon: MessageSquare,
+        icon: LayoutDashboard,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
-        permissions: ["communication:read"],
+      },
+      {
+        title: "Send Message",
+        url: "/communication/send",
+        icon: Mail,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Campaigns",
+        url: "/communication/campaigns",
+        icon: BellRing,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Templates",
+        url: "/communication/templates",
+        icon: FileText,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Automated Messages",
+        url: "/communication/automations",
+        icon: Sparkles,
+        roles: [...ADMIN_ROLES] as AppRole[],
+      },
+      {
+        title: "Scheduled",
+        url: "/communication/scheduled",
+        icon: Clock,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Message History",
+        url: "/communication/history",
+        icon: Archive,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Settings",
+        url: "/communication/settings",
+        icon: Settings,
+        roles: ADMIN_ROLES,
       },
       {
         title: "Notices",
@@ -552,43 +621,12 @@ const navigationGroups: NavGroup[] = [
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
-        permissions: ["communication:read"],
-      },
-      {
-        title: "SMS",
-        url: "/communication/sms",
-        icon: MessageSquare,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-        permissions: ["communication:create"],
-      },
-      {
-        title: "Email",
-        url: "/communication/email",
-        icon: Mail,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-        permissions: ["communication:create"],
-      },
-      {
-        title: "Messaging Templates",
-        url: "/communication/templates",
-        icon: FileText,
-        roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
-        permissions: ["communication:create"],
       },
       {
         title: "Events Calendar",
         url: "/events",
         icon: Calendar,
         roles: ALL_STAFF_ROLES,
-        permissions: ["events:read"],
       },
     ],
   },
@@ -745,33 +783,33 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Administration
-  {
-    label: "Administration",
-    icon: Settings,
-    items: [
-      {
-        title: "Academic Settings",
-        url: "/settings/academics",
-        icon: BookOpen,
-        roles: ADMIN_ROLES,
-        permissions: ["settings:read"],
-      },
-      {
-        title: "Archives",
-        url: "/archives",
-        icon: ArchiveIcon,
-        roles: ADMIN_ROLES,
-        permissions: ["settings:read"],
-      },
-      {
-        title: "Public API Keys",
-        url: "/settings/api-keys",
-        icon: Shield,
-        roles: ADMIN_ROLES,
-        permissions: ["settings:read"],
-      },
-    ],
-  },
+  // {
+  //   label: "Administration",
+  //   icon: Settings,
+  //   items: [
+  //     {
+  //       title: "Academic Settings",
+  //       url: "/settings/academics",
+  //       icon: BookOpen,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //     {
+  //       title: "Archives",
+  //       url: "/archives",
+  //       icon: ArchiveIcon,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //     {
+  //       title: "Public API Keys",
+  //       url: "/settings/api-keys",
+  //       icon: Shield,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //   ],
+  // },
 ];
 
 /* ── Session Timeout Hook ── */
