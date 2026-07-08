@@ -16,10 +16,6 @@ router.use("/portal", require("../modules/portal/portal.routes"));
 // M-Pesa webhook (no auth)
 router.post("/webhooks/mpesa/callback", paymentsController.mpesaCallback);
 
-// Public Payment Recording API (X-API-Key auth, no JWT)
-// Mounted before authenticate. Full path: /api/v1/public/v1/payments
-router.use("/public/v1", require("../modules/public-api/public-api.routes"));
-
 // Protected routes - require auth
 router.use(authenticate);
 
