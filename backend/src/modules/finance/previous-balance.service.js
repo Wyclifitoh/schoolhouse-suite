@@ -223,6 +223,24 @@ async function previewBroughtForward({
   await ensureSchema();
   const structureId = await getOrCreateStructure(schoolId, null);
 
+  // Auto-resolve `fromTermId` as the term immediately preceding `toTermId`
+  // for this school. If there is no prior term, balances simply default to 0.
+  if (!fromTermId && toTermId) {
+    const toTerm = await queryOne(
+      "SELECT start_date FROM terms WHERE id = ? AND school_id = ?",
+      [toTermId, schoolId],
+    );
+    if (toTerm?.start_date) {
+      const prev = await queryOne(
+        `SELECT id FROM terms
+          WHERE school_id = ? AND start_date < ?
+          ORDER BY start_date DESC LIMIT 1`,
+        [schoolId, toTerm.start_date],
+      );
+      fromTermId = prev?.id || null;
+    }
+  }
+
   const params = [schoolId];
   let where = "s.school_id = ? AND s.status = 'active'";
   if (classId) {
@@ -265,14 +283,38 @@ async function previewBroughtForward({
   );
 
   // Existing Previous Balance entries in destination term.
-  const existingRows = toTermId
-    ? await query(
+  // Detect optional columns so we work on both legacy and modern schemas.
+  const sfCols = await query(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name = 'student_fees'`,
+  );
+  const sfColSet = new Set(
+    sfCols.map((c) => String(c.column_name || c.COLUMN_NAME).toLowerCase()),
+  );
+  const hasFS = sfColSet.has("fee_structure_id");
+  const hasFeeName = sfColSet.has("fee_name");
+
+  let existingRows = [];
+  if (toTermId) {
+    const conds = [];
+    const condParams = [];
+    if (hasFS) {
+      conds.push("fee_structure_id = ?");
+      condParams.push(structureId);
+    }
+    if (hasFeeName) {
+      conds.push("fee_name = ?");
+      condParams.push(SYSTEM_NAME);
+    }
+    if (conds.length) {
+      existingRows = await query(
         `SELECT student_id, id, amount_due FROM student_fees
           WHERE school_id = ? AND term_id = ? AND student_id IN (${ph})
-            AND (fee_structure_id = ? OR fee_name = ?)`,
-        [schoolId, toTermId, ...ids, structureId, SYSTEM_NAME],
-      )
-    : [];
+            AND (${conds.join(" OR ")})`,
+        [schoolId, toTermId, ...ids, ...condParams],
+      );
+    }
+  }
   const existingMap = new Map(
     existingRows.map((r) => [r.student_id, Number(r.amount_due) || 0]),
   );

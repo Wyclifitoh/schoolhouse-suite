@@ -70,6 +70,19 @@ export function useUpdateSchoolProfile() {
   });
 }
 
+export function useUploadSchoolLogo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (base64Data: string) =>
+      api.uploadLogoBase64("/schools/logo", base64Data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["school-profile"] });
+      toast.success("Logo updated successfully!");
+    },
+    onError: (err: Error) => toast.error(`Logo upload failed: ${err.message}`),
+  });
+}
+
 export function useSchoolTerms() {
   return useQuery({
     queryKey: ["school-terms"],

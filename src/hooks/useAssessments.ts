@@ -268,6 +268,7 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
+    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -276,6 +277,7 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),

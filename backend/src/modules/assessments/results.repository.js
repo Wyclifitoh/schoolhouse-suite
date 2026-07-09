@@ -7,13 +7,24 @@ const { query, queryOne, execute } = require("../../config/database");
 const { v4: uuid } = require("uuid");
 
 async function overallAL(schoolId, pct) {
+  // Clamp so out-of-range (e.g. >100%) still maps to top band
+  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
   const level = await queryOne(
     `SELECT code, band_code FROM achievement_levels
       WHERE school_id=? AND is_active=1 AND ? BETWEEN min_score AND max_score
       ORDER BY points DESC LIMIT 1`,
-    [schoolId, pct],
+    [schoolId, clamped],
   );
-  return level || { code: null, band_code: null };
+  if (level) return level;
+  // Fallback: pick the highest level if percentage exceeds top range,
+  // or the lowest if below — never leave AL/band blank when we have a %.
+  const fallback = await queryOne(
+    `SELECT code, band_code FROM achievement_levels
+      WHERE school_id=? AND is_active=1
+      ORDER BY ${clamped >= 50 ? "points DESC" : "points ASC"} LIMIT 1`,
+    [schoolId],
+  );
+  return fallback || { code: null, band_code: null };
 }
 
 // ---------- COMPUTE RESULTS ----------
@@ -31,22 +42,95 @@ exports.compute = async (
   if (!a) throw new Error("Assessment not found");
   if (a.status === "archived") throw new Error("Assessment is archived");
 
-  // Pull aggregates per student - FIXED column names
-  const rows = await query(
-    `SELECT m.student_id,
-            stu.current_grade_id AS grade_id, 
-            stu.current_stream_id AS stream_id,
-            COUNT(DISTINCT m.subject_id) AS subjects_count,
-            COALESCE(SUM(m.score),0) AS total_score,
-            COALESCE(SUM(m.out_of),0) AS total_out_of,
-            COALESCE(SUM(m.points),0) AS total_points
-       FROM assessment_marks m
-       JOIN students stu ON stu.id = m.student_id
-      WHERE m.assessment_id=? AND m.status IN ('present','transferred_in')
-        AND m.score IS NOT NULL
-      GROUP BY m.student_id, stu.current_grade_id, stu.current_stream_id`,
+  // ---------------------------------------------------------------------
+  // FAIR RANKING: rank against full possible marks of the assessment.
+  // A student is ranked over the SUM of out_of of every subject configured
+  // for their grade in this assessment. Missing/absent marks count as 0
+  // so absent students are not artificially advantaged by a smaller
+  // denominator. Subjects that are EXCUSED can be wired in here later.
+  // ---------------------------------------------------------------------
+
+  // 1) Total possible marks per grade (sum of assessment_subjects.out_of)
+  const gradeTotals = await query(
+    `SELECT grade_id,
+            COUNT(*)                       AS subjects_count,
+            COALESCE(SUM(out_of), 0)       AS total_out_of
+       FROM assessment_subjects
+      WHERE assessment_id=?
+      GROUP BY grade_id`,
     [assessmentId],
   );
+  const gradeMap = new Map(
+    gradeTotals.map((g) => [
+      g.grade_id,
+      {
+        subjects_count: Number(g.subjects_count) || 0,
+        total_out_of: Number(g.total_out_of) || 0,
+      },
+    ]),
+  );
+
+  // 2) Roster: every student in any grade attached to this assessment.
+  //    Includes students with zero marks (absent across the board).
+  const roster = await query(
+    `SELECT DISTINCT stu.id AS student_id,
+            stu.current_grade_id AS grade_id,
+            stu.current_stream_id AS stream_id
+       FROM students stu
+       JOIN assessment_classes ac
+         ON ac.grade_id = stu.current_grade_id
+      WHERE ac.assessment_id=? AND stu.status='active'`,
+    [assessmentId],
+  );
+
+  // 3) Aggregate marks per student (treats missing as 0 by simply summing
+  //    what's there — denominator comes from grade total above).
+  const markRows = await query(
+    `SELECT m.student_id,
+            COALESCE(SUM(m.score),  0) AS total_score,
+            COALESCE(SUM(m.points), 0) AS total_points
+       FROM assessment_marks m
+      WHERE m.assessment_id=?
+        AND m.status IN ('present','transferred_in')
+        AND m.score IS NOT NULL
+      GROUP BY m.student_id`,
+    [assessmentId],
+  );
+  const markMap = new Map(markRows.map((r) => [r.student_id, r]));
+
+  // 4) Merge so every roster student gets a row (0 marks if absent).
+  //    Also keep any student that has marks but somehow isn't in roster
+  //    (e.g. transferred mid-term) — pull their grade from assessment_marks.
+  const rosterIds = new Set(roster.map((r) => r.student_id));
+  const extras = [];
+  for (const r of markRows) {
+    if (rosterIds.has(r.student_id)) continue;
+    const stu = await queryOne(
+      `SELECT id AS student_id, current_grade_id AS grade_id, current_stream_id AS stream_id
+         FROM students WHERE id=?`,
+      [r.student_id],
+    );
+    if (stu) extras.push(stu);
+  }
+  const rows = [...roster, ...extras].map((stu) => {
+    const gt = gradeMap.get(stu.grade_id) || {
+      subjects_count: 0,
+      total_out_of: 0,
+    };
+    const m = markMap.get(stu.student_id) || {
+      total_score: 0,
+      total_points: 0,
+    };
+    return {
+      student_id: stu.student_id,
+      grade_id: stu.grade_id,
+      stream_id: stu.stream_id,
+      subjects_count: gt.subjects_count,
+      total_score: Number(m.total_score) || 0,
+      total_out_of: gt.total_out_of,
+      total_points: Number(m.total_points) || 0,
+    };
+  });
 
   // Upsert each row
   for (const r of rows) {
@@ -269,5 +353,140 @@ exports.studentDetail = async (schoolId, assessmentId, studentId) => {
       ORDER BY c.name`,
     [assessmentId, studentId],
   );
+  result.progress = await buildProgressContext(
+    schoolId,
+    studentId,
+    assessmentId,
+    result.term_id,
+    result.academic_year_id,
+  );
+
+  // Attach previous assessment to calculate deviations
+  const prevResult = await queryOne(
+    `SELECT r.assessment_id, r.percentage, r.class_position 
+       FROM assessment_results r 
+       JOIN assessments a ON a.id = r.assessment_id 
+      WHERE r.student_id=? AND a.school_id=? AND r.assessment_id != ? 
+        AND r.status IN ('approved', 'published')
+      ORDER BY a.created_at DESC LIMIT 1`,
+    [studentId, schoolId, assessmentId],
+  );
+  if (prevResult) {
+    const prevMarks = await query(
+      `SELECT subject_id, score, out_of FROM assessment_marks WHERE assessment_id=? AND student_id=?`,
+      [prevResult.assessment_id, studentId],
+    );
+    result.previous_assessment = {
+      percentage: prevResult.percentage,
+      class_position: prevResult.class_position,
+      marks: prevMarks.map((m) => ({
+        subject_id: m.subject_id,
+        percentage: m.out_of ? (m.score / m.out_of) * 100 : null,
+      })),
+    };
+  }
+
   return result;
 };
+
+async function buildProgressContext(
+  schoolId,
+  studentId,
+  currentAssessmentId,
+  termId,
+  yearId,
+) {
+  // 1. Term assessments — every assessment in the same term/year for this
+  //    student that has marks. Pull per-subject scores; aggregate client-side.
+  const termAssessments = await query(
+    `SELECT a.id, a.name, a.kind, a.created_at,
+            COALESCE(r.percentage,0) AS percentage,
+            COALESCE(r.overall_al,'')  AS overall_al,
+            COALESCE(r.mean_points,0)  AS mean_points,
+            COALESCE(r.total_points,0) AS total_points,
+            COALESCE(r.class_position,0) AS class_position
+       FROM assessments a
+       LEFT JOIN assessment_results r
+              ON r.assessment_id = a.id AND r.student_id = ?
+      WHERE a.school_id=?
+        ${termId ? "AND a.term_id=?" : ""}
+        ${yearId ? "AND a.academic_year_id=?" : ""}
+      ORDER BY a.created_at ASC`,
+    [
+      studentId,
+      schoolId,
+      ...(termId ? [termId] : []),
+      ...(yearId ? [yearId] : []),
+    ],
+  );
+
+  // Per-subject marks across those assessments (one row per subject per
+  // assessment). The viewer pivots subject vs assessment.
+  const ids = termAssessments.map((a) => a.id);
+  let subjectMatrix = [];
+  if (ids.length) {
+    const ph = ids.map(() => "?").join(",");
+    subjectMatrix = await query(
+      `SELECT m.assessment_id, m.subject_id, s.name AS subject_name, s.code AS subject_code,
+              m.score, m.out_of, (m.score / m.out_of * 100) AS percentage, m.points,
+              m.achievement_level_code, m.grade_code
+         FROM assessment_marks m
+         JOIN subjects s ON s.id = m.subject_id
+        WHERE m.student_id=? AND m.assessment_id IN (${ph})`,
+      [studentId, ...ids],
+    );
+  }
+
+  // 2. Previous-term comparison
+  let previousTerm = null;
+  if (termId) {
+    const prev = await queryOne(
+      `SELECT a.id, a.name, a.term_id, t.name AS term_name,
+              r.percentage, r.overall_al, r.mean_points, r.class_position
+         FROM assessment_results r
+         JOIN assessments a ON a.id=r.assessment_id
+         LEFT JOIN terms t ON t.id=a.term_id
+        WHERE a.school_id=? AND r.student_id=?
+          AND a.term_id IS NOT NULL AND a.term_id <> ?
+          AND r.status IN ('approved','published')
+        ORDER BY a.published_at DESC, a.created_at DESC
+        LIMIT 1`,
+      [schoolId, studentId, termId],
+    );
+    if (prev) {
+      const current = termAssessments.find((a) => a.id === currentAssessmentId);
+      const curPct = current ? Number(current.percentage) : null;
+      const prevPct = Number(prev.percentage);
+      previousTerm = {
+        assessment_name: prev.name,
+        term_name: prev.term_name,
+        percentage: prevPct,
+        overall_al: prev.overall_al,
+        mean_points: prev.mean_points,
+        class_position: prev.class_position,
+        delta_percentage:
+          curPct != null ? Math.round((curPct - prevPct) * 100) / 100 : null,
+      };
+    }
+  }
+
+  // 3. Trend — last 6 assessments overall + per-subject series
+  const trend = await query(
+    `SELECT a.id, a.name, a.created_at, r.percentage, r.mean_points,
+            r.overall_al
+       FROM assessment_results r
+       JOIN assessments a ON a.id=r.assessment_id
+      WHERE a.school_id=? AND r.student_id=?
+      ORDER BY a.created_at DESC
+      LIMIT 6`,
+    [schoolId, studentId],
+  );
+  trend.reverse();
+
+  return {
+    term_assessments: termAssessments,
+    subject_matrix: subjectMatrix,
+    previous_term: previousTerm,
+    trend,
+  };
+}

@@ -9,9 +9,37 @@ const { v4: uuid } = require("uuid");
 exports.list = async (
   schoolId,
   { status, term_id, year_id, type_id, q } = {},
+  user,
 ) => {
   const params = [schoolId];
   let where = "a.school_id=?";
+
+  // Check if user is only a teacher (doesn't have admin roles)
+  const userRoles = (user?.roles || []).map((r) => {
+    if (typeof r === "object" && r.role) return r.role;
+    if (typeof r === "string") return r;
+    return r;
+  });
+  const isTeacher = userRoles.some((role) => role === "teacher");
+  const isAdmin = userRoles.some((role) =>
+    [
+      "super_admin",
+      "school_admin",
+      "admin",
+      "manager",
+      "deputy_admin",
+    ].includes(role),
+  );
+
+  // If they are a teacher but NOT an admin, hide drafts
+  if (isTeacher && !isAdmin) {
+    if (status && status === "draft") {
+      // If they explicitly ask for draft, return nothing
+      return [];
+    }
+    where += " AND a.status != 'draft'";
+  }
+
   if (status) {
     where += " AND a.status=?";
     params.push(status);
@@ -77,10 +105,12 @@ exports.get = async (id, schoolId) => {
 // ---------- CREATE ----------
 exports.create = async (data) => {
   const id = uuid();
+  const curriculum =
+    (data.curriculum_type || "CBC").toUpperCase() === "844" ? "844" : "CBC";
   await execute(
     `INSERT INTO assessments (id, school_id, academic_year_id, term_id, assessment_type_id,
-        name, description, start_date, end_date, status, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        name, description, start_date, end_date, status, created_by, curriculum_type)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id,
       data.school_id,
@@ -93,6 +123,7 @@ exports.create = async (data) => {
       data.end_date || null,
       data.status || "draft",
       data.created_by || null,
+      curriculum,
     ],
   );
 
@@ -108,15 +139,33 @@ exports.create = async (data) => {
   // auto-attach subjects from subject_allocations for each grade
   for (const gid of gradeIds) {
     const subs = await query(
-      `SELECT subject_id FROM subject_allocations
-        WHERE school_id=? AND grade_id=? AND is_active=1`,
+      `SELECT sa.subject_id,
+              COALESCE(s.curriculum_type,'CBC')    AS s_curr,
+              COALESCE(s.calculation_type,'GENERAL') AS calc_type,
+              s.calculation_config                  AS calc_cfg,
+              COALESCE(s.has_papers,0)              AS has_papers
+         FROM subject_allocations sa
+         LEFT JOIN subjects s ON s.id = sa.subject_id
+        WHERE sa.school_id=? AND sa.grade_id=? AND sa.is_active=1`,
       [data.school_id, gid],
     );
-    for (const { subject_id } of subs) {
+    for (const row of subs) {
       await execute(
-        `INSERT IGNORE INTO assessment_subjects (id, assessment_id, grade_id, subject_id, out_of)
-         VALUES (?,?,?,?,?)`,
-        [uuid(), id, gid, subject_id, data.out_of || 100],
+        `INSERT IGNORE INTO assessment_subjects
+           (id, assessment_id, grade_id, subject_id, out_of,
+            curriculum_type, calculation_type, calculation_config, uses_papers)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
+        [
+          uuid(),
+          id,
+          gid,
+          row.subject_id,
+          data.out_of || 100,
+          curriculum,
+          curriculum === "844" ? row.calc_type : null,
+          curriculum === "844" ? row.calc_cfg : null,
+          curriculum === "844" && Number(row.has_papers) === 1 ? 1 : 0,
+        ],
       );
     }
   }
@@ -137,6 +186,7 @@ exports.update = async (id, schoolId, data) => {
     "academic_year_id",
     "term_id",
     "status",
+    "curriculum_type",
   ]) {
     if (data[k] !== undefined) {
       fields.push(`${k}=?`);
@@ -221,16 +271,124 @@ exports.publish = async (id, schoolId) => {
   return exports.get(id, schoolId);
 };
 
-// ---------- LOCK / UNLOCK / ARCHIVE ----------
+// ---------- LOCK / UNLOCK / ARCHIVE / UNARCHIVE ----------
 exports.setStatus = async (id, schoolId, status) => {
   const map = {
     locked: `UPDATE assessments SET status='locked', locked_at=NOW() WHERE id=? AND school_id=?`,
     archived: `UPDATE assessments SET status='archived' WHERE id=? AND school_id=?`,
     in_progress: `UPDATE assessments SET status='in_progress' WHERE id=? AND school_id=?`,
+    // Unlock — restore to published (the only state that can become locked)
+    published: `UPDATE assessments SET status='published', locked_at=NULL, published_at=COALESCE(published_at, NOW()) WHERE id=? AND school_id=?`,
+    // Unarchive / reopen — fall back to draft so the user can re-publish/edit
     draft: `UPDATE assessments SET status='draft', published_at=NULL, locked_at=NULL WHERE id=? AND school_id=?`,
   };
   if (!map[status]) throw new Error("Invalid status");
   await execute(map[status], [id, schoolId]);
+  return exports.get(id, schoolId);
+};
+
+// ---------- SYNC SUBJECTS WITH CURRENT CLASS ALLOCATIONS ----------
+// Called when subject_allocations for a grade change. Adds new subjects and
+// removes subjects that no longer belong, but only when there are no marks yet
+// and the assessment isn't locked/archived.
+exports.syncSubjectsForGrade = async (schoolId, gradeId) => {
+  const list = await query(
+    `SELECT a.id, a.status FROM assessments a
+       JOIN assessment_classes ac ON ac.assessment_id=a.id
+      WHERE a.school_id=? AND ac.grade_id=? AND a.status NOT IN ('locked','archived')`,
+    [schoolId, gradeId],
+  );
+  if (!list.length) return { updated: 0 };
+
+  const allocated = await query(
+    `SELECT subject_id FROM subject_allocations
+      WHERE school_id=? AND grade_id=? AND is_active=1`,
+    [schoolId, gradeId],
+  );
+  const allocatedIds = new Set(allocated.map((s) => s.subject_id));
+
+  for (const a of list) {
+    const current = await query(
+      `SELECT id, subject_id FROM assessment_subjects WHERE assessment_id=? AND grade_id=?`,
+      [a.id, gradeId],
+    );
+    const currentIds = new Set(current.map((c) => c.subject_id));
+
+    // Remove subjects no longer allocated (only when no marks recorded)
+    for (const c of current) {
+      if (allocatedIds.has(c.subject_id)) continue;
+      const hasMarks = await queryOne(
+        `SELECT 1 FROM assessment_marks m
+           JOIN assessment_tasks t ON t.id=m.task_id
+          WHERE t.assessment_id=? AND t.grade_id=? AND t.subject_id=? AND m.score IS NOT NULL LIMIT 1`,
+        [a.id, gradeId, c.subject_id],
+      );
+      if (hasMarks) continue;
+      await execute(
+        `DELETE FROM assessment_tasks WHERE assessment_id=? AND grade_id=? AND subject_id=?`,
+        [a.id, gradeId, c.subject_id],
+      );
+      await execute(`DELETE FROM assessment_subjects WHERE id=?`, [c.id]);
+    }
+
+    // Add newly allocated subjects
+    for (const subject_id of allocatedIds) {
+      if (currentIds.has(subject_id)) continue;
+      await execute(
+        `INSERT IGNORE INTO assessment_subjects (id, assessment_id, grade_id, subject_id, out_of)
+         VALUES (?,?,?,?,100)`,
+        [uuid(), a.id, gradeId, subject_id],
+      );
+      // For published/in_progress assessments, also generate teacher tasks
+      if (a.status === "published" || a.status === "in_progress") {
+        const streams = await query(
+          `SELECT id FROM streams WHERE grade_id=? AND (is_active=1 OR is_active IS NULL)`,
+          [gradeId],
+        );
+        const targets = streams.length ? streams.map((s) => s.id) : [null];
+        for (const stream_id of targets) {
+          const teacher = await queryOne(
+            `SELECT teacher_id FROM teacher_subject_allocations
+              WHERE school_id=? AND subject_id=? AND grade_id=?
+                AND (stream_id<=>? OR stream_id IS NULL) AND is_active=1
+              ORDER BY (stream_id IS NULL) ASC LIMIT 1`,
+            [schoolId, subject_id, gradeId, stream_id],
+          );
+          const exists = await queryOne(
+            `SELECT id FROM assessment_tasks
+              WHERE assessment_id=? AND grade_id=? AND (stream_id<=>?) AND subject_id=?`,
+            [a.id, gradeId, stream_id, subject_id],
+          );
+          if (exists) continue;
+          await execute(
+            `INSERT INTO assessment_tasks
+               (id, assessment_id, grade_id, stream_id, subject_id, teacher_id, status)
+             VALUES (?,?,?,?,?,?, 'pending')`,
+            [
+              uuid(),
+              a.id,
+              gradeId,
+              stream_id,
+              subject_id,
+              teacher?.teacher_id || null,
+            ],
+          );
+        }
+      }
+    }
+  }
+  return { updated: list.length };
+};
+
+// Resync all grades attached to an assessment (manual trigger)
+exports.resyncSubjects = async (id, schoolId) => {
+  const grades = await query(
+    `SELECT grade_id FROM assessment_classes WHERE assessment_id=?`,
+    [id],
+  );
+  for (const g of grades) {
+    await exports.syncSubjectsForGrade(schoolId, g.grade_id);
+  }
   return exports.get(id, schoolId);
 };
 
@@ -280,7 +438,17 @@ exports.listTasksV1 = (
 
 exports.listTasks = async (
   schoolId,
-  { assessment_id, teacher_id, status, grade_id } = {},
+  {
+    assessment_id,
+    teacher_id,
+    status,
+    grade_id,
+    stream_id,
+    assessment_type_id,
+    search,
+    page,
+    limit,
+  } = {},
   user,
 ) => {
   const params = [schoolId];
@@ -348,12 +516,39 @@ exports.listTasks = async (
     where += " AND t.grade_id=?";
     params.push(grade_id);
   }
+  if (stream_id) {
+    where += " AND t.stream_id=?";
+    params.push(stream_id);
+  }
+  if (assessment_type_id) {
+    where += " AND a.assessment_type_id=?";
+    params.push(assessment_type_id);
+  }
+  if (search) {
+    where +=
+      " AND (a.name LIKE ? OR s.name LIKE ? OR s.code LIKE ? OR g.name LIKE ?)";
+    const q = `%${search}%`;
+    params.push(q, q, q, q);
+  }
 
-  console.log("Final where clause:", where);
-  console.log("Final params:", params);
+  const pageNum = Math.max(1, Number(page) || 1);
+  const lim = Math.min(200, Math.max(1, Number(limit) || 100));
+  const offset = (pageNum - 1) * lim;
 
-  return query(
+  const totalRow = await queryOne(
+    `SELECT COUNT(*) AS c
+       FROM assessment_tasks t
+       JOIN assessments a ON a.id = t.assessment_id
+       JOIN grades g ON g.id = t.grade_id
+       JOIN subjects s ON s.id = t.subject_id
+       LEFT JOIN streams st ON st.id = t.stream_id
+      WHERE ${where}`,
+    params,
+  );
+
+  const data = await query(
     `SELECT t.*, a.name AS assessment_name, a.status AS assessment_status,
+            a.assessment_type_id,
             g.name AS grade_name, st.name AS stream_name,
             s.name AS subject_name, s.code AS subject_code,
             CONCAT(COALESCE(sf.first_name,''),' ',COALESCE(sf.last_name,'')) AS teacher_name,
@@ -369,9 +564,17 @@ exports.listTasks = async (
      LEFT JOIN teachers te ON te.id = t.teacher_id
      LEFT JOIN staff sf ON sf.id = te.staff_id
      WHERE ${where}
-     ORDER BY a.created_at DESC, g.name, s.name`,
+     ORDER BY a.created_at DESC, g.name, s.name
+     LIMIT ${lim} OFFSET ${offset}`,
     params,
   );
+
+  return {
+    data,
+    total: Number(totalRow?.c || 0),
+    page: pageNum,
+    limit: lim,
+  };
 };
 
 exports.reassignTask = (id, teacher_id) =>

@@ -33,14 +33,34 @@ exports.allocateSubjects = async ({ school_id, grade_id, subject_ids }) => {
       [uuid(), school_id, grade_id, subject_id],
     );
   }
+  // Cascade subject changes into any open (non locked/archived) assessments
+  try {
+    const assess = require("./assessments.repository");
+    await assess.syncSubjectsForGrade(school_id, grade_id);
+  } catch (e) {
+    console.warn("[allocations] assessment subject sync failed:", e.message);
+  }
   return exports.listSubjectAllocations(school_id, grade_id);
 };
 
-exports.removeSubjectAllocation = (id, schoolId) =>
-  execute("DELETE FROM subject_allocations WHERE id=? AND school_id=?", [
+exports.removeSubjectAllocation = async (id, schoolId) => {
+  const row = await queryOne(
+    "SELECT grade_id FROM subject_allocations WHERE id=? AND school_id=?",
+    [id, schoolId],
+  );
+  await execute("DELETE FROM subject_allocations WHERE id=? AND school_id=?", [
     id,
     schoolId,
   ]);
+  if (row?.grade_id) {
+    try {
+      const assess = require("./assessments.repository");
+      await assess.syncSubjectsForGrade(schoolId, row.grade_id);
+    } catch (e) {
+      console.warn("[allocations] assessment subject sync failed:", e.message);
+    }
+  }
+};
 
 exports.subjectsForGrade = (schoolId, gradeId) =>
   query(

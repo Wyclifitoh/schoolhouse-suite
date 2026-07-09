@@ -282,6 +282,15 @@ const applyDiscount = async (schoolId, body, userId) => {
 const revokeDiscount = async (schoolId, id) =>
   financeRepository.revokeAppliedDiscount(schoolId, id);
 
+const bulkRevokeDiscounts = async (schoolId, body) =>
+  financeRepository.bulkRevokeAppliedDiscounts({
+    schoolId,
+    discountId: body?.discount_id,
+    feeStructureId: body?.fee_structure_id || null,
+    termId: body?.term_id || null,
+    studentIds: Array.isArray(body?.student_ids) ? body.student_ids : [],
+  });
+
 const closeTerm = async (schoolId, body, userId) =>
   financeRepository.closeTerm({
     schoolId,
@@ -318,6 +327,13 @@ const decideFeeAdjustment = async (schoolId, id, body, userId) =>
 const getReconciliationReport = async (schoolId, params) =>
   financeRepository.getReconciliationReport(schoolId, { date: params?.date });
 
+const rebalanceStudent = async (schoolId, studentId, userId) =>
+  financeRepository.rebalanceStudent({
+    schoolId,
+    studentId,
+    performedBy: userId || null,
+  });
+
 module.exports = {
   getFeeTemplates,
   getFeeCategories,
@@ -348,9 +364,11 @@ module.exports = {
   listAppliedDiscounts,
   applyDiscount,
   revokeDiscount,
+  bulkRevokeDiscounts,
   closeTerm,
   createFeeAdjustment,
   listFeeAdjustments,
   decideFeeAdjustment,
   getReconciliationReport,
+  rebalanceStudent,
 };

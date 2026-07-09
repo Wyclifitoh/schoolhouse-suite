@@ -100,6 +100,7 @@ const submitAttendance = async (req, res) => {
       date,
       records,
       markedBy,
+      user: req.user,
       session: req.session,
     });
     return res.status(201).json(result);

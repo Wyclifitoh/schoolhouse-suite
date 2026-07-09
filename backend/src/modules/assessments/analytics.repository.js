@@ -11,15 +11,15 @@ const { query, queryOne } = require("../../config/database");
 function buildMarksFilter(filters = {}) {
   const parts = [];
   const params = [];
-  let joinStudents = false;
+  let joinResults = false;
   if (filters.grade_id) {
-    joinStudents = true;
-    parts.push("stu.current_grade_id=?");
+    joinResults = true;
+    parts.push("res.grade_id=?");
     params.push(filters.grade_id);
   }
   if (filters.stream_id) {
-    joinStudents = true;
-    parts.push("stu.current_stream_id=?");
+    joinResults = true;
+    parts.push("res.stream_id=?");
     params.push(filters.stream_id);
   }
   if (filters.subject_id) {
@@ -27,7 +27,7 @@ function buildMarksFilter(filters = {}) {
     params.push(filters.subject_id);
   }
   return {
-    joinStudents,
+    joinResults,
     extraSql: parts.length ? " AND " + parts.join(" AND ") : "",
     params,
   };
@@ -52,8 +52,8 @@ function buildResultsFilter(filters = {}) {
 
 exports.overview = async (schoolId, assessmentId, filters = {}) => {
   const m = buildMarksFilter(filters);
-  const baseJoin = m.joinStudents
-    ? "JOIN students stu ON stu.id=m.student_id"
+  const baseJoin = m.joinResults
+    ? "JOIN assessment_results res ON res.student_id=m.student_id AND res.assessment_id=m.assessment_id"
     : "";
   const fp = m.params;
   return queryOne(
@@ -73,7 +73,9 @@ exports.overview = async (schoolId, assessmentId, filters = {}) => {
 
 exports.subjectMeans = (schoolId, assessmentId, filters = {}) => {
   const f = buildMarksFilter(filters);
-  const join = f.joinStudents ? "JOIN students stu ON stu.id=m.student_id" : "";
+  const join = f.joinResults
+    ? "JOIN assessment_results res ON res.student_id=m.student_id AND res.assessment_id=m.assessment_id"
+    : "";
   return query(
     `SELECT s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
             COUNT(m.id) AS n,
@@ -91,31 +93,65 @@ exports.subjectMeans = (schoolId, assessmentId, filters = {}) => {
   );
 };
 
+// Band / AL distributions represent LEARNERS, not marks.
+//   - Without a subject filter: count distinct students by their overall
+//     band/AL from `assessment_results` (one row per student).
+//   - With a subject filter: fall back to per-subject band/AL from
+//     `assessment_marks` because there is no per-subject aggregate on
+//     `assessment_results`.
 exports.bandDistribution = (schoolId, assessmentId, filters = {}) => {
-  const f = buildMarksFilter(filters);
-  const join = f.joinStudents ? "JOIN students stu ON stu.id=m.student_id" : "";
+  if (filters.subject_id) {
+    const f = buildMarksFilter(filters);
+    const join = f.joinStudents
+      ? "JOIN students stu ON stu.id=m.student_id"
+      : "";
+    return query(
+      `SELECT m.band_code, COUNT(DISTINCT m.student_id) AS n
+         FROM assessment_marks m
+         JOIN assessments a ON a.id=m.assessment_id
+         ${join}
+        WHERE a.school_id=? AND m.assessment_id=? AND m.band_code IS NOT NULL ${f.extraSql}
+        GROUP BY m.band_code
+        ORDER BY n DESC`,
+      [schoolId, assessmentId, ...f.params],
+    );
+  }
+  const f = buildResultsFilter(filters);
   return query(
-    `SELECT m.band_code, COUNT(*) AS n
-       FROM assessment_marks m
-       JOIN assessments a ON a.id=m.assessment_id
-       ${join}
-      WHERE a.school_id=? AND m.assessment_id=? AND m.band_code IS NOT NULL ${f.extraSql}
-      GROUP BY m.band_code
+    `SELECT r.overall_band AS band_code, COUNT(*) AS n
+       FROM assessment_results r
+       JOIN assessments a ON a.id=r.assessment_id
+      WHERE a.school_id=? AND r.assessment_id=? AND r.overall_band IS NOT NULL ${f.extraSql}
+      GROUP BY r.overall_band
       ORDER BY n DESC`,
     [schoolId, assessmentId, ...f.params],
   );
 };
 
 exports.alDistribution = (schoolId, assessmentId, filters = {}) => {
-  const f = buildMarksFilter(filters);
-  const join = f.joinStudents ? "JOIN students stu ON stu.id=m.student_id" : "";
+  if (filters.subject_id) {
+    const f = buildMarksFilter(filters);
+    const join = f.joinStudents
+      ? "JOIN students stu ON stu.id=m.student_id"
+      : "";
+    return query(
+      `SELECT m.achievement_level_code AS code, COUNT(DISTINCT m.student_id) AS n
+         FROM assessment_marks m
+         JOIN assessments a ON a.id=m.assessment_id
+         ${join}
+        WHERE a.school_id=? AND m.assessment_id=? AND m.achievement_level_code IS NOT NULL ${f.extraSql}
+        GROUP BY m.achievement_level_code
+        ORDER BY code DESC`,
+      [schoolId, assessmentId, ...f.params],
+    );
+  }
+  const f = buildResultsFilter(filters);
   return query(
-    `SELECT m.achievement_level_code AS code, COUNT(*) AS n
-       FROM assessment_marks m
-       JOIN assessments a ON a.id=m.assessment_id
-       ${join}
-      WHERE a.school_id=? AND m.assessment_id=? AND m.achievement_level_code IS NOT NULL ${f.extraSql}
-      GROUP BY m.achievement_level_code
+    `SELECT r.overall_al AS code, COUNT(*) AS n
+       FROM assessment_results r
+       JOIN assessments a ON a.id=r.assessment_id
+      WHERE a.school_id=? AND r.assessment_id=? AND r.overall_al IS NOT NULL ${f.extraSql}
+      GROUP BY r.overall_al
       ORDER BY code DESC`,
     [schoolId, assessmentId, ...f.params],
   );

@@ -62,36 +62,57 @@ const findAll = async (
   const numLimit = parseInt(limit, 10);
   const numOffset = parseInt(offset, 10);
 
-  // Build WHERE clause
-  let whereClause = " WHERE school_id = ?";
+  // Build WHERE clause (using alias `s` so it works with our JOIN below)
+  let whereClause = " WHERE s.school_id = ?";
   const params = [schoolId];
 
   if (status && status !== "all") {
-    whereClause += " AND status = ?";
+    whereClause += " AND s.status = ?";
     params.push(status);
   }
   if (gradeId) {
     whereClause +=
-      " AND (current_grade_id = ? OR (current_grade_id IS NULL AND grade = (SELECT name FROM grades WHERE id = ?)))";
+      " AND (s.current_grade_id = ? OR (s.current_grade_id IS NULL AND s.grade = (SELECT name FROM grades WHERE id = ?)))";
     params.push(gradeId, gradeId);
   }
   if (streamIds && streamIds.length) {
     const ph = streamIds.map(() => "?").join(",");
-    whereClause += ` AND (current_stream_id IN (${ph}) OR (current_stream_id IS NULL AND stream IN (SELECT name FROM streams WHERE id IN (${ph}))))`;
+    whereClause += ` AND (s.current_stream_id IN (${ph}) OR (s.current_stream_id IS NULL AND s.stream IN (SELECT name FROM streams WHERE id IN (${ph}))))`;
     params.push(...streamIds, ...streamIds);
   }
   if (search) {
     whereClause +=
-      " AND (full_name LIKE ? OR admission_number LIKE ? OR first_name LIKE ? OR last_name LIKE ?)";
-    const s = `%${search}%`;
-    params.push(s, s, s, s);
+      " AND (s.full_name LIKE ? OR s.admission_number LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)";
+    const sv = `%${search}%`;
+    params.push(sv, sv, sv, sv);
   }
 
-  // Main query with pagination
-  const sql = `SELECT * FROM students${whereClause} ORDER BY created_at DESC LIMIT ${numLimit} OFFSET ${numOffset}`;
+  // Main query — overlay primary parent (from student_parents) so the list
+  // always reflects the linked guardian, not stale legacy columns.
+  const sql = `
+    SELECT s.*,
+           COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pp.first_name, pp.last_name)), ''), s.parent_name) AS parent_name,
+           COALESCE(pp.phone, s.parent_phone) AS parent_phone,
+           pp.email AS parent_email,
+           st.name as stream,
+           g.name as grade
+      FROM students s
+      LEFT JOIN streams st ON st.id = s.current_stream_id
+      LEFT JOIN grades g ON g.id = s.current_grade_id
+      LEFT JOIN (
+        SELECT sp.student_id, p.first_name, p.last_name, p.phone, p.email,
+               ROW_NUMBER() OVER (
+                 PARTITION BY sp.student_id
+                 ORDER BY sp.is_primary_contact DESC, sp.created_at ASC
+               ) AS rn
+          FROM student_parents sp
+          JOIN parents p ON p.id = sp.parent_id
+      ) pp ON pp.student_id = s.id AND pp.rn = 1
+      ${whereClause}
+      ORDER BY s.created_at DESC LIMIT ${numLimit} OFFSET ${numOffset}`;
 
-  // Count query
-  const countSql = `SELECT COUNT(*) as count FROM students${whereClause}`;
+  // Count query (no JOIN needed)
+  const countSql = `SELECT COUNT(*) as count FROM students s ${whereClause}`;
 
   const [rows, countRows] = await Promise.all([
     query(sql, params),
@@ -219,17 +240,17 @@ const findByParentPhone = async (schoolId, parentPhone, excludeId) => {
 const getNextAdmissionNumber = async (schoolId) => {
   const result = await queryOne(
     "SELECT admission_number FROM students WHERE school_id = ? ORDER BY created_at DESC LIMIT 1",
-    [schoolId]
+    [schoolId],
   );
   if (!result || !result.admission_number) return "1000";
-  
+
   const match = result.admission_number.match(/\d+$/);
   if (match) {
     const nextNum = parseInt(match[0], 10) + 1;
     const numStr = String(nextNum).padStart(match[0].length, "0");
     return result.admission_number.replace(/\d+$/, numStr);
   }
-  
+
   return result.admission_number + "-1";
 };
 

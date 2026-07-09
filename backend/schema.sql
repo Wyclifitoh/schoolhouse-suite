@@ -1,982 +1,457 @@
--- ============================================
--- CHUO School Management System — MySQL Schema
--- Run this file to create all tables from scratch
--- ============================================
-
-CREATE DATABASE IF NOT EXISTS chuo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE chuo;
-
--- ============================================
--- 1. CORE / TENANCY
--- ============================================
-
-CREATE TABLE schools (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  name VARCHAR(255) NOT NULL,
-  code VARCHAR(50) UNIQUE,
-  email VARCHAR(255),
-  phone VARCHAR(30),
-  logo_url TEXT,
-  address TEXT,
-  curriculum_type VARCHAR(20) DEFAULT 'CBC',
-  paybill_number VARCHAR(30),
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE users (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  full_name VARCHAR(255) NOT NULL,
-  phone VARCHAR(30),
-  avatar_url TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  last_login_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE user_roles (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  user_id CHAR(36) NOT NULL,
-  school_id CHAR(36),
-  role ENUM('super_admin','school_admin','deputy_admin','teacher','finance_officer','front_office','transport_officer','store_manager','pos_attendant','student','parent','auditor') NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  expires_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_user_school_role (user_id, school_id, role)
-);
-
-CREATE TABLE profiles (
-  id CHAR(36) PRIMARY KEY,
-  school_id CHAR(36),
-  first_name VARCHAR(100) DEFAULT '',
-  last_name VARCHAR(100) DEFAULT '',
-  email VARCHAR(255) DEFAULT '',
-  phone VARCHAR(30),
-  avatar_url TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE SET NULL
-);
-
--- ============================================
--- 2. PERMISSIONS
--- ============================================
-
-CREATE TABLE permissions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  code VARCHAR(100) NOT NULL UNIQUE,
-  name VARCHAR(255) NOT NULL,
-  module VARCHAR(100),
-  description TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE role_permissions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  role ENUM('super_admin','school_admin','deputy_admin','teacher','finance_officer','front_office','transport_officer','store_manager','pos_attendant','student','parent','auditor') NOT NULL,
-  permission_id CHAR(36) NOT NULL,
-  FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_role_perm (role, permission_id)
-);
-
-CREATE TABLE school_role_permissions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  role ENUM('super_admin','school_admin','deputy_admin','teacher','finance_officer','front_office','transport_officer','store_manager','pos_attendant','student','parent','auditor') NOT NULL,
-  permission_id CHAR(36) NOT NULL,
-  is_granted BOOLEAN DEFAULT TRUE,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 3a. ACADEMIC STRUCTURE
--- ============================================
-
-CREATE TABLE academic_years (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  is_current BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE terms (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  academic_year_id CHAR(36) NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  is_current BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE CASCADE
-);
-
-CREATE TABLE grades (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  level ENUM('pre_primary','primary','junior_secondary','senior_secondary') NOT NULL,
-  order_index INT DEFAULT 0,
-  curriculum_type VARCHAR(20) DEFAULT 'CBC',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE designations (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE departments (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE staff (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  user_id CHAR(36),
-  employee_number VARCHAR(50),
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  email VARCHAR(255),
-  phone VARCHAR(30),
-  gender ENUM('Male','Female','Other'),
-  date_of_birth DATE,
-  join_date DATE,
-  department_id CHAR(36),
-  designation_id CHAR(36),
-  qualification VARCHAR(255),
-  experience_years INT DEFAULT 0,
-  salary DECIMAL(15,2) DEFAULT 0,
-  status ENUM('active','inactive','on_leave','terminated') DEFAULT 'active',
-  role ENUM('manager','accountant','librarian','teacher','receptionist') NOT NULL,
-  photo_url TEXT,
-  address TEXT,
-  id_number VARCHAR(50),
-  kra_pin VARCHAR(50),
-  nhif_number VARCHAR(50),
-  nssf_number VARCHAR(50),
-  bank_name VARCHAR(100),
-  bank_account VARCHAR(50),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
-  FOREIGN KEY (designation_id) REFERENCES designations(id) ON DELETE SET NULL
-);
-
-CREATE TABLE teachers (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  staff_id CHAR(36) NOT NULL UNIQUE,
-  tsc_number VARCHAR(50) UNIQUE, -- Specific to Kenyan context
-  specialization VARCHAR(255), -- e.g., "Maths/Physics"
-  is_class_teacher BOOLEAN DEFAULT FALSE,
-  bio TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE
-);
-
-CREATE TABLE streams (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  grade_id CHAR(36) NOT NULL, -- Ties it to Grade 1, Grade 2, etc.
-  name VARCHAR(100) NOT NULL, -- e.g., "North", "Blue", "Mercury"
-  capacity INT DEFAULT 40,
-  room_number VARCHAR(50),
-  class_teacher_id CHAR(36),  -- Links to teachers.id
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE,
-  FOREIGN KEY (class_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
-);
-
-CREATE TABLE grade_definitions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  display_name VARCHAR(100) NOT NULL, -- e.g., "Grade 1", "PP1", "Form 4"
-  short_name VARCHAR(20),             -- e.g., "G1", "F4"
-  level ENUM('pre_primary','primary','junior_secondary','senior_secondary') NOT NULL,
-  curriculum_type VARCHAR(20) DEFAULT 'CBC',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_school_grade_name (school_id, display_name)
-);
-
-CREATE TABLE subjects (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  code VARCHAR(20),
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
--- ============================================
--- 3b. CBC ASSESSMENT STRUCTURE
--- ============================================
-
-CREATE TABLE cbc_strands (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  subject_id CHAR(36) NOT NULL,
-  grade_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL, -- e.g., "Numbers", "Measurement"
-  description TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
-  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE CASCADE
-);
-
-CREATE TABLE students (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  user_id CHAR(36),
-  admission_number VARCHAR(50) NOT NULL,
-  first_name VARCHAR(100) NOT NULL,
-  middle_name VARCHAR(100),
-  last_name VARCHAR(100) NOT NULL,
-  full_name VARCHAR(300) GENERATED ALWAYS AS (CONCAT(first_name, ' ', COALESCE(middle_name, ''), ' ', last_name)) STORED,
-  date_of_birth DATE,
-  gender ENUM('Male','Female','Other'),
-  religion VARCHAR(50),
-  nationality VARCHAR(50) DEFAULT 'Kenyan',
-  grade VARCHAR(50),
-  stream VARCHAR(50),
-  current_grade_id CHAR(36),
-  current_stream_id CHAR(36),
-  current_term_id CHAR(36),
-  status ENUM('active','inactive','graduated','transferred','suspended') DEFAULT 'active',
-  admission_date DATE,
-  previous_school VARCHAR(255),
-  medical_info JSON,
-  special_needs TEXT,
-  photo_url TEXT,
-  upi VARCHAR(50),
-  parent_name VARCHAR(255),
-  parent_phone VARCHAR(30),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (current_grade_id) REFERENCES grades(id) ON DELETE SET NULL,
-  FOREIGN KEY (current_stream_id) REFERENCES streams(id) ON DELETE SET NULL,
-  UNIQUE KEY uq_school_admission (school_id, admission_number)
-);
-
-CREATE TABLE cbc_assessments (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_id CHAR(36) NOT NULL,
-  strand_id CHAR(36) NOT NULL,
-  term_id CHAR(36) NOT NULL,
-  score TINYINT COMMENT '1: Below, 2: Approaching, 3: Meeting, 4: Exceeding',
-  teacher_remarks TEXT,
-  assessed_by CHAR(36),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-  FOREIGN KEY (strand_id) REFERENCES cbc_strands(id) ON DELETE CASCADE,
-  FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 4. STUDENTS
--- ============================================
-
-CREATE TABLE parents (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  user_id CHAR(36),
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  phone VARCHAR(30) NOT NULL,
-  alt_phone VARCHAR(30),
-  email VARCHAR(255),
-  id_number VARCHAR(50),
-  occupation VARCHAR(255),
-  employer VARCHAR(255),
-  address TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-);
-
-CREATE TABLE student_parents (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  student_id CHAR(36) NOT NULL,
-  parent_id CHAR(36) NOT NULL,
-  relationship ENUM('father','mother','guardian','other') DEFAULT 'guardian',
-  is_primary_contact BOOLEAN DEFAULT FALSE,
-  is_fee_payer BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_id) REFERENCES parents(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_student_parent (student_id, parent_id)
-);
-
--- ============================================
--- 5. STAFF / HR
--- ============================================
-
-CREATE TABLE leave_types (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  code VARCHAR(20),
-  max_days INT,
-  is_paid BOOLEAN DEFAULT TRUE,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE leave_applications (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  staff_id CHAR(36) NOT NULL,
-  leave_type_id CHAR(36) NOT NULL,
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  total_days INT DEFAULT 1,
-  reason TEXT,
-  status ENUM('pending','approved','rejected','cancelled') DEFAULT 'pending',
-  approved_by CHAR(36),
-  approved_at TIMESTAMP NULL,
-  rejection_reason TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
-  FOREIGN KEY (leave_type_id) REFERENCES leave_types(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 6. ATTENDANCE
--- ============================================
-
-CREATE TABLE student_attendance (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_id CHAR(36) NOT NULL,
-  date DATE NOT NULL,
-  status ENUM('present','absent','late','excused') DEFAULT 'present',
-  remarks TEXT,
-  marked_by CHAR(36),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_student_date (student_id, date)
-);
-
-CREATE TABLE staff_attendance (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  staff_id CHAR(36) NOT NULL,
-  date DATE NOT NULL,
-  status ENUM('present','absent','late','on_leave','half_day') DEFAULT 'present',
-  check_in TIME,
-  check_out TIME,
-  remarks TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_staff_date (staff_id, date)
-);
-
--- ============================================
--- 7. FINANCE — FEE SETUP
--- ============================================
-
-CREATE TABLE fee_categories (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  type VARCHAR(50) DEFAULT 'tuition',
-  description TEXT,
-  gl_code VARCHAR(50),
-  is_optional BOOLEAN DEFAULT FALSE,
-  is_refundable BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE fee_templates (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  code VARCHAR(50),
-  description TEXT,
-  fee_type VARCHAR(50) DEFAULT 'mandatory',
-  ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',
-  amount DECIMAL(15,2) DEFAULT 0,
-  is_mandatory BOOLEAN DEFAULT TRUE,
-  is_recurring BOOLEAN DEFAULT FALSE,
-  is_active BOOLEAN DEFAULT TRUE,
-  applicable_grades JSON,
-  priority INT DEFAULT 0,
-  fine_type VARCHAR(20),
-  fine_amount DECIMAL(15,2),
-  fine_frequency VARCHAR(20),
-  created_by CHAR(36),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE fee_structures (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  academic_year_id CHAR(36) NOT NULL,
-  fee_category_id CHAR(36) NOT NULL,
-  grade_id CHAR(36),
-  term_id CHAR(36),
-  name VARCHAR(255) NOT NULL,
-  amount DECIMAL(15,2) DEFAULT 0,
-  due_date DATE,
-  is_mandatory BOOLEAN DEFAULT TRUE,
-  applies_to_new_students BOOLEAN DEFAULT TRUE,
-  applies_to_continuing BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE CASCADE,
-  FOREIGN KEY (fee_category_id) REFERENCES fee_categories(id) ON DELETE CASCADE,
-  FOREIGN KEY (grade_id) REFERENCES grades(id) ON DELETE SET NULL,
-  FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE SET NULL
-);
-
-CREATE TABLE fee_discounts (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  code VARCHAR(50),
-  description TEXT,
-  type ENUM('percentage','fixed_amount','fee_waiver') DEFAULT 'percentage',
-  value DECIMAL(15,2) DEFAULT 0,
-  applicable_to VARCHAR(100),
-  condition_type VARCHAR(50),
-  condition_params JSON,
-  priority INT DEFAULT 0,
-  stackable BOOLEAN DEFAULT FALSE,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 8. FINANCE — STUDENT FEES
--- ============================================
-
-CREATE TABLE student_fees (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_id CHAR(36) NOT NULL,
-  fee_template_id CHAR(36),
-  term_id CHAR(36),
-  academic_year_id CHAR(36),
-  ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',
-  amount_due DECIMAL(15,2) DEFAULT 0,
-  amount_paid DECIMAL(15,2) DEFAULT 0,
-  balance DECIMAL(15,2) GENERATED ALWAYS AS (amount_due - amount_paid) STORED,
-  discount_amount DECIMAL(15,2) DEFAULT 0,
-  fine_amount DECIMAL(15,2) DEFAULT 0,
-  brought_forward_amount DECIMAL(15,2) DEFAULT 0,
-  status ENUM('pending','partial','paid','waived','cancelled') DEFAULT 'pending',
-  due_date DATE,
-  last_payment_at TIMESTAMP NULL,
-  adjusted_at TIMESTAMP NULL,
-  adjusted_by CHAR(36),
-  assigned_by CHAR(36),
-  assignment_mode VARCHAR(20) DEFAULT 'manual',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-  FOREIGN KEY (fee_template_id) REFERENCES fee_templates(id) ON DELETE SET NULL,
-  FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE SET NULL,
-  FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE SET NULL
-);
-
-CREATE TABLE student_fee_discounts (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  student_fee_id CHAR(36) NOT NULL,
-  fee_discount_id CHAR(36),
-  discount_name VARCHAR(255),
-  discount_type VARCHAR(50),
-  original_value DECIMAL(15,2),
-  calculated_amount DECIMAL(15,2),
-  applied_by CHAR(36),
-  reason TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (student_fee_id) REFERENCES student_fees(id) ON DELETE CASCADE,
-  FOREIGN KEY (fee_discount_id) REFERENCES fee_discounts(id) ON DELETE SET NULL
-);
-
-CREATE TABLE fee_adjustments (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_fee_id CHAR(36) NOT NULL,
-  adjustment_type VARCHAR(50) NOT NULL,
-  previous_amount DECIMAL(15,2) NOT NULL,
-  new_amount DECIMAL(15,2) NOT NULL,
-  reason TEXT NOT NULL,
-  requires_approval BOOLEAN DEFAULT FALSE,
-  approval_status VARCHAR(20),
-  approved_by CHAR(36),
-  created_by CHAR(36) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_fee_id) REFERENCES student_fees(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 9. PAYMENTS
--- ============================================
-
-CREATE TABLE payments (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_id CHAR(36) NOT NULL,
-  amount DECIMAL(15,2) NOT NULL,
-  payment_method ENUM('mpesa_stk','mpesa_c2b','cash','bank','cheque','card') NOT NULL,
-  reference_number VARCHAR(100),
-  ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',
-  status ENUM('pending','processing','completed','failed','cancelled','reversed') DEFAULT 'pending',
-  received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  recorded_by CHAR(36),
-  payer_name VARCHAR(255),
-  payer_phone VARCHAR(30),
-  mpesa_receipt VARCHAR(100),
-  mpesa_phone VARCHAR(30),
-  mpesa_transaction_id CHAR(36),
-  bank_name VARCHAR(100),
-  bank_reference VARCHAR(100),
-  cheque_number VARCHAR(50),
-  cheque_date DATE,
-  notes TEXT,
-  parent_id CHAR(36),
-  receipt_url TEXT,
-  transaction_date TIMESTAMP NULL,
-  is_reconciled BOOLEAN DEFAULT FALSE,
-  reconciled_at TIMESTAMP NULL,
-  reconciled_by CHAR(36),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
-CREATE TABLE payment_allocations (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  payment_id CHAR(36) NOT NULL,
-  student_fee_id CHAR(36) NOT NULL,
-  amount DECIMAL(15,2) NOT NULL,
-  allocation_order INT,
-  is_auto_allocated BOOLEAN DEFAULT TRUE,
-  allocated_by CHAR(36),
-  allocated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_fee_id) REFERENCES student_fees(id) ON DELETE CASCADE
-);
-
-CREATE TABLE receipts (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  payment_id CHAR(36) NOT NULL,
-  receipt_number VARCHAR(50) NOT NULL UNIQUE,
-  generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
-);
-
-CREATE TABLE receipt_sequences (
-  school_id CHAR(36) PRIMARY KEY,
-  prefix VARCHAR(10) DEFAULT 'RCT',
-  current_number INT DEFAULT 0,
-  fiscal_year INT,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 10. M-PESA
--- ============================================
-
-CREATE TABLE mpesa_transactions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_id CHAR(36),
-  term_id CHAR(36),
-  transaction_type VARCHAR(20) DEFAULT 'stk_push',
-  phone_number VARCHAR(30) NOT NULL,
-  amount DECIMAL(15,2) NOT NULL,
-  account_reference VARCHAR(100) NOT NULL,
-  ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',
-  status ENUM('pending','processing','completed','failed','cancelled','stale') DEFAULT 'pending',
-  checkout_request_id VARCHAR(100),
-  merchant_request_id VARCHAR(100),
-  mpesa_receipt_number VARCHAR(100),
-  result_code INT,
-  payer_name VARCHAR(255),
-  confirmed_amount DECIMAL(15,2),
-  confirmed_phone VARCHAR(30),
-  transaction_date TIMESTAMP NULL,
-  failure_reason TEXT,
-  raw_callback JSON,
-  callback_received_at TIMESTAMP NULL,
-  initiated_by CHAR(36),
-  initiated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  fee_ids JSON,
-  expires_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
-);
-
--- ============================================
--- 11. CARRY FORWARDS
--- ============================================
-
-CREATE TABLE fee_carry_forwards (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  student_id CHAR(36) NOT NULL,
-  from_term_id CHAR(36),
-  to_term_id CHAR(36),
-  ledger_type ENUM('fees','transport','pos') DEFAULT 'fees',
-  amount DECIMAL(15,2) NOT NULL,
-  type ENUM('arrears','advance_credit') DEFAULT 'arrears',
-  status ENUM('pending','applied','cancelled') DEFAULT 'pending',
-  source_payment_id CHAR(36),
-  applied_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-  FOREIGN KEY (from_term_id) REFERENCES terms(id) ON DELETE SET NULL,
-  FOREIGN KEY (to_term_id) REFERENCES terms(id) ON DELETE SET NULL
-);
-
--- ============================================
--- 12. EXPENSES
--- ============================================
-
-CREATE TABLE expense_categories (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  budget DECIMAL(15,2) DEFAULT 0,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE expenses (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  amount DECIMAL(15,2) DEFAULT 0,
-  category_id CHAR(36),
-  expense_date DATE DEFAULT (CURRENT_DATE),
-  payment_method VARCHAR(50) DEFAULT 'cash',
-  reference VARCHAR(100),
-  status ENUM('pending','approved','paid','rejected') DEFAULT 'pending',
-  recorded_by CHAR(36),
-  approved_by CHAR(36),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL
-);
-
--- ============================================
--- 13. INVENTORY
--- ============================================
-
-CREATE TABLE inventory_categories (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE inventory_items (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  sku VARCHAR(100) NOT NULL,
-  description TEXT,
-  category_id CHAR(36),
-  cost_price DECIMAL(15,2) DEFAULT 0,
-  selling_price DECIMAL(15,2) DEFAULT 0,
-  quantity_in_stock INT DEFAULT 0,
-  reorder_level INT DEFAULT 10,
-  unit VARCHAR(50),
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (category_id) REFERENCES inventory_categories(id) ON DELETE SET NULL
-);
-
-CREATE TABLE inventory_transactions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  item_id CHAR(36) NOT NULL,
-  type ENUM('purchase','sale','adjustment','return') NOT NULL,
-  quantity INT NOT NULL,
-  unit_price DECIMAL(15,2),
-  total_amount DECIMAL(15,2),
-  reference_type VARCHAR(50),
-  reference_id CHAR(36),
-  notes TEXT,
-  recorded_by CHAR(36),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
-);
-
-CREATE TABLE inventory_suppliers (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  contact_person VARCHAR(255),
-  phone VARCHAR(50),
-  email VARCHAR(255),
-  category VARCHAR(100),
-  location TEXT,
-  status ENUM('active', 'inactive') DEFAULT 'active',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE inventory_purchase_orders (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  supplier_id CHAR(36) NOT NULL,
-  order_number VARCHAR(50) NOT NULL UNIQUE,
-  order_date DATE NOT NULL,
-  expected_date DATE,
-  shipping_cost DECIMAL(15,2) DEFAULT 0.00,
-  discount_amount DECIMAL(15,2) DEFAULT 0.00,
-  total_amount DECIMAL(15,2) DEFAULT 0,
-  status ENUM('pending', 'ordered', 'in_transit', 'delivered', 'cancelled') DEFAULT 'pending',
-  payment_status ENUM('unpaid', 'partially_paid', 'paid') DEFAULT 'unpaid',
-  notes TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (supplier_id) REFERENCES inventory_suppliers(id) ON DELETE CASCADE
-);
-
-CREATE TABLE inventory_po_items (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  po_id CHAR(36) NOT NULL,
-  item_id CHAR(36) NOT NULL,
-  quantity INT NOT NULL,
-  unit_price DECIMAL(15,2) NOT NULL,
-  total_price DECIMAL(15,2) NOT NULL,
-  FOREIGN KEY (po_id) REFERENCES inventory_purchase_orders(id) ON DELETE CASCADE,
-  FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 14. HOMEWORK
--- ============================================
-
-CREATE TABLE homework (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  subject VARCHAR(100) NOT NULL,
-  class_name VARCHAR(100) NOT NULL,
-  section VARCHAR(50),
-  assigned_by CHAR(36),
-  assigned_date DATE DEFAULT (CURRENT_DATE),
-  due_date DATE NOT NULL,
-  max_marks INT,
-  attachment_url TEXT,
-  status ENUM('active','closed','draft') DEFAULT 'active',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE homework_submissions (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  homework_id CHAR(36) NOT NULL,
-  student_id CHAR(36) NOT NULL,
-  content TEXT,
-  attachment_url TEXT,
-  submission_date DATE,
-  status ENUM('pending','submitted','evaluated','late') DEFAULT 'pending',
-  marks INT,
-  remarks TEXT,
-  evaluated_by CHAR(36),
-  evaluated_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (homework_id) REFERENCES homework(id) ON DELETE CASCADE,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
--- ============================================
--- 15. NOTIFICATIONS
--- ============================================
-
-CREATE TABLE notification_templates (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36),
-  name VARCHAR(255) NOT NULL,
-  event_type VARCHAR(100) NOT NULL,
-  channel ENUM('sms','email','push') DEFAULT 'sms',
-  subject VARCHAR(500),
-  body TEXT NOT NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
-CREATE TABLE notifications (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36) NOT NULL,
-  recipient_id CHAR(36) NOT NULL,
-  recipient_type VARCHAR(50) NOT NULL,
-  recipient_contact VARCHAR(255) NOT NULL,
-  channel ENUM('sms','email','push') DEFAULT 'sms',
-  template_id CHAR(36),
-  subject VARCHAR(500),
-  body TEXT NOT NULL,
-  status ENUM('queued','sent','delivered','failed') DEFAULT 'queued',
-  sent_at TIMESTAMP NULL,
-  delivered_at TIMESTAMP NULL,
-  error_message TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-  FOREIGN KEY (template_id) REFERENCES notification_templates(id) ON DELETE SET NULL
-);
-
--- ============================================
--- 16. AUDIT
--- ============================================
-
-CREATE TABLE audit_logs (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36),
-  user_id CHAR(36),
-  action VARCHAR(50) NOT NULL,
-  entity_type VARCHAR(100) NOT NULL,
-  entity_id CHAR(36),
-  old_values JSON,
-  new_values JSON,
-  ip_address VARCHAR(45),
-  user_agent TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE SET NULL
-);
-
-CREATE TABLE finance_audit_logs (
-  id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
-  school_id CHAR(36),
-  action VARCHAR(100) NOT NULL,
-  entity_type VARCHAR(100) NOT NULL,
-  entity_id VARCHAR(255) NOT NULL,
-  student_id CHAR(36),
-  amount_affected DECIMAL(15,2),
-  performed_by VARCHAR(255) NOT NULL,
-  metadata JSON,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE SET NULL
-);
-
--- ============================================
--- 17. CONFIG
--- ============================================
-
-CREATE TABLE finance_automation_config (
-  school_id CHAR(36) PRIMARY KEY,
-  auto_allocate_payments BOOLEAN DEFAULT TRUE,
-  auto_assign_fees_on_enrollment BOOLEAN DEFAULT FALSE,
-  auto_assign_fees_on_term_start BOOLEAN DEFAULT FALSE,
-  auto_carry_forward_arrears BOOLEAN DEFAULT TRUE,
-  auto_apply_advance_credits BOOLEAN DEFAULT TRUE,
-  auto_apply_eligible_discounts BOOLEAN DEFAULT FALSE,
-  default_allocation_strategy VARCHAR(50) DEFAULT 'fifo_by_due_date',
-  allow_manual_allocation BOOLEAN DEFAULT TRUE,
-  allow_fee_adjustments BOOLEAN DEFAULT TRUE,
-  allow_manual_discounts BOOLEAN DEFAULT TRUE,
-  require_approval_for_adjustments BOOLEAN DEFAULT TRUE,
-  require_approval_for_discounts BOOLEAN DEFAULT TRUE,
-  require_approval_for_carry_forward BOOLEAN DEFAULT FALSE,
-  require_approval_for_bulk_assignment BOOLEAN DEFAULT TRUE,
-  max_adjustment_without_approval DECIMAL(15,2),
-  max_discount_percent_without_approval DECIMAL(5,2),
-  send_payment_confirmation_sms BOOLEAN DEFAULT TRUE,
-  send_balance_reminder_sms BOOLEAN DEFAULT FALSE,
-  reminder_days_before_due JSON,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
-);
-
--- ============================================
--- INDEXES
--- ============================================
-
-CREATE INDEX idx_students_school ON students(school_id);
-CREATE INDEX idx_students_grade ON students(current_grade_id);
-CREATE INDEX idx_students_status ON students(status);
-CREATE INDEX idx_student_fees_student ON student_fees(student_id);
-CREATE INDEX idx_student_fees_school ON student_fees(school_id);
-CREATE INDEX idx_student_fees_term ON student_fees(term_id);
-CREATE INDEX idx_payments_school ON payments(school_id);
-CREATE INDEX idx_payments_student ON payments(student_id);
-CREATE INDEX idx_payments_status ON payments(status);
-CREATE INDEX idx_user_roles_user ON user_roles(user_id);
-CREATE INDEX idx_user_roles_school ON user_roles(school_id);
-CREATE INDEX idx_attendance_student ON student_attendance(student_id);
-CREATE INDEX idx_attendance_date ON student_attendance(date);
-CREATE INDEX idx_staff_school ON staff(school_id);
-CREATE INDEX idx_parents_school ON parents(school_id);
-CREATE INDEX idx_expenses_school ON expenses(school_id);
+-- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
+--
+-- Host: localhost    Database: nabalaki_db
+-- ------------------------------------------------------
+-- Server version	8.0.46-0ubuntu0.24.04.3
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `schools`
+--
+
+DROP TABLE IF EXISTS `schools`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `schools` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `phone` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `logo_url` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `curriculum_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'CBC',
+  `paybill_number` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `current_academic_year_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `current_term_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `academic_years`
+--
+
+DROP TABLE IF EXISTS `academic_years`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `academic_years` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `is_current` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_archived` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `academic_years_ibfk_1` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `achievement_levels`
+--
+
+DROP TABLE IF EXISTS `achievement_levels`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `achievement_levels` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `band_code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `min_score` decimal(5,2) NOT NULL,
+  `max_score` decimal(5,2) NOT NULL,
+  `points` int NOT NULL DEFAULT '0',
+  `description` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `sort_order` int DEFAULT '0',
+  `is_active` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_school_al` (`school_id`,`code`),
+  CONSTRAINT `fk_achievement_levels_school` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `api_keys`
+--
+
+DROP TABLE IF EXISTS `api_keys`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `api_keys` (
+  `id` char(36) NOT NULL,
+  `school_id` char(36) NOT NULL,
+  `label` varchar(150) NOT NULL,
+  `key_prefix` varchar(16) NOT NULL,
+  `key_hash` char(64) NOT NULL,
+  `scopes` varchar(500) NOT NULL DEFAULT 'payments:write',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `last_used_at` timestamp NULL DEFAULT NULL,
+  `created_by` char(36) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `revoked_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_api_key_hash` (`key_hash`),
+  KEY `idx_api_keys_school` (`school_id`),
+  KEY `idx_api_keys_prefix` (`key_prefix`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `api_key_logs`
+--
+
+DROP TABLE IF EXISTS `api_key_logs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `api_key_logs` (
+  `id` char(36) NOT NULL,
+  `api_key_id` char(36) DEFAULT NULL,
+  `school_id` char(36) DEFAULT NULL,
+  `method` varchar(10) NOT NULL,
+  `path` varchar(500) NOT NULL,
+  `idempotency_key` varchar(150) DEFAULT NULL,
+  `request_body` mediumtext,
+  `response_status` int DEFAULT NULL,
+  `response_body` mediumtext,
+  `ip_address` varchar(64) DEFAULT NULL,
+  `duration_ms` int DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_akl_key` (`api_key_id`),
+  KEY `idx_akl_school` (`school_id`),
+  KEY `idx_akl_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `assessments`
+--
+
+DROP TABLE IF EXISTS `assessments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `assessments` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `academic_year_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `term_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('exam','assignment','cbc_assessment') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `weight` decimal(5,2) DEFAULT '100.00',
+  `status` enum('draft','published','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `assessments_school_fk` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `grades`
+--
+
+DROP TABLE IF EXISTS `grades`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `grades` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `grades_school_fk` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `assessment_classes`
+--
+
+DROP TABLE IF EXISTS `assessment_classes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `assessment_classes` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `assessment_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `grade_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_assess_grade` (`assessment_id`,`grade_id`),
+  KEY `fk_assessment_classes_grade` (`grade_id`),
+  CONSTRAINT `fk_assessment_classes_assessment` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_assessment_classes_grade` FOREIGN KEY (`grade_id`) REFERENCES `grades` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `students`
+--
+
+DROP TABLE IF EXISTS `students`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `students` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `admission_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `first_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `middle_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `last_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `students_school_fk` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `subjects`
+--
+
+DROP TABLE IF EXISTS `subjects`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `subjects` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `subjects_school_fk` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `assessment_marks`
+--
+
+DROP TABLE IF EXISTS `assessment_marks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `assessment_marks` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `assessment_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `task_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `student_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `score` decimal(6,2) DEFAULT NULL,
+  `out_of` decimal(6,2) DEFAULT '100.00',
+  `achievement_level_code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `band_code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `points` int DEFAULT NULL,
+  `status` enum('pending','present','absent','exempted','transferred_in','transferred_out') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `remarks` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `recorded_by` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `paper_scores` json DEFAULT NULL,
+  `grade_code` varchar(8) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_mark` (`assessment_id`,`student_id`,`subject_id`),
+  KEY `fk_marks_student` (`student_id`),
+  KEY `fk_marks_subject` (`subject_id`),
+  CONSTRAINT `fk_marks_assessment` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_marks_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_marks_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `assessment_audit_log`
+--
+
+DROP TABLE IF EXISTS `assessment_audit_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `assessment_audit_log` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `assessment_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `actor_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `entity_type` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `entity_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `meta` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_school` (`school_id`),
+  KEY `idx_audit_assessment` (`assessment_id`),
+  KEY `idx_audit_actor` (`actor_id`),
+  KEY `idx_audit_created` (`created_at`),
+  CONSTRAINT `fk_assessment_audit_log_assessment` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_assessment_audit_log_school` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `designations`
+--
+
+DROP TABLE IF EXISTS `designations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `designations` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `designations_school_fk` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `leave_types`
+--
+
+DROP TABLE IF EXISTS `leave_types`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `leave_types` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `max_days` int NOT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `requires_approval` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `leave_types_ibfk_1` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `streams`
+--
+
+DROP TABLE IF EXISTS `streams`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `streams` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `school_id` (`school_id`),
+  CONSTRAINT `streams_school_fk` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `teacher_subject_allocations`
+--
+
+DROP TABLE IF EXISTS `teacher_subject_allocations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `teacher_subject_allocations` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `teacher_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `grade_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `stream_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_teacher_alloc` (`teacher_id`,`subject_id`,`grade_id`,`stream_id`),
+  KEY `fk_tsa_school` (`school_id`),
+  KEY `fk_tsa_subject` (`subject_id`),
+  KEY `fk_tsa_grade` (`grade_id`),
+  KEY `fk_tsa_stream` (`stream_id`),
+  CONSTRAINT `fk_tsa_grade` FOREIGN KEY (`grade_id`) REFERENCES `grades` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tsa_school` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tsa_stream` FOREIGN KEY (`stream_id`) REFERENCES `streams` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tsa_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `student_rankings`
+--
+
+DROP TABLE IF EXISTS `student_rankings`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `student_rankings` (
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `school_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `academic_year_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `term_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `student_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `exam_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `scope` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `scope_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `total` decimal(8,2) DEFAULT NULL,
+  `computed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_rank_session` (`school_id`,`academic_year_id`,`term_id`),
+  KEY `idx_rank_scope` (`scope`,`scope_id`),
+  KEY `idx_rank_student` (`student_id`),
+  KEY `idx_rank_exam` (`exam_id`),
+  CONSTRAINT `fk_student_rankings_school` FOREIGN KEY (`school_id`) REFERENCES `schools` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `calendar_events`
+--
+
+DROP TABLE IF EXISTS `calendar_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `calendar_events` (
+  `id` char(36) NOT NULL,
+  `school_id` char(36) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `location` varchar(255),
+  `starts_at` datetime NOT NULL,
+  `ends_at` datetime NOT NULL,
+  `all_day` tinyint(1) NOT NULL DEFAULT 0,
+  `color` varchar(20) DEFAULT '#3b82f6',
+  `category` varchar(50) DEFAULT 'general',
+  `audience` varchar(50) DEFAULT 'all',
+  `grade_id` char(36) DEFAULT NULL,
+  `stream_id` char(36) DEFAULT NULL,
+  `reminder_minutes` int NOT NULL DEFAULT 60,
+  `reminder_sent` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by` char(36) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_calendar_events_school` (`school_id`),
+  KEY `idx_calendar_events_starts` (`starts_at`),
+  KEY `idx_calendar_events_audience` (`audience`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;

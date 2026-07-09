@@ -12,7 +12,7 @@
     "ci": "npm run lint:session && npm test"
   },
   "dependencies": {
-    "archiver": "^8.0.0",
+    "archiver": "^7.0.1",
     "axios": "^1.9.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
@@ -23,6 +23,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "mysql2": "^3.11.0",
+    "pdf-lib": "^1.17.1",
     "pdfkit": "^0.18.0",
     "uuid": "^10.0.0"
   },
