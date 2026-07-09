@@ -79,6 +79,14 @@ class ApiClient {
   delete<T>(path: string) {
     return this.request<T>(path, { method: "DELETE" });
   }
+
+  /** Upload a logo as base64 JSON to avoid multipart complexity */
+  uploadLogoBase64(path: string, base64Data: string) {
+    return this.request<{ logo_url: string }>(path, {
+      method: "POST",
+      body: JSON.stringify({ logo_base64: base64Data }),
+    });
+  }
 }
 
 export const api = new ApiClient();

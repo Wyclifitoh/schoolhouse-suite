@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -22,12 +23,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   useAssessmentTasksPaged,
   useAssessmentTypes,
+  useReassignTask,
+  useTeacherAllocations,
 } from "@/hooks/useAssessments";
 import { useClasses, useStreams } from "@/hooks/useClasses";
-import { FileText, PencilLine, Search } from "lucide-react";
+import { FileText, PencilLine, Search, UserRoundPen } from "lucide-react";
 import { PermissionGate } from "@/components/PermissionGate";
+import { useAuth } from "@/contexts/AuthContext";
+
+type ReassignTarget = {
+  id: string;
+  grade_id: string;
+  subject_id: string;
+  current_teacher: string | null;
+};
 
 export default function AssessmentTasks() {
   const [status, setStatus] = useState<string>("");
@@ -37,6 +55,13 @@ export default function AssessmentTasks() {
   const [typeId, setTypeId] = useState("");
   const [page, setPage] = useState(1);
   const limit = 25;
+
+  const { hasAnyRole } = useAuth();
+  const canReassign = hasAnyRole(["super_admin", "admin", "school_admin"]);
+
+  // Reassign dialog state
+  const [reassigning, setReassigning] = useState<ReassignTarget | null>(null);
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
 
   const { data: classes = [] } = useClasses();
   const { data: streams = [] } = useStreams(gradeId || undefined);
@@ -60,9 +85,42 @@ export default function AssessmentTasks() {
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
+  const reassign = useReassignTask();
+
+  // Fetch teachers eligible for the task being reassigned
+  const { data: eligibleTeachers = [], isLoading: teachersLoading } =
+    useTeacherAllocations(
+      reassigning
+        ? { grade_id: reassigning.grade_id, subject_id: reassigning.subject_id }
+        : {},
+    );
+
   const resetPage = (fn: () => void) => {
     setPage(1);
     fn();
+  };
+
+  const openReassign = (t: any) => {
+    setReassigning({
+      id: t.id,
+      grade_id: t.grade_id,
+      subject_id: t.subject_id,
+      current_teacher: t.teacher_name || null,
+    });
+    setSelectedTeacherId("");
+  };
+
+  const closeReassign = () => {
+    setReassigning(null);
+    setSelectedTeacherId("");
+  };
+
+  const confirmReassign = () => {
+    if (!reassigning || !selectedTeacherId) return;
+    reassign.mutate(
+      { id: reassigning.id, teacher_id: selectedTeacherId },
+      { onSuccess: closeReassign },
+    );
   };
 
   return (
@@ -184,7 +242,7 @@ export default function AssessmentTasks() {
                     <TableHead>Teacher</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -209,7 +267,9 @@ export default function AssessmentTasks() {
                         <TableCell>{t.subject_name}</TableCell>
                         <TableCell>
                           {t.teacher_name || (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground text-xs italic">
+                              Unassigned
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="min-w-[140px]">
@@ -224,14 +284,32 @@ export default function AssessmentTasks() {
                           <Badge variant="outline">{t.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <PermissionGate permission="exams:update">
-                            <Link to={`/assessments/marks/${t.id}`}>
-                              <Button size="sm" variant="outline">
-                                <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
-                                Enter
+                          <div className="flex items-center justify-end gap-1">
+                            {canReassign && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => openReassign(t)}
+                              >
+                                <UserRoundPen className="h-3.5 w-3.5 mr-1" />
+                                Reassign
                               </Button>
-                            </Link>
-                          </PermissionGate>
+                            )}
+                            <PermissionGate permission="exams:update">
+                              <Link to={`/assessments/marks/${t.id}`}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                >
+                                  <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
+                                 {" "}
+                                Enter
+                                </Button>
+                              </Link>
+                            </PermissionGate>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -277,6 +355,63 @@ export default function AssessmentTasks() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Reassign Dialog ── */}
+      <Dialog
+        open={!!reassigning}
+        onOpenChange={(o) => {
+          if (!o) closeReassign();
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reassign Task</DialogTitle>
+          </DialogHeader>
+          {reassigning?.current_teacher && (
+            <p className="text-sm text-muted-foreground -mt-2">
+              Currently assigned to{" "}
+              <strong>{reassigning.current_teacher}</strong>
+            </p>
+          )}
+          <div className="space-y-2 py-2">
+            <Label htmlFor="reassign-teacher">Select new teacher</Label>
+            <Select
+              value={selectedTeacherId}
+              onValueChange={setSelectedTeacherId}
+              disabled={teachersLoading}
+            >
+              <SelectTrigger id="reassign-teacher">
+                <SelectValue
+                  placeholder={teachersLoading ? "Loading…" : "Pick a teacher"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {eligibleTeachers.map((ta) => (
+                  <SelectItem key={ta.teacher_id} value={ta.teacher_id}>
+                    {ta.teacher_name}
+                  </SelectItem>
+                ))}
+                {!teachersLoading && !eligibleTeachers.length && (
+                  <SelectItem value="__none__" disabled>
+                    No teachers allocated for this subject/class
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeReassign}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmReassign}
+              disabled={!selectedTeacherId || reassign.isPending}
+            >
+              {reassign.isPending ? "Saving…" : "Reassign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
