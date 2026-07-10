@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { differenceInDays, parseISO, isPast, startOfDay } from "date-fns";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -33,9 +34,8 @@ import {
   useAssessmentTasksPaged,
   useAssessmentTypes,
   useReassignTask,
-  useTeacherAllocations,
 } from "@/hooks/useAssessments";
-import { useClasses, useStreams } from "@/hooks/useClasses";
+import { useClasses, useStreams, useTeachers } from "@/hooks/useClasses";
 import { FileText, PencilLine, Search, UserRoundPen } from "lucide-react";
 import { PermissionGate } from "@/components/PermissionGate";
 import { useAuth } from "@/contexts/AuthContext";
@@ -87,13 +87,8 @@ export default function AssessmentTasks() {
 
   const reassign = useReassignTask();
 
-  // Fetch teachers eligible for the task being reassigned
-  const { data: eligibleTeachers = [], isLoading: teachersLoading } =
-    useTeacherAllocations(
-      reassigning
-        ? { grade_id: reassigning.grade_id, subject_id: reassigning.subject_id }
-        : {},
-    );
+  // Fetch all teachers for reassignment as requested by the user
+  const { data: eligibleTeachers = [], isLoading: teachersLoading } = useTeachers();
 
   const resetPage = (fn: () => void) => {
     setPage(1);
@@ -255,10 +250,26 @@ export default function AssessmentTasks() {
                         <TableCell>
                           <Link
                             to={`/assessments/${t.assessment_id}`}
-                            className="hover:underline"
+                            className="hover:underline block font-medium"
                           >
                             {t.assessment_name}
                           </Link>
+                          {(() => {
+                            if (!t.end_date || !t.marks_deadline || ["submitted", "approved", "locked"].includes(t.status)) return null;
+                            const end = parseISO(t.end_date);
+                            const deadline = parseISO(t.marks_deadline);
+                            
+                            const startOfEnd = startOfDay(end);
+                            if (new Date() >= startOfEnd) {
+                              const daysLeft = differenceInDays(deadline, startOfDay(new Date()));
+                              if (daysLeft >= 0) {
+                                return <Badge variant="secondary" className="mt-1 text-[10px] text-amber-600 bg-amber-50 border-amber-200">{daysLeft} days left</Badge>;
+                              } else {
+                                return <Badge variant="destructive" className="mt-1 text-[10px]">{Math.abs(daysLeft)} days overdue</Badge>;
+                              }
+                            }
+                            return null;
+                          })()}
                         </TableCell>
                         <TableCell>
                           {t.grade_name}
@@ -304,8 +315,7 @@ export default function AssessmentTasks() {
                                   className="h-7 px-2 text-xs"
                                 >
                                   <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
-                                 {" "}
-                                Enter
+                                  Enter
                                 </Button>
                               </Link>
                             </PermissionGate>
@@ -388,12 +398,12 @@ export default function AssessmentTasks() {
               <SelectContent>
                 {eligibleTeachers.map((ta) => (
                   <SelectItem key={ta.teacher_id} value={ta.teacher_id}>
-                    {ta.teacher_name}
+                    {ta.first_name} {ta.last_name}
                   </SelectItem>
                 ))}
                 {!teachersLoading && !eligibleTeachers.length && (
                   <SelectItem value="__none__" disabled>
-                    No teachers allocated for this subject/class
+                    No teachers found
                   </SelectItem>
                 )}
               </SelectContent>

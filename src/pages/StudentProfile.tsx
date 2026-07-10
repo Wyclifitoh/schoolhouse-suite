@@ -36,7 +36,7 @@ import {
 } from "@/hooks/useStudents";
 import { useUpdateParent } from "@/hooks/useParents";
 import { useStudentExcessCredits } from "@/hooks/useFinance";
-import { useGrades } from "@/hooks/useGrades";
+import { useGrades, useStreams } from "@/hooks/useGrades";
 import {
   ArrowLeft,
   User,
@@ -66,6 +66,9 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editData, setEditData] = useState<Record<string, any>>({});
+  const [editParentData, setEditParentData] = useState<Record<string, any>>({});
+  const [primaryParent, setPrimaryParent] = useState<any>(null);
   const canViewFinance = usePermission("finance:fees:read");
 
   const { data: student, isLoading } = useStudentWithFees(studentId);
@@ -79,15 +82,11 @@ const StudentProfile = () => {
     primaryParentId,
   );
   const { data: grades = [] } = useGrades();
+  const { data: streams = [] } = useStreams(editData?.current_grade_id || undefined);
   const updateStudent = useUpdateStudent();
   const updateParent = useUpdateParent();
   const { data: excessCredits = [] } = useStudentExcessCredits(studentId);
   const softDelete = useSoftDeleteStudent();
-
-  const [editData, setEditData] = useState<Record<string, any>>({});
-  // Separate state for the primary linked parent (if any)
-  const [editParentData, setEditParentData] = useState<Record<string, any>>({});
-  const [primaryParent, setPrimaryParent] = useState<any>(null);
 
   // Sync edit data when student loads
   const startEditing = () => {
@@ -177,6 +176,14 @@ const StudentProfile = () => {
           (gr: any) => gr.id === editData.current_grade_id,
         );
         if (g) payload.grade = g.name;
+      }
+      if (editData.current_stream_id) {
+        const s = (streams as any[]).find(
+          (st: any) => st.id === editData.current_stream_id,
+        );
+        if (s) payload.stream = s.name;
+      } else if (editData.current_stream_id === null) {
+        payload.stream = null;
       }
       await updateStudent.mutateAsync({ id: student.id, data: payload });
       // Update primary linked parent if one exists
@@ -567,6 +574,34 @@ const StudentProfile = () => {
                           {grades.map((g) => (
                             <SelectItem key={g.id} value={g.id}>
                               {g.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Stream</Label>
+                      <Select
+                        value={editData.current_stream_id || "none"}
+                        onValueChange={(v) => {
+                          const val = v === "none" ? null : v;
+                          const s = streams.find((st) => st.id === val);
+                          setEditData({
+                            ...editData,
+                            current_stream_id: val,
+                            stream: s?.name || null,
+                          });
+                        }}
+                        disabled={!editData.current_grade_id}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select stream" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Stream</SelectItem>
+                          {streams.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
