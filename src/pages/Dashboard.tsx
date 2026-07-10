@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useAssessmentTasksPaged } from "@/hooks/useAssessments";
+import { Link } from "react-router-dom";
 import {
   Users,
   Banknote,
@@ -35,7 +37,13 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { format } from "date-fns";
+import {
+  format,
+  differenceInDays,
+  parseISO,
+  isPast,
+  startOfDay,
+} from "date-fns";
 import { ClockInOutCard } from "@/components/staff/ClockInOutCard";
 
 const CHART_COLORS = [
@@ -643,7 +651,100 @@ const TeacherDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <TeacherPendingTasks />
     </div>
+  );
+};
+
+const TeacherPendingTasks = () => {
+  const { data, isLoading } = useAssessmentTasksPaged({
+    status: "pending,in_progress",
+    limit: 5,
+  });
+  const tasks = data?.data || [];
+
+  if (isLoading || tasks.length === 0) return null;
+
+  return (
+    <Card className="glass-card-hover mt-6">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-bold flex items-center justify-between">
+          <span>Pending Marks Entry</span>
+          <Link
+            to="/assessments/tasks"
+            className="text-xs font-normal text-primary hover:underline"
+          >
+            View all tasks
+          </Link>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y divide-border/50">
+          {tasks.map((t) => {
+            const end = t.end_date ? parseISO(t.end_date) : null;
+            const deadline = t.marks_deadline
+              ? parseISO(t.marks_deadline)
+              : null;
+
+            let badge = null;
+            if (end && deadline) {
+              const startOfEnd = startOfDay(end);
+              if (new Date() >= startOfEnd) {
+                const daysLeft = differenceInDays(
+                  deadline,
+                  startOfDay(new Date()),
+                );
+                if (daysLeft >= 0) {
+                  badge = (
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] text-amber-600 bg-amber-50 border-amber-200"
+                    >
+                      {daysLeft} days left
+                    </Badge>
+                  );
+                } else {
+                  badge = (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {Math.abs(daysLeft)} days overdue
+                    </Badge>
+                  );
+                }
+              }
+            }
+
+            return (
+              <div
+                key={t.id}
+                className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors"
+              >
+                <div>
+                  <Link
+                    to={`/assessments/${t.assessment_id}`}
+                    className="text-sm font-semibold text-foreground hover:underline"
+                  >
+                    {t.assessment_name}
+                  </Link>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {t.grade_name} {t.stream_name ? `· ${t.stream_name}` : ""} ·{" "}
+                    {t.subject_name}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {badge}
+                  <Link to={`/assessments/marks/${t.id}`}>
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+                      <ArrowUpRight className="h-3.5 w-3.5" /> Enter Marks
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
