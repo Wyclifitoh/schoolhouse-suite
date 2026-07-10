@@ -29,6 +29,7 @@ import {
   type ResultStatus,
 } from "@/hooks/useAssessments";
 import { useGrades, useStreams } from "@/hooks/useGrades";
+import { useSchoolProfile } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ClipboardCheck,
@@ -68,6 +69,7 @@ export default function Results() {
   const { hasAnyRole } = useAuth();
   const canApprove = hasAnyRole(APPROVER_ROLES as any);
 
+  const { data: school } = useSchoolProfile();
   const { data: assessments = [] } = useAssessmentsList();
   const { data: grades = [] } = useGrades();
   const [assessmentId, setAssessmentId] = useState<string>("");
@@ -224,29 +226,105 @@ export default function Results() {
     XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`);
   };
 
-  const exportPdf = () => {
+  const getBase64ImageFromUrl = async (imageUrl: string) => {
+    try {
+      let fullUrl = imageUrl;
+      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+        const apiBase = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+        const host = apiBase.replace(/\/api\/v1\/?$/, '');
+        fullUrl = `${host}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+      }
+      const res = await fetch(fullUrl);
+      if (!res.ok) throw new Error(`Image fetch failed with status ${res.status}`);
+      
+      // Also ensure we actually got an image before converting it
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.startsWith("image/")) {
+        throw new Error(`Invalid content type: ${contentType}`);
+      }
+
+      const blob = await res.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const drawSchoolHeader = async (doc: any, title: string, subtitle: string) => {
+    let textX = 40;
+    if (school?.logo_url) {
+      const b64 = await getBase64ImageFromUrl(school.logo_url);
+      if (b64) {
+        doc.addImage(b64, 40, 25, 45, 45);
+        textX = 95;
+      }
+    }
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text((school?.name || "School").toUpperCase(), textX, 40);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    const contact = [
+      school?.address,
+      school?.phone ? `Tel: ${school.phone}` : "",
+      school?.email ? `Email: ${school.email}` : ""
+    ].filter(Boolean).join(" | ");
+    if (contact) {
+      doc.text(contact, textX, 55);
+    }
+    
+    // Separator line
+    doc.setDrawColor(226, 232, 240);
+    doc.line(40, 80, doc.internal.pageSize.width - 40, 80);
+
+    // Title
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(title, 40, 105);
+    
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(subtitle, 40, 120);
+
+    // Filter label
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : null;
+    if (gradeLabel) {
+      doc.setFontSize(10);
+      doc.setTextColor(37, 99, 235); // ACCENT
+      doc.text(`GRADE FILTER: ${gradeLabel.toUpperCase()}`, 40, 135);
+      return 150;
+    }
+
+    return 135;
+  };
+
+  const exportPdf = async () => {
     if (!exportRows.length) return toast.error("Nothing to export");
     const doc = new jsPDF({
       orientation: "landscape",
       unit: "pt",
       format: "a4",
     });
-    doc.setFontSize(14);
-    doc.text(assessmentName, 40, 36);
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.text(
-      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`,
-      40,
-      54,
+    
+    const startY = await drawSchoolHeader(
+      doc, 
+      assessmentName, 
+      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`
     );
-    doc.setTextColor(0);
+
     const head = [Object.keys(exportRows[0])];
     const body = exportRows.map((r) => Object.values(r) as any[]);
     autoTable(doc, {
       head,
       body,
-      startY: 70,
+      startY,
       styles: { fontSize: 9, cellPadding: 4 },
       headStyles: {
         fillColor: [37, 99, 235],
@@ -259,7 +337,7 @@ export default function Results() {
     doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.pdf`);
   };
 
-  const exportPreviewPdf = () => {
+  const exportPreviewPdf = async () => {
     if (!broadsheet.students.length)
       return toast.error("No marklist data available");
     const doc = new jsPDF({
@@ -267,16 +345,12 @@ export default function Results() {
       unit: "pt",
       format: "a4",
     });
-    doc.setFontSize(14);
-    doc.text(`${assessmentName} - Broadsheet Preview`, 40, 36);
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.text(
-      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`,
-      40,
-      54,
+    
+    const startY = await drawSchoolHeader(
+      doc, 
+      `${assessmentName} - Broadsheet Preview`, 
+      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`
     );
-    doc.setTextColor(0);
 
     const head = [
       [
@@ -306,7 +380,7 @@ export default function Results() {
     autoTable(doc, {
       head,
       body,
-      startY: 70,
+      startY,
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: {
         fillColor: [37, 99, 235],
