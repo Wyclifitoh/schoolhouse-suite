@@ -229,14 +229,17 @@ export default function Results() {
   const getBase64ImageFromUrl = async (imageUrl: string) => {
     try {
       let fullUrl = imageUrl;
-      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
-        const apiBase = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
-        const host = apiBase.replace(/\/api\/v1\/?$/, '');
-        fullUrl = `${host}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+      if (!imageUrl.startsWith("http") && !imageUrl.startsWith("data:")) {
+        const apiBase =
+          import.meta.env.VITE_API_URL ||
+          "https://chuoapi.wikiteq.co.ke/api/v1";
+        const host = apiBase.replace(/\/api\/v1\/?$/, "");
+        fullUrl = `${host}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
       }
       const res = await fetch(fullUrl);
-      if (!res.ok) throw new Error(`Image fetch failed with status ${res.status}`);
-      
+      if (!res.ok)
+        throw new Error(`Image fetch failed with status ${res.status}`);
+
       // Also ensure we actually got an image before converting it
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.startsWith("image/")) {
@@ -255,7 +258,11 @@ export default function Results() {
     }
   };
 
-  const drawSchoolHeader = async (doc: any, title: string, subtitle: string) => {
+  const drawSchoolHeader = async (
+    doc: any,
+    title: string,
+    subtitle: string,
+  ) => {
     let textX = 40;
     if (school?.logo_url) {
       const b64 = await getBase64ImageFromUrl(school.logo_url);
@@ -267,18 +274,20 @@ export default function Results() {
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text((school?.name || "School").toUpperCase(), textX, 40);
-    
+
     doc.setFontSize(9);
     doc.setTextColor(100);
     const contact = [
       school?.address,
       school?.phone ? `Tel: ${school.phone}` : "",
-      school?.email ? `Email: ${school.email}` : ""
-    ].filter(Boolean).join(" | ");
+      school?.email ? `Email: ${school.email}` : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
     if (contact) {
       doc.text(contact, textX, 55);
     }
-    
+
     // Separator line
     doc.setDrawColor(226, 232, 240);
     doc.line(40, 80, doc.internal.pageSize.width - 40, 80);
@@ -287,14 +296,16 @@ export default function Results() {
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text(title, 40, 105);
-    
+
     // Subtitle
     doc.setFontSize(10);
     doc.setTextColor(120);
     doc.text(subtitle, 40, 120);
 
     // Filter label
-    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : null;
+    const gradeLabel = gradeId
+      ? grades.find((g) => g.id === gradeId)?.name
+      : null;
     if (gradeLabel) {
       doc.setFontSize(10);
       doc.setTextColor(37, 99, 235); // ACCENT
@@ -312,11 +323,11 @@ export default function Results() {
       unit: "pt",
       format: "a4",
     });
-    
+
     const startY = await drawSchoolHeader(
-      doc, 
-      assessmentName, 
-      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`
+      doc,
+      assessmentName,
+      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`,
     );
 
     const head = [Object.keys(exportRows[0])];
@@ -345,11 +356,11 @@ export default function Results() {
       unit: "pt",
       format: "a4",
     });
-    
+
     const startY = await drawSchoolHeader(
-      doc, 
-      `${assessmentName} - Broadsheet Preview`, 
-      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`
+      doc,
+      `${assessmentName} - Broadsheet Preview`,
+      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`,
     );
 
     const head = [
@@ -702,7 +713,7 @@ export default function Results() {
                         }
                       />
                     </TableHead>
-                    <TableHead className="w-12">#</TableHead>
+                    <TableHead className="w-12">No.</TableHead>
                     <TableHead>Student</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead className="text-right">Total</TableHead>
