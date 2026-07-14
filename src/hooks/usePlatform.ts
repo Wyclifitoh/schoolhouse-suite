@@ -58,7 +58,7 @@ export const useSchoolDetail = (id: string | undefined) =>
 export const useCreateSchool = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; email?: string; phone?: string; address?: string; curriculum_type?: string; code?: string; trial_days?: number }) =>
+    mutationFn: (body: { name: string; email?: string; phone?: string; address?: string; curriculum_type?: string; code?: string; trial_days?: number; admin_name?: string; admin_email?: string; admin_password?: string; logo_base64?: string }) =>
       platformApi.post("/schools", body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pf","schools"] }),
   });

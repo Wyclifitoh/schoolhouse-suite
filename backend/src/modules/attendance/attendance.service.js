@@ -26,6 +26,7 @@ const saveDailyAttendance = async ({
   date,
   records,
   markedBy,
+  user,
   session,
 }) => {
   if (!schoolId || !date || !Array.isArray(records)) {
@@ -34,6 +35,21 @@ const saveDailyAttendance = async ({
   if (records.length === 0) {
     return { success: true, message: "No records to save.", count: 0 };
   }
+
+  if (user && user.role === "teacher") {
+    const studentIds = records.map((r) => r.student_id);
+    const validCount = await repo.countStudentsInTeacherStreams(
+      studentIds,
+      user.id,
+      schoolId,
+    );
+    if (validCount !== studentIds.length) {
+      throw new Error(
+        "You are only allowed to mark attendance for your designated class.",
+      );
+    }
+  }
+
   const formatted = records.map((r) => ({
     school_id: schoolId,
     student_id: r.student_id,

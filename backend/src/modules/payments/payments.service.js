@@ -9,11 +9,21 @@ const list = async (schoolId, queryParams, session) => {
     status: queryParams.status,
     method: queryParams.method,
     studentId: queryParams.student_id,
+    search: queryParams.search,
     sortBy: queryParams.sort_by,
     sortDir: queryParams.sort_dir,
     session: session || {},
   });
   return { data: rows, total, page, limit };
+};
+
+const stats = async (schoolId, queryParams, session) => {
+  return paymentsRepository.stats(schoolId, {
+    search: queryParams.search,
+    status: queryParams.status,
+    method: queryParams.method,
+    session: session || {},
+  });
 };
 
 const getById = async (id, schoolId) => {
@@ -40,6 +50,37 @@ const create = async (schoolId, data, userId) => {
 
 const voidPayment = async (id, schoolId, reason, userId) => {
   return paymentsRepository.voidPayment(id, schoolId, reason, userId);
+};
+
+const bulkVoidPayments = async (schoolId, body, userId) => {
+  return paymentsRepository.bulkVoidPayments({
+    paymentIds: body?.payment_ids || [],
+    schoolId,
+    reason: body?.reason,
+    performedBy: userId || null,
+  });
+};
+
+const transferPayment = async (id, schoolId, body, userId) => {
+  return paymentsRepository.transferPayment({
+    paymentId: id,
+    schoolId,
+    toStudentId: body?.to_student_id,
+    feeIds: Array.isArray(body?.fee_ids) ? body.fee_ids : [],
+    reason: body?.reason,
+    performedBy: userId || null,
+  });
+};
+
+const revertPayment = async (id, schoolId, body, userId) => {
+  const mode = body?.mode === "auto_apply" ? "auto_apply" : "excess";
+  return paymentsRepository.revertPayment(
+    id,
+    schoolId,
+    mode,
+    body?.reason || null,
+    userId,
+  );
 };
 
 const record = async (schoolId, body, userId) => {
@@ -103,10 +144,14 @@ const reassign = (schoolId, paymentId, body, userId) =>
 
 module.exports = {
   list,
+  stats,
   getById,
   allocations,
   create,
   voidPayment,
+  bulkVoidPayments,
+  transferPayment,
+  revertPayment,
   record,
   listUnallocated,
   reassign,

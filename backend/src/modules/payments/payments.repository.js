@@ -6,50 +6,54 @@ const { v4: uuidv4 } = require("uuid");
 
 const findAll = async (
   schoolId,
-  { limit, offset, status, method, studentId, sortBy, sortDir, session = {} },
+  {
+    limit,
+    offset,
+    status,
+    method,
+    studentId,
+    search,
+    sortBy,
+    sortDir,
+    session = {},
+  },
 ) => {
   const limitNum = parseInt(limit, 10) || 20;
   const offsetNum = parseInt(offset, 10) || 0;
 
-  let sql = `SELECT p.*, s.full_name as student_name, s.admission_number 
-             FROM payments p LEFT JOIN students s ON s.id = p.student_id WHERE p.school_id = ?`;
+  let where = " WHERE p.school_id = ?";
   const params = [schoolId];
 
   if (status && status !== "all") {
-    sql += " AND p.status = ?";
+    where += " AND p.status = ?";
     params.push(status);
   }
   if (method && method !== "all") {
-    sql += " AND p.payment_method = ?";
+    where += " AND p.payment_method = ?";
     params.push(method);
   }
   if (studentId) {
-    sql += " AND p.student_id = ?";
+    where += " AND p.student_id = ?";
     params.push(studentId);
   }
+  if (search && String(search).trim()) {
+    const term = `%${String(search).trim()}%`;
+    where +=
+      " AND (s.full_name LIKE ? OR s.admission_number LIKE ? OR p.reference_number LIKE ? OR p.mpesa_receipt LIKE ? OR p.payer_phone LIKE ?)";
+    params.push(term, term, term, term, term);
+  }
 
-  // Session isolation: include legacy rows where the column is still NULL,
-  // but otherwise restrict to the active academic year + term.
   if (session.academicYearId) {
-    sql += " AND (p.academic_year_id = ? OR p.academic_year_id IS NULL)";
+    where += " AND (p.academic_year_id = ? OR p.academic_year_id IS NULL)";
     params.push(session.academicYearId);
   }
   if (session.termId) {
-    sql += " AND (p.term_id = ? OR p.term_id IS NULL)";
+    where += " AND (p.term_id = ? OR p.term_id IS NULL)";
     params.push(session.termId);
   }
 
-  // Build count SQL (remove ORDER BY and LIMIT/OFFSET)
-  let countSql = sql;
-  // Remove ORDER BY clause for count query
-  const orderByIndex = countSql.toUpperCase().indexOf(" ORDER BY ");
-  if (orderByIndex !== -1) {
-    countSql = countSql.substring(0, orderByIndex);
-  }
-  countSql = countSql.replace(
-    /SELECT p\.\*.*?FROM/,
-    "SELECT COUNT(*) as count FROM",
-  );
+  const fromJoin =
+    " FROM payments p LEFT JOIN students s ON s.id = p.student_id";
 
   const sortable = {
     received_at: "p.received_at",
@@ -58,19 +62,61 @@ const findAll = async (
     payment_method: "p.payment_method",
     student_name: "s.full_name",
   };
-
   const col = sortable[sortBy] || "p.received_at";
   const dir = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
 
-  // Use template literals for LIMIT and OFFSET to avoid quoting issues
-  sql += ` ORDER BY ${col} ${dir} LIMIT ${limitNum} OFFSET ${offsetNum}`;
+  const dataSql = `SELECT p.*, s.full_name as student_name, s.admission_number${fromJoin}${where} ORDER BY ${col} ${dir} LIMIT ${limitNum} OFFSET ${offsetNum}`;
+  const countSql = `SELECT COUNT(*) as count${fromJoin}${where}`;
 
   const [rows, countRows] = await Promise.all([
-    query(sql, params),
+    query(dataSql, params),
     query(countSql, params),
   ]);
 
   return { rows, total: countRows[0]?.count || 0 };
+};
+
+const stats = async (
+  schoolId,
+  { search, status, method, session = {} } = {},
+) => {
+  let where = " WHERE p.school_id = ?";
+  const params = [schoolId];
+  if (status && status !== "all") {
+    where += " AND p.status = ?";
+    params.push(status);
+  }
+  if (method && method !== "all") {
+    where += " AND p.payment_method = ?";
+    params.push(method);
+  }
+  if (search && String(search).trim()) {
+    const term = `%${String(search).trim()}%`;
+    where +=
+      " AND (s.full_name LIKE ? OR s.admission_number LIKE ? OR p.reference_number LIKE ? OR p.mpesa_receipt LIKE ? OR p.payer_phone LIKE ?)";
+    params.push(term, term, term, term, term);
+  }
+  if (session.academicYearId) {
+    where += " AND (p.academic_year_id = ? OR p.academic_year_id IS NULL)";
+    params.push(session.academicYearId);
+  }
+  if (session.termId) {
+    where += " AND (p.term_id = ? OR p.term_id IS NULL)";
+    params.push(session.termId);
+  }
+
+  const sql = `SELECT
+      COUNT(*) AS total_count,
+      COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS total_collected,
+      COALESCE(SUM(CASE WHEN p.payment_method LIKE 'mpesa%' AND p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS mpesa_total
+    FROM payments p LEFT JOIN students s ON s.id = p.student_id${where}`;
+  const rows = await query(sql, params);
+  const r = rows[0] || {};
+  return {
+    total_count: Number(r.total_count || 0),
+    total_collected: Number(r.total_collected || 0),
+    mpesa_total: Number(r.mpesa_total || 0),
+  };
 };
 
 const findById = async (id, schoolId) => {
@@ -144,12 +190,93 @@ const create = async (data) => {
   return queryOne("SELECT * FROM payments WHERE id = ?", [id]);
 };
 
+const normaliseFeeStatus = (amountPaid, amountDue) => {
+  const paid = Number(amountPaid || 0);
+  const due = Number(amountDue || 0);
+  if (paid <= 0) return "pending";
+  return paid >= due ? "paid" : "partial";
+};
+
+const reversePaymentEffectsInTxn = async (conn, paymentId) => {
+  const [allocs] = await conn.execute(
+    "SELECT * FROM payment_allocations WHERE payment_id = ? ORDER BY allocated_at DESC FOR UPDATE",
+    [paymentId],
+  );
+  let reversedAllocated = 0;
+  for (const a of allocs) {
+    const [fRows] = await conn.execute(
+      "SELECT amount_due, amount_paid FROM student_fees WHERE id = ? FOR UPDATE",
+      [a.student_fee_id],
+    );
+    const fee = fRows[0];
+    if (!fee) continue;
+    const newPaid = Math.max(0, Number(fee.amount_paid) - Number(a.amount));
+    await conn.execute(
+      "UPDATE student_fees SET amount_paid = ?, status = ? WHERE id = ?",
+      [newPaid, normaliseFeeStatus(newPaid, fee.amount_due), a.student_fee_id],
+    );
+    reversedAllocated += Number(a.amount || 0);
+  }
+  await conn.execute("DELETE FROM payment_allocations WHERE payment_id = ?", [
+    paymentId,
+  ]);
+
+  let credits = [];
+  try {
+    const [rows] = await conn.execute(
+      "SELECT id, amount, status FROM fee_carry_forwards WHERE source_payment_id = ? FOR UPDATE",
+      [paymentId],
+    );
+    credits = rows || [];
+    await conn.execute(
+      "UPDATE fee_carry_forwards SET status = 'cancelled' WHERE source_payment_id = ? AND status <> 'cancelled'",
+      [paymentId],
+    );
+  } catch {
+    credits = [];
+  }
+
+  return {
+    reversedAllocations: allocs.length,
+    reversedAllocated,
+    cancelledCredits: credits.length,
+    cancelledPendingCredit: credits
+      .filter((c) => c.status === "pending")
+      .reduce((sum, c) => sum + Number(c.amount || 0), 0),
+  };
+};
+
+const markPaymentReversedInTxn = async (
+  conn,
+  paymentId,
+  reason,
+  performedBy,
+) => {
+  try {
+    await conn.execute(
+      `UPDATE payments
+          SET status = 'reversed', void_reason = ?, voided_at = NOW(), voided_by = ?
+        WHERE id = ?`,
+      [reason, performedBy || null, paymentId],
+    );
+  } catch (err) {
+    if (err && err.code !== "ER_BAD_FIELD_ERROR") throw err;
+    await conn.execute(
+      `UPDATE payments
+          SET status = 'reversed', notes = CONCAT(COALESCE(notes, ''), ?)
+        WHERE id = ?`,
+      [`\n[voided:${new Date().toISOString()}] ${reason}`, paymentId],
+    );
+  }
+};
+
 /**
- * Void a payment AND reverse every fee/advance-credit it touched, in a single
- * transaction. Requires a reason of at least 20 characters.
+ * Void a payment AND reverse every fee/excess-credit it touched, in a single
+ * transaction. The payment row is retained as status='reversed' for audit.
  */
 const voidPayment = async (id, schoolId, reason, performedBy) => {
-  if (!reason || String(reason).trim().length < 20) {
+  const cleanReason = String(reason || "").trim();
+  if (cleanReason.length < 20) {
     const e = new Error("Void reason must be at least 20 characters");
     e.statusCode = 400;
     throw e;
@@ -167,46 +294,8 @@ const voidPayment = async (id, schoolId, reason, performedBy) => {
     if (payment.status === "reversed")
       throw new Error("Payment already voided");
 
-    // Reverse every allocation: subtract from student_fees.amount_paid
-    const [allocs] = await conn.execute(
-      "SELECT * FROM payment_allocations WHERE payment_id = ?",
-      [id],
-    );
-    for (const a of allocs) {
-      const [fRows] = await conn.execute(
-        "SELECT amount_due, amount_paid FROM student_fees WHERE id = ? FOR UPDATE",
-        [a.student_fee_id],
-      );
-      const fee = fRows[0];
-      if (!fee) continue;
-      const newPaid = Math.max(0, Number(fee.amount_paid) - Number(a.amount));
-      const newStatus =
-        newPaid <= 0
-          ? "pending"
-          : newPaid >= Number(fee.amount_due)
-            ? "paid"
-            : "partial";
-      await conn.execute(
-        "UPDATE student_fees SET amount_paid = ?, status = ? WHERE id = ?",
-        [newPaid, newStatus, a.student_fee_id],
-      );
-    }
-    await conn.execute("DELETE FROM payment_allocations WHERE payment_id = ?", [
-      id,
-    ]);
-
-    // Cancel any pending advance credits that came from this payment
-    await conn.execute(
-      "UPDATE fee_carry_forwards SET status = 'cancelled' WHERE source_payment_id = ? AND status = 'pending'",
-      [id],
-    );
-
-    await conn.execute(
-      `UPDATE payments
-          SET status = 'reversed', void_reason = ?, voided_at = NOW(), voided_by = ?
-        WHERE id = ?`,
-      [reason, performedBy || null, id],
-    );
+    const reversal = await reversePaymentEffectsInTxn(conn, id);
+    await markPaymentReversedInTxn(conn, id, cleanReason, performedBy);
 
     try {
       await conn.execute(
@@ -221,7 +310,7 @@ const voidPayment = async (id, schoolId, reason, performedBy) => {
           payment.student_id,
           payment.amount,
           String(performedBy || "system"),
-          JSON.stringify({ reason, reversedAllocations: allocs.length }),
+          JSON.stringify({ reason: cleanReason, ...reversal }),
         ],
       );
     } catch {
@@ -230,6 +319,149 @@ const voidPayment = async (id, schoolId, reason, performedBy) => {
 
     await conn.commit();
     return queryOne("SELECT * FROM payments WHERE id = ?", [id]);
+  } catch (err) {
+    try {
+      await conn.rollback();
+    } catch {
+      /* noop */
+    }
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Revert a payment WITHOUT deleting it. Removes all allocations and either
+ * (a) parks the freed amount as an advance_credit (Excess Payments) or
+ * (b) immediately re-applies it to the student's outstanding fees FIFO.
+ * Payment row is preserved with status='reversed' for audit history.
+ */
+const revertPayment = async (id, schoolId, mode, reason, performedBy) => {
+  const modeFinal = mode === "auto_apply" ? "auto_apply" : "excess";
+  const conn = await getClient();
+  try {
+    await conn.beginTransaction();
+
+    const [pRows] = await conn.execute(
+      "SELECT * FROM payments WHERE id = ? AND school_id = ? FOR UPDATE",
+      [id, schoolId],
+    );
+    const payment = pRows[0];
+    if (!payment) throw new Error("Payment not found");
+    if (payment.status === "reversed")
+      throw new Error("Payment already reverted");
+    if (!payment.student_id)
+      throw new Error("Cannot revert an unallocated payment");
+
+    const reversal = await reversePaymentEffectsInTxn(conn, id);
+
+    // Total to redistribute = original payment amount (covers allocations
+    // we just removed PLUS any prior unallocated excess from this payment).
+    const redistribute = Number(payment.amount);
+
+    // Mark payment reverted (preserved, never deleted).
+    await markPaymentReversedInTxn(
+      conn,
+      id,
+      reason || "Payment reverted",
+      performedBy,
+    );
+
+    let appliedToFees = [];
+    let excessRemaining = redistribute;
+
+    if (modeFinal === "auto_apply" && redistribute > 0) {
+      // Apply to outstanding fees FIFO (oldest due_date first).
+      const [feeRows] = await conn.execute(
+        `SELECT id, amount_due, amount_paid
+           FROM student_fees
+          WHERE school_id = ? AND student_id = ?
+            AND (amount_due - amount_paid) > 0
+            AND status NOT IN ('cancelled','waived')
+          ORDER BY COALESCE(due_date, '9999-12-31') ASC, created_at ASC`,
+        [schoolId, payment.student_id],
+      );
+      for (const fee of feeRows) {
+        if (excessRemaining <= 0) break;
+        const owing = Number(fee.amount_due) - Number(fee.amount_paid);
+        if (owing <= 0) continue;
+        const take = Math.min(owing, excessRemaining);
+        const newPaid = Number(fee.amount_paid) + take;
+        const newStatus =
+          newPaid >= Number(fee.amount_due) ? "paid" : "partial";
+        await conn.execute(
+          "UPDATE student_fees SET amount_paid = ?, status = ?, last_payment_at = NOW() WHERE id = ?",
+          [newPaid, newStatus, fee.id],
+        );
+        await conn.execute(
+          `INSERT INTO payment_allocations
+             (id, payment_id, student_fee_id, amount, allocated_at)
+           VALUES (?, ?, ?, ?, NOW())`,
+          [uuidv4(), id, fee.id, take],
+        );
+        appliedToFees.push({ student_fee_id: fee.id, amount: take });
+        excessRemaining -= take;
+      }
+    }
+
+    // Anything not auto-applied goes to excess.
+    if (excessRemaining > 0) {
+      try {
+        await conn.execute(
+          `INSERT INTO fee_carry_forwards
+             (id, school_id, student_id, ledger_type, from_term_id, amount,
+              type, status, source_payment_id)
+           VALUES (?, ?, ?, 'fees', ?, ?, 'advance_credit', 'pending', ?)`,
+          [
+            uuidv4(),
+            schoolId,
+            payment.student_id,
+            payment.term_id || null,
+            excessRemaining,
+            id,
+          ],
+        );
+      } catch {
+        /* table may not exist on legacy DBs */
+      }
+    }
+
+    try {
+      await conn.execute(
+        `INSERT INTO finance_audit_logs
+          (id, school_id, action, entity_type, entity_id, student_id,
+           amount_affected, performed_by, metadata)
+         VALUES (?, ?, 'PAYMENT_REVERTED', 'payment', ?, ?, ?, ?, ?)`,
+        [
+          uuidv4(),
+          schoolId,
+          id,
+          payment.student_id,
+          payment.amount,
+          String(performedBy || "system"),
+          JSON.stringify({
+            mode: modeFinal,
+            reason: reason || null,
+            ...reversal,
+            redistributedAmount: redistribute,
+            appliedToFees,
+            excessRemaining,
+          }),
+        ],
+      );
+    } catch {
+      /* non-fatal */
+    }
+
+    await conn.commit();
+    return {
+      ok: true,
+      mode: modeFinal,
+      reversed_allocations: reversal.reversedAllocations,
+      auto_applied: appliedToFees,
+      excess_remaining: excessRemaining,
+    };
   } catch (err) {
     try {
       await conn.rollback();
@@ -798,14 +1030,186 @@ const reassignPayment = async ({
   }
 };
 
+const bulkVoidPayments = async ({
+  paymentIds,
+  schoolId,
+  reason,
+  performedBy,
+}) => {
+  const ids = Array.from(new Set(Array.isArray(paymentIds) ? paymentIds : []))
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  if (!ids.length) throw new Error("Select at least one payment to void");
+  const results = [];
+  for (const paymentId of ids) {
+    try {
+      const payment = await voidPayment(
+        paymentId,
+        schoolId,
+        reason,
+        performedBy,
+      );
+      results.push({
+        payment_id: paymentId,
+        ok: true,
+        status: payment?.status,
+      });
+    } catch (err) {
+      results.push({ payment_id: paymentId, ok: false, error: err.message });
+    }
+  }
+  const succeeded = results.filter((r) => r.ok).length;
+  const failed = results.length - succeeded;
+  return { total: results.length, succeeded, failed, results };
+};
+
+const transferPayment = async ({
+  paymentId,
+  schoolId,
+  toStudentId,
+  feeIds = [],
+  reason,
+  performedBy,
+}) => {
+  const cleanReason = String(reason || "").trim();
+  if (cleanReason.length < 20) {
+    const e = new Error("Transfer reason must be at least 20 characters");
+    e.statusCode = 400;
+    throw e;
+  }
+  if (!toStudentId) throw new Error("Target student is required");
+
+  const conn = await getClient();
+  try {
+    await conn.beginTransaction();
+
+    const [pRows] = await conn.execute(
+      `SELECT * FROM payments WHERE id = ? AND school_id = ? FOR UPDATE`,
+      [paymentId, schoolId],
+    );
+    const payment = pRows[0];
+    if (!payment) throw new Error("Payment not found");
+    if (payment.status === "reversed")
+      throw new Error("Payment is already reversed");
+    if (!payment.student_id)
+      throw new Error("Use reassign for unallocated payments");
+    if (payment.student_id === toStudentId)
+      throw new Error("Target student must be different from current student");
+
+    const [sRows] = await conn.execute(
+      "SELECT id, admission_number FROM students WHERE id = ? AND school_id = ? AND status <> 'deleted'",
+      [toStudentId, schoolId],
+    );
+    const target = sRows[0];
+    if (!target) throw new Error("Target student not found");
+
+    const fromStudentId = payment.student_id;
+    const reversal = await reversePaymentEffectsInTxn(conn, paymentId);
+
+    await conn.execute(
+      `UPDATE payments
+          SET student_id = ?, admission_number_used = ?, status = 'completed', notes = CONCAT(COALESCE(notes, ''), ?)
+        WHERE id = ?`,
+      [
+        toStudentId,
+        target.admission_number || payment.admission_number_used || null,
+        `\n[transferred:${new Date().toISOString()}] ${cleanReason}`,
+        paymentId,
+      ],
+    );
+
+    const { allocations, excess } = await allocateWithinTxn(conn, {
+      schoolId,
+      studentId: toStudentId,
+      paymentId,
+      amount: Number(payment.amount),
+      feeIds,
+      termId: payment.term_id || null,
+      recordedBy: performedBy,
+    });
+
+    if (excess > 0) {
+      try {
+        await conn.execute(
+          `INSERT INTO fee_carry_forwards
+            (id, school_id, student_id, ledger_type, from_term_id, amount,
+             type, status, source_payment_id)
+           VALUES (?, ?, ?, ?, ?, ?, 'advance_credit', 'pending', ?)`,
+          [
+            uuidv4(),
+            schoolId,
+            toStudentId,
+            payment.ledger_type || "fees",
+            payment.term_id || null,
+            excess,
+            paymentId,
+          ],
+        );
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    try {
+      await conn.execute(
+        `INSERT INTO finance_audit_logs
+          (id, school_id, action, entity_type, entity_id, student_id,
+           amount_affected, performed_by, metadata)
+         VALUES (?, ?, 'PAYMENT_TRANSFERRED', 'payment', ?, ?, ?, ?, ?)`,
+        [
+          uuidv4(),
+          schoolId,
+          paymentId,
+          toStudentId,
+          payment.amount,
+          String(performedBy || "system"),
+          JSON.stringify({
+            reason: cleanReason,
+            fromStudentId,
+            toStudentId,
+            reversal,
+            newAllocations: allocations,
+            newExcess: excess,
+          }),
+        ],
+      );
+    } catch {
+      /* non-fatal */
+    }
+
+    await conn.commit();
+    return {
+      payment_id: paymentId,
+      from_student_id: fromStudentId,
+      to_student_id: toStudentId,
+      allocations,
+      excess,
+    };
+  } catch (err) {
+    try {
+      await conn.rollback();
+    } catch {
+      /* noop */
+    }
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
 module.exports = {
   findAll,
+  stats,
   findById,
   findUnallocated,
   findAllocations,
   create,
   voidPayment,
+  revertPayment,
   findMpesaByCheckoutId,
   recordPaymentWithAllocation,
+
   reassignPayment,
+  bulkVoidPayments,
+  transferPayment,
 };

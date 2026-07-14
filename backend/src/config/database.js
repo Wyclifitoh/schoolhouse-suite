@@ -24,22 +24,10 @@ pool.on &&
 
 const query = async (sql, params) => {
   const rawParams = params || [];
-  const limitOffsetPlaceholders = (sql.match(/\b(?:LIMIT|OFFSET)\s+\?/gi) || [])
-    .length;
-  const normalizedParams = rawParams.map((value, index) => {
-    if (
-      limitOffsetPlaceholders > 0 &&
-      index >= rawParams.length - limitOffsetPlaceholders &&
-      typeof value === "number" &&
-      Number.isFinite(value)
-    ) {
-      return String(Math.trunc(value));
-    }
-
-    return value;
-  });
-
-  const [rows] = await pool.query(sql, normalizedParams);
+  // pool.query (unprepared) escapes numbers without quotes — pass through
+  // as-is so `LIMIT ? OFFSET ?` produces `LIMIT 20 OFFSET 0` rather than
+  // the quoted form that triggered "near ''20' OFFSET '0'" errors.
+  const [rows] = await pool.query(sql, rawParams);
   return rows;
 };
 

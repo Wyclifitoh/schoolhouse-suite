@@ -13,6 +13,7 @@ router.post("/academic-years", c.createAcademicYear);
 router.put("/academic-years/:id/set-current", c.setCurrentAcademicYear);
 router.get("/dashboard-stats", c.getDashboardStats);
 router.get("/users", c.getUsers);
+router.put("/users/:userId/role", c.updateUserRole);
 router.get("/notification-templates", c.getNotificationTemplates);
 router.put("/notification-templates/:id", c.updateNotificationTemplate);
 

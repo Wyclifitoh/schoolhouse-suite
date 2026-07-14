@@ -112,6 +112,44 @@ const updateItemQuantity = async (id, schoolId, quantityChange) => {
   return queryOne("SELECT * FROM inventory_items WHERE id = ?", [id]);
 };
 
+const updateItem = async (id, schoolId, data) => {
+  const fields = [];
+  const params = [];
+  const allowed = [
+    "name",
+    "sku",
+    "description",
+    "category_id",
+    "cost_price",
+    "selling_price",
+    "quantity_in_stock",
+    "reorder_level",
+    "unit",
+    "is_active",
+  ];
+  for (const k of allowed) {
+    if (data[k] !== undefined) {
+      fields.push(`${k} = ?`);
+      params.push(data[k] === "" ? null : data[k]);
+    }
+  }
+  if (!fields.length) return findItemById(id, schoolId);
+  params.push(id, schoolId);
+  await query(
+    `UPDATE inventory_items SET ${fields.join(", ")} WHERE id = ? AND school_id = ?`,
+    params,
+  );
+  return findItemById(id, schoolId);
+};
+
+const deleteItem = async (id, schoolId) => {
+  await query("DELETE FROM inventory_items WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
+  return { id };
+};
+
 // Categories
 const findAllCategories = async (schoolId) => {
   return query(
@@ -224,8 +262,8 @@ const createTransaction = async (data) => {
 const createSupplier = async (data) => {
   const id = uuidv4();
   await query(
-    `INSERT INTO inventory_suppliers (id, school_id, name, contact_person, phone, email, location) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO inventory_suppliers (id, school_id, name, contact_person, phone, email, tax_pin, location)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.school_id,
@@ -233,6 +271,7 @@ const createSupplier = async (data) => {
       data.contact_person ?? null,
       data.phone ?? null,
       data.email ?? null,
+      data.tax_pin ?? null,
       data.location ?? null,
     ],
   );
@@ -244,6 +283,47 @@ const findAllSuppliers = (schoolId) =>
     "SELECT * FROM inventory_suppliers WHERE school_id = ? ORDER BY name ASC",
     [schoolId],
   );
+
+const updateSupplier = async (id, schoolId, data) => {
+  await query(
+    `UPDATE inventory_suppliers
+       SET name = ?, contact_person = ?, phone = ?, email = ?, tax_pin = ?, location = ?
+     WHERE id = ? AND school_id = ?`,
+    [
+      data.name ?? null,
+      data.contact_person ?? null,
+      data.phone ?? null,
+      data.email ?? null,
+      data.tax_pin ?? null,
+      data.location ?? null,
+      id,
+      schoolId,
+    ],
+  );
+  return queryOne(
+    "SELECT * FROM inventory_suppliers WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+};
+
+const deleteSupplier = async (id, schoolId) => {
+  const inUse = await queryOne(
+    "SELECT COUNT(*) AS count FROM inventory_purchase_orders WHERE supplier_id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  if (Number(inUse?.count || 0) > 0) {
+    const err = new Error(
+      "Cannot delete supplier: it is referenced by existing purchase orders.",
+    );
+    err.status = 409;
+    throw err;
+  }
+  await query(
+    "DELETE FROM inventory_suppliers WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  return { id };
+};
 
 const editPO = async (poId, schoolId, data) => {
   const totalAmount =
@@ -398,6 +478,8 @@ module.exports = {
   findItemById,
   createItem,
   updateItemQuantity,
+  updateItem,
+  deleteItem,
   findAllCategories,
   createCategory,
   findTransactions,
@@ -410,4 +492,6 @@ module.exports = {
   findPOById,
   findPOItems,
   editPO,
+  updateSupplier,
+  deleteSupplier,
 };

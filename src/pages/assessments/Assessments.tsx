@@ -76,6 +76,7 @@ function NewAssessmentDialog() {
     assessment_type_id: string;
     start_date: string;
     end_date: string;
+    marks_deadline: string;
     grade_ids: string[];
     out_of: number;
     curriculum_type: "CBC" | "844";
@@ -85,6 +86,7 @@ function NewAssessmentDialog() {
     assessment_type_id: "",
     start_date: "",
     end_date: "",
+    marks_deadline: "",
     grade_ids: [],
     out_of: 100,
     curriculum_type: "CBC",
@@ -100,6 +102,7 @@ function NewAssessmentDialog() {
       assessment_type_id: "",
       start_date: "",
       end_date: "",
+      marks_deadline: "",
       grade_ids: [],
       out_of: 100,
       curriculum_type: "CBC",
@@ -195,6 +198,16 @@ function NewAssessmentDialog() {
                   value={form.end_date}
                   onChange={(e) =>
                     setForm({ ...form, end_date: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Marks Deadline</Label>
+                <Input
+                  type="date"
+                  value={form.marks_deadline}
+                  onChange={(e) =>
+                    setForm({ ...form, marks_deadline: e.target.value })
                   }
                 />
               </div>

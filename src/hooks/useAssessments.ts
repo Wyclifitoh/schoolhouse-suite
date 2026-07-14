@@ -268,6 +268,7 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
+    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -276,6 +277,7 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
@@ -327,6 +329,7 @@ export interface Assessment {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  marks_deadline: string | null;
   status: AssessmentStatus;
   created_at?: string;
   academic_year_id: string | null;
@@ -455,6 +458,8 @@ export interface AssessmentTask {
   assessment_id: string;
   assessment_name: string;
   assessment_status: AssessmentStatus;
+  end_date: string | null;
+  marks_deadline: string | null;
   grade_id: string;
   grade_name: string;
   stream_id: string | null;
@@ -595,6 +600,7 @@ export function useBulkSaveAssessmentMarks() {
     mutationFn: (body: {
       assessment_id: string;
       task_id?: string;
+      global_out_of?: number;
       items: Array<{
         student_id: string;
         subject_id: string;

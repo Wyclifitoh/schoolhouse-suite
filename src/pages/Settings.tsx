@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -75,13 +75,18 @@ import {
   CheckCircle,
   Send,
   GraduationCap,
+  Upload,
+  X,
+  ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { resolveLogoUrl } from "@/lib/utils";
 import {
   useSchoolProfile,
   useUpdateSchoolProfile,
+  useUploadSchoolLogo,
   useSchoolUsers,
   useUpdateUserRole,
   useNotificationTemplates,
@@ -179,11 +184,38 @@ const Settings = () => {
   // --- Data hooks ---
   const { data: schoolProfile, isLoading: profileLoading } = useSchoolProfile();
   const updateProfile = useUpdateSchoolProfile();
+  const uploadLogo = useUploadSchoolLogo();
   const { data: usersData = [], isLoading: usersLoading } = useSchoolUsers();
   const updateUserRole = useUpdateUserRole();
   const { data: templatesData = [], isLoading: templatesLoading } =
     useNotificationTemplates();
   const updateTemplate = useUpdateNotificationTemplate();
+
+  // --- Logo upload state ---
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  const handleLogoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      toast.error("Logo must be under 500 KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      setLogoPreview(base64);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleLogoUpload = useCallback(() => {
+    if (!logoPreview) return;
+    uploadLogo.mutate(logoPreview, {
+      onSuccess: () => setLogoPreview(null),
+    });
+  }, [logoPreview, uploadLogo]);
 
   // Academic Years
   const { data: academicYears = [], isLoading: ayLoading } = useQuery({
@@ -360,6 +392,75 @@ const Settings = () => {
                 </div>
               ) : (
                 <>
+                  {/* ── Logo Upload ── */}
+                  <div className="space-y-3">
+                    <Label className="flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      School Logo <span className="text-xs text-muted-foreground">(optional · max 500 KB)</span>
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      {/* Current or preview logo */}
+                      <div className="h-20 w-20 rounded-xl border-2 border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
+                        {(logoPreview || schoolProfile?.logo_url) ? (
+                          <img
+                            src={logoPreview || resolveLogoUrl(schoolProfile?.logo_url) || ""}
+                            alt="School logo"
+                            className="h-full w-full object-contain p-1"
+                          />
+                        ) : (
+                          <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => logoInputRef.current?.click()}
+                          >
+                            <Upload className="h-3.5 w-3.5 mr-1.5" />
+                            {schoolProfile?.logo_url ? "Change Logo" : "Upload Logo"}
+                          </Button>
+                          {logoPreview && (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleLogoUpload}
+                                disabled={uploadLogo.isPending}
+                              >
+                                <Save className="h-3.5 w-3.5 mr-1.5" />
+                                {uploadLogo.isPending ? "Saving..." : "Save Logo"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => { setLogoPreview(null); if (logoInputRef.current) logoInputRef.current.value = ""; }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          PNG, JPG, WEBP or SVG · max 500 KB · appears on report cards and receipts
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={handleLogoSelect}
+                    />
+                  </div>
+
+                  <Separator />
+
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>School Name</Label>

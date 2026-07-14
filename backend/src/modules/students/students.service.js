@@ -122,7 +122,7 @@ const getSummary = async (schoolId) => {
   return summary;
 };
 
-const exportCsv = async (schoolId, queryParams = {}) => {
+const fetchExportRows = async (schoolId, queryParams = {}) => {
   const { rows } = await studentsRepository.findAll(schoolId, {
     limit: 10000,
     offset: 0,
@@ -133,6 +133,11 @@ const exportCsv = async (schoolId, queryParams = {}) => {
       ? String(queryParams.stream_ids).split(",").filter(Boolean)
       : undefined,
   });
+  return rows;
+};
+
+const exportCsv = async (schoolId, queryParams = {}) => {
+  const rows = await fetchExportRows(schoolId, queryParams);
   const headers = [
     "admission_number",
     "first_name",
@@ -734,5 +739,6 @@ module.exports = {
   getSiblings,
   getSummary,
   exportCsv,
+  fetchExportRows,
   getNextAdmissionNumber,
 };

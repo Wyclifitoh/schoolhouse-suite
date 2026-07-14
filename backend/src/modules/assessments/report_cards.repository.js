@@ -6,6 +6,44 @@ const { query, queryOne, execute } = require("../../config/database");
 const { v4: uuid } = require("uuid");
 const results = require("./results.repository");
 
+// ---------- Auto-generated remarks ----------
+function autoTeacherRemark(detail) {
+  const pct = Number(detail?.percentage);
+  if (!Number.isFinite(pct))
+    return "Keep working hard and stay consistent in all subjects.";
+  if (pct >= 80)
+    return "Outstanding performance — demonstrates excellent grasp of content. Maintain this commendable effort.";
+  if (pct >= 65)
+    return "A good performance overall. With more focused practice, you can reach the top of the class.";
+  if (pct >= 50)
+    return "An average performance. Increase revision time and seek help in weaker subjects.";
+  if (pct >= 35)
+    return "Below expected level. Consistent revision and consultations with subject teachers are necessary.";
+  return "Performance is far below expectation. Urgent intervention and a structured study plan are required.";
+}
+function autoPrincipalRemark(detail) {
+  const pct = Number(detail?.percentage);
+  const prev = detail?.progress?.previous_term?.percentage;
+  let trend = "";
+  if (Number.isFinite(prev) && Number.isFinite(pct)) {
+    const d = pct - Number(prev);
+    if (d >= 5)
+      trend = " Notable improvement on the previous term — keep it up.";
+    else if (d <= -5)
+      trend =
+        " Performance has dropped from the previous term — close monitoring is advised.";
+    else trend = " Performance is consistent with the previous term.";
+  }
+  if (!Number.isFinite(pct)) return "Aim higher next term." + trend;
+  if (pct >= 75)
+    return "An excellent result. Continue to set the pace for others." + trend;
+  if (pct >= 60)
+    return "A pleasing performance. Push for the next grade band." + trend;
+  if (pct >= 45)
+    return "Fair effort. With more discipline you can do much better." + trend;
+  return "Greater effort and parental support are needed to improve." + trend;
+}
+
 // ---------- TEMPLATES ----------
 exports.listTemplates = (schoolId) =>
   query(
@@ -124,6 +162,26 @@ exports.createRun = async (data) => {
   // Ensure results exist
   await results.compute(school_id, assessment_id, { include_positions: true });
 
+  // Load template so we can honour show_position / show_band / etc.
+  const template = template_id
+    ? await queryOne(
+        "SELECT * FROM report_card_templates_v2 WHERE id=? AND school_id=?",
+        [template_id, school_id],
+      )
+    : null;
+  const tplPayload = template
+    ? {
+        id: template.id,
+        name: template.name,
+        kind: template.kind,
+        show_position: !!template.show_position,
+        show_band: !!template.show_band,
+        show_competencies: !!template.show_competencies,
+        show_teacher_remarks: !!template.show_teacher_remarks,
+        show_principal_remarks: !!template.show_principal_remarks,
+      }
+    : { show_position: true, show_band: true, show_competencies: true };
+
   const runId = uuid();
   await execute(
     `INSERT INTO report_card_runs_v2
@@ -166,11 +224,28 @@ exports.createRun = async (data) => {
       r.student_id,
     );
     if (!detail) continue;
+    // Embed template + scrub position when template hides it.
+    detail.template = tplPayload;
+    if (!tplPayload.show_position) {
+      detail.class_position = null;
+      detail.stream_position = null;
+      detail.grade_position = null;
+    }
+    const teacherRemark = autoTeacherRemark(detail);
+    const principalRemark = autoPrincipalRemark(detail);
     await execute(
       `INSERT IGNORE INTO report_cards_v2
-        (id, run_id, assessment_id, student_id, payload)
-       VALUES (?,?,?,?,?)`,
-      [uuid(), runId, assessment_id, r.student_id, JSON.stringify(detail)],
+        (id, run_id, assessment_id, student_id, payload, teacher_remarks, principal_remarks)
+       VALUES (?,?,?,?,?,?,?)`,
+      [
+        uuid(),
+        runId,
+        assessment_id,
+        r.student_id,
+        JSON.stringify(detail),
+        teacherRemark,
+        principalRemark,
+      ],
     );
     count++;
   }

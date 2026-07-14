@@ -197,6 +197,20 @@ const deleteAttendance = async (id, schoolId) =>
     schoolId,
   ]);
 
+const countStudentsInTeacherStreams = async (studentIds, userId, schoolId) => {
+  if (!studentIds || studentIds.length === 0) return 0;
+  const res = await query(
+    `SELECT COUNT(s.id) as count 
+     FROM students s
+     JOIN streams st ON st.id = s.current_stream_id
+     JOIN teachers t ON t.id = st.class_teacher_id
+     JOIN staff stf ON stf.id = t.staff_id
+     WHERE s.id IN (?) AND s.school_id = ? AND stf.user_id = ?`,
+    [studentIds, schoolId, userId],
+  );
+  return Number(res[0]?.count || 0);
+};
+
 module.exports = {
   findByClassAndDate,
   upsert,
@@ -205,4 +219,5 @@ module.exports = {
   bulkSaveAttendance,
   getMonthlySummary,
   deleteAttendance,
+  countStudentsInTeacherStreams,
 };

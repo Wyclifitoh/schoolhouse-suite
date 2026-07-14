@@ -11,7 +11,8 @@ async function tick() {
     const due = await repo.dueReminders();
     for (const ev of due) {
       const when = new Date(ev.starts_at).toLocaleString("en-GB", {
-        dateStyle: "medium", timeStyle: "short",
+        dateStyle: "medium",
+        timeStyle: "short",
       });
       await notifications.broadcast({
         schoolId: ev.school_id,
@@ -28,7 +29,14 @@ async function tick() {
       await repo.markReminderSent(ev.id);
     }
   } catch (e) {
-    console.warn("[events.reminder] tick failed:", e.message);
+    // ETIMEDOUT / ECONNREFUSED happen during transient DB blips; don't spam logs.
+    if (
+      !["ETIMEDOUT", "ECONNREFUSED", "PROTOCOL_CONNECTION_LOST"].includes(
+        e.code,
+      )
+    ) {
+      console.warn("[events.reminder] tick failed:", e.message);
+    }
   }
 }
 

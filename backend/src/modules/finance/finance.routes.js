@@ -41,6 +41,7 @@ router.get("/audit-logs", c.getAuditLogs);
 // Standalone discount application (independent of bulk fee assignment)
 router.get("/applied-discounts", c.listAppliedDiscounts);
 router.post("/applied-discounts", c.applyDiscount);
+router.post("/applied-discounts/bulk-revoke", c.bulkRevokeDiscounts);
 router.delete("/applied-discounts/:id", c.revokeDiscount);
 
 // Term close → carry-forward arrears to next term
@@ -53,6 +54,9 @@ router.post("/adjustments/:id/decision", c.decideFeeAdjustment);
 
 // Daily reconciliation report
 router.get("/reconciliation", c.getReconciliationReport);
+
+// Rebalance a single student — fixes overpayments by moving excess to credits.
+router.post("/students/:studentId/rebalance", c.rebalanceStudent);
 
 // Brought Forward Balances (Previous Balance) -----------------------------
 router.get("/brought-forward/preview", async (req, res) => {

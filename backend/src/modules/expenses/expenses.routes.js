@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const repo = require("./expenses.repository");
+const petty = require("./petty-cash.repository");
 const { success, error } = require("../../utils/response");
 
 const handle = (fn) => async (req, res) => {
@@ -71,6 +72,20 @@ router.post(
     ),
   ),
 );
+router.post(
+  "/bulk-import",
+  handle(async (req, res) =>
+    success(
+      res,
+      await repo.bulkImport(
+        req.schoolId,
+        req.body.rows || req.body.expenses || [],
+        req.user?.id || null,
+      ),
+      201,
+    ),
+  ),
+);
 router.put(
   "/:id",
   handle(async (req, res) =>
@@ -98,6 +113,50 @@ router.delete(
   "/:id",
   handle(async (req, res) =>
     success(res, await repo.deleteExpense(req.params.id, req.schoolId)),
+  ),
+);
+
+// ───── Petty Cash ─────
+router.get(
+  "/petty-cash/accounts",
+  handle(async (req, res) => success(res, await petty.listAccounts(req.schoolId))),
+);
+router.post(
+  "/petty-cash/accounts",
+  handle(async (req, res) =>
+    success(res, await petty.createAccount({ ...req.body, school_id: req.schoolId }), 201),
+  ),
+);
+router.put(
+  "/petty-cash/accounts/:id",
+  handle(async (req, res) =>
+    success(res, await petty.updateAccount(req.params.id, req.schoolId, req.body)),
+  ),
+);
+router.delete(
+  "/petty-cash/accounts/:id",
+  handle(async (req, res) =>
+    success(res, await petty.deleteAccount(req.params.id, req.schoolId)),
+  ),
+);
+router.get(
+  "/petty-cash/transactions",
+  handle(async (req, res) =>
+    success(res, await petty.listTransactions(req.schoolId, req.query)),
+  ),
+);
+router.post(
+  "/petty-cash/transactions",
+  handle(async (req, res) =>
+    success(
+      res,
+      await petty.recordTransaction({
+        ...req.body,
+        school_id: req.schoolId,
+        performed_by: req.user?.id || null,
+      }),
+      201,
+    ),
   ),
 );
 

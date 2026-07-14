@@ -29,6 +29,7 @@ import {
   type ResultStatus,
 } from "@/hooks/useAssessments";
 import { useGrades, useStreams } from "@/hooks/useGrades";
+import { useSchoolProfile } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ClipboardCheck,
@@ -68,6 +69,7 @@ export default function Results() {
   const { hasAnyRole } = useAuth();
   const canApprove = hasAnyRole(APPROVER_ROLES as any);
 
+  const { data: school } = useSchoolProfile();
   const { data: assessments = [] } = useAssessmentsList();
   const { data: grades = [] } = useGrades();
   const [assessmentId, setAssessmentId] = useState<string>("");
@@ -141,7 +143,7 @@ export default function Results() {
   const exportRows = useMemo(
     () =>
       results.map((r, i) => ({
-        "#": r.class_position ?? i + 1,
+        "#": streamId ? r.stream_position ?? i + 1 : r.grade_position ?? r.class_position ?? i + 1,
         "Admission No.": r.admission_number,
         Student: `${r.first_name} ${r.last_name}`,
         Class: `${r.grade_name || ""}${r.stream_name ? " · " + r.stream_name : ""}`,
@@ -152,11 +154,11 @@ export default function Results() {
         Band: r.overall_band || "",
         Status: r.status,
       })),
-    [results],
+    [results, streamId],
   );
 
   const broadsheet = useMemo(() => {
-    if (!rawMarks.length) return { students: [], subjects: [] };
+    if (!rawMarks.length) return { students: [], subjects: [], subjectMeans: {} as Record<string, string>, overallTotalMean: "—", overallMeanPct: "—" };
     const subjMap = new Map();
     const stuMap = new Map();
     rawMarks.forEach((m: any) => {
@@ -186,7 +188,7 @@ export default function Results() {
           ...stu,
           total: res ? Number(res.total_score || 0) : null,
           mean: res ? Number(res.percentage || 0) : null,
-          rank: res?.class_position ?? null,
+          rank: streamId ? (res?.stream_position ?? null) : (res?.grade_position ?? res?.class_position ?? null),
           al: res?.overall_al || "",
           band: res?.overall_band || "",
           status: res?.status || "draft",
@@ -196,8 +198,41 @@ export default function Results() {
         if (a.rank && b.rank) return a.rank - b.rank;
         return a.name.localeCompare(b.name);
       });
-    return { subjects, students };
-  }, [rawMarks, results]);
+
+    const subjectMeans: Record<string, string> = {};
+    subjects.forEach((s) => {
+      let sum = 0;
+      let count = 0;
+      students.forEach((stu) => {
+        if (stu.marks[s.id] != null) {
+          sum += stu.marks[s.id];
+          count++;
+        }
+      });
+      subjectMeans[s.id] = count > 0 ? (sum / count).toFixed(1) : "—";
+    });
+
+    let totalSum = 0;
+    let totalCount = 0;
+    let meanSum = 0;
+    let meanCount = 0;
+
+    students.forEach((stu) => {
+      if (stu.total != null) {
+        totalSum += stu.total;
+        totalCount++;
+      }
+      if (stu.mean != null) {
+        meanSum += stu.mean;
+        meanCount++;
+      }
+    });
+
+    const overallTotalMean = totalCount > 0 ? (totalSum / totalCount).toFixed(0) : "—";
+    const overallMeanPct = meanCount > 0 ? (meanSum / meanCount).toFixed(1) : "—";
+
+    return { subjects, students, subjectMeans, overallTotalMean, overallMeanPct };
+  }, [rawMarks, results, streamId]);
 
   const assessmentName = useMemo(
     () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
@@ -224,29 +259,110 @@ export default function Results() {
     XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`);
   };
 
-  const exportPdf = () => {
+  const getBase64ImageFromUrl = async (imageUrl: string) => {
+    try {
+      let fullUrl = imageUrl;
+      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+        const apiBase = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+        const host = apiBase.replace(/\/api\/v1\/?$/, '');
+        fullUrl = `${host}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+      }
+      const res = await fetch(fullUrl);
+      if (!res.ok) throw new Error(`Image fetch failed with status ${res.status}`);
+      
+      // Also ensure we actually got an image before converting it
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.startsWith("image/")) {
+        throw new Error(`Invalid content type: ${contentType}`);
+      }
+
+      const blob = await res.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const drawSchoolHeader = async (doc: any, title: string, subtitle: string) => {
+    let textX = 40;
+    if (school?.logo_url) {
+      const b64 = await getBase64ImageFromUrl(school.logo_url);
+      if (b64) {
+        doc.addImage(b64, 40, 25, 45, 45);
+        textX = 95;
+      }
+    }
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text((school?.name || "School").toUpperCase(), textX, 40);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    const contact = [
+      school?.address,
+      school?.phone ? `Tel: ${school.phone}` : "",
+      school?.email ? `Email: ${school.email}` : ""
+    ].filter(Boolean).join(" | ");
+    if (contact) {
+      doc.text(contact, textX, 55);
+    }
+    
+    // Separator line
+    doc.setDrawColor(226, 232, 240);
+    doc.line(40, 80, doc.internal.pageSize.width - 40, 80);
+
+    // Title
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(title, 40, 105);
+    
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(subtitle, 40, 120);
+
+    // Filter label
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : null;
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : null;
+    if (gradeLabel) {
+      doc.setFontSize(10);
+      doc.setTextColor(37, 99, 235); // ACCENT
+      let filterText = gradeLabel.toUpperCase();
+      if (streamLabel) {
+        filterText += ` - ${streamLabel.toUpperCase()}`;
+      }
+      doc.text(filterText, 40, 135);
+      return 150;
+    }
+
+    return 135;
+  };
+
+  const exportPdf = async () => {
     if (!exportRows.length) return toast.error("Nothing to export");
     const doc = new jsPDF({
       orientation: "landscape",
       unit: "pt",
       format: "a4",
     });
-    doc.setFontSize(14);
-    doc.text(assessmentName, 40, 36);
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.text(
-      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`,
-      40,
-      54,
+    
+    const startY = await drawSchoolHeader(
+      doc, 
+      assessmentName, 
+      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`
     );
-    doc.setTextColor(0);
+
     const head = [Object.keys(exportRows[0])];
     const body = exportRows.map((r) => Object.values(r) as any[]);
     autoTable(doc, {
       head,
       body,
-      startY: 70,
+      startY,
       styles: { fontSize: 9, cellPadding: 4 },
       headStyles: {
         fillColor: [37, 99, 235],
@@ -256,10 +372,17 @@ export default function Results() {
       alternateRowStyles: { fillColor: [245, 247, 250] },
       margin: { left: 40, right: 40 },
     });
-    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.pdf`);
+    
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : "";
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : "";
+    let filenameSuffix = "";
+    if (gradeLabel) filenameSuffix += `_${gradeLabel}`;
+    if (streamLabel) filenameSuffix += `_${streamLabel}`;
+    
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}${filenameSuffix.replace(/\s+/g, "_")}.pdf`);
   };
 
-  const exportPreviewPdf = () => {
+  const exportPreviewPdf = async () => {
     if (!broadsheet.students.length)
       return toast.error("No marklist data available");
     const doc = new jsPDF({
@@ -267,19 +390,24 @@ export default function Results() {
       unit: "pt",
       format: "a4",
     });
-    doc.setFontSize(14);
-    doc.text(`${assessmentName} - Broadsheet Preview`, 40, 36);
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.text(
-      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`,
-      40,
-      54,
+    
+    const startY = await drawSchoolHeader(
+      doc, 
+      `${assessmentName} - Marklist`, 
+      `Students: ${broadsheet.students.length}`
     );
-    doc.setTextColor(0);
 
     const head = [
-      ["Rank", "Student", "Adm", ...broadsheet.subjects.map((s) => s.name), "Total", "Mean %", "AL", "Band"],
+      [
+        "Rank",
+        "Student",
+        "Adm",
+        ...broadsheet.subjects.map((s) => s.name),
+        "Total",
+        "Mean %",
+        "AL",
+        "Band",
+      ],
     ];
     const body = broadsheet.students.map((stu) => [
       stu.rank ?? "—",
@@ -294,10 +422,22 @@ export default function Results() {
       stu.band || "—",
     ]);
 
+    // Add subject means summary row
+    body.push([
+      "",
+      "SUBJECT MEANS",
+      "",
+      ...broadsheet.subjects.map((s) => broadsheet.subjectMeans[s.id]),
+      broadsheet.overallTotalMean,
+      broadsheet.overallMeanPct,
+      "",
+      "",
+    ]);
+
     autoTable(doc, {
       head,
       body,
-      startY: 70,
+      startY,
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: {
         fillColor: [37, 99, 235],
@@ -307,24 +447,32 @@ export default function Results() {
       alternateRowStyles: { fillColor: [245, 247, 250] },
       margin: { left: 40, right: 40 },
     });
-    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist.pdf`);
+    
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : "";
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : "";
+    let filenameSuffix = "";
+    if (gradeLabel) filenameSuffix += `_${gradeLabel}`;
+    if (streamLabel) filenameSuffix += `_${streamLabel}`;
+    
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}${filenameSuffix.replace(/\s+/g, "_")}_marklist.pdf`);
   };
 
   const exportPreviewExcel = () => {
-    if (!broadsheet.students.length) return toast.error("No marklist data available");
-    
+    if (!broadsheet.students.length)
+      return toast.error("No marklist data available");
+
     const rows = broadsheet.students.map((stu) => {
       const row: any = {
-        "Rank": stu.rank ?? "—",
-        "Student": stu.name,
-        "Adm": stu.adm,
-        "Class": stu.className,
+        Rank: stu.rank ?? "—",
+        Student: stu.name,
+        Adm: stu.adm,
+        Class: stu.className,
       };
-      
+
       broadsheet.subjects.forEach((s) => {
         row[s.name] = stu.marks[s.id] != null ? stu.marks[s.id] : "—";
       });
-      
+
       row["Total"] = stu.total != null ? stu.total.toFixed(0) : "—";
       row["Mean %"] = stu.mean != null ? stu.mean.toFixed(1) : "—";
       row["AL"] = stu.al || "—";
@@ -332,10 +480,35 @@ export default function Results() {
       return row;
     });
 
+    const summaryRow: any = {
+      Rank: "",
+      Student: "SUBJECT MEANS",
+      Adm: "",
+      Class: "",
+    };
+    broadsheet.subjects.forEach((s) => {
+      summaryRow[s.name] = broadsheet.subjectMeans[s.id];
+    });
+    summaryRow["Total"] = broadsheet.overallTotalMean;
+    summaryRow["Mean %"] = broadsheet.overallMeanPct;
+    summaryRow["AL"] = "";
+    summaryRow["Band"] = "";
+    rows.push(summaryRow);
+
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Marklist");
-    XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist.xlsx`);
+    
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : "";
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : "";
+    let filenameSuffix = "";
+    if (gradeLabel) filenameSuffix += `_${gradeLabel}`;
+    if (streamLabel) filenameSuffix += `_${streamLabel}`;
+    
+    XLSX.writeFile(
+      wb,
+      `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}${filenameSuffix.replace(/\s+/g, "_")}_marklist.xlsx`,
+    );
   };
 
   return (
@@ -469,7 +642,7 @@ export default function Results() {
               </Button>
               <Button
                 variant="outline"
-                disabled={!results.length}
+                disabled={!results.length || !gradeId}
                 onClick={exportPdf}
               >
                 <FileText className="h-4 w-4 mr-1" /> PDF
@@ -754,13 +927,31 @@ export default function Results() {
                           {stu.mean != null ? stu.mean.toFixed(1) : "—"}
                         </TableCell>
                         <TableCell>
-                          {stu.al ? <Badge variant="outline">{stu.al}</Badge> : "—"}
+                          {stu.al ? (
+                            <Badge variant="outline">{stu.al}</Badge>
+                          ) : (
+                            "—"
+                          )}
                         </TableCell>
                         <TableCell>
                           {stu.band ? <Badge>{stu.band}</Badge> : "—"}
                         </TableCell>
                       </TableRow>
                     ))}
+                    {broadsheet.students.length > 0 && (
+                      <TableRow className="font-bold bg-muted/30">
+                        <TableCell colSpan={2} className="text-right">SUBJECT MEANS:</TableCell>
+                        <TableCell />
+                        {broadsheet.subjects.map((s) => (
+                          <TableCell key={`mean-${s.id}`} className="text-center tabular-nums">
+                            {broadsheet.subjectMeans[s.id]}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right tabular-nums">{broadsheet.overallTotalMean}</TableCell>
+                        <TableCell className="text-right tabular-nums">{broadsheet.overallMeanPct}</TableCell>
+                        <TableCell colSpan={2} />
+                      </TableRow>
+                    )}
                     {!broadsheet.students.length && (
                       <TableRow>
                         <TableCell
