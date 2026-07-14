@@ -61,6 +61,20 @@ class ApiClient {
   get<T>(path: string) {
     return this.request<T>(path);
   }
+
+  /** Returns full paginated envelope: { data, pagination } */
+  async getPaginated<T>(path: string): Promise<{ data: T; pagination: { total: number; page: number; limit: number; totalPages: number } }> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+    if (this.schoolId) headers["X-School-ID"] = this.schoolId;
+    if (this.academicYearId) headers["X-Academic-Year-Id"] = this.academicYearId;
+    if (this.termId) headers["X-Term-Id"] = this.termId;
+    const API_BASE = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+    const res = await fetch(`${API_BASE}${path}`, { headers });
+    const json = await res.json();
+    if (!res.ok || json.success === false) throw new Error(json.error?.message || `Request failed: ${res.status}`);
+    return { data: json.data as T, pagination: json.pagination };
+  }
   post<T>(path: string, body: unknown) {
     return this.request<T>(path, {
       method: "POST",
