@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, ArrowRight, Plus, Building2, Users, GraduationCap, AlertCircle } from "lucide-react";
+import { Loader2, Search, ArrowRight, Plus, Building2, Users, GraduationCap, AlertCircle, Upload, X, ImageIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useSchools, useCreateSchool } from "@/hooks/usePlatform";
@@ -28,6 +28,8 @@ export default function AdminSchools() {
   const [status, setStatus] = useState<string>("");
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(empty);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: schools = [], isLoading } = useSchools({ search, status });
   const create = useCreateSchool();
@@ -53,14 +55,28 @@ export default function AdminSchools() {
         admin_name: form.admin_name || undefined,
         admin_email: form.admin_email || undefined,
         admin_password: form.admin_password || undefined,
+        logo_base64: logoPreview || undefined,
       });
       toast({ title: "School created", description: `${form.name} is on a ${form.trial_days}-day trial.` });
       setShowCreate(false);
       setForm(empty);
+      setLogoPreview(null);
     } catch (err: any) {
       toast({ title: "Failed to create school", description: err.message, variant: "destructive" });
     }
   };
+
+  const handleLogoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      toast({ title: "File too large", description: "Logo must be under 500 KB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }, []);
 
   const trialEnding = schools.filter(s => {
     if (s.sub_status !== "trial" || !s.trial_ends_at) return false;
@@ -221,6 +237,31 @@ export default function AdminSchools() {
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
+              {/* Logo upload field */}
+              <div className="col-span-2">
+                <Label>School Logo <span className="text-muted-foreground text-xs">(optional · max 500 KB)</span></Label>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <div className="h-16 w-16 rounded-lg border-2 border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
+                    {logoPreview
+                      ? <img src={logoPreview} alt="Preview" className="h-full w-full object-contain p-0.5" />
+                      : <ImageIcon className="h-6 w-6 text-muted-foreground/40" />}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => logoInputRef.current?.click()}>
+                      <Upload className="h-3.5 w-3.5 mr-1.5" /> Choose logo
+                    </Button>
+                    {logoPreview && (
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => { setLogoPreview(null); if (logoInputRef.current) logoInputRef.current.value = ""; }}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                    className="hidden" onChange={handleLogoSelect} />
+                </div>
+              </div>
+
               <div className="col-span-2">
                 <Label htmlFor="school-name">School name <span className="text-destructive">*</span></Label>
                 <Input id="school-name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Greenfield Academy" />

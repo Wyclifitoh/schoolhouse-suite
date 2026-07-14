@@ -253,11 +253,46 @@ export function useSubjectAllocations(gradeId?: string) {
 export function useAllocateSubjects() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { grade_id: string; subject_ids: string[] }) =>
-      api.post("/assessments/subject-allocations", data),
+    mutationFn: (data: {
+      grade_id: string;
+      subject_ids: string[];
+      subject_config?: {
+        subject_id: string;
+        requirement: "REQUIRED" | "OPTIONAL";
+        optional_group_id?: string | null;
+        new_group_name?: string | null;
+      }[];
+      groups?: { id?: string; name: string; pick_count?: number }[];
+    }) => api.post("/assessments/subject-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["subject-allocations"] });
+      qc.invalidateQueries({ queryKey: ["optional-groups"] });
       toast.success("Subjects allocated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ============ OPTIONAL GROUPS ============
+export function useOptionalGroups(gradeId?: string) {
+  return useQuery({
+    queryKey: ["optional-groups", gradeId || ""],
+    enabled: !!gradeId,
+    queryFn: async () =>
+      unwrap<OptionalGroup[]>(
+        await api.get<any>(`/assessments/optional-groups?grade_id=${gradeId}`),
+      ) || [],
+  });
+}
+export function useDeleteOptionalGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/assessments/optional-groups/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["optional-groups"] });
+      qc.invalidateQueries({ queryKey: ["subject-allocations"] });
+      toast.success("Group removed");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -268,6 +303,7 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
+    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -276,6 +312,7 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
@@ -289,9 +326,8 @@ export function useCreateTeacherAllocation() {
   return useMutation({
     mutationFn: (data: {
       teacher_id: string;
-      subject_id: string;
       grade_id: string;
-      stream_id?: string | null;
+      allocations: { subject_id: string; stream_ids: string[] }[];
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
@@ -327,6 +363,7 @@ export interface Assessment {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  marks_deadline: string | null;
   status: AssessmentStatus;
   created_at?: string;
   academic_year_id: string | null;
@@ -455,6 +492,8 @@ export interface AssessmentTask {
   assessment_id: string;
   assessment_name: string;
   assessment_status: AssessmentStatus;
+  end_date: string | null;
+  marks_deadline: string | null;
   grade_id: string;
   grade_name: string;
   stream_id: string | null;
@@ -595,6 +634,7 @@ export function useBulkSaveAssessmentMarks() {
     mutationFn: (body: {
       assessment_id: string;
       task_id?: string;
+      global_out_of?: number;
       items: Array<{
         student_id: string;
         subject_id: string;

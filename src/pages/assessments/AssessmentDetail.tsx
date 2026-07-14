@@ -160,7 +160,7 @@ export default function AssessmentDetail() {
                     onClick={() => resync.mutate(a.id)}
                     disabled={resync.isPending}
                   >
-                    <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
+                    <RefreshCw className="h-4 w-4 mr-1" /> Sync
                   </Button>
                 )}
                 {a.status === "draft" && (
