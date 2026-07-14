@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -76,8 +77,7 @@ const TeacherAllocation = () => {
   const [form, setForm] = useState({
     teacher_id: "",
     grade_id: "",
-    subject_id: "",
-    stream_id: "none",
+    subjects: {} as Record<string, string[]>,
   });
   const { data: streams = [] } = useStreams(form.grade_id || undefined);
   const { data: gradeSubjects = [] } = useSubjectsForGrade(form.grade_id);
@@ -85,17 +85,18 @@ const TeacherAllocation = () => {
   const isLoading = teachersLoading || classesLoading || allocationsLoading;
 
   const handleCreate = () => {
-    if (!form.teacher_id || !form.subject_id || !form.grade_id) return;
-
-    // Convert "none" to null for the API
-    const streamId = form.stream_id === "none" ? null : form.stream_id;
+    const allocations = Object.entries(form.subjects).map(([subject_id, stream_ids]) => ({
+      subject_id,
+      stream_ids,
+    }));
+    
+    if (!form.teacher_id || allocations.length === 0 || !form.grade_id) return;
 
     create.mutate(
       {
         teacher_id: form.teacher_id,
-        subject_id: form.subject_id,
         grade_id: form.grade_id,
-        stream_id: streamId,
+        allocations,
       },
       {
         onSuccess: () => {
@@ -103,8 +104,7 @@ const TeacherAllocation = () => {
           setForm({
             teacher_id: "",
             grade_id: "",
-            subject_id: "",
-            stream_id: "none",
+            subjects: {},
           });
         },
       },
@@ -201,8 +201,7 @@ const TeacherAllocation = () => {
                           setForm({
                             ...form,
                             grade_id: v,
-                            subject_id: "",
-                            stream_id: "none",
+                            subjects: {},
                           })
                         }
                       >
@@ -220,62 +219,101 @@ const TeacherAllocation = () => {
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium">Subject</label>
-                      <Select
-                        value={form.subject_id}
-                        onValueChange={(v) =>
-                          setForm({ ...form, subject_id: v })
-                        }
-                        disabled={!form.grade_id}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              form.grade_id
-                                ? "Pick subject"
-                                : "Pick class first"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {gradeSubjects.map((subject) => (
-                            <SelectItem key={subject.id} value={subject.id}>
-                              {subject.name}{" "}
-                              {subject.code && `(${subject.code})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label className="text-xs font-medium">Subjects & Streams</label>
+                      <div className="mt-1 max-h-60 overflow-y-auto rounded-md border p-2 space-y-2 bg-background">
+                        {gradeSubjects.map((subject) => {
+                          const isSelected = subject.id in form.subjects;
+                          const selectedStreams = form.subjects[subject.id] || [];
+
+                          return (
+                            <div key={subject.id} className={`rounded border p-2 transition ${isSelected ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+                              <label className="flex items-center gap-2 text-sm cursor-pointer mb-2">
+                                <Checkbox 
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    setForm(f => {
+                                      const next = { ...f.subjects };
+                                      if (checked) next[subject.id] = ["none"]; // Default to 'All streams'
+                                      else delete next[subject.id];
+                                      return { ...f, subjects: next };
+                                    });
+                                  }}
+                                />
+                                <span className="flex-1 font-medium truncate">{subject.name} {subject.code && `(${subject.code})`}</span>
+                              </label>
+
+                              {isSelected && streams.length > 0 && (
+                                <div className="pl-6 flex flex-wrap gap-1">
+                                  <Badge 
+                                    variant={selectedStreams.includes("none") ? "default" : "outline"}
+                                    className="cursor-pointer text-[10px] px-1.5 py-0"
+                                    onClick={() => setForm(f => ({ ...f, subjects: { ...f.subjects, [subject.id]: ["none"] } }))}
+                                  >
+                                    All Streams
+                                  </Badge>
+                                  {streams.map(st => {
+                                    const hasStream = selectedStreams.includes(st.id);
+                                    return (
+                                      <Badge 
+                                        key={st.id}
+                                        variant={hasStream && !selectedStreams.includes("none") ? "default" : "outline"}
+                                        className="cursor-pointer text-[10px] px-1.5 py-0"
+                                        onClick={() => {
+                                          setForm(f => {
+                                            const curr = f.subjects[subject.id] || [];
+                                            let next = curr.filter(x => x !== "none");
+                                            if (hasStream) next = next.filter(x => x !== st.id);
+                                            else next.push(st.id);
+                                            
+                                            if (next.length === 0) next = ["none"];
+                                            return { ...f, subjects: { ...f.subjects, [subject.id]: next } };
+                                          });
+                                        }}
+                                      >
+                                        {st.name}
+                                      </Badge>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        
+                        {form.grade_id && gradeSubjects.length > 0 && (
+                          <div className="pt-2 mt-2 border-t flex items-center justify-between">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                const all: Record<string, string[]> = {};
+                                gradeSubjects.forEach((s: any) => all[s.id] = ["none"]);
+                                setForm(f => ({ ...f, subjects: all }));
+                              }}
+                            >
+                              Select All
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs"
+                              onClick={() => setForm(f => ({ ...f, subjects: {} }))}
+                            >
+                              Clear
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {!form.grade_id && (
+                          <p className="text-xs text-muted-foreground">Pick a class first</p>
+                        )}
+                      </div>
                       {form.grade_id && gradeSubjects.length === 0 && (
                         <p className="text-xs text-amber-600 mt-1">
-                          No subjects allocated to this class. Allocate subjects
-                          first.
+                          No subjects allocated to this class. Allocate subjects first.
                         </p>
                       )}
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium">
-                        Stream (optional)
-                      </label>
-                      <Select
-                        value={form.stream_id}
-                        onValueChange={(v) =>
-                          setForm({ ...form, stream_id: v })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="All streams" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">All streams</SelectItem>
-                          {streams.map((stream) => (
-                            <SelectItem key={stream.id} value={stream.id}>
-                              {stream.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                   <DialogFooter>
@@ -286,7 +324,7 @@ const TeacherAllocation = () => {
                       onClick={handleCreate}
                       disabled={
                         !form.teacher_id ||
-                        !form.subject_id ||
+                        Object.keys(form.subjects).length === 0 ||
                         !form.grade_id ||
                         create.isPending
                       }
