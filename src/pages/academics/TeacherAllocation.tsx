@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -28,7 +29,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { UserCheck, Plus, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { UserCheck, Plus, Trash2, ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useClasses, useTeachers, useStreams } from "@/hooks/useClasses";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
@@ -58,6 +62,71 @@ function useSubjectsForGrade(gradeId?: string) {
   });
 }
 
+function TeacherSearchSelect({ 
+  value, 
+  onValueChange, 
+  teachers, 
+  placeholder = "Select a teacher...", 
+  allowAll = false, 
+  allowUnassigned = false, 
+  className 
+}: { 
+  value: string; 
+  onValueChange: (v: string) => void; 
+  teachers: any[]; 
+  placeholder?: string; 
+  allowAll?: boolean; 
+  allowUnassigned?: boolean; 
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedTeacher = teachers.find(t => t.teacher_id === value);
+  const displayText = value === "all" ? "All teachers" : value === "unassigned" ? "Unassigned" : selectedTeacher ? `${selectedTeacher.first_name} ${selectedTeacher.last_name}` : placeholder;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className={cn("w-full justify-between font-normal h-9", !value && "text-muted-foreground", className)}>
+          <span className="truncate">{displayText}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search teachers..." />
+          <CommandList>
+            <CommandEmpty>No teacher found.</CommandEmpty>
+            <CommandGroup>
+              {allowAll && (
+                <CommandItem value="all" onSelect={() => { onValueChange("all"); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === "all" ? "opacity-100" : "opacity-0")} />
+                  All teachers
+                </CommandItem>
+              )}
+              {allowUnassigned && (
+                <CommandItem value="unassigned" onSelect={() => { onValueChange("unassigned"); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === "unassigned" ? "opacity-100" : "opacity-0")} />
+                  <span className="italic">Unassigned</span>
+                </CommandItem>
+              )}
+              {teachers.map(teacher => (
+                <CommandItem 
+                  key={teacher.teacher_id} 
+                  value={`${teacher.first_name} ${teacher.last_name} ${teacher.specialization || ""}`} 
+                  onSelect={() => { onValueChange(teacher.teacher_id); setOpen(false); }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === teacher.teacher_id ? "opacity-100" : "opacity-0")} />
+                  {teacher.first_name} {teacher.last_name} {teacher.specialization ? `- ${teacher.specialization}` : ""}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 const TeacherAllocation = () => {
   const perms = usePermissions(["classes:create", "classes:delete"]);
   const { data: classes = [], isLoading: classesLoading } = useClasses();
@@ -79,8 +148,18 @@ const TeacherAllocation = () => {
     grade_id: "",
     subjects: {} as Record<string, string[]>,
   });
+  const [classForm, setClassForm] = useState({
+    grade_id: "",
+    stream_id: "none",
+    subjectTeachers: {} as Record<string, string>,
+  });
+  const [mode, setMode] = useState<"teacher" | "class">("teacher");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { data: streams = [] } = useStreams(form.grade_id || undefined);
   const { data: gradeSubjects = [] } = useSubjectsForGrade(form.grade_id);
+  const { data: classFormStreams = [] } = useStreams(classForm.grade_id || undefined);
+  const { data: classFormSubjects = [] } = useSubjectsForGrade(classForm.grade_id);
 
   const isLoading = teachersLoading || classesLoading || allocationsLoading;
 
@@ -92,6 +171,7 @@ const TeacherAllocation = () => {
     
     if (!form.teacher_id || allocations.length === 0 || !form.grade_id) return;
 
+    setIsSubmitting(true);
     create.mutate(
       {
         teacher_id: form.teacher_id,
@@ -107,8 +187,40 @@ const TeacherAllocation = () => {
             subjects: {},
           });
         },
+        onSettled: () => setIsSubmitting(false),
       },
     );
+  };
+
+  const handleClassCreate = async () => {
+    const teacherMap: Record<string, { subject_id: string; stream_ids: string[] }[]> = {};
+    Object.entries(classForm.subjectTeachers).forEach(([subject_id, teacher_id]) => {
+      if (!teacherMap[teacher_id]) teacherMap[teacher_id] = [];
+      teacherMap[teacher_id].push({
+        subject_id,
+        stream_ids: [classForm.stream_id],
+      });
+    });
+
+    if (Object.keys(teacherMap).length === 0 || !classForm.grade_id) return;
+
+    setIsSubmitting(true);
+    try {
+      const promises = Object.entries(teacherMap).map(([teacher_id, allocations]) =>
+        create.mutateAsync({
+          teacher_id,
+          grade_id: classForm.grade_id,
+          allocations,
+        })
+      );
+      await Promise.all(promises);
+      setOpen(false);
+      setClassForm({ grade_id: "", stream_id: "none", subjectTeachers: {} });
+    } catch (e) {
+      // error handled by mutation callbacks
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -124,22 +236,13 @@ const TeacherAllocation = () => {
               Allocations
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Select value={filterTeacher} onValueChange={setFilterTeacher}>
-                <SelectTrigger className="w-44 h-9">
-                  <SelectValue placeholder="All teachers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All teachers</SelectItem>
-                  {teachersList.map((teacher) => (
-                    <SelectItem
-                      key={teacher.teacher_id}
-                      value={teacher.teacher_id}
-                    >
-                      {teacher.first_name} {teacher.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <TeacherSearchSelect 
+                value={filterTeacher} 
+                onValueChange={setFilterTeacher} 
+                teachers={teachersList} 
+                allowAll={true}
+                className="w-44"
+              />
 
               <Select value={filterGrade} onValueChange={setFilterGrade}>
                 <SelectTrigger className="w-40 h-9">
@@ -164,33 +267,24 @@ const TeacherAllocation = () => {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>New Teacher Allocation</DialogTitle>
+                    <DialogTitle>New Allocation</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-3 py-2">
-                    <div>
+
+                  <Tabs value={mode} onValueChange={(v) => setMode(v as "teacher" | "class")} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsTrigger value="teacher">By Teacher</TabsTrigger>
+                      <TabsTrigger value="class">By Class</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="teacher" className="space-y-3">
+                      <div>
                       <label className="text-xs font-medium">Teacher</label>
-                      <Select
+                      <TeacherSearchSelect
                         value={form.teacher_id}
-                        onValueChange={(v) =>
-                          setForm({ ...form, teacher_id: v })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pick teacher" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teachersList.map((teacher) => (
-                            <SelectItem
-                              key={teacher.teacher_id}
-                              value={teacher.teacher_id}
-                            >
-                              {teacher.first_name} {teacher.last_name}
-                              {teacher.specialization &&
-                                ` - ${teacher.specialization}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onValueChange={(v) => setForm({ ...form, teacher_id: v })}
+                        teachers={teachersList}
+                        placeholder="Pick teacher"
+                      />
                     </div>
 
                     <div>
@@ -315,22 +409,125 @@ const TeacherAllocation = () => {
                         </p>
                       )}
                     </div>
-                  </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="class" className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium">Class</label>
+                        <Select
+                          value={classForm.grade_id}
+                          onValueChange={(v) =>
+                            setClassForm({
+                              ...classForm,
+                              grade_id: v,
+                              subjectTeachers: {},
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pick class" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {classes.map((grade) => (
+                              <SelectItem key={grade.id} value={grade.id}>
+                                {grade.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium">Stream (optional)</label>
+                        <Select
+                          value={classForm.stream_id}
+                          onValueChange={(v) =>
+                            setClassForm({ ...classForm, stream_id: v })
+                          }
+                          disabled={!classForm.grade_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="All streams" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">All streams</SelectItem>
+                            {classFormStreams.map((stream) => (
+                              <SelectItem key={stream.id} value={stream.id}>
+                                {stream.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium">Subject Teachers</label>
+                        <div className="mt-1 max-h-60 overflow-y-auto rounded-md border p-2 space-y-2 bg-background">
+                          {classForm.grade_id && classFormSubjects.length === 0 && (
+                            <p className="text-xs text-amber-600 p-2">
+                              No subjects allocated to this class. Allocate subjects first.
+                            </p>
+                          )}
+                          {!classForm.grade_id && (
+                            <p className="text-xs text-muted-foreground p-2">Pick a class first</p>
+                          )}
+                          {classFormSubjects.map((subject) => (
+                            <div key={subject.id} className="flex items-center gap-3 p-2 border rounded hover:bg-muted/30">
+                              <span className="flex-1 text-sm font-medium truncate">
+                                {subject.name} {subject.code && `(${subject.code})`}
+                              </span>
+                              <div className="w-1/2">
+                                <TeacherSearchSelect
+                                  value={classForm.subjectTeachers[subject.id] || "unassigned"}
+                                  onValueChange={(v) =>
+                                    setClassForm((f) => {
+                                      const next = { ...f.subjectTeachers };
+                                      if (v === "unassigned") delete next[subject.id];
+                                      else next[subject.id] = v;
+                                      return { ...f, subjectTeachers: next };
+                                    })
+                                  }
+                                  teachers={teachersList}
+                                  placeholder="Assign teacher..."
+                                  allowUnassigned={true}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
                       Cancel
                     </Button>
-                    <Button
-                      onClick={handleCreate}
-                      disabled={
-                        !form.teacher_id ||
-                        Object.keys(form.subjects).length === 0 ||
-                        !form.grade_id ||
-                        create.isPending
-                      }
-                    >
-                      {create.isPending ? "Saving..." : "Save"}
-                    </Button>
+                    {mode === "teacher" ? (
+                      <Button
+                        onClick={handleCreate}
+                        disabled={
+                          !form.teacher_id ||
+                          Object.keys(form.subjects).length === 0 ||
+                          !form.grade_id ||
+                          isSubmitting
+                        }
+                      >
+                        {isSubmitting ? "Saving..." : "Save Allocation"}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleClassCreate}
+                        disabled={
+                          !classForm.grade_id ||
+                          Object.keys(classForm.subjectTeachers).length === 0 ||
+                          isSubmitting
+                        }
+                      >
+                        {isSubmitting ? "Saving..." : "Save Allocation"}
+                      </Button>
+                    )}
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
