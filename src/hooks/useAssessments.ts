@@ -253,11 +253,46 @@ export function useSubjectAllocations(gradeId?: string) {
 export function useAllocateSubjects() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { grade_id: string; subject_ids: string[] }) =>
-      api.post("/assessments/subject-allocations", data),
+    mutationFn: (data: {
+      grade_id: string;
+      subject_ids: string[];
+      subject_config?: {
+        subject_id: string;
+        requirement: "REQUIRED" | "OPTIONAL";
+        optional_group_id?: string | null;
+        new_group_name?: string | null;
+      }[];
+      groups?: { id?: string; name: string; pick_count?: number }[];
+    }) => api.post("/assessments/subject-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["subject-allocations"] });
+      qc.invalidateQueries({ queryKey: ["optional-groups"] });
       toast.success("Subjects allocated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ============ OPTIONAL GROUPS ============
+export function useOptionalGroups(gradeId?: string) {
+  return useQuery({
+    queryKey: ["optional-groups", gradeId || ""],
+    enabled: !!gradeId,
+    queryFn: async () =>
+      unwrap<OptionalGroup[]>(
+        await api.get<any>(`/assessments/optional-groups?grade_id=${gradeId}`),
+      ) || [],
+  });
+}
+export function useDeleteOptionalGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/assessments/optional-groups/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["optional-groups"] });
+      qc.invalidateQueries({ queryKey: ["subject-allocations"] });
+      toast.success("Group removed");
     },
     onError: (e: Error) => toast.error(e.message),
   });
