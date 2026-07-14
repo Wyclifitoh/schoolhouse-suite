@@ -291,9 +291,8 @@ export function useCreateTeacherAllocation() {
   return useMutation({
     mutationFn: (data: {
       teacher_id: string;
-      subject_id: string;
       grade_id: string;
-      stream_id?: string | null;
+      allocations: { subject_id: string; stream_ids: string[] }[];
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
