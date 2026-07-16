@@ -158,7 +158,9 @@ export function TermProvider({ children }: { children: ReactNode }) {
 
   // Propagate historical-view flag to api client so backend can enforce.
   useEffect(() => {
-    api.setHistorical(!isViewingCurrentTerm && !!selectedTerm);
+    if (typeof api.setHistorical === "function") {
+      api.setHistorical(!isViewingCurrentTerm && !!selectedTerm);
+    }
   }, [isViewingCurrentTerm, selectedTerm]);
 
   // Terms scoped to the selected academic year (for the year-then-term UI)
