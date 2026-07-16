@@ -55,6 +55,15 @@ export interface SubjectAllocation {
   subject_name: string;
   subject_code: string;
   subject_category: string;
+  requirement?: "REQUIRED" | "OPTIONAL";
+  optional_group_id?: string | null;
+  optional_group_name?: string | null;
+}
+
+export interface OptionalGroup {
+  id: string;
+  name: string;
+  pick_count: number;
 }
 export interface TeacherAllocation {
   id: string;
@@ -298,12 +307,121 @@ export function useDeleteOptionalGroup() {
   });
 }
 
+// ============ STUDENT-LEVEL SUBJECT REGISTRATION ============
+export interface SubjectRegistrationStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  gender: string | null;
+  stream_id: string | null;
+  registered: boolean;
+}
+export interface SubjectRegistrationResult {
+  students: SubjectRegistrationStudent[];
+  meta: {
+    curriculum_type?: string;
+    is_secondary?: boolean;
+    allocated?: boolean;
+    requirement?: "REQUIRED" | "OPTIONAL" | null;
+  };
+}
+
+export function useSubjectRegistrations(params: {
+  grade_id?: string;
+  stream_id?: string;
+  subject_id?: string;
+  academic_year_id?: string;
+  term_id?: string;
+}) {
+  const enabled = !!(params.grade_id && params.subject_id);
+  return useQuery({
+    queryKey: ["subject-registrations", params],
+    enabled,
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v) qp.set(k, v);
+      });
+      return (
+        unwrap<SubjectRegistrationResult>(
+          await api.get<any>(
+            `/assessments/subject-registrations?${qp.toString()}`,
+          ),
+        ) || { students: [], meta: {} }
+      );
+    },
+  });
+}
+
+export function useSetSubjectRegistrations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      grade_id: string;
+      stream_id?: string | null;
+      subject_id: string;
+      academic_year_id?: string | null;
+      term_id?: string | null;
+      student_ids: string[];
+    }) => api.put("/assessments/subject-registrations", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subject-registrations"] });
+      toast.success("Student registrations saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ============ ENRICHED SUBJECTS ============
+export interface EnrichedSubject {
+  id: string;
+  name: string;
+  code: string | null;
+  category: string | null;
+  status: string | null;
+  description: string | null;
+  teachers: string[];
+  teacher_count: number;
+  classes: string[];
+  class_count: number;
+  student_count: number;
+}
+
+export function useEnrichedSubjects(
+  filters: {
+    grade_id?: string;
+    stream_id?: string;
+    teacher_id?: string;
+    category?: string;
+    status?: string;
+    academic_year_id?: string;
+    term_id?: string;
+  } = {},
+) {
+  return useQuery({
+    queryKey: ["subjects-enriched", filters],
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v) qp.set(k, v);
+      });
+      return (
+        unwrap<EnrichedSubject[]>(
+          await api.get<any>(
+            `/assessments/subjects/enriched${qp.toString() ? `?${qp}` : ""}`,
+          ),
+        ) || []
+      );
+    },
+  });
+}
+
 // ============ TEACHER ALLOCATIONS ============
 export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
-    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -312,7 +430,6 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
-      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
@@ -326,8 +443,9 @@ export function useCreateTeacherAllocation() {
   return useMutation({
     mutationFn: (data: {
       teacher_id: string;
+      subject_id: string;
       grade_id: string;
-      allocations: { subject_id: string; stream_ids: string[] }[];
+      stream_id?: string | null;
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
@@ -363,9 +481,8 @@ export interface Assessment {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
-  marks_deadline: string | null;
+  created_at?: string | null;
   status: AssessmentStatus;
-  created_at?: string;
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
@@ -492,8 +609,6 @@ export interface AssessmentTask {
   assessment_id: string;
   assessment_name: string;
   assessment_status: AssessmentStatus;
-  end_date: string | null;
-  marks_deadline: string | null;
   grade_id: string;
   grade_name: string;
   stream_id: string | null;
@@ -634,7 +749,6 @@ export function useBulkSaveAssessmentMarks() {
     mutationFn: (body: {
       assessment_id: string;
       task_id?: string;
-      global_out_of?: number;
       items: Array<{
         student_id: string;
         subject_id: string;
@@ -997,7 +1111,10 @@ export function useAssessmentAnalytics(
 
 // ---------------- DOWNLOADS / EXPORTS ----------------
 function apiBase() {
-  return (import.meta as any).env?.VITE_API_URL || "/api";
+  return (
+    (import.meta as any).env?.VITE_API_URL ||
+    "https://api.chuoflow.co.ke/api/v1"
+  );
 }
 async function downloadAuthed(path: string, filename: string) {
   const token = localStorage.getItem("chuo-token");
@@ -1017,7 +1134,10 @@ async function downloadAuthed(path: string, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Delay revocation so the browser has time to fully read the blob
+  // before the URL is invalidated. Revoking immediately after click()
+  // causes corrupted/empty files in production (HTTPS) environments.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export function useDownloadReportCardPdf() {
