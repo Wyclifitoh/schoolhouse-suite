@@ -216,7 +216,6 @@ const SubjectAllocation = () => {
   const activeSubjectMeta = allocatedSubjects.find(
     (s: any) => s.id === regSubjectId,
   );
-  const isSecondary = regData?.meta?.is_secondary ?? false;
   const isRequiredHere = regData?.meta?.requirement === "REQUIRED";
 
   return (
@@ -474,10 +473,9 @@ const SubjectAllocation = () => {
                 <Users className="h-4 w-4 text-primary" /> Student Registration
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Select which students in this class actually take a subject.
-                Used by secondary schools with elective combinations. CBC/CBE
-                schools can ignore this panel — every student automatically
-                takes every allocated subject.
+                Select which students in this class actually take a subject. Use
+                this for any school (CBC/CBE, 8-4-4, IGCSE) where students pick
+                electives or optional subjects.
               </p>
             </div>
           </div>
@@ -564,16 +562,6 @@ const SubjectAllocation = () => {
                 <Skeleton key={i} className="h-9 w-full" />
               ))}
             </div>
-          ) : !isSecondary ? (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                This school is set up on CBC/CBE. All active students in this
-                class automatically take{" "}
-                <b>{activeSubjectMeta?.name || "this subject"}</b> — no
-                registration is required.
-              </AlertDescription>
-            </Alert>
           ) : isRequiredHere ? (
             <Alert>
               <Info className="h-4 w-4" />
