@@ -508,8 +508,9 @@ export interface Assessment {
 export function useAssessmentsList(
   filters: Record<string, string | undefined> = {},
 ) {
+  const session = api.getSession();
   return useQuery({
-    queryKey: ["assessments", filters],
+    queryKey: ["assessments", filters, session.academicYearId, session.termId],
     queryFn: async () => {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
