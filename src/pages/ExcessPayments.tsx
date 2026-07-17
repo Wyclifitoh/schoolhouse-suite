@@ -32,6 +32,7 @@ import { Wallet, Search, CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { usePermission } from "@/hooks/usePermission";
+import { useClasses, useIndependentStreams } from "@/hooks/useClasses";
 
 const fmt = (n: number) => `KES ${Math.abs(Number(n) || 0).toLocaleString()}`;
 
@@ -47,6 +48,7 @@ interface ExcessRecord {
   student_name?: string;
   admission_number?: string;
   grade?: string;
+  stream?: string;
 }
 interface OutstandingFee {
   id: string;
@@ -62,20 +64,28 @@ export default function ExcessPayments() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [streamFilter, setStreamFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<ExcessRecord | null>(null);
   const [selectedFeeIds, setSelectedFeeIds] = useState<string[]>([]);
+  const { data: gradesList = [] } = useClasses();
+  const { data: streamsList = [] } = useIndependentStreams();
 
   const {
     data: records = [],
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["excess-credits", statusFilter],
+    queryKey: ["excess-credits", statusFilter, gradeFilter, streamFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (statusFilter && statusFilter !== "all")
         params.set("status", statusFilter);
+      if (gradeFilter && gradeFilter !== "all")
+        params.set("grade", gradeFilter);
+      if (streamFilter && streamFilter !== "all")
+        params.set("stream", streamFilter);
       const r = await api.get<ExcessRecord[]>(
         `/finance/excess-credits?${params}`,
       );
@@ -201,6 +211,32 @@ export default function ExcessPayments() {
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All classes</SelectItem>
+                    {gradesList.map((g: any) => (
+                      <SelectItem key={g.id} value={g.name}>
+                        {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={streamFilter} onValueChange={setStreamFilter}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Stream" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All streams</SelectItem>
+                    {streamsList.map((s: any) => (
+                      <SelectItem key={s.id} value={s.name}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -210,6 +246,7 @@ export default function ExcessPayments() {
                 <TableRow>
                   <TableHead>Student</TableHead>
                   <TableHead>Adm No</TableHead>
+                  <TableHead>Class / Stream</TableHead>
                   <TableHead>Ledger</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
@@ -221,7 +258,7 @@ export default function ExcessPayments() {
                 {isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center py-8 text-muted-foreground"
                     >
                       Loading...
@@ -230,7 +267,7 @@ export default function ExcessPayments() {
                 ) : filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center py-8 text-muted-foreground"
                     >
                       No excess credits found.
@@ -243,6 +280,9 @@ export default function ExcessPayments() {
                         {r.student_name || r.student_id}
                       </TableCell>
                       <TableCell>{r.admission_number || "-"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {[r.grade, r.stream].filter(Boolean).join(" · ") || "—"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">{r.ledger_type}</Badge>
                       </TableCell>

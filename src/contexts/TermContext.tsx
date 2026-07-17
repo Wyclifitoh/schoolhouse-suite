@@ -4,6 +4,7 @@ import {
   useState,
   useEffect,
   ReactNode,
+  useRef,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -39,6 +40,7 @@ interface TermContextValue {
   switchAcademicYear: (yearId: string) => void;
   isViewingCurrentTerm: boolean;
   isLoading: boolean;
+  isReady: boolean;
 }
 
 const TermContext = createContext<TermContextValue | undefined>(undefined);
@@ -106,19 +108,60 @@ export function TermProvider({ children }: { children: ReactNode }) {
 
   // Persist + propagate to api client + invalidate every cached query so the
   // whole app refetches under the new session.
+  const prevSessionRef = useRef<{ y: string | null; t: string | null }>({
+    y: null,
+    t: null,
+  });
   useEffect(() => {
-    if (selectedTermId) localStorage.setItem("chuo-term-id", selectedTermId);
-    if (selectedYearId)
-      localStorage.setItem("chuo-academic-year-id", selectedYearId);
+    // Don't clobber the api session with nulls — wait until we actually have
+    // resolved term/year ids (from localStorage or from the /terms endpoint).
+    // Otherwise queries that mount before terms load fire without the
+    // X-Term-Id / X-Academic-Year-Id headers and return empty data, forcing
+    // users to manually refresh the page.
+    if (!selectedTermId || !selectedYearId) return;
+    localStorage.setItem("chuo-term-id", selectedTermId);
+    localStorage.setItem("chuo-academic-year-id", selectedYearId);
     api.setSession(selectedYearId, selectedTermId);
-    // Invalidate every query so caches under the previous session are dropped.
-    queryClient.invalidateQueries();
+    // Only invalidate when the session actually CHANGES from a previously
+    // resolved value. Invalidating on the initial resolution causes screens
+    // that just mounted (already fetching with correct headers) to refetch
+    // and flicker — data appears, then briefly disappears.
+    const prev = prevSessionRef.current;
+    if (
+      prev.y !== null &&
+      prev.t !== null &&
+      (prev.y !== selectedYearId || prev.t !== selectedTermId)
+    ) {
+      queryClient.invalidateQueries();
+    }
+    prevSessionRef.current = { y: selectedYearId, t: selectedTermId };
   }, [selectedTermId, selectedYearId, queryClient]);
 
   const selectedTerm =
     terms.find((t) => t.id === selectedTermId) || currentTerm;
   const selectedAcademicYear =
     academicYears.find((ay) => ay.id === selectedYearId) || currentAcademicYear;
+
+  const isViewingCurrentTerm =
+    selectedTerm?.id === currentTerm?.id &&
+    selectedAcademicYear?.id === currentAcademicYear?.id;
+
+  // "Ready" means the api client has session headers set. When the user is
+  // authenticated inside a school, we require terms to have resolved before
+  // dependent queries fire. On the public/login side there's no school, so
+  // we're trivially ready.
+  const isReady = !isAuthenticated
+    ? true
+    : !schoolId
+      ? true
+      : !!selectedTermId && !!selectedYearId;
+
+  // Propagate historical-view flag to api client so backend can enforce.
+  useEffect(() => {
+    if (typeof api.setHistorical === "function") {
+      api.setHistorical(!isViewingCurrentTerm && !!selectedTerm);
+    }
+  }, [isViewingCurrentTerm, selectedTerm]);
 
   // Terms scoped to the selected academic year (for the year-then-term UI)
   const termsForYear = selectedAcademicYear
@@ -145,13 +188,21 @@ export function TermProvider({ children }: { children: ReactNode }) {
         selectedAcademicYear,
         switchTerm: setSelectedTermId,
         switchAcademicYear,
-        isViewingCurrentTerm:
-          selectedTerm?.id === currentTerm?.id &&
-          selectedAcademicYear?.id === currentAcademicYear?.id,
+        isViewingCurrentTerm,
         isLoading: termsLoading,
+        isReady,
       }}
     >
-      {children}
+      {isReady ? (
+        children
+      ) : (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <div className="text-sm">Loading academic session…</div>
+          </div>
+        </div>
+      )}
     </TermContext.Provider>
   );
 }
