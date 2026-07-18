@@ -398,18 +398,15 @@ function GradingSystemsTab() {
   const [setupId, setSetupId] = useState<string | null>(null);
 
   if (setupId) {
-    return (
-      <GradingSystemLevels systemId={setupId} onBack={() => setSetupId(null)} />
-    );
+    return <GradingSystemLevels systemId={setupId} onBack={() => setSetupId(null)} />;
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        <strong className="text-foreground">Grading Systems</strong> are the
-        single source of truth for every grade lookup (CBE performance levels
-        and 8-4-4 grades). Click <em>Setup</em> to configure the grade code,
-        min/max, points, band and description.
+        <strong className="text-foreground">Grading Systems</strong> are the single source of
+        truth for every grade lookup (CBE performance levels and 8-4-4 grades). Click{" "}
+        <em>Setup</em> to configure the grade code, min/max, points, band and description.
       </div>
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
@@ -448,9 +445,7 @@ function GradingSystemsTab() {
                 <Label>Curriculum</Label>
                 <Select
                   value={form.curriculum_type || "8-4-4"}
-                  onValueChange={(v) =>
-                    setForm({ ...form, curriculum_type: v })
-                  }
+                  onValueChange={(v) => setForm({ ...form, curriculum_type: v })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -465,9 +460,7 @@ function GradingSystemsTab() {
                 <Label>Description</Label>
                 <Textarea
                   value={form.description || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </div>
             </div>
@@ -689,12 +682,18 @@ function GradingSystemLevels({
                 <TableCell>
                   <Input
                     value={r.description || ""}
-                    onChange={(e) => update(i, { description: e.target.value })}
+                    onChange={(e) =>
+                      update(i, { description: e.target.value })
+                    }
                     className="h-8"
                   />
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => remove(i)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => remove(i)}
+                  >
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </TableCell>
@@ -706,8 +705,7 @@ function GradingSystemLevels({
                   colSpan={7}
                   className="text-center text-muted-foreground py-6"
                 >
-                  No levels yet — click "Add Level" to define the first grade
-                  band.
+                  No levels yet — click "Add Level" to define the first grade band.
                 </TableCell>
               </TableRow>
             )}
@@ -832,7 +830,7 @@ const AssessmentSettings = () => {
   return (
     <DashboardLayout
       title="Assessment Settings"
-      subtitle="Configure CBE types, bands, achievement levels & competencies"
+      subtitle="Configure assessment types, bands, grading systems & competencies"
     >
       <Card>
         <CardHeader>
