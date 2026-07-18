@@ -92,7 +92,13 @@ export default function MarksEntry() {
   // 8-4-4 paper-based entry: when the assessment snapshot has papers wired
   // for this subject, delegate to the paper grid which knows how to compute
   // per-paper contributions, grade, points and remarks.
-  const usePaperFlow = !!(data?.papers && data.papers.length > 0);
+  const usePaperFlow =
+    String((data as any)?.curriculum_type || "").replace(
+      /[^0-9A-Za-z]/g,
+      "",
+    ) === "844" ||
+    !!data?.subject_config?.uses_papers ||
+    !!(data?.papers && data.papers.length > 0);
 
   const { data: bands = [] } = useRemarkBands({
     subject_id: subjectId,

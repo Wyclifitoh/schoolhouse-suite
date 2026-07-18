@@ -708,13 +708,18 @@ export interface TaskRoster {
   papers?: Array<{
     id: string;
     name: string;
+    code?: string | null;
     max_marks: number;
     paper_type: string;
-    weight?: number;
+    contribution_pct?: number;
+    display_order?: number;
   }>;
+  curriculum_type?: string;
   subject_config?: {
     calculation_type?: "GENERAL" | "SCIENCE" | "LANGUAGE" | string;
     calculation_config?: Record<string, any>;
+    uses_papers?: boolean;
+    grading_system_id?: string | null;
   };
   students: Array<{
     id: string;
