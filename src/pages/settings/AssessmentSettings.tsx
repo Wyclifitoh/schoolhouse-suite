@@ -50,17 +50,23 @@ import {
   useBands,
   useSaveBand,
   useDeleteBand,
-  useAchievementLevels,
-  useSaveLevel,
-  useDeleteLevel,
   useCompetencies,
   useSaveCompetency,
   useDeleteCompetency,
   AssessmentType,
   PerformanceBand,
-  AchievementLevel,
   Competency,
 } from "@/hooks/useAssessments";
+import {
+  useGradingSystems,
+  useGradingSystem,
+  useSaveGradingSystem,
+  useDeleteGradingSystem,
+  useSaveGradingLevels,
+  GradingSystem,
+  GradingSystemLevel,
+} from "@/hooks/useGradingSystems";
+import { ArrowLeft } from "lucide-react";
 
 // ===== Assessment Types Tab =====
 function TypesTab() {
@@ -380,17 +386,31 @@ function BandsTab() {
   );
 }
 
-// ===== Achievement Levels Tab =====
-function LevelsTab() {
-  const { data: levels = [], isLoading } = useAchievementLevels();
-  const { data: bands = [] } = useBands();
-  const save = useSaveLevel();
-  const del = useDeleteLevel();
+// ===== Grading Systems Tab =====
+// Replaces the legacy standalone Levels tab. Levels are now edited within
+// the context of a specific Grading System (Setup drill-down).
+function GradingSystemsTab() {
+  const { data: systems = [], isLoading } = useGradingSystems();
+  const save = useSaveGradingSystem();
+  const del = useDeleteGradingSystem();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<Partial<AchievementLevel>>({});
+  const [form, setForm] = useState<Partial<GradingSystem>>({});
+  const [setupId, setSetupId] = useState<string | null>(null);
+
+  if (setupId) {
+    return (
+      <GradingSystemLevels systemId={setupId} onBack={() => setSetupId(null)} />
+    );
+  }
 
   return (
     <div className="space-y-4">
+      <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        <strong className="text-foreground">Grading Systems</strong> are the
+        single source of truth for every grade lookup (CBE performance levels
+        and 8-4-4 grades). Click <em>Setup</em> to configure the grade code,
+        min/max, points, band and description.
+      </div>
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -398,96 +418,52 @@ function LevelsTab() {
               size="sm"
               onClick={() =>
                 setForm({
-                  code: "",
-                  band_code: "ME",
-                  min_score: 0,
-                  max_score: 0,
-                  points: 0,
+                  name: "",
                   description: "",
-                  sort_order: ((levels as any[]).length || 0) + 1,
-                  is_active: true,
+                  curriculum_type: "8-4-4",
+                  is_default: 0,
+                  is_active: 1,
                 })
               }
             >
-              <Plus className="h-4 w-4 mr-1.5" /> Add Level
+              <Plus className="h-4 w-4 mr-1.5" /> Add Grading System
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Achievement Level</DialogTitle>
+              <DialogTitle>
+                {form.id ? "Edit" : "New"} Grading System
+              </DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="space-y-3 py-2">
               <div className="space-y-1">
-                <Label>Code</Label>
+                <Label>Name</Label>
                 <Input
-                  value={form.code || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, code: e.target.value.toUpperCase() })
-                  }
-                  placeholder="AL5"
+                  value={form.name || ""}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. 8-4-4 General"
                 />
               </div>
               <div className="space-y-1">
-                <Label>Band</Label>
+                <Label>Curriculum</Label>
                 <Select
-                  value={form.band_code}
-                  onValueChange={(v) => setForm({ ...form, band_code: v })}
+                  value={form.curriculum_type || "8-4-4"}
+                  onValueChange={(v) =>
+                    setForm({ ...form, curriculum_type: v })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(bands as any[]).map((b) => (
-                      <SelectItem key={b.id} value={b.code}>
-                        {b.code} — {b.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="CBE">CBE</SelectItem>
+                    <SelectItem value="8-4-4">8-4-4</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Min Score</Label>
-                <Input
-                  type="number"
-                  value={form.min_score ?? 0}
-                  onChange={(e) =>
-                    setForm({ ...form, min_score: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Max Score</Label>
-                <Input
-                  type="number"
-                  value={form.max_score ?? 0}
-                  onChange={(e) =>
-                    setForm({ ...form, max_score: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Points</Label>
-                <Input
-                  type="number"
-                  value={form.points ?? 0}
-                  onChange={(e) =>
-                    setForm({ ...form, points: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Sort Order</Label>
-                <Input
-                  type="number"
-                  value={form.sort_order ?? 0}
-                  onChange={(e) =>
-                    setForm({ ...form, sort_order: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="space-y-1 col-span-2">
                 <Label>Description</Label>
-                <Input
+                <Textarea
                   value={form.description || ""}
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
@@ -501,8 +477,9 @@ function LevelsTab() {
               </Button>
               <Button
                 onClick={() =>
-                  save.mutate(form, { onSuccess: () => setOpen(false) })
+                  save.mutate(form as any, { onSuccess: () => setOpen(false) })
                 }
+                disabled={save.isPending}
               >
                 Save
               </Button>
@@ -510,62 +487,230 @@ function LevelsTab() {
           </DialogContent>
         </Dialog>
       </div>
+
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : (
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead>Code</TableHead>
-              <TableHead>Band</TableHead>
-              <TableHead>Range</TableHead>
-              <TableHead>Points</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Curriculum</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Levels</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(levels as any[])
-              .slice()
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell>
-                    <Badge variant="outline" className="font-mono">
-                      {l.code}
+            {(systems as GradingSystem[]).map((s) => (
+              <TableRow key={s.id}>
+                <TableCell className="font-medium">
+                  {s.name}
+                  {s.is_default ? (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      Default
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{l.band_code}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {Number(l.min_score)} – {Number(l.max_score)}
-                  </TableCell>
-                  <TableCell className="font-semibold">{l.points}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {l.description || "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setForm(l);
-                        setOpen(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => del.mutate(l.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">{s.curriculum_type}</Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={s.is_active ? "default" : "outline"}>
+                    {s.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {s.level_count ?? "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" onClick={() => setSetupId(s.id)}>
+                    Setup
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setForm(s);
+                      setOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`Delete grading system "${s.name}"?`))
+                        del.mutate(s.id);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
+// Drill-down: edit the levels of a single Grading System.
+function GradingSystemLevels({
+  systemId,
+  onBack,
+}: {
+  systemId: string;
+  onBack: () => void;
+}) {
+  const { data: system, isLoading } = useGradingSystem(systemId);
+  const save = useSaveGradingLevels(systemId);
+  const [rows, setRows] = useState<Partial<GradingSystemLevel>[]>([]);
+  const initialized = useState({ done: false })[0];
+
+  if (system && !initialized.done) {
+    setRows(system.levels || []);
+    initialized.done = true;
+  }
+
+  const update = (i: number, patch: Partial<GradingSystemLevel>) =>
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const remove = (i: number) =>
+    setRows((rs) => rs.filter((_, idx) => idx !== i));
+  const add = () =>
+    setRows((rs) => [
+      ...rs,
+      {
+        grade_code: "",
+        min_pct: 0,
+        max_pct: 0,
+        points: 0,
+        band: "",
+        description: "",
+        display_order: rs.length + 1,
+      },
+    ]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
+          <div>
+            <div className="font-semibold">{system?.name}</div>
+            <div className="text-xs text-muted-foreground">
+              {system?.curriculum_type} · Configure grade levels
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={add}>
+            <Plus className="h-4 w-4 mr-1" /> Add Level
+          </Button>
+          <Button
+            size="sm"
+            disabled={save.isPending}
+            onClick={() => save.mutate(rows)}
+          >
+            Save Levels
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead>Grade Code</TableHead>
+              <TableHead>Min</TableHead>
+              <TableHead>Max</TableHead>
+              <TableHead>Points</TableHead>
+              <TableHead>Band</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r, i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <Input
+                    value={r.grade_code || ""}
+                    onChange={(e) =>
+                      update(i, { grade_code: e.target.value.toUpperCase() })
+                    }
+                    className="h-8 w-20"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    value={r.min_pct ?? 0}
+                    onChange={(e) =>
+                      update(i, { min_pct: Number(e.target.value) })
+                    }
+                    className="h-8 w-20"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    value={r.max_pct ?? 0}
+                    onChange={(e) =>
+                      update(i, { max_pct: Number(e.target.value) })
+                    }
+                    className="h-8 w-20"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={r.points ?? 0}
+                    onChange={(e) =>
+                      update(i, { points: Number(e.target.value) })
+                    }
+                    className="h-8 w-20"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={r.band || ""}
+                    onChange={(e) => update(i, { band: e.target.value })}
+                    className="h-8 w-28"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={r.description || ""}
+                    onChange={(e) => update(i, { description: e.target.value })}
+                    className="h-8"
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => remove(i)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center text-muted-foreground py-6"
+                >
+                  No levels yet — click "Add Level" to define the first grade
+                  band.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       )}
@@ -705,8 +850,8 @@ const AssessmentSettings = () => {
               <TabsTrigger value="bands" className="gap-1.5">
                 <Scale className="h-3.5 w-3.5" /> Bands
               </TabsTrigger>
-              <TabsTrigger value="levels" className="gap-1.5">
-                <Award className="h-3.5 w-3.5" /> Levels
+              <TabsTrigger value="grading-systems" className="gap-1.5">
+                <Award className="h-3.5 w-3.5" /> Grading Systems
               </TabsTrigger>
               <TabsTrigger value="comps" className="gap-1.5">
                 <Target className="h-3.5 w-3.5" /> Competencies
@@ -721,8 +866,8 @@ const AssessmentSettings = () => {
             <TabsContent value="bands" className="mt-4">
               <BandsTab />
             </TabsContent>
-            <TabsContent value="levels" className="mt-4">
-              <LevelsTab />
+            <TabsContent value="grading-systems" className="mt-4">
+              <GradingSystemsTab />
             </TabsContent>
             <TabsContent value="comps" className="mt-4">
               <CompetenciesTab />
