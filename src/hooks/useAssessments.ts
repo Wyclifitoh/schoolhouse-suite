@@ -442,10 +442,11 @@ export function useCreateTeacherAllocation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      teacher_id: string;
-      subject_id: string;
-      grade_id: string;
+      teacher_id?: string;
+      subject_id?: string;
+      grade_id?: string;
       stream_id?: string | null;
+      allocations?: Array<any>;
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
@@ -622,6 +623,8 @@ export interface AssessmentTask {
   status: "pending" | "in_progress" | "submitted" | "approved" | "locked";
   student_count: number;
   marked_count: number;
+  end_date?: string | null;
+  marks_deadline?: string | null;
 }
 
 export function useAssessmentTasks(
@@ -750,6 +753,7 @@ export function useBulkSaveAssessmentMarks() {
     mutationFn: (body: {
       assessment_id: string;
       task_id?: string;
+      global_out_of?: number;
       items: Array<{
         student_id: string;
         subject_id: string;

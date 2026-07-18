@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Save, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
-import { computeSubject844, gradeFor844 } from "@/lib/grading844";
+import { computeSubject844, gradeFor844, gradeForLevels } from "@/lib/grading844";
+import { useGradingSystem } from "@/hooks/useGradingSystems";
 import type { TaskRoster } from "@/hooks/useAssessments";
 import { useBulkSavePaperMarks, useSubmitTask } from "@/hooks/useAssessments";
 
@@ -44,6 +45,9 @@ export function PaperMarksGrid({
   const papers = roster.papers || [];
   const calcType = roster.subject_config?.calculation_type || "GENERAL";
   const calcCfg = roster.subject_config?.calculation_config || {};
+  const gradingSystemId = (roster.subject_config as any)?.grading_system_id || undefined;
+  const { data: gradingSystem } = useGradingSystem(gradingSystemId);
+  const levels = gradingSystem?.levels || null;
   const task = roster.task;
 
   const save = useBulkSavePaperMarks();
@@ -73,12 +77,14 @@ export function PaperMarksGrid({
         calcType,
         calcCfg,
       );
-      const grade = gradeFor844(calc.percentage);
+      const grade =
+        gradeForLevels(calc.percentage, levels as any) ||
+        (gradeFor844(calc.percentage) as any);
       const remarks =
         draft[s.id]?.remarks ?? s.mark?.remarks ?? (grade ? grade.remark : "");
       return { student: s, paperVals, calc, grade, remarks };
     });
-  }, [roster.students, papers, draft, calcType, calcCfg]);
+  }, [roster.students, papers, draft, calcType, calcCfg, levels]);
 
   const setPaper = (sid: string, pid: string, v: string) =>
     setDraft((p) => ({
@@ -153,8 +159,12 @@ export function PaperMarksGrid({
     <div className="space-y-3">
       <div className="flex justify-end gap-2 flex-wrap">
         <Badge variant="secondary" className="gap-1">
-          <Sparkles className="h-3 w-3" /> 8-4-4 · {calcType} · {papers.length}{" "}
-          paper{papers.length > 1 ? "s" : ""}
+          <Sparkles className="h-3 w-3" /> 8-4-4 ·{" "}
+          {papers.some((p: any) => Number(p.contribution_pct) > 0)
+            ? "Contribution"
+            : calcType}{" "}
+          · {papers.length} paper{papers.length > 1 ? "s" : ""}
+          {gradingSystem?.name ? ` · ${gradingSystem.name}` : ""}
         </Badge>
         <PermissionGate permission="exams:update">
           <Button
@@ -181,6 +191,9 @@ export function PaperMarksGrid({
                   <div className="text-[10px] text-muted-foreground">
                     / {Number(p.max_marks)}{" "}
                     {p.paper_type !== "THEORY" ? `· ${p.paper_type}` : ""}
+                    {Number((p as any).contribution_pct) > 0
+                      ? ` · ${Number((p as any).contribution_pct)}%`
+                      : ""}
                   </div>
                 </TableHead>
               ))}

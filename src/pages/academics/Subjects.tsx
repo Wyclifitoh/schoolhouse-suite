@@ -41,6 +41,10 @@ import { useStreams } from "@/hooks/useClasses";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermission";
 import SubjectPapersDialog from "@/components/academics/SubjectPapersDialog";
+import {
+  useSubjectCategories,
+  useGradingSystems,
+} from "@/hooks/useGradingSystems";
 
 const CATEGORIES = [
   "Core",
@@ -72,12 +76,16 @@ const Subjects = () => {
     category: "Core",
     description: "",
     status: "active" as "active" | "inactive",
+    subject_category_id: "" as string,
+    grading_system_id: "" as string,
   });
 
   const { data: subjectsRaw = [], isLoading: subjectsRawLoading } =
     useSubjects();
   const { data: grades = [] } = useGrades();
   const { data: streams = [] } = useStreams(filterGrade || undefined);
+  const { data: categoryList = [] } = useSubjectCategories();
+  const { data: gradingSystems = [] } = useGradingSystems();
   const { data: enriched = [], isLoading } = useEnrichedSubjects({
     grade_id: filterGrade || undefined,
     stream_id: filterStream || undefined,
@@ -101,6 +109,8 @@ const Subjects = () => {
       category: "Core",
       description: "",
       status: "active",
+      subject_category_id: "",
+      grading_system_id: "",
     });
     setShowAdd(true);
   };
@@ -112,6 +122,8 @@ const Subjects = () => {
       category: s.category || "Core",
       description: s.description || "",
       status: s.status || "active",
+      subject_category_id: s.subject_category_id || "",
+      grading_system_id: s.grading_system_id || "",
     });
     setShowAdd(true);
   };
@@ -418,6 +430,59 @@ const Subjects = () => {
                   setForm((f) => ({ ...f, description: e.target.value }))
                 }
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Subject Category</Label>
+                <Select
+                  value={form.subject_category_id || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      subject_category_id: v === "none" ? "" : v,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not assigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not assigned</SelectItem>
+                    {categoryList.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Inherits grading system & calculation rule from the category.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Grading System (override)</Label>
+                <Select
+                  value={form.grading_system_id || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      grading_system_id: v === "none" ? "" : v,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Inherit from category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Inherit from category</SelectItem>
+                    {gradingSystems.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>

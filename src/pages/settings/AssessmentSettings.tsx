@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionGate } from "@/components/PermissionGate";
+import { KcseAggregateTab } from "./_KcseAggregateTab";
 import {
   Table,
   TableBody,
@@ -697,7 +698,7 @@ const AssessmentSettings = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="types">
-            <TabsList className="grid grid-cols-4 w-full md:w-fit">
+            <TabsList className="grid grid-cols-5 w-full md:w-fit">
               <TabsTrigger value="types" className="gap-1.5">
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Types
               </TabsTrigger>
@@ -709,6 +710,9 @@ const AssessmentSettings = () => {
               </TabsTrigger>
               <TabsTrigger value="comps" className="gap-1.5">
                 <Target className="h-3.5 w-3.5" /> Competencies
+              </TabsTrigger>
+              <TabsTrigger value="kcse" className="gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> KCSE Aggregate
               </TabsTrigger>
             </TabsList>
             <TabsContent value="types" className="mt-4">
@@ -722,6 +726,9 @@ const AssessmentSettings = () => {
             </TabsContent>
             <TabsContent value="comps" className="mt-4">
               <CompetenciesTab />
+            </TabsContent>
+            <TabsContent value="kcse" className="mt-4">
+              <KcseAggregateTab />
             </TabsContent>
           </Tabs>
         </CardContent>
