@@ -43,12 +43,34 @@ interface PaperRow {
 }
 
 const DEFAULT_ROWS: PaperRow[] = [
-  { name: "Paper 1", code: "P1", paper_type: "THEORY", max_marks: 100, contribution_pct: 50 },
-  { name: "Paper 2", code: "P2", paper_type: "THEORY", max_marks: 100, contribution_pct: 50 },
-  { name: "Paper 3 (Practical)", code: "P3", paper_type: "PRACTICAL", max_marks: 80, contribution_pct: 0 },
+  {
+    name: "Paper 1",
+    code: "P1",
+    paper_type: "THEORY",
+    max_marks: 100,
+    contribution_pct: 50,
+  },
+  {
+    name: "Paper 2",
+    code: "P2",
+    paper_type: "THEORY",
+    max_marks: 100,
+    contribution_pct: 50,
+  },
+  {
+    name: "Paper 3 (Practical)",
+    code: "P3",
+    paper_type: "PRACTICAL",
+    max_marks: 80,
+    contribution_pct: 0,
+  },
 ];
 
-export default function SubjectPapersDialog({ subject, open, onOpenChange }: Props) {
+export default function SubjectPapersDialog({
+  subject,
+  open,
+  onOpenChange,
+}: Props) {
   const subjectId = subject?.id || "";
   const { data: papers = [] } = useSubjectPapers(subjectId);
   const saveConfig = useUpdateSubjectConfig(subjectId);
@@ -60,8 +82,14 @@ export default function SubjectPapersDialog({ subject, open, onOpenChange }: Pro
 
   useEffect(() => {
     if (!subject) return;
-    setHasPapers(!!subject.has_papers);
+    setHasPapers(!!Number(subject.has_papers));
   }, [subject]);
+
+  // If papers already exist for this subject, force the toggle on so re-opening
+  // the dialog always reflects reality (guards against stale prop references).
+  useEffect(() => {
+    if (papers.length > 0) setHasPapers(true);
+  }, [papers.length]);
 
   useEffect(() => {
     if (!papers.length) {
@@ -95,6 +123,15 @@ export default function SubjectPapersDialog({ subject, open, onOpenChange }: Pro
   const contribValid = Math.abs(totalContribution - 100) < 0.01;
 
   const saveAll = async () => {
+    if (hasPapers && !contribValid) {
+      // Block saves that don't sum to 100%.
+      // eslint-disable-next-line no-alert
+      const { toast } = await import("sonner");
+      toast.error(
+        `Paper contributions must total 100% (currently ${totalContribution}%).`,
+      );
+      return;
+    }
     await saveConfig.mutateAsync({
       curriculum_type: "844",
       has_papers: hasPapers ? 1 : 0,
@@ -123,10 +160,12 @@ export default function SubjectPapersDialog({ subject, open, onOpenChange }: Pro
         <div className="space-y-5 py-2">
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <Label className="text-sm font-medium">This subject has papers</Label>
+              <Label className="text-sm font-medium">
+                This subject has papers
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Turn on for subjects that are examined via multiple papers
-                (e.g. Math P1/P2, Biology P1/P2/Practical). Each new assessment
+                Turn on for subjects that are examined via multiple papers (e.g.
+                Math P1/P2, Biology P1/P2/Practical). Each new assessment
                 inherits this template as its default.
               </p>
             </div>
@@ -239,7 +278,9 @@ export default function SubjectPapersDialog({ subject, open, onOpenChange }: Pro
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button
             onClick={saveAll}
             disabled={saveConfig.isPending || saveTemplate.isPending}

@@ -49,6 +49,7 @@ import * as XLSX from "xlsx";
 import { PermissionGate } from "@/components/PermissionGate";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
+import { PaperMarksGrid } from "@/components/assessments/PaperMarksGrid";
 
 type Draft = Record<
   string,
@@ -87,6 +88,11 @@ export default function MarksEntry() {
   const outOf = data?.out_of ?? 100;
   const gradeId = (task as any)?.grade_id;
   const subjectId = task?.subject_id;
+
+  // 8-4-4 paper-based entry: when the assessment snapshot has papers wired
+  // for this subject, delegate to the paper grid which knows how to compute
+  // per-paper contributions, grade, points and remarks.
+  const usePaperFlow = !!(data?.papers && data.papers.length > 0);
 
   const { data: bands = [] } = useRemarkBands({
     subject_id: subjectId,
@@ -177,12 +183,12 @@ export default function MarksEntry() {
         remarks: r.remarks || null,
       }));
     const outOfChanged = localOutOf !== outOf;
-    
+
     if (!items.length && !outOfChanged) {
       toast.info("Nothing to save");
       return;
     }
-    
+
     await bulk.mutateAsync({
       assessment_id: task.assessment_id,
       task_id: task.id,
@@ -328,6 +334,44 @@ export default function MarksEntry() {
     );
   }
 
+  if (usePaperFlow && data) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4">
+          <div>
+            <Link
+              to={`/assessments/${task.assessment_id}`}
+              className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to assessment
+            </Link>
+            <h1 className="text-3xl font-bold mt-1">Marks Entry</h1>
+            <div className="mt-2 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+              <p>
+                <strong>Assessment:</strong> {task.assessment_name}
+              </p>
+              <p>
+                <strong>Class:</strong> {task.grade_name}
+                {task.stream_name ? ` · ${task.stream_name}` : ""}
+              </p>
+              <p>
+                <strong>Subject:</strong> {task.subject_name}
+              </p>
+            </div>
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Paper Marks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PaperMarksGrid roster={data} locked={!!locked} />
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const markedCount = rows.filter(
     (r) => r.score !== "" || ["absent", "exempted"].includes(r.status),
   ).length;
@@ -347,15 +391,23 @@ export default function MarksEntry() {
           </Link>
           <h1 className="text-3xl font-bold mt-1">Marks Entry</h1>
           <div className="mt-2 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-            <p><strong>Assessment:</strong> {task.assessment_name}</p>
+            <p>
+              <strong>Assessment:</strong> {task.assessment_name}
+            </p>
             <p>
               <strong>Class:</strong> {task.grade_name}
               {task.stream_name ? ` · ${task.stream_name}` : ""}
             </p>
-            <p><strong>Subject:</strong> {task.subject_name}</p>
+            <p>
+              <strong>Subject:</strong> {task.subject_name}
+            </p>
             <p>
               <strong>Teacher:</strong>{" "}
-              {task.teacher_name?.trim() ? task.teacher_name : <span className="italic text-amber-600">Unassigned</span>}
+              {task.teacher_name?.trim() ? (
+                task.teacher_name
+              ) : (
+                <span className="italic text-amber-600">Unassigned</span>
+              )}
             </p>
           </div>
           <div className="flex gap-2 mt-2 flex-wrap items-center">
@@ -482,17 +534,26 @@ export default function MarksEntry() {
                               }
                               onChange={(e) => {
                                 let val = parseFloat(e.target.value);
-                                if (!isNaN(val) && val > localOutOf) val = localOutOf;
+                                if (!isNaN(val) && val > localOutOf)
+                                  val = localOutOf;
                                 setCell(r.student.id, {
-                                  score: isNaN(val) ? e.target.value : String(val),
+                                  score: isNaN(val)
+                                    ? e.target.value
+                                    : String(val),
                                 });
                               }}
                             />
-                            {r.score !== "" && !isNaN(Number(r.score)) && localOutOf > 0 && (
-                              <span className="text-xs text-muted-foreground w-12 text-right">
-                                {((Number(r.score) / localOutOf) * 100).toFixed(0)}%
-                              </span>
-                            )}
+                            {r.score !== "" &&
+                              !isNaN(Number(r.score)) &&
+                              localOutOf > 0 && (
+                                <span className="text-xs text-muted-foreground w-12 text-right">
+                                  {(
+                                    (Number(r.score) / localOutOf) *
+                                    100
+                                  ).toFixed(0)}
+                                  %
+                                </span>
+                              )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -599,7 +660,8 @@ export default function MarksEntry() {
                   <TableBody>
                     {importPreview.rows.map((r, i) => {
                       const invalid =
-                        r.score != null && (r.score < 0 || r.score > localOutOf);
+                        r.score != null &&
+                        (r.score < 0 || r.score > localOutOf);
                       return (
                         <TableRow key={i}>
                           <TableCell>{r.admission_number}</TableCell>
