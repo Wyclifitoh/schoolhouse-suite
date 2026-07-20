@@ -132,11 +132,16 @@ const TeacherAllocation = () => {
   const { data: classes = [], isLoading: classesLoading } = useClasses();
   const { data: teachersList = [], isLoading: teachersLoading } = useTeachers();
   const [filterGrade, setFilterGrade] = useState<string>("all");
+  const [filterStream, setFilterStream] = useState<string>("all");
   const [filterTeacher, setFilterTeacher] = useState<string>("all");
+  
+  const { data: filterStreams = [] } = useStreams(filterGrade !== "all" ? filterGrade : undefined);
+
   const { data: allocations = [], isLoading: allocationsLoading } =
     useTeacherAllocations({
       grade_id: filterGrade !== "all" ? filterGrade : undefined,
       teacher_id: filterTeacher !== "all" ? filterTeacher : undefined,
+      stream_id: filterStream !== "all" ? filterStream : undefined,
     });
 
   const create = useCreateTeacherAllocation();
@@ -244,7 +249,7 @@ const TeacherAllocation = () => {
                 className="w-44"
               />
 
-              <Select value={filterGrade} onValueChange={setFilterGrade}>
+              <Select value={filterGrade} onValueChange={(v) => { setFilterGrade(v); setFilterStream("all"); }}>
                 <SelectTrigger className="w-40 h-9">
                   <SelectValue placeholder="All classes" />
                 </SelectTrigger>
@@ -257,6 +262,20 @@ const TeacherAllocation = () => {
                   ))}
                 </SelectContent>
               </Select>
+
+              {filterGrade !== "all" && filterStreams.length > 0 && (
+                <Select value={filterStream} onValueChange={setFilterStream}>
+                  <SelectTrigger className="w-40 h-9">
+                    <SelectValue placeholder="All streams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All streams</SelectItem>
+                    {filterStreams.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               {perms["classes:create"] && (
               <Dialog open={open} onOpenChange={setOpen}>

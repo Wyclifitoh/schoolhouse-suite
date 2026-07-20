@@ -46,15 +46,6 @@ import {
   useGradingSystems,
 } from "@/hooks/useGradingSystems";
 
-const CATEGORIES = [
-  "Core",
-  "Language",
-  "Science",
-  "Humanities",
-  "Creative",
-  "Practical",
-  "Activity",
-];
 
 const Subjects = () => {
   const perms = usePermissions([
@@ -68,12 +59,11 @@ const Subjects = () => {
   const [papersFor, setPapersFor] = useState<any | null>(null);
   const [filterGrade, setFilterGrade] = useState<string>("");
   const [filterStream, setFilterStream] = useState<string>("");
-  const [filterCategory, setFilterCategory] = useState<string>("");
+  const [filterSubjectCategory, setFilterSubjectCategory] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [form, setForm] = useState({
     name: "",
     code: "",
-    category: "Core",
     description: "",
     status: "active" as "active" | "inactive",
     subject_category_id: "" as string,
@@ -89,7 +79,7 @@ const Subjects = () => {
   const { data: enriched = [], isLoading } = useEnrichedSubjects({
     grade_id: filterGrade || undefined,
     stream_id: filterStream || undefined,
-    category: filterCategory || undefined,
+    subject_category_id: filterSubjectCategory || undefined,
     status: filterStatus || undefined,
   });
   const subjects = enriched.length ? enriched : (subjectsRaw as any[]);
@@ -106,7 +96,6 @@ const Subjects = () => {
     setForm({
       name: "",
       code: "",
-      category: "Core",
       description: "",
       status: "active",
       subject_category_id: "",
@@ -119,7 +108,6 @@ const Subjects = () => {
     setForm({
       name: s.name,
       code: s.code || "",
-      category: s.category || "Core",
       description: s.description || "",
       status: s.status || "active",
       subject_category_id: s.subject_category_id || "",
@@ -216,17 +204,17 @@ const Subjects = () => {
               </SelectContent>
             </Select>
             <Select
-              value={filterCategory || "__all__"}
-              onValueChange={(v) => setFilterCategory(v === "__all__" ? "" : v)}
+              value={filterSubjectCategory || "__all__"}
+              onValueChange={(v) => setFilterSubjectCategory(v === "__all__" ? "" : v)}
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All categories</SelectItem>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
+                {categoryList.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -282,7 +270,7 @@ const Subjects = () => {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">
-                        {s.category || "Core"}
+                        {categoryList.find(c => c.id === s.subject_category_id)?.name || "Uncategorized"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs">
@@ -387,22 +375,31 @@ const Subjects = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>Subject Category</Label>
                 <Select
-                  value={form.category}
-                  onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}
+                  value={form.subject_category_id || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      subject_category_id: v === "none" ? "" : v,
+                    }))
+                  }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Not assigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
+                    <SelectItem value="none">Not assigned</SelectItem>
+                    {categoryList.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Inherits grading system & calculation rule from the category.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
@@ -432,33 +429,6 @@ const Subjects = () => {
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Subject Category</Label>
-                <Select
-                  value={form.subject_category_id || "none"}
-                  onValueChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      subject_category_id: v === "none" ? "" : v,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Not assigned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Not assigned</SelectItem>
-                    {categoryList.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Inherits grading system & calculation rule from the category.
-                </p>
-              </div>
               <div className="space-y-2">
                 <Label>Grading System (override)</Label>
                 <Select

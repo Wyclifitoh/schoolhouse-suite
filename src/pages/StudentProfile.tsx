@@ -34,6 +34,7 @@ import {
   useStudentParents,
   useStudentSiblings,
 } from "@/hooks/useStudents";
+import { useStudentSubjects } from "@/hooks/useStudents";
 import { useUpdateParent } from "@/hooks/useParents";
 import { useStudentExcessCredits } from "@/hooks/useFinance";
 import { useGrades, useStreams } from "@/hooks/useGrades";
@@ -81,6 +82,7 @@ const StudentProfile = () => {
     studentId,
     primaryParentId,
   );
+  const { data: studentSubjects = [], isLoading: loadingSubjects } = useStudentSubjects(studentId);
   const { data: grades = [] } = useGrades();
   const { data: streams = [] } = useStreams(editData?.current_grade_id || undefined);
   const updateStudent = useUpdateStudent();
@@ -945,15 +947,33 @@ const StudentProfile = () => {
         <TabsContent value="academic">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold">
-                Academic History
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-primary" />
+                Subjects
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Exam results, attendance records, and academic progression will
-                be displayed here.
-              </p>
+              {loadingSubjects ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-4 w-1/4" />
+                </div>
+              ) : studentSubjects.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No subjects registered or allocated for this student yet.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {studentSubjects.map(sub => (
+                    <Badge key={sub.id} variant="secondary" className="px-2 py-1 flex items-center gap-1.5">
+                      {sub.name} {sub.code && <span className="text-muted-foreground text-[10px]">({sub.code})</span>}
+                      {sub.requirement === "OPTIONAL" && (
+                        <span className="text-[10px] text-info ml-1 uppercase border border-info/30 bg-info/10 rounded px-1">Optional</span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
