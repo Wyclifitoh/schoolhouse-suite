@@ -6,6 +6,7 @@ class ApiClient {
   private schoolId: string | null = null;
   private academicYearId: string | null = null;
   private termId: string | null = null;
+  private historical = false;
 
   setToken(token: string | null) {
     this.token = token;
@@ -17,6 +18,9 @@ class ApiClient {
   setSession(academicYearId: string | null, termId: string | null) {
     this.academicYearId = academicYearId;
     this.termId = termId;
+  }
+  setHistorical(v: boolean) {
+    this.historical = v;
   }
   getToken() {
     return this.token;

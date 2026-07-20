@@ -1,6 +1,65 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { platformApi } from "@/lib/platformApi";
 
+// ---- Stub exports for pages under construction (Admin Analytics, Feature Flags,
+// SMS Ops, Support). These preserve type-safety at call sites without executing
+// real requests until the corresponding endpoints ship.
+const stubQuery = <T,>(fallback: T) => (..._args: any[]) =>
+  useQuery({ queryKey: ["pf-stub", Math.random()], queryFn: async () => fallback, enabled: false });
+const stubMutation = () => (..._args: any[]) =>
+  useMutation({ mutationFn: async (_: any) => ({}) as any });
+
+export const useAnalyticsMrr = stubQuery<any[]>([]);
+export const useAnalyticsCohorts = stubQuery<any[]>([]);
+export const useAnalyticsTrialConversion = stubQuery<any>({});
+export const useAnalyticsChurn = stubQuery<any[]>([]);
+export const useAnalyticsPlanDistribution = stubQuery<any[]>([]);
+
+export const KNOWN_MODULES: string[] = [];
+export const useAllEntitlements = stubQuery<any[]>([]);
+export const useSetSchoolEntitlements = stubMutation();
+export const useBulkEntitlements = stubMutation();
+export interface EntitlementRow {
+  school_id: string;
+  module?: string;
+  modules?: any;
+  name?: string;
+  enabled?: boolean;
+  [k: string]: any;
+}
+
+export const useExternalTopupSms = stubMutation();
+export const useRetrySms = stubMutation();
+export const useSetSmsAccount = stubMutation();
+export const useSmsMessages = stubQuery<any[]>([]);
+export const useSmsOverview = stubQuery<any>({});
+export const useSmsSchoolBalances = stubQuery<any[]>([]);
+export interface SmsSchoolBalance {
+  school_id: string;
+  balance?: number;
+  sms_user_id?: string | null;
+  sms_paybill_account?: string | null;
+  name?: string | null;
+  [k: string]: any;
+}
+
+export const useSupportStats = stubQuery<any>({});
+export const useSupportTickets = stubQuery<any[]>([]);
+export const useTicket = stubQuery<any>({});
+export const useCreateTicket = stubMutation();
+export const useUpdateTicket = stubMutation();
+export const useAddTicketMessage = stubMutation();
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  status: string;
+  priority: string;
+  sla_due_at?: string | null;
+  [k: string]: any;
+}
+export type TicketPriority = "low" | "normal" | "high" | "urgent";
+export type TicketStatus = "open" | "pending" | "resolved" | "closed";
+
 export interface OverviewStats {
   totals: { total_schools: number; active_schools: number; total_students: number; total_users: number };
   subscriptions: Record<string, number>;

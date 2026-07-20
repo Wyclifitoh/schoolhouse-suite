@@ -323,7 +323,7 @@ export function useTeachers() {
     queryKey: ["teachers"],
     queryFn: async () => {
       try {
-        const data = await api.get<any>("/staff/teachers");
+        const data = await api.get<any>("/staff/teachers?limit=all");
         return (data?.data || data || []) as TeacherRow[];
       } catch {
         return [] as TeacherRow[];
