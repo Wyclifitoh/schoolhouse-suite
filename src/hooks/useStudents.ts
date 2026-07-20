@@ -267,3 +267,14 @@ export function useNextAdmissionNumber() {
     },
   });
 }
+
+export function useStudentSubjects(studentId: string | undefined) {
+  return useQuery({
+    queryKey: ["student-subjects", studentId],
+    queryFn: async () => {
+      const res = await api.get<any>(`/students/${studentId}/subjects`);
+      return (res?.data || res || []) as { id: string; name: string; code: string; requirement: string }[];
+    },
+    enabled: !!studentId,
+  });
+}

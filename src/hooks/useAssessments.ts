@@ -378,7 +378,6 @@ export interface EnrichedSubject {
   id: string;
   name: string;
   code: string | null;
-  category: string | null;
   status: string | null;
   description: string | null;
   teachers: string[];
@@ -393,7 +392,7 @@ export function useEnrichedSubjects(
     grade_id?: string;
     stream_id?: string;
     teacher_id?: string;
-    category?: string;
+    subject_category_id?: string;
     status?: string;
     academic_year_id?: string;
     term_id?: string;
@@ -422,6 +421,7 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
+    stream_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -430,6 +430,7 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters.stream_id) qp.set("stream_id", filters.stream_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
