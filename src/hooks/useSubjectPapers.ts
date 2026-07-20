@@ -13,7 +13,6 @@ export interface SubjectPaper {
   code: string | null;
   paper_type: PaperType;
   max_marks: number;
-  contribution_pct?: number;
   display_order: number;
   is_active: number;
 }
@@ -77,21 +76,6 @@ export function useUpdateSubjectConfig(subjectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["subjects"] });
       toast.success("Subject configuration saved");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
-// Bulk-replace the paper template for a subject (max 3 papers).
-export function useSavePaperTemplate(subjectId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (papers: Partial<SubjectPaper>[]) =>
-      api.put<any>(`/classes/subjects/${subjectId}/paper-template`, { papers }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["subject-papers", subjectId] });
-      qc.invalidateQueries({ queryKey: ["subjects"] });
-      toast.success("Paper template saved");
     },
     onError: (e: Error) => toast.error(e.message),
   });

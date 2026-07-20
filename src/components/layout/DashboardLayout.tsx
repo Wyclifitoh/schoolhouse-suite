@@ -249,13 +249,6 @@ const navigationGroups: NavGroup[] = [
         permissions: ["classes:read"],
       },
       {
-        title: "Subject Categories",
-        url: "/subject-categories",
-        icon: BookOpen,
-        roles: ADMIN_ROLES,
-        permissions: ["classes:update"],
-      },
-      {
         title: "Subject Allocation",
         url: "/subject-allocation",
         icon: Layers,

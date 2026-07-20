@@ -55,15 +55,6 @@ export interface SubjectAllocation {
   subject_name: string;
   subject_code: string;
   subject_category: string;
-  requirement?: "REQUIRED" | "OPTIONAL";
-  optional_group_id?: string | null;
-  optional_group_name?: string | null;
-}
-
-export interface OptionalGroup {
-  id: string;
-  name: string;
-  pick_count: number;
 }
 export interface TeacherAllocation {
   id: string;
@@ -262,158 +253,13 @@ export function useSubjectAllocations(gradeId?: string) {
 export function useAllocateSubjects() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: {
-      grade_id: string;
-      subject_ids: string[];
-      subject_config?: {
-        subject_id: string;
-        requirement: "REQUIRED" | "OPTIONAL";
-        optional_group_id?: string | null;
-        new_group_name?: string | null;
-      }[];
-      groups?: { id?: string; name: string; pick_count?: number }[];
-    }) => api.post("/assessments/subject-allocations", data),
+    mutationFn: (data: { grade_id: string; subject_ids: string[] }) =>
+      api.post("/assessments/subject-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["subject-allocations"] });
-      qc.invalidateQueries({ queryKey: ["optional-groups"] });
       toast.success("Subjects allocated");
     },
     onError: (e: Error) => toast.error(e.message),
-  });
-}
-
-// ============ OPTIONAL GROUPS ============
-export function useOptionalGroups(gradeId?: string) {
-  return useQuery({
-    queryKey: ["optional-groups", gradeId || ""],
-    enabled: !!gradeId,
-    queryFn: async () =>
-      unwrap<OptionalGroup[]>(
-        await api.get<any>(`/assessments/optional-groups?grade_id=${gradeId}`),
-      ) || [],
-  });
-}
-export function useDeleteOptionalGroup() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`/assessments/optional-groups/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["optional-groups"] });
-      qc.invalidateQueries({ queryKey: ["subject-allocations"] });
-      toast.success("Group removed");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
-// ============ STUDENT-LEVEL SUBJECT REGISTRATION ============
-export interface SubjectRegistrationStudent {
-  id: string;
-  first_name: string;
-  last_name: string;
-  admission_number: string;
-  gender: string | null;
-  stream_id: string | null;
-  registered: boolean;
-}
-export interface SubjectRegistrationResult {
-  students: SubjectRegistrationStudent[];
-  meta: {
-    curriculum_type?: string;
-    is_secondary?: boolean;
-    allocated?: boolean;
-    requirement?: "REQUIRED" | "OPTIONAL" | null;
-  };
-}
-
-export function useSubjectRegistrations(params: {
-  grade_id?: string;
-  stream_id?: string;
-  subject_id?: string;
-  academic_year_id?: string;
-  term_id?: string;
-}) {
-  const enabled = !!(params.grade_id && params.subject_id);
-  return useQuery({
-    queryKey: ["subject-registrations", params],
-    enabled,
-    queryFn: async () => {
-      const qp = new URLSearchParams();
-      Object.entries(params).forEach(([k, v]) => {
-        if (v) qp.set(k, v);
-      });
-      return (
-        unwrap<SubjectRegistrationResult>(
-          await api.get<any>(
-            `/assessments/subject-registrations?${qp.toString()}`,
-          ),
-        ) || { students: [], meta: {} }
-      );
-    },
-  });
-}
-
-export function useSetSubjectRegistrations() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: {
-      grade_id: string;
-      stream_id?: string | null;
-      subject_id: string;
-      academic_year_id?: string | null;
-      term_id?: string | null;
-      student_ids: string[];
-    }) => api.put("/assessments/subject-registrations", body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["subject-registrations"] });
-      toast.success("Student registrations saved");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
-// ============ ENRICHED SUBJECTS ============
-export interface EnrichedSubject {
-  id: string;
-  name: string;
-  code: string | null;
-  category: string | null;
-  status: string | null;
-  description: string | null;
-  teachers: string[];
-  teacher_count: number;
-  classes: string[];
-  class_count: number;
-  student_count: number;
-}
-
-export function useEnrichedSubjects(
-  filters: {
-    grade_id?: string;
-    stream_id?: string;
-    teacher_id?: string;
-    category?: string;
-    status?: string;
-    academic_year_id?: string;
-    term_id?: string;
-  } = {},
-) {
-  return useQuery({
-    queryKey: ["subjects-enriched", filters],
-    queryFn: async () => {
-      const qp = new URLSearchParams();
-      Object.entries(filters).forEach(([k, v]) => {
-        if (v) qp.set(k, v);
-      });
-      return (
-        unwrap<EnrichedSubject[]>(
-          await api.get<any>(
-            `/assessments/subjects/enriched${qp.toString() ? `?${qp}` : ""}`,
-          ),
-        ) || []
-      );
-    },
   });
 }
 
@@ -422,6 +268,7 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
+    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -430,6 +277,7 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
@@ -442,11 +290,9 @@ export function useCreateTeacherAllocation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      teacher_id?: string;
-      subject_id?: string;
-      grade_id?: string;
-      stream_id?: string | null;
-      allocations?: Array<any>;
+      teacher_id: string;
+      grade_id: string;
+      allocations: { subject_id: string; stream_ids: string[] }[];
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
@@ -482,8 +328,9 @@ export interface Assessment {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
-  created_at?: string | null;
+  marks_deadline: string | null;
   status: AssessmentStatus;
+  created_at?: string;
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
@@ -509,9 +356,8 @@ export interface Assessment {
 export function useAssessmentsList(
   filters: Record<string, string | undefined> = {},
 ) {
-  const session = api.getSession();
   return useQuery({
-    queryKey: ["assessments", filters, session.academicYearId, session.termId],
+    queryKey: ["assessments", filters],
     queryFn: async () => {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
@@ -599,7 +445,7 @@ export function useResyncAssessmentSubjects() {
       qc.invalidateQueries({ queryKey: ["assessments"] });
       qc.invalidateQueries({ queryKey: ["assessment", id] });
       qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
-      toast.success("Assessment synced. New students and subjects are now covered.");
+      toast.success("Subjects synced with current class allocations");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -611,6 +457,8 @@ export interface AssessmentTask {
   assessment_id: string;
   assessment_name: string;
   assessment_status: AssessmentStatus;
+  end_date: string | null;
+  marks_deadline: string | null;
   grade_id: string;
   grade_name: string;
   stream_id: string | null;
@@ -623,8 +471,6 @@ export interface AssessmentTask {
   status: "pending" | "in_progress" | "submitted" | "approved" | "locked";
   student_count: number;
   marked_count: number;
-  end_date?: string | null;
-  marks_deadline?: string | null;
 }
 
 export function useAssessmentTasks(
@@ -708,18 +554,13 @@ export interface TaskRoster {
   papers?: Array<{
     id: string;
     name: string;
-    code?: string | null;
     max_marks: number;
     paper_type: string;
-    contribution_pct?: number;
-    display_order?: number;
+    weight?: number;
   }>;
-  curriculum_type?: string;
   subject_config?: {
     calculation_type?: "GENERAL" | "SCIENCE" | "LANGUAGE" | string;
     calculation_config?: Record<string, any>;
-    uses_papers?: boolean;
-    grading_system_id?: string | null;
   };
   students: Array<{
     id: string;
@@ -1121,10 +962,7 @@ export function useAssessmentAnalytics(
 
 // ---------------- DOWNLOADS / EXPORTS ----------------
 function apiBase() {
-  return (
-    (import.meta as any).env?.VITE_API_URL ||
-    "https://api.chuoflow.co.ke/api/v1"
-  );
+  return (import.meta as any).env?.VITE_API_URL || "/api";
 }
 async function downloadAuthed(path: string, filename: string) {
   const token = localStorage.getItem("chuo-token");
@@ -1144,10 +982,7 @@ async function downloadAuthed(path: string, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Delay revocation so the browser has time to fully read the blob
-  // before the URL is invalidated. Revoking immediately after click()
-  // causes corrupted/empty files in production (HTTPS) environments.
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  URL.revokeObjectURL(url);
 }
 
 export function useDownloadReportCardPdf() {

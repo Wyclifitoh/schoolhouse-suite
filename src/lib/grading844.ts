@@ -28,25 +28,7 @@ export function gradeFor844(pct: number | null | undefined): Grade844 | null {
   return GRADES_844.find((g) => p >= g.min && p <= g.max) || null;
 }
 
-// Grade against a configured grading-system's levels; falls back to default 8-4-4.
-export interface GSLevel { grade_code: string; min_pct: number; max_pct: number; points: number; description?: string | null }
-export function gradeForLevels(
-  pct: number | null | undefined,
-  levels?: GSLevel[] | null,
-): { code: string; points: number; remark: string } | null {
-  if (pct == null || isNaN(pct as number)) return null;
-  if (!levels?.length) {
-    const g = gradeFor844(pct);
-    return g ? { code: g.code, points: g.points, remark: g.remark } : null;
-  }
-  const p = Math.max(0, Math.min(100, Number(pct)));
-  const hit = levels.find((l) => p >= Number(l.min_pct) && p <= Number(l.max_pct));
-  return hit
-    ? { code: hit.grade_code, points: Number(hit.points) || 0, remark: hit.description || "" }
-    : null;
-}
-
-export interface Paper { id: string; name: string; paper_type: string; max_marks: number; contribution_pct?: number }
+export interface Paper { id: string; name: string; paper_type: string; max_marks: number }
 
 // Mirrors backend/src/modules/examinations/subjectCalc.js for client-side previews.
 export function computeSubject844(
@@ -58,26 +40,6 @@ export function computeSubject844(
   if (!papers?.length) return { total: 0, outOf: 0, percentage: 0 };
   const round = (n: number) => Math.round(n * 100) / 100;
   const num = (v: any) => (v == null || v === "" ? null : Number(v));
-
-  // Contribution model: any paper with contribution_pct > 0 uses it.
-  const usesContribution = papers.some((p) => Number((p as any).contribution_pct) > 0);
-  if (usesContribution) {
-    let final = 0, sumContrib = 0, total = 0, outOf = 0;
-    papers.forEach((p) => {
-      const s = num(marks[p.id]);
-      const max = Number(p.max_marks) || 0;
-      const contrib = Number((p as any).contribution_pct) || 0;
-      sumContrib += contrib;
-      outOf += max;
-      if (s != null) {
-        total += s;
-        const pct = max > 0 ? s / max : 0;
-        final += pct * contrib;
-      }
-    });
-    const percentage = sumContrib > 0 ? round((final / sumContrib) * 100) : 0;
-    return { total: round(total), outOf: round(outOf), percentage };
-  }
 
   const t = String(calculationType || "GENERAL").toUpperCase();
   if (t === "SCIENCE") {

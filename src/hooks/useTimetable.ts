@@ -13,7 +13,6 @@ export interface PeriodRow {
   position: number;
   kind: PeriodKind;
   is_active: boolean;
-  curriculum_type?: string;
 }
 
 export interface RequirementRow {

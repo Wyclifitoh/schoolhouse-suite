@@ -102,7 +102,6 @@ import {
 // Assessments Module v2 (CBC)
 import AssessmentsList from "./pages/assessments/Assessments";
 import AssessmentDetail from "./pages/assessments/AssessmentDetail";
-import AssessmentSubjectConfig from "./pages/assessments/SubjectConfiguration";
 import AssessmentTasks from "./pages/assessments/AssessmentTasks";
 import AssessmentMarksEntry from "./pages/assessments/MarksEntry";
 import AssessmentResults from "./pages/assessments/Results";
@@ -119,7 +118,6 @@ import TeacherTimetable from "./pages/academics/TeacherTimetable";
 import AssignClassTeacher from "./pages/academics/AssignClassTeacher";
 import Subjects from "./pages/academics/Subjects";
 import SubjectAllocation from "./pages/academics/SubjectAllocation";
-import SubjectCategories from "./pages/academics/SubjectCategories";
 import TeacherAllocation from "./pages/academics/TeacherAllocation";
 import Clubs from "./pages/academics/clubs/Clubs";
 import ClubDetail from "./pages/academics/clubs/ClubDetail";
@@ -392,14 +390,6 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/subject-categories"
-                        element={
-                          <ProtectedRoute>
-                            <SubjectCategories />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
                         path="/class-timetable"
                         element={
                           <ProtectedRoute>
@@ -579,20 +569,6 @@ const App = () => (
                         element={
                           <ProtectedRoute>
                             <AssessmentDetail />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/assessments/:id/subject-config"
-                        element={
-                          <ProtectedRoute
-                            roles={[
-                              "super_admin",
-                              "school_admin",
-                              "deputy_admin",
-                            ]}
-                          >
-                            <AssessmentSubjectConfig />
                           </ProtectedRoute>
                         }
                       />

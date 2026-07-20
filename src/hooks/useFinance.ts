@@ -77,8 +77,6 @@ export function usePayments(filters?: {
   search?: string;
   page?: number;
   limit?: number;
-  grade?: string;
-  stream?: string;
 }) {
   const { selectedTerm } = useTerm();
   return useQuery({
@@ -92,10 +90,6 @@ export function usePayments(filters?: {
       if (filters?.search) params.set("search", filters.search);
       if (filters?.page) params.set("page", String(filters.page));
       if (filters?.limit) params.set("limit", String(filters.limit));
-      if (filters?.grade && filters.grade !== "all")
-        params.set("grade", filters.grade);
-      if (filters?.stream && filters.stream !== "all")
-        params.set("stream", filters.stream);
       const r = await api.get<any>(`/payments?${params}`);
       const rows = (r?.data || r || []).map((p: any) => ({
         ...p,
@@ -116,8 +110,6 @@ export function usePaymentStats(filters?: {
   status?: string;
   method?: string;
   search?: string;
-  grade?: string;
-  stream?: string;
 }) {
   const { selectedTerm } = useTerm();
   return useQuery({
@@ -129,10 +121,6 @@ export function usePaymentStats(filters?: {
       if (filters?.method && filters.method !== "all")
         params.set("method", filters.method);
       if (filters?.search) params.set("search", filters.search);
-      if (filters?.grade && filters.grade !== "all")
-        params.set("grade", filters.grade);
-      if (filters?.stream && filters.stream !== "all")
-        params.set("stream", filters.stream);
       const r = await api.get<any>(`/payments/stats?${params}`);
       const d = r?.data || r || {};
       return {
