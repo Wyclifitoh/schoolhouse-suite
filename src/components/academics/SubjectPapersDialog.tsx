@@ -17,23 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Layers, AlertTriangle } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Trash2, Layers } from "lucide-react";
-import {
-  CalculationType,
   PaperType,
-  useDeletePaper,
-  useSavePaper,
   useSubjectPapers,
   useUpdateSubjectConfig,
+  useSavePaperTemplate,
 } from "@/hooks/useSubjectPapers";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   subject: any | null;
@@ -41,58 +32,120 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const CALC_TYPES: { value: CalculationType; label: string; help: string }[] = [
-  { value: "GENERAL", label: "General", help: "Sum of papers ÷ total max × 100" },
-  { value: "SCIENCE", label: "Science (Theory + Practical)", help: "Theory scaled to 60, practical added out of 40" },
-  { value: "LANGUAGE", label: "Language (Weighted)", help: "Weighted sum across papers" },
-  { value: "CUSTOM", label: "Custom", help: "Reserved for future formulas (behaves as General)" },
-];
-
 const PAPER_TYPES: PaperType[] = ["THEORY", "PRACTICAL", "ORAL", "PROJECT"];
 
-export default function SubjectPapersDialog({ subject, open, onOpenChange }: Props) {
-  const subjectId = subject?.id || "";
-  const { data: papers = [] } = useSubjectPapers(subjectId);
-  const savePaper = useSavePaper(subjectId);
-  const deletePaper = useDeletePaper(subjectId);
-  const saveConfig = useUpdateSubjectConfig(subjectId);
+interface PaperRow {
+  name: string;
+  code: string;
+  paper_type: PaperType;
+  max_marks: number;
+  contribution_pct: number;
+}
 
-  const [hasPapers, setHasPapers] = useState<boolean>(false);
-  const [calcType, setCalcType] = useState<CalculationType>("GENERAL");
-  const [theoryWeight, setTheoryWeight] = useState<number>(60);
-  const [practicalWeight, setPracticalWeight] = useState<number>(40);
-
-  const [draft, setDraft] = useState({
+const DEFAULT_ROWS: PaperRow[] = [
+  {
     name: "Paper 1",
     code: "P1",
-    paper_type: "THEORY" as PaperType,
+    paper_type: "THEORY",
     max_marks: 100,
-  });
+    contribution_pct: 50,
+  },
+  {
+    name: "Paper 2",
+    code: "P2",
+    paper_type: "THEORY",
+    max_marks: 100,
+    contribution_pct: 50,
+  },
+  {
+    name: "Paper 3 (Practical)",
+    code: "P3",
+    paper_type: "PRACTICAL",
+    max_marks: 80,
+    contribution_pct: 0,
+  },
+];
+
+export default function SubjectPapersDialog({
+  subject,
+  open,
+  onOpenChange,
+}: Props) {
+  const subjectId = subject?.id || "";
+  const { data: papers = [] } = useSubjectPapers(subjectId);
+  const saveConfig = useUpdateSubjectConfig(subjectId);
+  const saveTemplate = useSavePaperTemplate(subjectId);
+
+  const [hasPapers, setHasPapers] = useState<boolean>(false);
+  const [paperCount, setPaperCount] = useState<1 | 2 | 3>(2);
+  const [rows, setRows] = useState<PaperRow[]>(DEFAULT_ROWS);
 
   useEffect(() => {
     if (!subject) return;
-    setHasPapers(!!subject.has_papers);
-    setCalcType((subject.calculation_type as CalculationType) || "GENERAL");
-    const cfg =
-      typeof subject.calculation_config === "string"
-        ? safeParse(subject.calculation_config)
-        : subject.calculation_config || {};
-    setTheoryWeight(Number(cfg?.theoryWeight ?? 60));
-    setPracticalWeight(Number(cfg?.practicalWeight ?? 40));
+    setHasPapers(!!Number(subject.has_papers));
   }, [subject]);
 
+  // If papers already exist for this subject, force the toggle on so re-opening
+  // the dialog always reflects reality (guards against stale prop references).
+  useEffect(() => {
+    if (papers.length > 0) setHasPapers(true);
+  }, [papers.length]);
+
+  useEffect(() => {
+    if (!papers.length) {
+      setRows(DEFAULT_ROWS);
+      setPaperCount(2);
+      return;
+    }
+    const sorted = [...papers].sort(
+      (a, b) => (a.display_order || 0) - (b.display_order || 0),
+    );
+    const mapped: PaperRow[] = DEFAULT_ROWS.map((d, i) => {
+      const p = sorted[i];
+      if (!p) return d;
+      return {
+        name: p.name,
+        code: p.code || d.code,
+        paper_type: p.paper_type as PaperType,
+        max_marks: Number(p.max_marks) || d.max_marks,
+        contribution_pct: Number(p.contribution_pct) || 0,
+      };
+    });
+    setRows(mapped);
+    setPaperCount(Math.min(Math.max(sorted.length, 1), 3) as 1 | 2 | 3);
+  }, [papers]);
+
+  const active = rows.slice(0, paperCount);
+  const totalContribution = active.reduce(
+    (s, r) => s + (Number(r.contribution_pct) || 0),
+    0,
+  );
+  const contribValid = Math.abs(totalContribution - 100) < 0.01;
+
   const saveAll = async () => {
+    if (hasPapers && !contribValid) {
+      // Block saves that don't sum to 100%.
+      // eslint-disable-next-line no-alert
+      const { toast } = await import("sonner");
+      toast.error(
+        `Paper contributions must total 100% (currently ${totalContribution}%).`,
+      );
+      return;
+    }
     await saveConfig.mutateAsync({
       curriculum_type: "844",
       has_papers: hasPapers ? 1 : 0,
-      calculation_type: calcType,
-      calculation_config:
-        calcType === "SCIENCE"
-          ? { theoryWeight, practicalWeight }
-          : null,
+      calculation_type: "GENERAL",
+      calculation_config: null,
     });
+    if (hasPapers) {
+      await saveTemplate.mutateAsync(active);
+    }
     onOpenChange(false);
   };
+
+  const updateRow = (i: number, patch: Partial<PaperRow>) =>
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,160 +153,144 @@ export default function SubjectPapersDialog({ subject, open, onOpenChange }: Pro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5 text-primary" />
-            8-4-4 Paper Structure — {subject?.name}
+            Paper Template — {subject?.name}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <Label className="text-sm font-medium">Enable Paper Structure</Label>
+              <Label className="text-sm font-medium">
+                This subject has papers
+              </Label>
               <p className="text-xs text-muted-foreground">
-                Turn on for 8-4-4 subjects that have multiple papers (e.g. Math P1/P2, Bio Practical).
+                Turn on for subjects that are examined via multiple papers (e.g.
+                Math P1/P2, Biology P1/P2/Practical). Each new assessment
+                inherits this template as its default.
               </p>
             </div>
             <Switch checked={hasPapers} onCheckedChange={setHasPapers} />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Calculation Method</Label>
-              <Select value={calcType} onValueChange={(v) => setCalcType(v as CalculationType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CALC_TYPES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {CALC_TYPES.find((c) => c.value === calcType)?.help}
-              </p>
-            </div>
-            {calcType === "SCIENCE" && (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-2">
-                  <Label>Theory Weight</Label>
-                  <Input
-                    type="number"
-                    value={theoryWeight}
-                    onChange={(e) => setTheoryWeight(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Practical Weight</Label>
-                  <Input
-                    type="number"
-                    value={practicalWeight}
-                    onChange={(e) => setPracticalWeight(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
           {hasPapers && (
-            <div className="rounded-lg border">
-              <div className="flex items-center justify-between p-3 border-b">
-                <h4 className="text-sm font-semibold">Papers</h4>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="w-24">Code</TableHead>
-                    <TableHead className="w-32">Type</TableHead>
-                    <TableHead className="w-24 text-right">Max</TableHead>
-                    <TableHead className="w-16"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {papers.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{p.code || "—"}</TableCell>
-                      <TableCell>{p.paper_type}</TableCell>
-                      <TableCell className="text-right">{Number(p.max_marks)}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => deletePaper.mutate(p.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+            <>
+              <div className="flex items-center gap-3">
+                <Label className="text-sm">Number of papers</Label>
+                <div className="flex gap-1">
+                  {[1, 2, 3].map((n) => (
+                    <Button
+                      key={n}
+                      variant={paperCount === n ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPaperCount(n as 1 | 2 | 3)}
+                    >
+                      {n}
+                    </Button>
                   ))}
-                  <TableRow>
-                    <TableCell>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Total contribution:
+                  </span>
+                  <Badge
+                    variant={contribValid ? "default" : "destructive"}
+                    className="font-mono"
+                  >
+                    {totalContribution}%
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-lg border overflow-hidden">
+                <div className="grid grid-cols-12 gap-2 bg-muted/50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="col-span-4">Paper</div>
+                  <div className="col-span-3">Type</div>
+                  <div className="col-span-2 text-right">Out Of</div>
+                  <div className="col-span-3 text-right">Contribution %</div>
+                </div>
+                {active.map((r, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-12 gap-2 items-center px-3 py-2 border-t"
+                  >
+                    <div className="col-span-4">
                       <Input
-                        value={draft.name}
-                        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                        value={r.name}
+                        onChange={(e) => updateRow(i, { name: e.target.value })}
+                        placeholder={`Paper ${i + 1}`}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={draft.code}
-                        onChange={(e) => setDraft({ ...draft, code: e.target.value })}
-                      />
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="col-span-3">
                       <Select
-                        value={draft.paper_type}
-                        onValueChange={(v) => setDraft({ ...draft, paper_type: v as PaperType })}
+                        value={r.paper_type}
+                        onValueChange={(v) =>
+                          updateRow(i, { paper_type: v as PaperType })
+                        }
                       >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           {PAPER_TYPES.map((t) => (
-                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="col-span-2">
                       <Input
                         type="number"
                         className="text-right"
-                        value={draft.max_marks}
+                        value={r.max_marks}
                         onChange={(e) =>
-                          setDraft({ ...draft, max_marks: Number(e.target.value) })
+                          updateRow(i, { max_marks: Number(e.target.value) })
                         }
                       />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => {
-                          if (!draft.name) return;
-                          savePaper.mutate({
-                            ...draft,
-                            display_order: papers.length,
-                          });
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+                    </div>
+                    <div className="col-span-3">
+                      <Input
+                        type="number"
+                        className="text-right"
+                        value={r.contribution_pct}
+                        onChange={(e) =>
+                          updateRow(i, {
+                            contribution_pct: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {!contribValid && (
+                <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5" />
+                  Contributions should add up to 100%. The engine will still
+                  compute correctly by normalising, but a clean 100% keeps
+                  reports easy to read.
+                </div>
+              )}
+            </>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={saveAll} disabled={saveConfig.isPending}>
-            {saveConfig.isPending ? "Saving…" : "Save Configuration"}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={saveAll}
+            disabled={saveConfig.isPending || saveTemplate.isPending}
+          >
+            {saveConfig.isPending || saveTemplate.isPending
+              ? "Saving…"
+              : "Save Template"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
-
-function safeParse(s: string) {
-  try { return JSON.parse(s); } catch { return {}; }
 }
