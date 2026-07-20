@@ -465,27 +465,10 @@ function Report844({
 }) {
   const p: any = card.payload || {};
   const subjects: any[] = p.subjects || [];
-  const rawPoints = subjects.reduce(
+  const totalPoints = subjects.reduce(
     (acc, s) => acc + (Number(s.points) || 0),
     0,
   );
-  // Prefer aggregate (best-seven) figures from the results engine
-  const aggPoints =
-    p.aggregate_points != null ? Number(p.aggregate_points) : null;
-  const aggGrade = p.aggregate_grade || null;
-  const totalPoints = aggPoints != null ? aggPoints : rawPoints;
-  let bestSubjects: any[] = [];
-  if (p.best_subjects) {
-    try {
-      bestSubjects =
-        typeof p.best_subjects === "string"
-          ? JSON.parse(p.best_subjects)
-          : p.best_subjects;
-    } catch {
-      bestSubjects = [];
-    }
-  }
-  const bestIds = new Set(bestSubjects.map((b: any) => b.subject_id));
   const totalMarks = subjects.reduce(
     (acc, s) => acc + (Number(s.score) || 0),
     0,
@@ -516,7 +499,7 @@ function Report844({
           <SummaryStat label="Mean Mark" value={`${mean}%`} />
           <SummaryStat
             label="Mean Grade"
-            value={aggGrade || p.mean_grade || p.overall_grade || "—"}
+            value={p.mean_grade || p.overall_grade || "—"}
           />
           <SummaryStat
             label="Total Points"
@@ -531,24 +514,6 @@ function Report844({
             }
           />
         </div>
-
-        {bestSubjects.length > 0 && (
-          <div className="rounded-lg border bg-muted/30 p-3 mb-2 text-xs">
-            <div className="font-semibold mb-1">
-              KCSE Aggregate · Best {bestSubjects.length} counted
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {bestSubjects.map((b: any, i: number) => (
-                <span
-                  key={i}
-                  className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
-                >
-                  {b.subject_code || "—"} · {b.points}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
 
         <ProgressSection
           progress={p.progress}
@@ -591,16 +556,10 @@ function Report844({
                       (s.out_of > 0
                         ? Math.round((s.score / s.out_of) * 10000) / 100
                         : null);
-                    const counted = bestIds.size > 0 && bestIds.has(s.subject_id);
                     return (
-                      <TableRow key={i} className={counted ? "bg-primary/5" : ""}>
+                      <TableRow key={i}>
                         <TableCell className="font-medium">
                           {s.subject_name}
-                          {counted && (
-                            <span className="ml-1 text-[10px] text-primary font-bold">
-                              ★
-                            </span>
-                          )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {s.score ?? "—"}

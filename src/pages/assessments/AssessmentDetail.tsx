@@ -40,7 +40,6 @@ import {
   ArrowLeft,
   PencilLine,
   RefreshCw,
-  Settings2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -155,18 +154,13 @@ export default function AssessmentDetail() {
           <div className="flex gap-2 flex-wrap">
             {!isTeacher && (
               <PermissionGate permission={["exams:update", "exams:publish"]}>
-                <Link to={`/assessments/${a.id}/subject-config`}>
-                  <Button variant="outline">
-                    <Settings2 className="h-4 w-4 mr-1" /> Subject configuration
-                  </Button>
-                </Link>
                 {a.status !== "archived" && a.status !== "locked" && (
                   <Button
                     variant="outline"
                     onClick={() => resync.mutate(a.id)}
                     disabled={resync.isPending}
                   >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${resync.isPending ? "animate-spin" : ""}`} /> Sync subjects & students
+                    <RefreshCw className="h-4 w-4 mr-1" /> Sync
                   </Button>
                 )}
                 {a.status === "draft" && (

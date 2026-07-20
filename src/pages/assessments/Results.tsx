@@ -833,18 +833,6 @@ export default function Results() {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          const agg = (r as any).aggregate_grade;
-                          const aggPts = (r as any).aggregate_points;
-                          if (agg) {
-                            return (
-                              <Badge variant="outline" className="font-bold">
-                                {agg}
-                                {aggPts != null
-                                  ? ` · ${Math.round(Number(aggPts))}pts`
-                                  : ""}
-                              </Badge>
-                            );
-                          }
                           const pts = (r as any).total_points;
                           if (pts != null && !isNaN(Number(pts))) {
                             return (

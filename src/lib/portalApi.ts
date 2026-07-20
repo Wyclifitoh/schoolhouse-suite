@@ -43,9 +43,6 @@ class PortalApi {
   post<T>(p: string, b: unknown) {
     return this.req<T>(p, { method: "POST", body: JSON.stringify(b) });
   }
-  request<T>(p: string, init: RequestInit = {}) {
-    return this.req<T>(p, init);
-  }
 }
 
 export const portalApi = new PortalApi();
