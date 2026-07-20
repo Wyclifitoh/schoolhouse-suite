@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ClipboardCheck, Plus, Search, FileText, Settings,
-  CheckCircle2, Lock, Archive, PlayCircle, Trash2,
+  CheckCircle2, Lock, Archive, PlayCircle, Trash2, RefreshCw,
 } from "lucide-react";
 import {
   useAssessmentsList,
@@ -30,6 +30,7 @@ import {
   usePublishAssessment,
   useSetAssessmentStatus,
   useDeleteAssessment,
+  useResyncAssessment,
   type AssessmentStatus,
 } from "@/hooks/useAssessments";
 import { useGrades } from "@/hooks/useGrades";
@@ -153,6 +154,7 @@ export default function Assessments() {
   const publish = usePublishAssessment();
   const setStatusM = useSetAssessmentStatus();
   const remove = useDeleteAssessment();
+  const sync = useResyncAssessment();
 
   const summary = useMemo(() => {
     const by = { draft: 0, published: 0, in_progress: 0, locked: 0, archived: 0 } as Record<string, number>;
@@ -269,9 +271,14 @@ export default function Assessments() {
                             </Button>
                           )}
                           {(a.status === "published" || a.status === "in_progress") && (
-                            <Button size="sm" variant="outline" onClick={() => setStatusM.mutate({ id: a.id, status: "locked" })}>
-                              <Lock className="h-3.5 w-3.5 mr-1" /> Lock
-                            </Button>
+                            <>
+                              <Button size="sm" variant="outline" onClick={() => sync.mutate(a.id)} disabled={sync.isPending}>
+                                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setStatusM.mutate({ id: a.id, status: "locked" })}>
+                                <Lock className="h-3.5 w-3.5 mr-1" /> Lock
+                              </Button>
+                            </>
                           )}
                           {a.status === "locked" && (
                             <Button size="sm" variant="outline" onClick={() => setStatusM.mutate({ id: a.id, status: "archived" })}>

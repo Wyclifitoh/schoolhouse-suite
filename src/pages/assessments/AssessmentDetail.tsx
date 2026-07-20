@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/table";
 import {
   useAssessment, useAssessmentTasks, usePublishAssessment,
-  useSetAssessmentStatus, useSubmitTask,
+  useSetAssessmentStatus, useSubmitTask, useResyncAssessment,
 } from "@/hooks/useAssessments";
-import { ClipboardCheck, PlayCircle, Lock, ArrowLeft, PencilLine } from "lucide-react";
+import { ClipboardCheck, PlayCircle, Lock, ArrowLeft, PencilLine, RefreshCw } from "lucide-react";
 
 export default function AssessmentDetail() {
   const { id } = useParams();
@@ -21,6 +21,7 @@ export default function AssessmentDetail() {
   const publish = usePublishAssessment();
   const setStatus = useSetAssessmentStatus();
   const submit = useSubmitTask();
+  const sync = useResyncAssessment();
 
   if (isLoading || !a) {
     return (
@@ -61,9 +62,14 @@ export default function AssessmentDetail() {
               </Button>
             )}
             {(a.status === "published" || a.status === "in_progress") && (
-              <Button variant="outline" onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}>
-                <Lock className="h-4 w-4 mr-1" /> Lock
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => sync.mutate(a.id)} disabled={sync.isPending}>
+                  <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync subjects & students
+                </Button>
+                <Button variant="outline" onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}>
+                  <Lock className="h-4 w-4 mr-1" /> Lock
+                </Button>
+              </>
             )}
           </div>
         </div>
