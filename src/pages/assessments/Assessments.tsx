@@ -504,6 +504,7 @@ export default function Assessments() {
                                 >
                                   <Lock className="h-3.5 w-3.5 mr-1" /> Lock
                                 </Button>
+                                </>
                               )}
                               {a.status === "locked" && (
                                 <>
@@ -692,6 +693,7 @@ export default function Assessments() {
                             >
                               <Lock className="h-4 w-4 mr-1" /> Lock
                             </Button>
+                            </>
                           )}
                           {a.status === "locked" && (
                             <>
