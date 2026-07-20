@@ -46,6 +46,7 @@ import {
   ArchiveRestore,
   PlayCircle,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { PermissionGate } from "@/components/PermissionGate";
 import {
@@ -55,6 +56,7 @@ import {
   usePublishAssessment,
   useSetAssessmentStatus,
   useDeleteAssessment,
+  useResyncAssessmentSubjects,
   type AssessmentStatus,
 } from "@/hooks/useAssessments";
 import { useGrades } from "@/hooks/useGrades";
@@ -292,6 +294,7 @@ export default function Assessments() {
   const publish = usePublishAssessment();
   const setStatusM = useSetAssessmentStatus();
   const remove = useDeleteAssessment();
+  const sync = useResyncAssessmentSubjects();
 
   const summary = useMemo(() => {
     const by = {
@@ -480,10 +483,19 @@ export default function Assessments() {
                               )}
                               {(a.status === "published" ||
                                 a.status === "in_progress") && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => sync.mutate(a.id)}
+                                    disabled={sync.isPending}
+                                  >
+                                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
                                     setStatusM.mutate({
                                       id: a.id,
                                       status: "locked",
@@ -659,10 +671,19 @@ export default function Assessments() {
                             </Button>
                           )}
                           {(a.status === "published" || a.status === "in_progress") && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => sync.mutate(a.id)}
+                                disabled={sync.isPending}
+                              >
+                                <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
                                 setStatusM.mutate({
                                   id: a.id,
                                   status: "locked",

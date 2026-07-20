@@ -599,7 +599,7 @@ export function useResyncAssessmentSubjects() {
       qc.invalidateQueries({ queryKey: ["assessments"] });
       qc.invalidateQueries({ queryKey: ["assessment", id] });
       qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
-      toast.success("Subjects synced with current class allocations");
+      toast.success("Assessment synced. New students and subjects are now covered.");
     },
     onError: (e: Error) => toast.error(e.message),
   });
