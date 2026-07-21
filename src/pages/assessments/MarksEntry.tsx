@@ -89,15 +89,12 @@ export default function MarksEntry() {
   const gradeId = (task as any)?.grade_id;
   const subjectId = task?.subject_id;
 
-  // 8-4-4 paper-based entry: when the assessment snapshot has papers wired
-  // for this subject, delegate to the paper grid which knows how to compute
-  // per-paper contributions, grade, points and remarks.
+  // Layout is driven strictly by the assessment-level configuration for this
+  // exact (assessment_id, grade_id, subject_id). Curriculum alone must NOT
+  // force paper mode — an admin can set Single Score on a specific class
+  // even within an 8-4-4 assessment.
   const usePaperFlow =
-    String((data as any)?.curriculum_type || "").replace(
-      /[^0-9A-Za-z]/g,
-      "",
-    ) === "844" ||
-    !!data?.subject_config?.uses_papers ||
+    !!data?.subject_config?.uses_papers &&
     !!(data?.papers && data.papers.length > 0);
 
   const { data: bands = [] } = useRemarkBands({
