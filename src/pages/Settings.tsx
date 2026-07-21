@@ -51,6 +51,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -177,7 +180,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("school");
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     userId: string;
-    role: string;
+    roles: string[];
     userName: string;
   } | null>(null);
 
@@ -1000,43 +1003,53 @@ const Settings = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={u.roles?.split(",")[0]?.trim() || ""}
-                              onValueChange={(v) => {
-                                const currentRole =
-                                  u.roles?.split(",")[0]?.trim() || "";
-                                if (v === currentRole) return;
-                                setPendingRoleChange({
-                                  userId: u.id,
-                                  role: v,
-                                  userName: u.full_name || u.email,
-                                });
-                              }}
-                              disabled={updateUserRole.isPending}
-                            >
-                              <SelectTrigger className="h-8 w-44 text-xs">
-                                <SelectValue placeholder="Select role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="super_admin">
-                                  Super Admin
-                                </SelectItem>
-                                <SelectItem value="admin">
-                                  School Admin
-                                </SelectItem>
-                                <SelectItem value="manager">Manager</SelectItem>
-                                <SelectItem value="accountant">
-                                  Accountant
-                                </SelectItem>
-                                <SelectItem value="teacher">Teacher</SelectItem>
-                                <SelectItem value="librarian">
-                                  Librarian
-                                </SelectItem>
-                                <SelectItem value="receptionist">
-                                  Receptionist
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="h-8 w-44 justify-start text-xs font-normal overflow-hidden whitespace-nowrap text-ellipsis"
+                                  disabled={updateUserRole.isPending}
+                                >
+                                  {u.roles?.split(",").map((r: string) => r.trim().replace(/_/g, " ")).filter(Boolean).join(", ") || "Select roles..."}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="w-44">
+                                {[
+                                  { id: "super_admin", label: "Super Admin" },
+                                  { id: "admin", label: "School Admin" },
+                                  { id: "manager", label: "Manager" },
+                                  { id: "accountant", label: "Accountant" },
+                                  { id: "teacher", label: "Teacher" },
+                                  { id: "librarian", label: "Librarian" },
+                                  { id: "receptionist", label: "Receptionist" },
+                                ].map((roleOption) => {
+                                  const currentRoles = u.roles?.split(",").map((r: string) => r.trim()).filter(Boolean) || [];
+                                  const isChecked = currentRoles.includes(roleOption.id);
+                                  return (
+                                    <DropdownMenuCheckboxItem
+                                      key={roleOption.id}
+                                      checked={isChecked}
+                                      onCheckedChange={(checked) => {
+                                        let newRoles = [...currentRoles];
+                                        if (checked) {
+                                          newRoles.push(roleOption.id);
+                                        } else {
+                                          newRoles = newRoles.filter((r) => r !== roleOption.id);
+                                        }
+                                        if (newRoles.join(",") === currentRoles.join(",")) return;
+                                        setPendingRoleChange({
+                                          userId: u.id,
+                                          roles: newRoles,
+                                          userName: u.full_name || u.email,
+                                        });
+                                      }}
+                                    >
+                                      {roleOption.label}
+                                    </DropdownMenuCheckboxItem>
+                                  );
+                                })}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                           <TableCell>
                             <Badge
@@ -1275,7 +1288,7 @@ const Settings = () => {
                 if (pendingRoleChange) {
                   updateUserRole.mutate({
                     userId: pendingRoleChange.userId,
-                    role: pendingRoleChange.role,
+                    roles: pendingRoleChange.roles,
                   });
                 }
                 setPendingRoleChange(null);

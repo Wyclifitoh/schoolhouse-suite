@@ -289,7 +289,7 @@ export default function StaffDirectory() {
 
   const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  const isTeacher = form.role === "teacher";
+  const isTeacher = form.role?.includes("teacher");
 
   const StaffForm = (
     <Tabs value={tab} onValueChange={setTab}>
@@ -314,7 +314,7 @@ export default function StaffDirectory() {
           </div>
           <div>
             <Label>Role *</Label>
-            <Select value={form.role} onValueChange={(v) => set("role", v)}>
+            <Select value={form.role?.split(',')[0]?.trim()} onValueChange={(v) => set("role", v)} disabled={!!editStaff}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -778,9 +778,13 @@ export default function StaffDirectory() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {s.role?.replace(/_/g, " ")}
-                        </Badge>
+                        <div className="flex gap-1 flex-wrap">
+                          {s.role?.split(',').filter(Boolean).map((r: string) => (
+                            <Badge key={r} variant="outline" className="capitalize whitespace-nowrap">
+                              {r.trim().replace(/_/g, " ")}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell>{s.department_name || "—"}</TableCell>
                       <TableCell>{s.designation_name || "—"}</TableCell>
@@ -911,7 +915,7 @@ export default function StaffDirectory() {
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {viewStaff.employee_number} ·{" "}
-                      {viewStaff.role?.replace(/_/g, " ")}
+                      {viewStaff.role?.split(',').map((r: string) => r.trim().replace(/_/g, " ")).filter(Boolean).join(", ") || "—"}
                     </p>
                   </div>
                 </div>

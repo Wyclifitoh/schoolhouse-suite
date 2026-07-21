@@ -114,8 +114,8 @@ export function useSchoolUsers() {
 export function useUpdateUserRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      api.put(`/schools/users/${userId}/role`, { role }),
+    mutationFn: ({ userId, roles }: { userId: string; roles: string[] }) =>
+      api.put(`/schools/users/${userId}/role`, { roles }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["school-users"] });
       toast.success("User role updated");
