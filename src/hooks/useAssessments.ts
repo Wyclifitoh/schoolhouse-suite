@@ -268,6 +268,7 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
+    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -276,6 +277,7 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
+      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
@@ -289,9 +291,8 @@ export function useCreateTeacherAllocation() {
   return useMutation({
     mutationFn: (data: {
       teacher_id: string;
-      subject_id: string;
       grade_id: string;
-      stream_id?: string | null;
+      allocations: { subject_id: string; stream_ids: string[] }[];
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
@@ -327,7 +328,9 @@ export interface Assessment {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  marks_deadline: string | null;
   status: AssessmentStatus;
+  created_at?: string;
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
@@ -433,6 +436,21 @@ export function useSetAssessmentStatus() {
   });
 }
 
+export function useResyncAssessmentSubjects() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post(`/assessments/${id}/resync-subjects`, {}),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["assessments"] });
+      qc.invalidateQueries({ queryKey: ["assessment", id] });
+      qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
+      toast.success("Subjects synced with current class allocations");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ============ TASKS ============
 export function useResyncAssessment() {
   const qc = useQueryClient();
@@ -453,6 +471,8 @@ export interface AssessmentTask {
   assessment_id: string;
   assessment_name: string;
   assessment_status: AssessmentStatus;
+  end_date: string | null;
+  marks_deadline: string | null;
   grade_id: string;
   grade_name: string;
   stream_id: string | null;
@@ -475,11 +495,42 @@ export function useAssessmentTasks(
     queryFn: async () => {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
-      return (
-        unwrap<AssessmentTask[]>(
-          await api.get<any>(`/assessments/tasks/list?${qp}`),
-        ) || []
-      );
+      const raw = await api.get<any>(`/assessments/tasks/list?${qp}`);
+      const payload = raw?.data ?? raw;
+      // Support both legacy array shape and paginated { data, total } shape
+      if (Array.isArray(payload)) return payload as AssessmentTask[];
+      return (payload?.data || []) as AssessmentTask[];
+    },
+  });
+}
+
+/** Paginated variant returning { data, total, page, limit }. */
+export function useAssessmentTasksPaged(
+  filters: Record<string, string | number | undefined> = {},
+) {
+  return useQuery({
+    queryKey: ["assessment-tasks-paged", filters],
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== "" && v !== null) qp.set(k, String(v));
+      });
+      const raw = await api.get<any>(`/assessments/tasks/list?${qp}`);
+      const payload = raw?.data ?? raw;
+      if (Array.isArray(payload)) {
+        return {
+          data: payload as AssessmentTask[],
+          total: payload.length,
+          page: 1,
+          limit: payload.length,
+        };
+      }
+      return {
+        data: (payload?.data || []) as AssessmentTask[],
+        total: Number(payload?.total || 0),
+        page: Number(payload?.page || 1),
+        limit: Number(payload?.limit || 25),
+      };
     },
   });
 }
@@ -514,6 +565,17 @@ export function useSubmitTask() {
 export interface TaskRoster {
   task: AssessmentTask & { stream_id: string | null };
   out_of: number;
+  papers?: Array<{
+    id: string;
+    name: string;
+    max_marks: number;
+    paper_type: string;
+    weight?: number;
+  }>;
+  subject_config?: {
+    calculation_type?: "GENERAL" | "SCIENCE" | "LANGUAGE" | string;
+    calculation_config?: Record<string, any>;
+  };
   students: Array<{
     id: string;
     first_name: string;
@@ -529,6 +591,7 @@ export interface TaskRoster {
       points: number | null;
       status: string;
       remarks: string | null;
+      paper_scores?: Record<string, number | null> | string | null;
     };
   }>;
 }
@@ -550,6 +613,7 @@ export function useBulkSaveAssessmentMarks() {
     mutationFn: (body: {
       assessment_id: string;
       task_id?: string;
+      global_out_of?: number;
       items: Array<{
         student_id: string;
         subject_id: string;
@@ -565,6 +629,44 @@ export function useBulkSaveAssessmentMarks() {
       toast.success("Marks saved");
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useBulkSavePaperMarks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      assessment_id: string;
+      task_id?: string;
+      items: Array<{
+        student_id: string;
+        subject_id: string;
+        paper_scores: Record<string, number | null>;
+        remarks?: string | null;
+      }>;
+    }) => api.post(`/assessments/marks/bulk-papers`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task-roster"] });
+      qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
+      toast.success("Marks saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useAssessmentMarksList(
+  filters: Record<string, string | undefined> = {},
+) {
+  return useQuery({
+    queryKey: ["assessment-marks", filters],
+    enabled: !!filters.assessment_id,
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
+      return (
+        unwrap<any[]>(await api.get<any>(`/assessments/marks?${qp}`)) || []
+      );
+    },
   });
 }
 
@@ -823,22 +925,41 @@ export function useRcCards(runId?: string) {
 }
 
 // ---------------- ANALYTICS ----------------
-export function useAssessmentAnalytics(assessmentId?: string) {
+export function useAssessmentAnalytics(
+  assessmentId?: string,
+  filters?: { grade_id?: string; stream_id?: string; subject_id?: string },
+) {
+  const qp = new URLSearchParams();
+  if (filters?.grade_id) qp.set("grade_id", filters.grade_id);
+  if (filters?.stream_id) qp.set("stream_id", filters.stream_id);
+  if (filters?.subject_id) qp.set("subject_id", filters.subject_id);
+  const qs = qp.toString();
+  const suffix = qs ? `?${qs}` : "";
   return useQuery({
-    queryKey: ["assessment-analytics", assessmentId],
+    queryKey: ["assessment-analytics", assessmentId, qs],
     enabled: !!assessmentId,
     queryFn: async () => {
       const [overview, subjects, bands, levels, leaderboard, grades, streams] =
         await Promise.all([
-          api.get<any>(`/assessments/${assessmentId}/analytics/overview`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/subjects`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/bands`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/levels`),
           api.get<any>(
-            `/assessments/${assessmentId}/analytics/leaderboard?limit=25`,
+            `/assessments/${assessmentId}/analytics/overview${suffix}`,
           ),
-          api.get<any>(`/assessments/${assessmentId}/analytics/grades`),
-          api.get<any>(`/assessments/${assessmentId}/analytics/streams`),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/subjects${suffix}`,
+          ),
+          api.get<any>(`/assessments/${assessmentId}/analytics/bands${suffix}`),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/levels${suffix}`,
+          ),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/leaderboard?limit=500${qs ? `&${qs}` : ""}`,
+          ),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/grades${suffix}`,
+          ),
+          api.get<any>(
+            `/assessments/${assessmentId}/analytics/streams${suffix}`,
+          ),
         ]);
       return {
         overview: unwrap<any>(overview),
@@ -896,6 +1017,34 @@ export function useDownloadRunZip() {
         `/assessments/report-cards/runs/${runId}/download.zip`,
         `report-cards-${runId}.zip`,
       ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDownloadRunCombinedPdf() {
+  return useMutation({
+    mutationFn: ({ runId }: { runId: string }) =>
+      downloadAuthed(
+        `/assessments/report-cards/runs/${runId}/download.pdf`,
+        `report-cards-${runId}.pdf`,
+      ),
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDeleteReportCardRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (runId: string) => {
+      const res = await api.delete<any>(
+        `/assessments/report-cards/runs/${runId}`,
+      );
+      return unwrap<any>(res);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rc-runs"] });
+      toast.success("Run deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }

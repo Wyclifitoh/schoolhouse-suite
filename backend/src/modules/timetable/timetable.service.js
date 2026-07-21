@@ -1,4 +1,5 @@
 const repo = require("./timetable.repository");
+const { query } = require("../../config/database");
 
 const DEFAULT_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -33,10 +34,31 @@ async function generateTimetable(
     return { assigned: 0, skipped: 0, warnings: ["No grades selected"] };
   }
 
-  const periods = (await repo.listPeriods(schoolId)).filter(
-    (p) => p.kind === "lesson" && p.is_active,
+  // Resolve each grade's curriculum so we can pick the matching periods/reqs
+  const gradeMeta = await query(
+    `SELECT id, COALESCE(curriculum_type,'CBC') AS curriculum_type
+       FROM grades WHERE school_id=? AND id IN (${gradeIds.map(() => "?").join(",")})`,
+    [schoolId, ...gradeIds],
   );
-  if (!periods.length) {
+  const curriculumByGrade = new Map(
+    gradeMeta.map((g) => [g.id, g.curriculum_type]),
+  );
+  const activeCurricula = Array.from(
+    new Set(gradeMeta.map((g) => g.curriculum_type)),
+  );
+
+  // Load periods per curriculum (lesson-kind, active only)
+  const periodsByCurriculum = new Map();
+  for (const c of activeCurricula) {
+    const ps = (await repo.listPeriods(schoolId, c)).filter(
+      (p) => p.kind === "lesson" && p.is_active,
+    );
+    periodsByCurriculum.set(c, ps);
+  }
+  const hasAnyPeriods = Array.from(periodsByCurriculum.values()).some(
+    (ps) => ps.length,
+  );
+  if (!hasAnyPeriods) {
     return {
       assigned: 0,
       skipped: 0,
@@ -59,6 +81,9 @@ async function generateTimetable(
   const reqByGrade = new Map();
   for (const r of requirements) {
     if (!gradeIds.includes(r.grade_id)) continue;
+    // Only use requirements matching this grade's curriculum
+    const grCurr = curriculumByGrade.get(r.grade_id) || "CBC";
+    if ((r.curriculum_type || "CBC") !== grCurr) continue;
     if (!reqByGrade.has(r.grade_id)) reqByGrade.set(r.grade_id, []);
     reqByGrade.get(r.grade_id).push(r);
   }
@@ -76,9 +101,7 @@ async function generateTimetable(
     if (specific) return specific.teacher_id;
     const generic = allocs.find(
       (a) =>
-        a.subject_id === subject_id &&
-        a.grade_id === grade_id &&
-        !a.stream_id,
+        a.subject_id === subject_id && a.grade_id === grade_id && !a.stream_id,
     );
     return generic ? generic.teacher_id : null;
   };
@@ -102,11 +125,17 @@ async function generateTimetable(
 
   // Iterate stream-by-stream
   for (const stream of streams) {
+    const grCurr = curriculumByGrade.get(stream.grade_id) || "CBC";
+    const periods = periodsByCurriculum.get(grCurr) || [];
+    if (!periods.length) {
+      warnings.push(
+        `No ${grCurr} lesson periods configured for ${stream.grade_name}`,
+      );
+      continue;
+    }
     const reqs = (reqByGrade.get(stream.grade_id) || []).slice();
     // sort heaviest subjects first for better packing
-    reqs.sort(
-      (a, b) => (b.lessons_per_week || 0) - (a.lessons_per_week || 0),
-    );
+    reqs.sort((a, b) => (b.lessons_per_week || 0) - (a.lessons_per_week || 0));
 
     // expand into individual lessons
     const lessons = [];
@@ -157,9 +186,7 @@ async function generateTimetable(
       candidates.sort((a, b) => {
         const ka = `${lesson.subject_id}|${a.day}`;
         const kb = `${lesson.subject_id}|${b.day}`;
-        return (
-          (subjectDayCount.get(ka) || 0) - (subjectDayCount.get(kb) || 0)
-        );
+        return (subjectDayCount.get(ka) || 0) - (subjectDayCount.get(kb) || 0);
       });
       const pick = candidates[0];
       const sKey = `${stream.id}|${pick.day}|${pick.period.position}`;
@@ -191,12 +218,13 @@ async function generateTimetable(
 }
 
 module.exports = {
-  listPeriods: (schoolId) => repo.listPeriods(schoolId),
+  listPeriods: (schoolId, curriculumType) =>
+    repo.listPeriods(schoolId, curriculumType),
   createPeriod: (data) => repo.createPeriod(data),
   updatePeriod: (id, schoolId, data) => repo.updatePeriod(id, schoolId, data),
   deletePeriod: (id, schoolId) => repo.deletePeriod(id, schoolId),
-  listRequirements: (schoolId, gradeId) =>
-    repo.listRequirements(schoolId, gradeId),
+  listRequirements: (schoolId, gradeId, curriculumType) =>
+    repo.listRequirements(schoolId, gradeId, curriculumType),
   upsertRequirement: (data) => repo.upsertRequirement(data),
   bulkUpsertRequirements: async (schoolId, items) => {
     let count = 0;

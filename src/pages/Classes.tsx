@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermission";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,12 +78,18 @@ const Classes = () => {
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: students = [] } = useStudents({ status: "active" });
   // (academic year context no longer needed here — backend handles defaults)
-  const { hasAnyRole } = useAuth();
-  const canManage = hasAnyRole([
-    "super_admin",
-    "school_admin",
-    "deputy_admin",
-  ] as any);
+  const { hasAnyRole, primaryRole } = useAuth();
+  const perms = usePermissions([
+    "classes:create",
+    "classes:update",
+    "classes:delete",
+  ]);
+  const canManage =
+    primaryRole !== "teacher" &&
+    (perms["classes:create"] ||
+      perms["classes:update"] ||
+      perms["classes:delete"] ||
+      hasAnyRole(["super_admin", "school_admin", "deputy_admin"] as any));
   const qc = useQueryClient();
 
   const refreshStreams = () => {
@@ -469,6 +476,8 @@ const Classes = () => {
                   classes.
                 </p>
               ) : (
+                <>
+                  <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -532,6 +541,60 @@ const Classes = () => {
                     ))}
                   </TableBody>
                 </Table>
+                  </div>
+                  
+                  {/* Mobile View Streams */}
+                  <div className="md:hidden flex flex-col gap-3 p-4">
+                    {allStreams.map((s: any) => (
+                      <Card key={s.id} className="p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium text-lg">{s.name}</div>
+                            {s.description && (
+                              <div className="text-sm text-muted-foreground">{s.description}</div>
+                            )}
+                          </div>
+                          {canManage && (
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => openEditStream(s)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleDeleteStream(s)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <span className="block text-xs uppercase text-muted-foreground mb-1">Attached to Class</span>
+                          {(s.grade_names || []).length ? (
+                            <div className="flex gap-1 flex-wrap">
+                              {s.grade_names.map((n: string) => (
+                                <Badge key={n} variant="secondary">
+                                  {n}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">
+                              Unassigned
+                            </span>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -668,7 +731,7 @@ const Classes = () => {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="CBC">CBC</SelectItem>
+                                <SelectItem value="CBC">CBE</SelectItem>
                                 <SelectItem value="8-4-4">8-4-4</SelectItem>
                               </SelectContent>
                             </Select>
@@ -866,7 +929,7 @@ const Classes = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CBC">CBC</SelectItem>
+                        <SelectItem value="CBC">CBE</SelectItem>
                         <SelectItem value="8-4-4">8-4-4</SelectItem>
                       </SelectContent>
                     </Select>
@@ -919,74 +982,76 @@ const Classes = () => {
                 <CardTitle className="text-base font-semibold">
                   Subjects
                 </CardTitle>
-                <Dialog
-                  open={subjectDialogOpen}
-                  onOpenChange={setSubjectDialogOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      Add Subject
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Subject</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Subject Name</Label>
-                          <Input
-                            placeholder="e.g. Mathematics"
-                            value={subjectForm.name}
-                            onChange={(e) =>
-                              setSubjectForm((f) => ({
-                                ...f,
-                                name: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Subject Code</Label>
-                          <Input
-                            placeholder="e.g. MATH"
-                            value={subjectForm.code}
-                            onChange={(e) =>
-                              setSubjectForm((f) => ({
-                                ...f,
-                                code: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description (optional)</Label>
-                        <Input
-                          placeholder="Brief description"
-                          value={subjectForm.description}
-                          onChange={(e) =>
-                            setSubjectForm((f) => ({
-                              ...f,
-                              description: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <Button
-                        className="w-full mt-2"
-                        onClick={handleCreateSubject}
-                        disabled={createSubject.isPending}
-                      >
-                        {createSubject.isPending
-                          ? "Creating..."
-                          : "Add Subject"}
+                {canManage && (
+                  <Dialog
+                    open={subjectDialogOpen}
+                    onOpenChange={setSubjectDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Add Subject
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Subject</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Subject Name</Label>
+                            <Input
+                              placeholder="e.g. Mathematics"
+                              value={subjectForm.name}
+                              onChange={(e) =>
+                                setSubjectForm((f) => ({
+                                  ...f,
+                                  name: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Subject Code</Label>
+                            <Input
+                              placeholder="e.g. MATH"
+                              value={subjectForm.code}
+                              onChange={(e) =>
+                                setSubjectForm((f) => ({
+                                  ...f,
+                                  code: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description (optional)</Label>
+                          <Input
+                            placeholder="Brief description"
+                            value={subjectForm.description}
+                            onChange={(e) =>
+                              setSubjectForm((f) => ({
+                                ...f,
+                                description: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <Button
+                          className="w-full mt-2"
+                          onClick={handleCreateSubject}
+                          disabled={createSubject.isPending}
+                        >
+                          {createSubject.isPending
+                            ? "Creating..."
+                            : "Add Subject"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1001,6 +1066,8 @@ const Classes = () => {
                   No subjects configured.
                 </p>
               ) : (
+                <>
+                  <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -1027,6 +1094,25 @@ const Classes = () => {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
+                
+                {/* Mobile View Subjects */}
+                <div className="md:hidden flex flex-col gap-3 p-4">
+                  {subjects.map((s: any) => (
+                    <Card key={s.id} className="p-4 flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <div className="font-medium text-lg">{s.name}</div>
+                        <Badge variant="secondary" className="font-mono">
+                          {s.code}
+                        </Badge>
+                      </div>
+                      {s.description && (
+                        <div className="text-sm text-muted-foreground">{s.description}</div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>

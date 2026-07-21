@@ -7,7 +7,9 @@ const listByDate = async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
     return success(res, await repo.findByDate(req.schoolId, date));
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 const bulkSave = async (req, res) => {
@@ -22,7 +24,9 @@ const bulkSave = async (req, res) => {
       date,
     }));
     return success(res, await repo.bulkUpsert(enriched), 201);
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 const checkIn = async (req, res) => {
@@ -35,7 +39,9 @@ const checkIn = async (req, res) => {
       late_after: LATE_AFTER,
     });
     return success(res, data, 201);
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 const checkOut = async (req, res) => {
@@ -47,7 +53,9 @@ const checkOut = async (req, res) => {
       time,
     });
     return success(res, data);
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 const summary = async (req, res) => {
@@ -56,7 +64,68 @@ const summary = async (req, res) => {
     const year = Number(req.query.year) || now.getFullYear();
     const month = Number(req.query.month) || now.getMonth() + 1;
     return success(res, await repo.monthlySummary(req.schoolId, year, month));
-  } catch (err) { return error(res, err.message, 500); }
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };
 
 module.exports = { listByDate, bulkSave, checkIn, checkOut, summary };
+
+// ---------------- Self-service ----------------
+const selfStatus = async (req, res) => {
+  try {
+    const staff = await repo.findStaffByUser(req.schoolId, req.user.id);
+    if (!staff) return success(res, { linked: false });
+    const today = await repo.todayFor(req.schoolId, staff.id);
+    return success(res, {
+      linked: true,
+      staff_id: staff.id,
+      name: `${staff.first_name} ${staff.last_name}`,
+      today,
+      status:
+        !today || !today.check_in
+          ? "out"
+          : today.check_out
+            ? "clocked_out"
+            : "in",
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+const selfClockIn = async (req, res) => {
+  try {
+    const staff = await repo.findStaffByUser(req.schoolId, req.user.id);
+    if (!staff)
+      return error(res, "No staff record linked to your account.", 404);
+    const data = await repo.selfClockIn({
+      schoolId: req.schoolId,
+      staffId: staff.id,
+      lateAfter: LATE_AFTER,
+    });
+    return success(res, data, 201);
+  } catch (err) {
+    return error(res, err.message, err.status || 500);
+  }
+};
+
+const selfClockOut = async (req, res) => {
+  try {
+    const staff = await repo.findStaffByUser(req.schoolId, req.user.id);
+    if (!staff)
+      return error(res, "No staff record linked to your account.", 404);
+    const data = await repo.selfClockOut({
+      schoolId: req.schoolId,
+      staffId: staff.id,
+      reason: req.body?.reason,
+    });
+    return success(res, data);
+  } catch (err) {
+    return error(res, err.message, err.status || 500);
+  }
+};
+
+module.exports.selfStatus = selfStatus;
+module.exports.selfClockIn = selfClockIn;
+module.exports.selfClockOut = selfClockOut;

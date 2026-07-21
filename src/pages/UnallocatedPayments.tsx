@@ -23,10 +23,12 @@ import {
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { AlertTriangle, Search } from "lucide-react";
+import { usePermission } from "@/hooks/usePermission";
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
 export default function UnallocatedPayments() {
+  const canReassign = usePermission("payments:update");
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<any | null>(null);
@@ -159,16 +161,18 @@ export default function UnallocatedPayments() {
                       {formatKES(p.amount)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        className="h-7 text-[11px]"
-                        onClick={() => {
-                          setActive(p);
-                          setStudentQuery("");
-                        }}
-                      >
-                        Assign
-                      </Button>
+                      {canReassign && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-[11px]"
+                          onClick={() => {
+                            setActive(p);
+                            setStudentQuery("");
+                          }}
+                        >
+                          Assign
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

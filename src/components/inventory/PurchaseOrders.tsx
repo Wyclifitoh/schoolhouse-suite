@@ -31,8 +31,25 @@ import {
   Edit3,
   MoreHorizontal,
   XCircle,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/date";
+import { usePermissions } from "@/hooks/usePermission";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +69,11 @@ export default function PurchaseOrders() {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
+  const perms = usePermissions([
+    "inventory:create",
+    "inventory:update",
+    "inventory:delete",
+  ]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -79,7 +101,12 @@ export default function PurchaseOrders() {
 
   const { data: catalog = [] } = useQuery({
     queryKey: ["inventory-items", schoolId],
-    queryFn: () => api.get<any[]>("/inventory/items"),
+    queryFn: async () => {
+      // Ask backend for a large page so all products are available in the
+      // combobox (was defaulting to 20).
+      const res: any = await api.get(`/inventory/items?limit=500&page=1`);
+      return (res?.data ?? res ?? []) as any[];
+    },
     enabled: !!schoolId,
   });
 
@@ -167,15 +194,17 @@ export default function PurchaseOrders() {
             Manage supplier orders and restocks
           </p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setIsOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Order
-        </Button>
+        {perms["inventory:create"] && (
+          <Button
+            onClick={() => {
+              resetForm();
+              setIsOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Order
+          </Button>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -226,21 +255,11 @@ export default function PurchaseOrders() {
                 {lineItems.map((item, idx) => (
                   <div key={idx} className="flex gap-3 items-end">
                     <div className="flex-1">
-                      <Select
+                      <ProductPicker
+                        catalog={catalog as any[]}
                         value={item.item_id}
-                        onValueChange={(v) => updateRow(idx, "item_id", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {catalog.map((p: any) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(v) => updateRow(idx, "item_id", v)}
+                      />
                     </div>
                     <div className="w-24">
                       <Input
@@ -384,36 +403,45 @@ export default function PurchaseOrders() {
                       po.status === "ordered" ||
                       po.status === "in_transit" ? (
                         <>
-                          <DropdownMenuItem
-                            onClick={() => handleEdit(po)}
-                            className="cursor-pointer"
-                          >
-                            <Edit3 className="h-4 w-4 mr-2" /> Edit Order
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              updateStatus.mutate({
-                                id: po.id,
-                                status: "delivered",
-                              })
-                            }
-                            className="cursor-pointer text-green-600 focus:text-green-600"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" /> Mark
-                            Delivered
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() =>
-                              updateStatus.mutate({
-                                id: po.id,
-                                status: "cancelled",
-                              })
-                            }
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <XCircle className="h-4 w-4 mr-2" /> Cancel Order
-                          </DropdownMenuItem>
+                          {perms["inventory:update"] && (
+                            <DropdownMenuItem
+                              onClick={() => handleEdit(po)}
+                              className="cursor-pointer"
+                            >
+                              <Edit3 className="h-4 w-4 mr-2" /> Edit Order
+                            </DropdownMenuItem>
+                          )}
+                          {perms["inventory:update"] && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                updateStatus.mutate({
+                                  id: po.id,
+                                  status: "delivered",
+                                })
+                              }
+                              className="cursor-pointer text-green-600 focus:text-green-600"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" /> Mark
+                              Delivered
+                            </DropdownMenuItem>
+                          )}
+                          {perms["inventory:update"] &&
+                            perms["inventory:delete"] && (
+                              <DropdownMenuSeparator />
+                            )}
+                          {perms["inventory:delete"] && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                updateStatus.mutate({
+                                  id: po.id,
+                                  status: "cancelled",
+                                })
+                              }
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" /> Cancel Order
+                            </DropdownMenuItem>
+                          )}
                         </>
                       ) : (
                         <DropdownMenuItem disabled>
@@ -429,5 +457,70 @@ export default function PurchaseOrders() {
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+function ProductPicker({
+  catalog,
+  value,
+  onChange,
+}: {
+  catalog: any[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = catalog.find((p) => p.id === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className={cn(
+            "w-full justify-between",
+            !selected && "text-muted-foreground",
+          )}
+        >
+          {selected
+            ? `${selected.name}${selected.sku ? ` · ${selected.sku}` : ""}`
+            : "Select product"}
+          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0">
+        <Command>
+          <CommandInput placeholder="Search products by name or SKU…" />
+          <CommandList>
+            <CommandEmpty>No products found.</CommandEmpty>
+            <CommandGroup>
+              {catalog.map((p: any) => (
+                <CommandItem
+                  key={p.id}
+                  value={`${p.name} ${p.sku || ""}`}
+                  onSelect={() => {
+                    onChange(p.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === p.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-sm">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {p.sku} · Stock: {p.quantity_in_stock ?? 0}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

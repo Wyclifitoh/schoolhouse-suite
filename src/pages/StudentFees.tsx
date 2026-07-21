@@ -13,8 +13,13 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { useStudentWithFees } from "@/hooks/useStudents";
-import { useFeeDiscounts, useRecordPayment } from "@/hooks/useFinance";
+import { useStudentWithFees, useStudents } from "@/hooks/useStudents";
+import {
+  useFeeDiscounts,
+  useRecordPayment,
+  useCreateFeeAdjustment,
+  useTransferPayment,
+} from "@/hooks/useFinance";
 import { useTerm } from "@/contexts/TermContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -25,13 +30,35 @@ import {
   Receipt,
   AlertTriangle,
   Scale,
+  UserRoundCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 import { api } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Undo2 } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { formatDate, formatDateTime } from "@/utils/date";
 import {
   DropdownMenu,
@@ -41,6 +68,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FileText, FileSpreadsheet, Printer } from "lucide-react";
 import { openReceiptPdf } from "@/hooks/useReceipt";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -116,6 +153,87 @@ const StudentFees = () => {
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const recordPayment = useRecordPayment();
+  const createAdjustment = useCreateFeeAdjustment();
+  const transferPayment = useTransferPayment();
+  const { data: transferStudents = [] } = useStudents({
+    status: "active",
+    enabled: true,
+  });
+  const qc = useQueryClient();
+  const [showRebalanceConfirm, setShowRebalanceConfirm] = useState(false);
+  const rebalanceMutation = useMutation({
+    mutationFn: () =>
+      api.post<any>(`/finance/students/${studentId}/rebalance`, {}),
+    onSuccess: (res: any) => {
+      const d = res?.data || res || {};
+      const corrected = d.overpayments_corrected || 0;
+      const moved = Number(d.total_excess_moved || 0);
+      const applied = Number(d.excess_auto_applied || 0);
+      const remaining = Number(d.remaining_excess || 0);
+      if (corrected === 0 && d.status_normalised === 0) {
+        toast.success("Already balanced — no inconsistencies found.");
+      } else {
+        toast.success(
+          `Rebalanced: ${corrected} overpayment(s), KES ${moved.toLocaleString()} moved to excess` +
+            (applied > 0
+              ? `, KES ${applied.toLocaleString()} auto-applied`
+              : "") +
+            (remaining > 0
+              ? `, KES ${remaining.toLocaleString()} remaining excess.`
+              : "."),
+        );
+      }
+      setShowRebalanceConfirm(false);
+      qc.invalidateQueries({ queryKey: ["student-fee-items", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-payments", studentId] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits", studentId] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Rebalance failed"),
+  });
+
+  const [revertTarget, setRevertTarget] = useState<any | null>(null);
+  const [transferTarget, setTransferTarget] = useState<any | null>(null);
+  const [transferStudentId, setTransferStudentId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [revertMode, setRevertMode] = useState<"excess" | "auto_apply">(
+    "excess",
+  );
+  const [revertReason, setRevertReason] = useState("");
+  const revertMutation = useMutation({
+    mutationFn: ({
+      id,
+      mode,
+      reason,
+    }: {
+      id: string;
+      mode: string;
+      reason: string;
+    }) => api.post(`/payments/${id}/revert`, { mode, reason }),
+    onSuccess: () => {
+      toast.success("Payment reverted");
+      setRevertTarget(null);
+      setRevertReason("");
+      qc.invalidateQueries({ queryKey: ["student-payments", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-fee-items", studentId] });
+      qc.invalidateQueries({ queryKey: ["payment-allocations", studentId] });
+      qc.invalidateQueries({ queryKey: ["student-excess-credits", studentId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const handleTransferPayment = async () => {
+    if (!transferTarget) return;
+    await transferPayment.mutateAsync({
+      paymentId: transferTarget.id,
+      toStudentId: transferStudentId,
+      reason: transferReason,
+    });
+    setTransferTarget(null);
+    setTransferStudentId("");
+    setTransferReason("");
+    qc.invalidateQueries({ queryKey: ["student-with-fees", studentId] });
+  };
 
   const excessAvailable = useMemo(
     () =>
@@ -232,10 +350,24 @@ const StudentFees = () => {
     }
   };
 
-  const handleAdjustment = (data: any) => {
-    toast.success(`Fee adjustment applied`);
-    setShowAdjustmentDialog(false);
-    setAdjustmentFee(null);
+  const handleAdjustment = async (data: {
+    feeId: string;
+    adjustmentType: string;
+    amount: number;
+    reason: string;
+  }) => {
+    try {
+      await createAdjustment.mutateAsync({
+        student_fee_id: data.feeId,
+        adjustment_type: data.adjustmentType,
+        amount: Number(data.amount) || 0,
+        reason: data.reason,
+      });
+      setShowAdjustmentDialog(false);
+      setAdjustmentFee(null);
+    } catch {
+      /* toast handled in hook */
+    }
   };
 
   const downloadStatement = async (format: "pdf" | "excel") => {
@@ -315,35 +447,50 @@ const StudentFees = () => {
             Back
           </Button>
           <div className="flex gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Download className="h-3.5 w-3.5 mr-1" />
-                  Statement
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => downloadStatement("pdf")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download as PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadStatement("excel")}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Download as Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              size="sm"
-              onClick={() => {
-                setPaymentFeeId("");
-                setPaymentAmount(undefined);
-                setShowPaymentDialog(true);
-              }}
-            >
-              <Wallet className="h-3.5 w-3.5 mr-1" />
-              Receive Payment
-            </Button>
+            <PermissionGate permission="reports:export">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    Statement
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => downloadStatement("pdf")}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download as PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadStatement("excel")}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Download as Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </PermissionGate>
+            <PermissionGate permission="payments:create">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPaymentFeeId("");
+                  setPaymentAmount(undefined);
+                  setShowPaymentDialog(true);
+                }}
+              >
+                <Wallet className="h-3.5 w-3.5 mr-1" />
+                Receive Payment
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="finance:fees:waive">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowRebalanceConfirm(true)}
+                title="Detect overpayments and move excess to credits"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                Rebalance
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -480,19 +627,21 @@ const StudentFees = () => {
                   : "It will auto-apply when new fees are assigned."}
               </span>
               {totals.totalBalance > 0 && excessCredits.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {excessCredits.map((c: any) => (
-                    <Button
-                      key={c.id}
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px]"
-                      onClick={() => applyExcess(c.id)}
-                    >
-                      Apply {formatKES(Number(c.amount))}
-                    </Button>
-                  ))}
-                </div>
+                <PermissionGate permission="finance:fees:waive">
+                  <div className="flex flex-wrap gap-2">
+                    {excessCredits.map((c: any) => (
+                      <Button
+                        key={c.id}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        onClick={() => applyExcess(c.id)}
+                      >
+                        Apply {formatKES(Number(c.amount))}
+                      </Button>
+                    ))}
+                  </div>
+                </PermissionGate>
               )}
             </CardContent>
           </Card>
@@ -579,21 +728,39 @@ const StudentFees = () => {
                           {Number(f.balance || 0).toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          {(f.balance || 0) > 0 && (
+                          <div className="flex gap-1">
+                            {(f.balance || 0) > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => {
+                                  setPaymentFeeId(f.id);
+                                  setPaymentAmount(f.balance);
+                                  setShowPaymentDialog(true);
+                                }}
+                              >
+                                <Wallet className="h-3 w-3 mr-0.5" />
+                                Pay
+                              </Button>
+                            )}
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               className="h-7 text-[11px] px-2"
                               onClick={() => {
-                                setPaymentFeeId(f.id);
-                                setPaymentAmount(f.balance);
-                                setShowPaymentDialog(true);
+                                setAdjustmentFee({
+                                  id: f.id,
+                                  name: f.fee_name || f.name || "Fee",
+                                  currentAmount: Number(f.amount || 0),
+                                  amountPaid: Number(f.paid || 0),
+                                });
+                                setShowAdjustmentDialog(true);
                               }}
                             >
-                              <Wallet className="h-3 w-3 mr-0.5" />
-                              Pay
+                              Adjust
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -719,6 +886,40 @@ const StudentFees = () => {
                             >
                               <Printer className="h-4 w-4" />
                             </Button>
+                            {p.status !== "reversed" && (
+                              <PermissionGate permission="payments:reverse">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-destructive"
+                                  title="Revert payment"
+                                  onClick={() => {
+                                    setRevertTarget(p);
+                                    setRevertMode("excess");
+                                    setRevertReason("");
+                                  }}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </PermissionGate>
+                            )}
+                            {p.status !== "reversed" && (
+                              <PermissionGate permission="payments:update">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-primary"
+                                  title="Transfer payment to another student"
+                                  onClick={() => {
+                                    setTransferTarget(p);
+                                    setTransferStudentId("");
+                                    setTransferReason("");
+                                  }}
+                                >
+                                  <UserRoundCheck className="h-4 w-4" />
+                                </Button>
+                              </PermissionGate>
+                            )}
                           </TableCell>
                         </TableRow>
                         {(allocs.length > 0 || unallocated > 0) && (
@@ -837,7 +1038,234 @@ const StudentFees = () => {
         fee={adjustmentFee}
         studentName={displayName}
         onSubmit={handleAdjustment}
+        isSubmitting={createAdjustment.isPending}
       />
+      <Dialog
+        open={!!revertTarget}
+        onOpenChange={(o) => !o && setRevertTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-destructive" /> Revert Payment
+            </DialogTitle>
+            <DialogDescription>
+              The payment record is preserved for audit. Its allocations will be
+              removed from the fee(s) they touched.
+            </DialogDescription>
+          </DialogHeader>
+          {revertTarget && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-md bg-muted/40 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <strong>{formatKES(Number(revertTarget.amount || 0))}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-mono text-xs">
+                    {revertTarget.reference_number ||
+                      revertTarget.mpesa_receipt ||
+                      "—"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">
+                  Where should the reverted amount go?
+                </Label>
+                <RadioGroup
+                  value={revertMode}
+                  onValueChange={(v: any) => setRevertMode(v)}
+                >
+                  <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="excess" />
+                    <div>
+                      <div className="font-medium text-sm">
+                        Move to Excess Payments
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Park the full amount as an unallocated credit on the
+                        student's account.
+                      </p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/40">
+                    <RadioGroupItem value="auto_apply" />
+                    <div>
+                      <div className="font-medium text-sm">
+                        Auto-apply to next unpaid fees
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Re-allocate to outstanding fees FIFO (oldest due first).
+                        Any remainder becomes excess credit.
+                      </p>
+                    </div>
+                  </label>
+                </RadioGroup>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Reason (optional)</Label>
+                <Textarea
+                  rows={2}
+                  value={revertReason}
+                  onChange={(e) => setRevertReason(e.target.value)}
+                  placeholder="e.g. Wrong student / duplicate payment"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevertTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={revertMutation.isPending}
+              onClick={() =>
+                revertTarget &&
+                revertMutation.mutate({
+                  id: revertTarget.id,
+                  mode: revertMode,
+                  reason: revertReason,
+                })
+              }
+            >
+              {revertMutation.isPending ? "Reverting…" : "Confirm Revert"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!transferTarget}
+        onOpenChange={(o) => !o && setTransferTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserRoundCheck className="h-5 w-5 text-primary" /> Transfer
+              Payment
+            </DialogTitle>
+            <DialogDescription>
+              The current student's allocations and excess are reversed, then
+              the same payment is reallocated to the selected student.
+            </DialogDescription>
+          </DialogHeader>
+          {transferTarget && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-md bg-muted/40 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount</span>
+                  <strong>
+                    {formatKES(Number(transferTarget.amount || 0))}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Reference</span>
+                  <span className="font-mono text-xs">
+                    {transferTarget.reference_number ||
+                      transferTarget.mpesa_receipt ||
+                      "—"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Transfer to student *</Label>
+                <Select
+                  value={transferStudentId}
+                  onValueChange={setTransferStudentId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(transferStudents as any[])
+                      .filter((s) => s.id !== studentId)
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name || `${s.first_name} ${s.last_name}`} ·{" "}
+                          {s.admission_number}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Reason (min 20 characters) *</Label>
+                <Textarea
+                  rows={3}
+                  value={transferReason}
+                  onChange={(e) => setTransferReason(e.target.value)}
+                  placeholder="e.g. Payment was allocated to the wrong student"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !transferStudentId ||
+                transferReason.trim().length < 20 ||
+                transferPayment.isPending
+              }
+              onClick={handleTransferPayment}
+            >
+              {transferPayment.isPending ? "Transferring…" : "Transfer Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={showRebalanceConfirm}
+        onOpenChange={setShowRebalanceConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Rebalance {displayName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This scans every fee for this student and rectifies any
+              inconsistency:
+              <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
+                <li>
+                  Where a fee has been paid more than its due amount, the
+                  overpayment is moved to Excess Payments as an advance credit.
+                </li>
+                <li>
+                  The new credit is auto-applied to the next unpaid fees (oldest
+                  first). Any remainder stays as excess.
+                </li>
+                <li>
+                  Fee statuses (paid / partial / pending) are normalised to
+                  match actual figures.
+                </li>
+              </ul>
+              The action is fully logged in the audit trail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rebalanceMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                rebalanceMutation.mutate();
+              }}
+              disabled={rebalanceMutation.isPending}
+            >
+              {rebalanceMutation.isPending
+                ? "Rebalancing…"
+                : "Confirm Rebalance"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

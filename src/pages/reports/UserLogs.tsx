@@ -1,6 +1,7 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PermissionGate } from "@/components/PermissionGate";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,7 +34,7 @@ const UserLogs = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold flex items-center gap-2"><Shield className="h-4 w-4 text-primary" />User Activity Logs</CardTitle>
-            <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button>
+            <PermissionGate permission="reports:export"><Button variant="outline" size="sm"><Download className="h-4 w-4 mr-1.5" />Export</Button></PermissionGate>
           </div>
         </CardHeader>
         <CardContent className="p-0">

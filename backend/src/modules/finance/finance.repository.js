@@ -43,6 +43,47 @@ const createFeeCategory = async (schoolId, data) => {
   return queryOne("SELECT * FROM fee_categories WHERE id = ?", [id]);
 };
 
+const updateFeeCategory = async (id, schoolId, data) => {
+  const allowed = ["name", "type", "description", "gl_code", "is_optional"];
+  const entries = Object.entries(data || {}).filter(([k]) =>
+    allowed.includes(k),
+  );
+  if (entries.length === 0) {
+    return queryOne(
+      "SELECT * FROM fee_categories WHERE id = ? AND school_id = ?",
+      [id, schoolId],
+    );
+  }
+  const fields = entries.map(([k]) => `${k} = ?`);
+  const values = entries.map(([, v]) => v);
+  values.push(id, schoolId);
+  await query(
+    `UPDATE fee_categories SET ${fields.join(", ")} WHERE id = ? AND school_id = ?`,
+    values,
+  );
+  return queryOne("SELECT * FROM fee_categories WHERE id = ?", [id]);
+};
+
+const deleteFeeCategory = async (id, schoolId) => {
+  // Block delete when in use
+  const inUse = await queryOne(
+    "SELECT COUNT(*) AS c FROM fee_structures WHERE fee_category_id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  if (inUse && Number(inUse.c) > 0) {
+    const err = new Error(
+      "Category is used by one or more fee structures and cannot be deleted",
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+  await query("DELETE FROM fee_categories WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
+  return { deleted: true };
+};
+
 // ---- Fee Structures ----
 const findFeeStructures = async (schoolId) => {
   return query(
@@ -329,6 +370,21 @@ const bulkUnassignFee = async ({
   );
   const blockedIds = new Set(blockedRows.map((r) => r.id));
 
+  // Capture the rows we are about to delete so we can write per-student
+  // audit entries after the DELETE succeeds.
+  const toDelete = await query(
+    `SELECT id, student_id, amount_due
+       FROM student_fees
+      WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
+        AND student_id IN (${placeholders})
+        AND amount_paid = 0
+        AND id NOT IN (
+          SELECT student_fee_id FROM payment_allocations
+           WHERE student_fee_id IS NOT NULL
+        )`,
+    [schoolId, feeStructureId, termId || null, ...studentIds],
+  );
+
   const result = await query(
     `DELETE FROM student_fees
        WHERE school_id = ? AND fee_structure_id = ? AND term_id <=> ?
@@ -340,7 +396,11 @@ const bulkUnassignFee = async ({
          )`,
     [schoolId, feeStructureId, termId || null, ...studentIds],
   );
-  return { removed: result.affectedRows || 0, blocked: blockedIds.size };
+  return {
+    removed: result.affectedRows || 0,
+    blocked: blockedIds.size,
+    removed_rows: toDelete,
+  };
 };
 
 // ---- Term close → carry forward ----
@@ -648,6 +708,145 @@ const applyExcessCredit = async ({
   };
 };
 
+// ---- Student rebalance ----
+// Scans every student_fees row for the student and rectifies inconsistencies:
+//  * Where amount_paid > amount_due, the overpayment is moved off the fee
+//    (amount_paid clamped to amount_due, status normalised) and a new
+//    `fee_carry_forwards` advance_credit row is created for the difference.
+//  * Where amount_paid <= amount_due, status is normalised to
+//    paid/partial/pending so cached state matches actual figures.
+// After the sweep we run the existing applyExcessForStudents so the freshly
+// created credit FIFO-allocates to any outstanding fees. Everything is
+// logged in finance_audit_logs.
+const rebalanceStudent = async ({
+  schoolId,
+  studentId,
+  performedBy = null,
+}) => {
+  if (!studentId) throw new Error("studentId is required");
+  const fees = await query(
+    `SELECT id, amount_due, amount_paid, status, ledger_type, term_id
+       FROM student_fees
+      WHERE school_id = ? AND student_id = ?
+        AND status NOT IN ('cancelled','waived')`,
+    [schoolId, studentId],
+  );
+
+  const overpaymentsByLedger = {};
+  const adjustments = [];
+  let totalExcessMoved = 0;
+  let statusFixed = 0;
+
+  for (const fee of fees) {
+    const due = Number(fee.amount_due || 0);
+    const paid = Number(fee.amount_paid || 0);
+    if (paid > due + 0.0001) {
+      const excess = paid - due;
+      await query(
+        `UPDATE student_fees SET amount_paid = ?, status = 'paid' WHERE id = ?`,
+        [due, fee.id],
+      );
+      const key = fee.ledger_type || "fees";
+      overpaymentsByLedger[key] = (overpaymentsByLedger[key] || 0) + excess;
+      totalExcessMoved += excess;
+      adjustments.push({
+        fee_id: fee.id,
+        previous_paid: paid,
+        new_paid: due,
+        moved_to_excess: excess,
+      });
+    } else {
+      const expected = paid <= 0 ? "pending" : paid >= due ? "paid" : "partial";
+      if (expected !== fee.status) {
+        await query(`UPDATE student_fees SET status = ? WHERE id = ?`, [
+          expected,
+          fee.id,
+        ]);
+        statusFixed += 1;
+      }
+    }
+  }
+
+  // Create one advance_credit per ledger for the moved excess
+  const newCreditIds = [];
+  for (const [ledgerType, amount] of Object.entries(overpaymentsByLedger)) {
+    if (amount <= 0) continue;
+    const id = uuidv4();
+    try {
+      await query(
+        `INSERT INTO fee_carry_forwards
+          (id, school_id, student_id, ledger_type, amount, type, status)
+         VALUES (?, ?, ?, ?, ?, 'advance_credit', 'pending')`,
+        [id, schoolId, studentId, ledgerType, amount],
+      );
+      newCreditIds.push(id);
+    } catch (e) {
+      throw new Error(`Failed to record excess credit: ${e.message}`);
+    }
+  }
+
+  // Auto-apply any pending excess (including what we just created)
+  let excessApplied = { applied_total: 0, applications: [] };
+  try {
+    excessApplied = await applyExcessForStudents({
+      schoolId,
+      studentIds: [studentId],
+      performedBy,
+    });
+  } catch {
+    /* non-fatal */
+  }
+
+  // Compute remaining excess
+  const remainingRows = await query(
+    `SELECT COALESCE(SUM(amount),0) AS total FROM fee_carry_forwards
+      WHERE school_id = ? AND student_id = ?
+        AND type = 'advance_credit' AND status = 'pending'`,
+    [schoolId, studentId],
+  );
+  const remainingExcess = Number(remainingRows?.[0]?.total || 0);
+
+  // Audit
+  try {
+    await query(
+      `INSERT INTO finance_audit_logs
+        (id, school_id, action, entity_type, entity_id, student_id, amount_affected, performed_by, metadata)
+       VALUES (?, ?, 'STUDENT_REBALANCED', 'student', ?, ?, ?, ?, ?)`,
+      [
+        uuidv4(),
+        schoolId,
+        studentId,
+        studentId,
+        totalExcessMoved,
+        String(performedBy || "system"),
+        JSON.stringify({
+          fees_scanned: fees.length,
+          overpayments_corrected: adjustments.length,
+          status_normalised: statusFixed,
+          total_excess_moved: totalExcessMoved,
+          excess_credits_created: newCreditIds,
+          excess_auto_applied: excessApplied.applied_total,
+          remaining_excess: remainingExcess,
+          adjustments,
+        }),
+      ],
+    );
+  } catch {
+    /* non-fatal */
+  }
+
+  return {
+    fees_scanned: fees.length,
+    overpayments_corrected: adjustments.length,
+    status_normalised: statusFixed,
+    total_excess_moved: totalExcessMoved,
+    excess_credits_created: newCreditIds.length,
+    excess_auto_applied: excessApplied.applied_total,
+    remaining_excess: remainingExcess,
+    adjustments,
+  };
+};
+
 const findStudentFeeById = async (id, schoolId) => {
   return queryOne("SELECT * FROM student_fees WHERE id = ? AND school_id = ?", [
     id,
@@ -759,12 +958,24 @@ const getCarryForwards = async (schoolId) => {
   );
 };
 
-const getStudentFeesList = async (
+const getStudentFeesListV1 = async (
   schoolId,
   { search, termId, academicYearId },
 ) => {
   let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, s.grade, s.stream,
-    s.parent_name, s.parent_phone,
+    COALESCE(
+      (SELECT CONCAT_WS(' ', p.first_name, p.last_name)
+         FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id
+        ORDER BY (sp.is_primary = 1) DESC, sp.created_at ASC LIMIT 1),
+      s.parent_name
+    ) AS parent_name,
+    COALESCE(
+      (SELECT p.phone FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id AND p.phone IS NOT NULL AND p.phone <> ''
+        ORDER BY (sp.is_primary = 1) DESC, sp.created_at ASC LIMIT 1),
+      s.parent_phone
+    ) AS parent_phone,
     COALESCE(SUM(sf.amount_due), 0) as total_fee,
     COALESCE(SUM(sf.discount_amount), 0) as discount,
     COALESCE(SUM(sf.fine_amount), 0) as fine,
@@ -802,6 +1013,90 @@ const getStudentFeesList = async (
   return query(sql, params);
 };
 
+const getStudentFeesList = async (
+  schoolId,
+  { search, termId, academicYearId, limit = 200, offset = 0 },
+) => {
+  const numLimit = parseInt(limit, 10);
+  const numOffset = parseInt(offset, 10);
+  const finalLimit = isNaN(numLimit)
+    ? 200
+    : Math.min(1000, Math.max(1, numLimit));
+  const finalOffset = isNaN(numOffset) ? 0 : Math.max(0, numOffset);
+
+  let sql = `SELECT s.id, s.first_name, s.last_name, s.full_name, s.admission_number, 
+    COALESCE(g.name, s.current_grade_id) as grade,
+    COALESCE(st.name, s.current_stream_id) as stream,
+    COALESCE(
+      (SELECT CONCAT_WS(' ', p.first_name, p.last_name)
+         FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id
+        ORDER BY sp.is_primary_contact DESC, sp.created_at ASC LIMIT 1),
+      s.parent_name
+    ) AS parent_name,
+    COALESCE(
+      (SELECT p.phone FROM student_parents sp JOIN parents p ON p.id = sp.parent_id
+        WHERE sp.student_id = s.id AND p.phone IS NOT NULL AND p.phone <> ''
+        ORDER BY sp.is_primary_contact DESC, sp.created_at ASC LIMIT 1),
+      s.parent_phone
+    ) AS parent_phone,
+    COALESCE(SUM(sf.amount_due), 0) as total_fee,
+    COALESCE(SUM(sf.discount_amount), 0) as discount,
+    COALESCE(SUM(sf.fine_amount), 0) as fine,
+    COALESCE(SUM(sf.amount_paid), 0) as paid,
+    COALESCE(SUM(sf.amount_due - sf.amount_paid), 0) as balance,
+    COALESCE(SUM(CASE WHEN (sf.amount_due - sf.amount_paid) > 0 THEN 1 ELSE 0 END), 0) as fee_count,
+    COALESCE(SUM(CASE WHEN sf.due_date IS NOT NULL AND sf.due_date < CURRENT_DATE() AND (sf.amount_due - sf.amount_paid) > 0 THEN 1 ELSE 0 END), 0) as overdue_count
+    FROM students s
+    LEFT JOIN grades g ON g.id = s.current_grade_id
+    LEFT JOIN streams st ON st.id = s.current_stream_id
+    LEFT JOIN student_fees sf ON sf.student_id = s.id AND sf.school_id = s.school_id AND sf.status NOT IN ('cancelled','waived')`;
+
+  const params = [];
+  const joinFilters = [];
+  if (termId) {
+    joinFilters.push("sf.term_id = ?");
+    params.push(termId);
+  }
+  if (academicYearId) {
+    joinFilters.push(
+      "(sf.academic_year_id = ? OR sf.academic_year_id IS NULL)",
+    );
+    params.push(academicYearId);
+  }
+  if (joinFilters.length) sql += ` AND ${joinFilters.join(" AND ")}`;
+
+  sql += " WHERE s.school_id = ? AND s.status = ?";
+  params.push(schoolId, "active");
+
+  if (search) {
+    sql += " AND (s.full_name LIKE ? OR s.admission_number LIKE ?)";
+    const q = `%${search}%`;
+    params.push(q, q);
+  }
+
+  sql += " GROUP BY s.id ORDER BY s.full_name";
+
+  // Add pagination with template literals
+  sql += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
+
+  // Get total count
+  let countSql = `SELECT COUNT(DISTINCT s.id) as total FROM students s WHERE s.school_id = ? AND s.status = ?`;
+  const countParams = [schoolId, "active"];
+
+  if (search) {
+    countSql += " AND (s.full_name LIKE ? OR s.admission_number LIKE ?)";
+    countParams.push(`%${search}%`, `%${search}%`);
+  }
+
+  const [rows, countResult] = await Promise.all([
+    query(sql, params),
+    query(countSql, countParams),
+  ]);
+
+  return { rows, total: countResult[0]?.total || 0 };
+};
+
 const findExpenses = async (schoolId) => {
   return query(
     `SELECT e.*, ec.name as category_name FROM expenses e LEFT JOIN expense_categories ec ON ec.id = e.category_id WHERE e.school_id = ? ORDER BY e.expense_date DESC`,
@@ -837,6 +1132,82 @@ const logBulkFeeAudit = async ({
         feeStructureId,
         String(performedBy || "system"),
         JSON.stringify({ termId, studentIds, ...extra }),
+      ],
+    );
+  } catch (e) {
+    /* non-fatal */
+  }
+};
+
+// Validate that every studentId belongs to the provided scope
+// (grade_ids / stream_ids) for the given school. Returns the list of IDs
+// that fall OUTSIDE the scope. An empty array means everything is in scope.
+// When neither gradeIds nor streamIds are provided, scope is unconstrained
+// and an empty array is returned.
+const findStudentsOutOfScope = async ({
+  schoolId,
+  studentIds,
+  gradeIds,
+  streamIds,
+}) => {
+  if (!studentIds?.length) return [];
+  const hasGrade = Array.isArray(gradeIds) && gradeIds.length > 0;
+  const hasStream = Array.isArray(streamIds) && streamIds.length > 0;
+  if (!hasGrade && !hasStream) return [];
+  const placeholders = studentIds.map(() => "?").join(",");
+  const params = [schoolId, ...studentIds];
+  let sql = `SELECT id, current_grade_id as grade_id, current_stream_id as stream_id FROM students
+              WHERE school_id = ? AND id IN (${placeholders})`;
+  const rows = await query(sql, params);
+  const valid = new Set(
+    rows
+      .filter((r) => {
+        const gradeOk = !hasGrade || gradeIds.includes(r.grade_id);
+        const streamOk =
+          !hasStream || (r.stream_id && streamIds.includes(r.stream_id));
+        return gradeOk && streamOk;
+      })
+      .map((r) => r.id),
+  );
+  return studentIds.filter((id) => !valid.has(id));
+};
+
+// Per-student audit row for FEE_ASSIGNED / FEE_UNASSIGNED. Always records
+// the admin identity + active term/academic_year so changes are traceable.
+const logFeeAssignmentChange = async ({
+  schoolId,
+  action, // 'FEE_ASSIGNED' | 'FEE_UNASSIGNED'
+  studentFeeId,
+  studentId,
+  feeStructureId,
+  termId,
+  academicYearId,
+  amount,
+  performedBy,
+  performedByRole,
+  scope,
+}) => {
+  try {
+    await query(
+      `INSERT INTO finance_audit_logs
+        (id, school_id, action, entity_type, entity_id, student_id,
+         amount_affected, performed_by, metadata)
+       VALUES (?, ?, ?, 'student_fee', ?, ?, ?, ?, ?)`,
+      [
+        uuidv4(),
+        schoolId,
+        action,
+        studentFeeId || feeStructureId,
+        studentId || null,
+        amount == null ? null : Number(amount),
+        String(performedBy || "system"),
+        JSON.stringify({
+          fee_structure_id: feeStructureId,
+          term_id: termId || null,
+          academic_year_id: academicYearId || null,
+          performed_by_role: performedByRole || null,
+          scope: scope || null,
+        }),
       ],
     );
   } catch (e) {
@@ -941,24 +1312,94 @@ const applyDiscountToStudents = async ({
         ? Math.round(base * (Number(discount.value) / 100) * 100) / 100
         : Math.min(Number(discount.value), base);
     try {
-      await query(
-        `INSERT INTO student_fee_discounts
-           (id, school_id, student_id, discount_id, fee_structure_id, term_id, academic_year_id,
-            amount, applied_to_fee_id, applied_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      // Check for an existing assignment in the same scope (active OR revoked)
+      // so we can reactivate revoked rows instead of hitting the unique index.
+      const existing = await queryOne(
+        `SELECT id, status FROM student_fee_discounts
+          WHERE school_id = ? AND student_id = ? AND discount_id = ?
+            AND fee_structure_id <=> ? AND term_id <=> ?
+          ORDER BY created_at DESC LIMIT 1`,
         [
-          uuidv4(),
           schoolId,
           studentId,
           discountId,
           feeStructureId || null,
           termId || null,
-          academicYearId || null,
-          amt,
-          feeRow?.id || null,
-          performedBy || null,
         ],
       );
+      if (existing) {
+        if (existing.status === "active") {
+          skipped++;
+          continue;
+        }
+        // Reactivate the revoked row in-place.
+        await query(
+          `UPDATE student_fee_discounts
+              SET status = 'active', amount = ?, applied_to_fee_id = ?,
+                  applied_by = ?, created_at = NOW()
+            WHERE id = ?`,
+          [amt, feeRow?.id || null, performedBy || null, existing.id],
+        );
+        if (feeRow) {
+          const newDiscount = Number(feeRow.discount_amount || 0) + amt;
+          const newDue = Math.max(0, base - newDiscount);
+          await query(
+            `UPDATE student_fees SET discount_amount = ?, amount_due = ? WHERE id = ?`,
+            [newDiscount, newDue, feeRow.id],
+          );
+        }
+        applied++;
+        continue;
+      }
+      // Detect legacy student_fee_id column once (some DBs still have it NOT NULL).
+      const hasLegacyCol = await query(
+        `SELECT COUNT(*) AS c FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = 'student_fee_discounts'
+           AND column_name = 'student_fee_id'`,
+      )
+        .then((r) => Number(r[0]?.c || 0) > 0)
+        .catch(() => false);
+      if (hasLegacyCol) {
+        await query(
+          `INSERT INTO student_fee_discounts
+             (id, school_id, student_id, discount_id, fee_structure_id, term_id, academic_year_id,
+              amount, applied_to_fee_id, student_fee_id, applied_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            uuidv4(),
+            schoolId,
+            studentId,
+            discountId,
+            feeStructureId || null,
+            termId || null,
+            academicYearId || null,
+            amt,
+            feeRow?.id || null,
+            feeRow?.id || null,
+            performedBy || null,
+          ],
+        );
+      } else {
+        await query(
+          `INSERT INTO student_fee_discounts
+             (id, school_id, student_id, discount_id, fee_structure_id, term_id, academic_year_id,
+              amount, applied_to_fee_id, applied_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            uuidv4(),
+            schoolId,
+            studentId,
+            discountId,
+            feeStructureId || null,
+            termId || null,
+            academicYearId || null,
+            amt,
+            feeRow?.id || null,
+            performedBy || null,
+          ],
+        );
+      }
+
       if (feeRow) {
         const newDiscount = Number(feeRow.discount_amount || 0) + amt;
         const newDue = Math.max(0, base - newDiscount);
@@ -1007,6 +1448,48 @@ const revokeAppliedDiscount = async (schoolId, id) => {
     [id],
   );
   return { revoked: 1 };
+};
+
+/**
+ * Bulk-revoke applied discounts for a set of students within a given
+ * discount + (optional) fee_structure + (optional) term scope. Idempotent.
+ */
+const bulkRevokeAppliedDiscounts = async ({
+  schoolId,
+  discountId,
+  feeStructureId,
+  termId,
+  studentIds,
+}) => {
+  if (!discountId) throw new Error("discount_id is required");
+  if (!Array.isArray(studentIds) || !studentIds.length) {
+    return { revoked: 0 };
+  }
+  const ph = studentIds.map(() => "?").join(",");
+  const params = [schoolId, discountId, ...studentIds];
+  let where = `school_id = ? AND discount_id = ? AND status = 'active' AND student_id IN (${ph})`;
+  if (feeStructureId) {
+    where += " AND fee_structure_id <=> ?";
+    params.push(feeStructureId);
+  }
+  if (termId) {
+    where += " AND term_id <=> ?";
+    params.push(termId);
+  }
+  const rows = await query(
+    `SELECT id FROM student_fee_discounts WHERE ${where}`,
+    params,
+  );
+  let revoked = 0;
+  for (const r of rows) {
+    try {
+      await revokeAppliedDiscount(schoolId, r.id);
+      revoked++;
+    } catch {
+      /* skip individual failures */
+    }
+  }
+  return { revoked };
 };
 
 // ---- Fee Adjustments with approval workflow ----
@@ -1246,6 +1729,8 @@ module.exports = {
   findFeeTemplates,
   findFeeCategories,
   createFeeCategory,
+  updateFeeCategory,
+  deleteFeeCategory,
   findFeeStructures,
   createFeeStructure,
   updateFeeStructure,
@@ -1265,6 +1750,8 @@ module.exports = {
   bulkAssignFee,
   bulkUnassignFee,
   logBulkFeeAudit,
+  logFeeAssignmentChange,
+  findStudentsOutOfScope,
   getAuditLogs,
   findExcessCredits,
   findStudentOutstandingFees,
@@ -1273,9 +1760,11 @@ module.exports = {
   listAppliedDiscounts,
   applyDiscountToStudents,
   revokeAppliedDiscount,
+  bulkRevokeAppliedDiscounts,
   closeTerm,
   createFeeAdjustment,
   listFeeAdjustments,
   decideFeeAdjustment,
   getReconciliationReport,
+  rebalanceStudent,
 };

@@ -10,7 +10,9 @@ const wrap = (fn) => async (req, res) => {
   }
 };
 
-exports.listPeriods = wrap((req) => svc.listPeriods(req.schoolId));
+exports.listPeriods = wrap((req) =>
+  svc.listPeriods(req.schoolId, req.query.curriculum_type),
+);
 exports.createPeriod = wrap((req) =>
   svc.createPeriod({ ...req.body, school_id: req.schoolId }),
 );
@@ -22,7 +24,11 @@ exports.deletePeriod = wrap((req) =>
 );
 
 exports.listRequirements = wrap((req) =>
-  svc.listRequirements(req.schoolId, req.query.grade_id),
+  svc.listRequirements(
+    req.schoolId,
+    req.query.grade_id,
+    req.query.curriculum_type,
+  ),
 );
 exports.upsertRequirement = wrap((req) =>
   svc.upsertRequirement({ ...req.body, school_id: req.schoolId }),

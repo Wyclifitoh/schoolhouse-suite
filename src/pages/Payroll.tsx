@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Play, CheckCircle, Banknote, FileText } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermission";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -37,6 +38,10 @@ export default function Payroll() {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const qc = useQueryClient();
+  const p = usePermissions(["staff:create", "staff:update", "expenses:approve"]);
+  const canCreate = p["staff:create"];
+  const canRun = p["staff:update"];
+  const canApprove = p["expenses:approve"] || p["staff:update"];
   const [newPeriodOpen, setNewPeriodOpen] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const now = new Date();
@@ -101,10 +106,11 @@ export default function Payroll() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Manage payroll periods. Runs auto-calculate PAYE, NSSF, SHIF and Housing Levy.</p>
-          <Dialog open={newPeriodOpen} onOpenChange={setNewPeriodOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />New Period</Button>
-            </DialogTrigger>
+          {canCreate ? (
+            <Dialog open={newPeriodOpen} onOpenChange={setNewPeriodOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="h-4 w-4 mr-2" />New Period</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Create Payroll Period</DialogTitle></DialogHeader>
               <div className="space-y-3">
@@ -129,7 +135,8 @@ export default function Payroll() {
                 </Button>
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          ) : null}
         </div>
 
         {/* Periods list */}
@@ -163,17 +170,17 @@ export default function Payroll() {
                         <Button variant="ghost" size="sm" onClick={() => setSelectedPeriodId(p.id)}>
                           <FileText className="h-4 w-4 mr-1" />View
                         </Button>
-                        {p.status === "draft" && (
+                        {p.status === "draft" && canRun && (
                           <Button variant="outline" size="sm" disabled={runMut.isPending} onClick={() => runMut.mutate(p.id)}>
                             <Play className="h-4 w-4 mr-1" />Run
                           </Button>
                         )}
-                        {p.status === "processing" && (
+                        {p.status === "processing" && canApprove && (
                           <Button variant="outline" size="sm" onClick={() => approveMut.mutate(p.id)}>
                             <CheckCircle className="h-4 w-4 mr-1" />Approve
                           </Button>
                         )}
-                        {p.status === "approved" && (
+                        {p.status === "approved" && canApprove && (
                           <Button size="sm" onClick={() => payMut.mutate(p.id)}>
                             <Banknote className="h-4 w-4 mr-1" />Mark Paid
                           </Button>

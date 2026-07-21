@@ -2,7 +2,13 @@ const router = require("express").Router();
 const c = require("./finance.controller");
 const statementController = require("./statement.controller");
 const prevBalance = require("./previous-balance.service");
+const feeReminders = require("./fee-reminders.controller");
 const { success, error } = require("../../utils/response");
+
+router.post("/fee-reminders/send", feeReminders.sendFeeReminders);
+// Fee categories — update & delete
+router.put("/fee-categories/:id", c.updateFeeCategory);
+router.delete("/fee-categories/:id", c.deleteFeeCategory);
 
 router.get("/fee-templates", c.getFeeTemplates);
 router.get("/fee-categories", c.getFeeCategories);
@@ -35,6 +41,7 @@ router.get("/audit-logs", c.getAuditLogs);
 // Standalone discount application (independent of bulk fee assignment)
 router.get("/applied-discounts", c.listAppliedDiscounts);
 router.post("/applied-discounts", c.applyDiscount);
+router.post("/applied-discounts/bulk-revoke", c.bulkRevokeDiscounts);
 router.delete("/applied-discounts/:id", c.revokeDiscount);
 
 // Term close → carry-forward arrears to next term
@@ -47,6 +54,9 @@ router.post("/adjustments/:id/decision", c.decideFeeAdjustment);
 
 // Daily reconciliation report
 router.get("/reconciliation", c.getReconciliationReport);
+
+// Rebalance a single student — fixes overpayments by moving excess to credits.
+router.post("/students/:studentId/rebalance", c.rebalanceStudent);
 
 // Brought Forward Balances (Previous Balance) -----------------------------
 router.get("/brought-forward/preview", async (req, res) => {

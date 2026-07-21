@@ -3,6 +3,9 @@ const { query, queryOne } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 const { success, error } = require("../../utils/response");
 const staffController = require("./staff.controller");
+const { resetStaffPassword } = require("./staff-password.controller");
+
+router.post("/:id/reset-password", resetStaffPassword);
 
 // ===== Staff CRUD (HR module redesign 2026-05-31) =====
 // POST   /staff          -> create staff (auto user + role + teacher + creds)

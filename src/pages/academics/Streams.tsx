@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePermissions } from "@/hooks/usePermission";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,11 +32,15 @@ import {
   useUpdateIndependentStream,
 } from "@/hooks/useClasses";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Streams = () => {
   const { data: grades = [] } = useClasses();
   const { data: streams = [], isLoading } = useIndependentStreams();
-
+  const { primaryRole } = useAuth();
+  const rawP = usePermissions(["classes:create", "classes:update", "classes:delete"]);
+  const isTeacher = primaryRole === "teacher";
+  const p = isTeacher ? { "classes:create": false, "classes:update": false, "classes:delete": false } : rawP;
   const createStream = useCreateIndependentStream();
   const deleteStream = useDeleteIndependentStream();
   const updateStream = useUpdateIndependentStream();
@@ -143,6 +148,7 @@ const Streams = () => {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Layers className="h-4 w-4 text-primary" /> All Streams
               </CardTitle>
+              {p["classes:create"] && (
               <Dialog open={showAdd} onOpenChange={setShowAdd}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -201,6 +207,7 @@ const Streams = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -215,6 +222,8 @@ const Streams = () => {
                 No streams yet.
               </p>
             ) : (
+              <>
+              <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
@@ -279,6 +288,67 @@ const Streams = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
+
+              {/* Mobile View Streams */}
+              <div className="md:hidden flex flex-col gap-3 p-4">
+                {(streams as any[]).map((s: any) => (
+                  <Card key={s.id} className="p-4 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-lg">{s.name}</div>
+                        {s.description && (
+                          <div className="text-sm text-muted-foreground">{s.description}</div>
+                        )}
+                      </div>
+                      <div className="flex justify-end gap-1">
+                        {p["classes:update"] && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEdit(s)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {p["classes:delete"] && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleDelete(s)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-xs uppercase text-muted-foreground mb-1">Attached Classes</span>
+                      {(s.grade_names || []).length ? (
+                        <div className="flex gap-1 flex-wrap">
+                          {s.grade_names.map((n: string) => (
+                            <Badge key={n} variant="secondary">
+                              {n}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">
+                          Unassigned
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <span className="text-xs uppercase text-muted-foreground">Capacity:</span>
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      {s.capacity || "—"}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              </>
             )}
           </CardContent>
         </Card>

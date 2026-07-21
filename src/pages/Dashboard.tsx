@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useAssessmentTasksPaged } from "@/hooks/useAssessments";
+import { Link } from "react-router-dom";
 import {
   Users,
   Banknote,
@@ -35,7 +37,14 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { format } from "date-fns";
+import {
+  format,
+  differenceInDays,
+  parseISO,
+  isPast,
+  startOfDay,
+} from "date-fns";
+import { ClockInOutCard } from "@/components/staff/ClockInOutCard";
 
 const CHART_COLORS = [
   "hsl(221, 83%, 53%)",
@@ -120,8 +129,46 @@ const AdminDashboard = () => {
 
   const netIncome = (stats?.totalRevenue || 0) - (stats?.totalExpenses || 0);
 
+  // Revenue split pie
+  const revenuePie = [
+    { name: "Collected", value: stats?.totalRevenue || 0 },
+    { name: "Outstanding", value: stats?.totalOutstanding || 0 },
+    { name: "Expenses", value: stats?.totalExpenses || 0 },
+  ].filter((d) => d.value > 0);
+
+  // People composition
+  const peoplePie = [
+    { name: "Students", value: stats?.totalStudents || 0 },
+    { name: "Parents", value: stats?.totalParents || 0 },
+    { name: "Staff", value: stats?.totalStaff || 0 },
+  ].filter((d) => d.value > 0);
+
+  // Recent payments grouped by day for trend
+  const paymentsByDay: Record<string, number> = {};
+  (stats?.recentPayments || []).forEach((p) => {
+    const k = format(new Date(p.received_at), "MMM d");
+    paymentsByDay[k] = (paymentsByDay[k] || 0) + Number(p.amount || 0);
+  });
+  const paymentTrend = Object.entries(paymentsByDay)
+    .reverse()
+    .map(([day, amount]) => ({ day, amount }));
+
+  // Payment method breakdown
+  const methodTotals: Record<string, number> = {};
+  (stats?.recentPayments || []).forEach((p) => {
+    const m = (p.payment_method || "Other").toUpperCase();
+    methodTotals[m] = (methodTotals[m] || 0) + Number(p.amount || 0);
+  });
+  const methodBars = Object.entries(methodTotals).map(([method, total]) => ({
+    method,
+    total,
+  }));
+
   return (
     <>
+      <div className="mb-4">
+        <ClockInOutCard />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <StatCard
           title="Total Students"
@@ -157,8 +204,174 @@ const AdminDashboard = () => {
         />
       </div>
 
+      {/* Charts row */}
+      <div className="grid gap-4 lg:grid-cols-3 mb-6">
+        <ChartCard title="Finance Composition">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={revenuePie}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={50}
+                outerRadius={80}
+                paddingAngle={2}
+              >
+                {revenuePie.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: number) => formatKES(v)} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-2 justify-center mt-2">
+            {revenuePie.map((d, i) => (
+              <span
+                key={d.name}
+                className="text-[11px] flex items-center gap-1.5 text-muted-foreground"
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
+                />
+                {d.name}
+              </span>
+            ))}
+          </div>
+        </ChartCard>
+
+        <ChartCard title="Payments by Method">
+          {methodBars.length === 0 ? (
+            <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">
+              No recent payments
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={methodBars}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="method" fontSize={11} />
+                <YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => formatKES(v)} />
+                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                  {methodBars.map((_, i) => (
+                    <Cell
+                      key={i}
+                      fill={CHART_COLORS[i % CHART_COLORS.length]}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="School Population">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={peoplePie}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={80}
+                label={(d) => d.name}
+              >
+                {peoplePie.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3 mb-6">
+        <ChartCard title="Collections Trend" className="lg:col-span-2">
+          {paymentTrend.length === 0 ? (
+            <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">
+              No payments yet
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={paymentTrend}>
+                <defs>
+                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor={CHART_COLORS[0]}
+                      stopOpacity={0.6}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor={CHART_COLORS[0]}
+                      stopOpacity={0.05}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="day" fontSize={11} />
+                <YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => formatKES(v)} />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke={CHART_COLORS[0]}
+                  fill="url(#rev)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Quick Stats">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                label: "Parents",
+                value: stats?.totalParents || 0,
+                color: "text-primary",
+              },
+              {
+                label: "Staff",
+                value: stats?.totalStaff || 0,
+                color: "text-info",
+              },
+              {
+                label: "Active Students",
+                value: stats?.activeStudents || 0,
+                color: "text-success",
+              },
+              {
+                label: "Attendance",
+                value: `${stats?.attendanceRate || 0}%`,
+                color: "text-warning",
+              },
+              {
+                label: "Expenses",
+                value: formatKES(stats?.totalExpenses || 0),
+                color: "text-destructive",
+              },
+              {
+                label: "Net Income",
+                value: formatKES(netIncome),
+                color: netIncome >= 0 ? "text-success" : "text-destructive",
+              },
+            ].map((s) => (
+              <div key={s.label} className="p-3 rounded-lg bg-muted/40">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  {s.label}
+                </p>
+                <p className={`text-base font-extrabold mt-0.5 ${s.color}`}>
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </ChartCard>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-7 mb-6">
-        <Card className="lg:col-span-4 glass-card-hover">
+        <Card className="lg:col-span-7 glass-card-hover">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold">Recent Payments</CardTitle>
           </CardHeader>
@@ -171,7 +384,7 @@ const AdminDashboard = () => {
               </div>
             ) : (
               <div className="divide-y divide-border/50">
-                {(stats?.recentPayments || []).slice(0, 5).map((p) => (
+                {(stats?.recentPayments || []).slice(0, 6).map((p) => (
                   <div
                     key={p.id}
                     className="flex items-center gap-4 px-6 py-3.5 hover:bg-muted/30 transition-colors"
@@ -206,74 +419,6 @@ const AdminDashboard = () => {
             )}
           </CardContent>
         </Card>
-
-        <div className="lg:col-span-3 grid gap-4">
-          <Card className="glass-card-hover">
-            <CardContent className="p-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Parents</p>
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-12 mx-auto mt-1" />
-                  ) : (
-                    <p className="text-xl font-bold text-foreground mt-1">
-                      {stats?.totalParents || 0}
-                    </p>
-                  )}
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Staff</p>
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-12 mx-auto mt-1" />
-                  ) : (
-                    <p className="text-xl font-bold text-foreground mt-1">
-                      {stats?.totalStaff || 0}
-                    </p>
-                  )}
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Expenses</p>
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-16 mx-auto mt-1" />
-                  ) : (
-                    <p className="text-xl font-bold text-destructive mt-1">
-                      {formatKES(stats?.totalExpenses || 0)}
-                    </p>
-                  )}
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Net Income</p>
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-16 mx-auto mt-1" />
-                  ) : (
-                    <p
-                      className={`text-xl font-bold mt-1 ${netIncome >= 0 ? "text-success" : "text-destructive"}`}
-                    >
-                      {formatKES(netIncome)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="glass-card-hover">
-            <CardContent className="p-5">
-              <p className="text-xs text-muted-foreground mb-2">
-                Active Students
-              </p>
-              {isLoading ? (
-                <Skeleton className="h-7 w-20" />
-              ) : (
-                <p className="text-2xl font-bold text-foreground">
-                  {stats?.activeStudents || 0}{" "}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    / {stats?.totalStudents || 0}
-                  </span>
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </>
   );
@@ -284,77 +429,324 @@ const AccountantDashboard = () => {
   const { data: stats, isLoading } = useDashboardStats();
   const netIncome = (stats?.totalRevenue || 0) - (stats?.totalExpenses || 0);
 
+  const finPie = [
+    { name: "Collected", value: stats?.totalRevenue || 0 },
+    { name: "Outstanding", value: stats?.totalOutstanding || 0 },
+    { name: "Expenses", value: stats?.totalExpenses || 0 },
+  ].filter((d) => d.value > 0);
+
+  const methodTotals: Record<string, number> = {};
+  (stats?.recentPayments || []).forEach((p) => {
+    const m = (p.payment_method || "Other").toUpperCase();
+    methodTotals[m] = (methodTotals[m] || 0) + Number(p.amount || 0);
+  });
+  const methodBars = Object.entries(methodTotals).map(([method, total]) => ({
+    method,
+    total,
+  }));
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-      <StatCard
-        title="Total Collected"
-        value={formatKES(stats?.totalRevenue || 0)}
-        icon={Banknote}
-        color="text-success"
-        bg="bg-success/10"
-        loading={isLoading}
-      />
-      <StatCard
-        title="Outstanding"
-        value={formatKES(stats?.totalOutstanding || 0)}
-        icon={AlertTriangle}
-        color="text-warning"
-        bg="bg-warning/10"
-        loading={isLoading}
-      />
-      <StatCard
-        title="Total Expenses"
-        value={formatKES(stats?.totalExpenses || 0)}
-        icon={Receipt}
-        color="text-destructive"
-        bg="bg-destructive/10"
-        loading={isLoading}
-      />
-      <StatCard
-        title="Net Income"
-        value={formatKES(netIncome)}
-        icon={TrendingUp}
-        color="text-primary"
-        bg="bg-primary/10"
-        loading={isLoading}
-      />
-    </div>
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <StatCard
+          title="Total Collected"
+          value={formatKES(stats?.totalRevenue || 0)}
+          icon={Banknote}
+          color="text-success"
+          bg="bg-success/10"
+          loading={isLoading}
+        />
+        <StatCard
+          title="Outstanding"
+          value={formatKES(stats?.totalOutstanding || 0)}
+          icon={AlertTriangle}
+          color="text-warning"
+          bg="bg-warning/10"
+          loading={isLoading}
+        />
+        <StatCard
+          title="Total Expenses"
+          value={formatKES(stats?.totalExpenses || 0)}
+          icon={Receipt}
+          color="text-destructive"
+          bg="bg-destructive/10"
+          loading={isLoading}
+        />
+        <StatCard
+          title="Net Income"
+          value={formatKES(netIncome)}
+          icon={TrendingUp}
+          color="text-primary"
+          bg="bg-primary/10"
+          loading={isLoading}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 mb-6">
+        <ChartCard title="Finance Composition">
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie
+                data={finPie}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={55}
+                outerRadius={90}
+                paddingAngle={2}
+              >
+                {finPie.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: number) => formatKES(v)} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="Payments by Method">
+          {methodBars.length === 0 ? (
+            <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">
+              No recent payments
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={methodBars}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="method" fontSize={11} />
+                <YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => formatKES(v)} />
+                <Bar
+                  dataKey="total"
+                  radius={[6, 6, 0, 0]}
+                  fill={CHART_COLORS[1]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+      </div>
+    </>
   );
 };
 
 // ============== TEACHER ==============
-const TeacherDashboard = () => (
-  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-    <StatCard
-      title="My Classes"
-      value="—"
-      icon={BookOpen}
-      color="text-primary"
-      bg="bg-primary/10"
-    />
-    <StatCard
-      title="My Students"
-      value="—"
-      icon={Users}
-      color="text-info"
-      bg="bg-info/10"
-    />
-    <StatCard
-      title="Today's Attendance"
-      value="—"
-      icon={CalendarCheck}
-      color="text-success"
-      bg="bg-success/10"
-    />
-    <StatCard
-      title="Pending Marks"
-      value="—"
-      icon={AlertTriangle}
-      color="text-warning"
-      bg="bg-warning/10"
-    />
-  </div>
-);
+const TeacherDashboard = () => {
+  const { data: stats, isLoading } = useDashboardStats();
+
+  const teacherStats = [
+    {
+      title: "Total Students",
+      value: stats?.totalStudents || 0,
+      icon: Users,
+      color: "text-primary",
+      bg: "bg-primary/10",
+    },
+    {
+      title: "Active Students",
+      value: stats?.activeStudents || 0,
+      icon: GraduationCap,
+      color: "text-info",
+      bg: "bg-info/10",
+    },
+    {
+      title: "Attendance Rate",
+      value: `${stats?.attendanceRate || 0}%`,
+      icon: CalendarCheck,
+      color: "text-success",
+      bg: "bg-success/10",
+    },
+    {
+      title: "Total Staff",
+      value: stats?.totalStaff || 0,
+      icon: BookOpen,
+      color: "text-warning",
+      bg: "bg-warning/10",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <ClockInOutCard />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-2">
+        {teacherStats.map((s) => (
+          <StatCard
+            key={s.title}
+            title={s.title}
+            value={s.value}
+            icon={s.icon}
+            color={s.color}
+            bg={s.bg}
+            loading={isLoading}
+          />
+        ))}
+      </div>
+
+      {/* Quick overview */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="sm:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold">School Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {
+                  label: "Parents",
+                  value: stats?.totalParents || 0,
+                  color: "text-primary",
+                },
+                {
+                  label: "Staff Members",
+                  value: stats?.totalStaff || 0,
+                  color: "text-info",
+                },
+                {
+                  label: "Attendance Rate",
+                  value: `${stats?.attendanceRate || 0}%`,
+                  color: "text-success",
+                },
+                {
+                  label: "Active Students",
+                  value: stats?.activeStudents || 0,
+                  color: "text-warning",
+                },
+              ].map((item) => (
+                <div key={item.label} className="p-3 rounded-lg bg-muted/40">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                    {item.label}
+                  </p>
+                  {isLoading ? (
+                    <Skeleton className="h-6 w-16 mt-1" />
+                  ) : (
+                    <p
+                      className={`text-lg font-extrabold mt-0.5 ${item.color}`}
+                    >
+                      {item.value}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { label: "Take Attendance", href: "/attendance" },
+              { label: "View Students", href: "/students" },
+              { label: "Assessments", href: "/assessments" },
+            ].map((action) => (
+              <a
+                key={action.label}
+                href={action.href}
+                className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-muted/50 transition-colors text-sm font-medium"
+              >
+                {action.label}
+                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <TeacherPendingTasks />
+    </div>
+  );
+};
+
+const TeacherPendingTasks = () => {
+  const { data, isLoading } = useAssessmentTasksPaged({
+    status: "pending,in_progress",
+    limit: 5,
+  });
+  const tasks = data?.data || [];
+
+  if (isLoading || tasks.length === 0) return null;
+
+  return (
+    <Card className="glass-card-hover mt-6">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-bold flex items-center justify-between">
+          <span>Pending Marks Entry</span>
+          <Link
+            to="/assessments/tasks"
+            className="text-xs font-normal text-primary hover:underline"
+          >
+            View all tasks
+          </Link>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y divide-border/50">
+          {tasks.map((t) => {
+            const end = t.end_date ? parseISO(t.end_date) : null;
+            const deadline = t.marks_deadline
+              ? parseISO(t.marks_deadline)
+              : null;
+
+            let badge = null;
+            if (end && deadline) {
+              const startOfEnd = startOfDay(end);
+              if (new Date() >= startOfEnd) {
+                const daysLeft = differenceInDays(
+                  deadline,
+                  startOfDay(new Date()),
+                );
+                if (daysLeft >= 0) {
+                  badge = (
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] text-amber-600 bg-amber-50 border-amber-200"
+                    >
+                      {daysLeft} days left
+                    </Badge>
+                  );
+                } else {
+                  badge = (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {Math.abs(daysLeft)} days overdue
+                    </Badge>
+                  );
+                }
+              }
+            }
+
+            return (
+              <div
+                key={t.id}
+                className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors"
+              >
+                <div>
+                  <Link
+                    to={`/assessments/${t.assessment_id}`}
+                    className="text-sm font-semibold text-foreground hover:underline"
+                  >
+                    {t.assessment_name}
+                  </Link>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {t.grade_name} {t.stream_name ? `· ${t.stream_name}` : ""} ·{" "}
+                    {t.subject_name}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {badge}
+                  <Link to={`/assessments/marks/${t.id}`}>
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+                      <ArrowUpRight className="h-3.5 w-3.5" /> Enter Marks
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 // ============== PARENT / STUDENT ==============
 const PortalDashboard = ({ primaryRole }: { primaryRole: string }) => (

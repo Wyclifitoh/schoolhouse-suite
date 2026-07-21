@@ -5,6 +5,7 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermission";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
+import { toast as sonner } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +55,12 @@ import {
   Mail,
   Phone,
   KeyRound,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -102,20 +110,74 @@ export default function StaffDirectory() {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const qc = useQueryClient();
+  const perms = usePermissions(["staff:create","staff:update","staff:delete"]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [viewStaff, setViewStaff] = useState<any>(null);
   const [editStaff, setEditStaff] = useState<any>(null);
   const [deleteStaff, setDeleteStaff] = useState<any>(null);
+  const [resetStaff, setResetStaff] = useState<any>(null);
+  const [resetResult, setResetResult] = useState<any>(null);
+  const [resetting, setResetting] = useState(false);
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
+  // Bulk upload
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkPreview, setBulkPreview] = useState<any[]>([]);
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  const [bulkResult, setBulkResult] = useState<any>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const handleReset = async (target: any) => {
+    setResetting(true);
+    setResetStaff(target);
+    setResetResult(null);
+    try {
+      const res = await api.post<any>(`/staff/${target.id}/reset-password`, {
+        send: "none",
+      });
+      setResetResult(res);
+    } catch (e: any) {
+      sonner.error(e.message || "Reset failed");
+      setResetStaff(null);
+    } finally {
+      setResetting(false);
+    }
+  };
+  const sendReset = async (channel: "email" | "sms") => {
+    if (!resetStaff) return;
+    try {
+      const res = await api.post<any>(
+        `/staff/${resetStaff.id}/reset-password`,
+        { send: channel },
+      );
+      setResetResult(res);
+      const ok =
+        channel === "email" ? res?.delivery?.email?.ok : res?.delivery?.sms?.ok;
+      ok
+        ? sonner.success(`Sent via ${channel.toUpperCase()}`)
+        : sonner.error(`Failed to send via ${channel.toUpperCase()}`);
+    } catch (e: any) {
+      sonner.error(e.message || "Send failed");
+    }
+  };
   const [tab, setTab] = useState("basic");
   const [form, setForm] = useState({ ...emptyForm });
 
-  const { data: staffList = [], isLoading } = useQuery({
-    queryKey: ["staff", schoolId],
-    queryFn: () => api.get<any[]>("/staff"),
+  const { data: staffPage, isLoading } = useQuery({
+    queryKey: ["staff", schoolId, currentPage, PAGE_SIZE, search, roleFilter],
+    queryFn: () =>
+      api.getPaginated<any[]>(
+        `/staff?page=${currentPage}&limit=${PAGE_SIZE}` +
+          (search ? `&search=${encodeURIComponent(search)}` : "") +
+          (roleFilter !== "all" ? `&role=${roleFilter}` : ""),
+      ),
     enabled: !!schoolId,
   });
+  const staffList: any[] = staffPage?.data ?? [];
+  const staffPagination = staffPage?.pagination;
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", schoolId],
@@ -226,15 +288,6 @@ export default function StaffDirectory() {
   };
 
   const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
-
-  const filtered = staffList.filter((s: any) => {
-    const matchesSearch =
-      `${s.first_name} ${s.last_name} ${s.employee_number} ${s.email}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-    const matchesRole = roleFilter === "all" || s.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
 
   const isTeacher = form.role === "teacher";
 
@@ -497,7 +550,7 @@ export default function StaffDirectory() {
   );
 
   const headlineStats = [
-    { label: "Total Staff", value: staffList.length },
+    { label: "Total Staff", value: staffPagination?.total ?? staffList.length },
     {
       label: "Active",
       value: staffList.filter((s: any) => s.status === "active").length,
@@ -513,6 +566,73 @@ export default function StaffDirectory() {
     },
   ];
 
+  // ── CSV bulk-upload helpers ──────────────────────────────────────
+  const parseCSV = (text: string) => {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return { rows: [], errors: ["CSV has no data rows"] };
+    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    const rows: any[] = [];
+    const errors: string[] = [];
+    lines.slice(1).forEach((line, i) => {
+      if (!line.trim()) return;
+      const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+      const obj: any = {};
+      headers.forEach((h, j) => { obj[h] = vals[j] ?? ""; });
+      if (!obj.first_name && !obj.full_name && !obj.name) {
+        errors.push(`Row ${i + 2}: missing name`);
+      }
+      rows.push(obj);
+    });
+    return { rows, errors };
+  };
+
+  const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFile(file);
+    setBulkResult(null);
+    setBulkErrors([]);
+    setBulkPreview([]);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { rows, errors } = parseCSV(text);
+      setBulkPreview(rows.slice(0, 5));
+      setBulkErrors(errors);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkSubmit = async () => {
+    if (!bulkFile) return;
+    setBulkLoading(true);
+    try {
+      const text = await bulkFile.text();
+      const { rows } = parseCSV(text);
+      const result = await api.post<any>("/staff/bulk-import", {
+        staff: rows,
+        school_name: currentSchool?.name,
+      });
+      setBulkResult(result);
+      qc.invalidateQueries({ queryKey: ["staff"] });
+    } catch (err: any) {
+      sonner.error(err.message || "Bulk import failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const csv = [
+      "employee_number,first_name,last_name,email,phone,gender,role,department_id,designation_id,join_date,salary,tsc_number,specialization",
+      "EMP-001,Jane,Doe,jane@school.co.ke,254712345678,female,teacher,,,2024-01-15,50000,TSC12345,Mathematics",
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "staff_template.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <DashboardLayout
       title="Staff Directory"
@@ -523,6 +643,13 @@ export default function StaffDirectory() {
           <p className="text-sm text-muted-foreground">
             All staff members across the 7 canonical roles.
           </p>
+          <div className="flex gap-2">
+            {perms["staff:create"] && (
+              <Button variant="outline" onClick={() => setIsBulkOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Bulk Upload
+              </Button>
+            )}
           <Dialog
             open={isAddOpen}
             onOpenChange={(o) => {
@@ -533,12 +660,12 @@ export default function StaffDirectory() {
               }
             }}
           >
-            <DialogTrigger asChild>
+            {perms["staff:create"] && <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Staff
               </Button>
-            </DialogTrigger>
+            </DialogTrigger>}
             <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Staff Member</DialogTitle>
@@ -563,6 +690,7 @@ export default function StaffDirectory() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -583,10 +711,10 @@ export default function StaffDirectory() {
               placeholder="Search staff..."
               className="pl-10"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             />
           </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}>
             <SelectTrigger className="w-48">
               <SelectValue />
             </SelectTrigger>
@@ -623,7 +751,7 @@ export default function StaffDirectory() {
                       Loading…
                     </TableCell>
                   </TableRow>
-                ) : filtered.length === 0 ? (
+                ) : staffList.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={8}
@@ -633,7 +761,7 @@ export default function StaffDirectory() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((s: any) => (
+                  staffList.map((s: any) => (
                     <TableRow key={s.id}>
                       <TableCell className="font-mono text-sm">
                         {s.employee_number}
@@ -687,20 +815,28 @@ export default function StaffDirectory() {
                               <Eye className="h-4 w-4" />
                             </a>
                           </Button>
-                          <Button
+                          {perms["staff:update"] && <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => openEdit(s)}
                           >
                             <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
+                          </Button>}
+                          {perms["staff:update"] && <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Reset password"
+                            onClick={() => handleReset(s)}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>}
+                          {perms["staff:delete"] && <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setDeleteStaff(s)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          </Button>}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -710,6 +846,52 @@ export default function StaffDirectory() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Pagination */}
+        {staffPagination && staffPagination.totalPages > 1 && (
+          <div className="flex items-center justify-between text-sm">
+            <p className="text-muted-foreground">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, staffPagination.total)} of {staffPagination.total} staff
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline" size="icon"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: staffPagination.totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === staffPagination.totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                  if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === "..." ? (
+                    <span key={`e${i}`} className="px-2 text-muted-foreground">…</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={p === currentPage ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => setCurrentPage(p as number)}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+              <Button
+                variant="outline" size="icon"
+                disabled={currentPage >= staffPagination.totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* View */}
         <Dialog open={!!viewStaff} onOpenChange={() => setViewStaff(null)}>
@@ -824,6 +1006,247 @@ export default function StaffDirectory() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Reset password */}
+        <Dialog
+          open={!!resetStaff}
+          onOpenChange={(o) => {
+            if (!o) {
+              setResetStaff(null);
+              setResetResult(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset Password</DialogTitle>
+            </DialogHeader>
+            {resetting && !resetResult ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                Generating new password…
+              </p>
+            ) : resetResult ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    New password for{" "}
+                    <span className="font-medium text-foreground">
+                      {resetStaff?.first_name} {resetStaff?.last_name}
+                    </span>
+                  </p>
+                </div>
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <div className="text-xs text-muted-foreground mb-1">
+                    Temporary password
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="font-mono text-base font-semibold tracking-wide">
+                      {resetResult.new_password}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(resetResult.new_password);
+                        sonner.success("Copied");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Staff will be required to change it on first login.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => sendReset("email")}
+                    disabled={!resetStaff?.email}
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send via Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => sendReset("sms")}
+                    disabled={!resetStaff?.phone}
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Send via SMS
+                  </Button>
+                </div>
+                {resetResult.delivery && (
+                  <div className="text-xs space-y-1">
+                    {resetResult.delivery.email && (
+                      <div>
+                        Email:{" "}
+                        {resetResult.delivery.email.ok ? (
+                          <span className="text-green-600">Sent</span>
+                        ) : (
+                          <span className="text-destructive">
+                            {resetResult.delivery.email.error || "Failed"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {resetResult.delivery.sms && (
+                      <div>
+                        SMS:{" "}
+                        {resetResult.delivery.sms.ok ? (
+                          <span className="text-green-600">Sent</span>
+                        ) : (
+                          <span className="text-destructive">
+                            {resetResult.delivery.sms.error || "Failed"}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setResetStaff(null);
+                      setResetResult(null);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Upload Dialog */}
+        <Dialog
+          open={isBulkOpen}
+          onOpenChange={(o) => {
+            setIsBulkOpen(o);
+            if (!o) { setBulkFile(null); setBulkPreview([]); setBulkErrors([]); setBulkResult(null); }
+          }}
+        >
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Bulk Upload Staff</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {/* Template download */}
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-medium">Download CSV Template</p>
+                  <p className="text-xs text-muted-foreground">Fill in the template and re-upload. Max 500 rows.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Template
+                </Button>
+              </div>
+
+              {/* File picker */}
+              <div>
+                <Label htmlFor="bulk-csv">Select CSV File</Label>
+                <Input
+                  id="bulk-csv"
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="mt-1"
+                  onChange={handleBulkFileChange}
+                />
+              </div>
+
+              {/* Validation errors */}
+              {bulkErrors.length > 0 && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-destructive text-sm font-medium">
+                    <AlertCircle className="h-4 w-4" />
+                    {bulkErrors.length} warning(s) detected
+                  </div>
+                  <ul className="text-xs text-destructive/80 list-disc pl-5 space-y-0.5">
+                    {bulkErrors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {/* Preview */}
+              {bulkPreview.length > 0 && !bulkResult && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Preview (first {bulkPreview.length} rows)</p>
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          {Object.keys(bulkPreview[0]).slice(0, 7).map((h) => (
+                            <th key={h} className="px-2 py-1.5 text-left font-medium capitalize">{h.replace(/_/g, " ")}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkPreview.map((row, i) => (
+                          <tr key={i} className="border-t">
+                            {Object.values(row).slice(0, 7).map((v: any, j) => (
+                              <td key={j} className="px-2 py-1.5 truncate max-w-[120px]">{v || "—"}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Import result */}
+              {bulkResult && (
+                <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    Import Complete
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3">
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-400">{bulkResult.created?.length ?? 0}</p>
+                      <p className="text-xs text-muted-foreground">Created</p>
+                    </div>
+                    <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3">
+                      <p className="text-2xl font-bold text-red-700 dark:text-red-400">{bulkResult.failed?.length ?? 0}</p>
+                      <p className="text-xs text-muted-foreground">Failed</p>
+                    </div>
+                    <div className="rounded-md bg-muted p-3">
+                      <p className="text-2xl font-bold">{bulkResult.total ?? 0}</p>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                    </div>
+                  </div>
+                  {bulkResult.failed?.length > 0 && (
+                    <div className="text-xs text-muted-foreground space-y-0.5 max-h-32 overflow-y-auto border rounded p-2 bg-muted/30">
+                      {bulkResult.failed.map((f: any, i: number) => (
+                        <p key={i}><span className="font-medium">Row {f.row}:</span> {f.message}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setIsBulkOpen(false)}>Cancel</Button>
+                {!bulkResult && (
+                  <Button
+                    onClick={handleBulkSubmit}
+                    disabled={!bulkFile || bulkLoading}
+                  >
+                    {bulkLoading ? "Importing…" : `Import ${bulkPreview.length > 0 ? "Staff" : ""}`}
+                  </Button>
+                )}
+                {bulkResult && (
+                  <Button variant="outline" onClick={() => { setBulkFile(null); setBulkPreview([]); setBulkErrors([]); setBulkResult(null); }}>
+                    Upload Another
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

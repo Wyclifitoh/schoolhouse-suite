@@ -62,41 +62,12 @@ async function sendEmail({ to, subject, text, html }) {
 }
 
 // ----- SMS ----------------------------------------------------------------
-// Africa's Talking compatible REST call. Configure:
-//   SMS_API_URL      e.g. https://api.africastalking.com/version1/messaging
-//   SMS_API_KEY
-//   SMS_USERNAME
-//   SMS_SENDER_ID    (optional)
+// Delegates to the central SMS helper (sms.service.js) so all modules use
+// the same gateway, auth headers and idempotency key.
+const { sendSMS } = require("../modules/communication/sms.service");
 async function sendSms({ to, message }) {
-  if (!to) return { ok: false, skipped: "no-recipient" };
-  const url = process.env.SMS_API_URL;
-  const apiKey = process.env.SMS_API_KEY;
-  const username = process.env.SMS_USERNAME;
-  if (!url || !apiKey || !username) {
-    log("sms skipped: SMS_* env not configured", { to });
-    return { ok: false, skipped: "not-configured" };
-  }
-  try {
-    const params = new URLSearchParams({
-      username,
-      to,
-      message,
-    });
-    if (process.env.SMS_SENDER_ID)
-      params.append("from", process.env.SMS_SENDER_ID);
-    await axios.post(url, params.toString(), {
-      headers: {
-        apiKey,
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      timeout: 8000,
-    });
-    return { ok: true };
-  } catch (err) {
-    log("sms failed", err.response?.data || err.message);
-    return { ok: false, error: err.message };
-  }
+  const res = await sendSMS(to, message);
+  return { ok: !!res.success, error: res.error, data: res.data };
 }
 
 /**

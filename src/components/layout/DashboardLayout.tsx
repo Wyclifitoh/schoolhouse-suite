@@ -60,6 +60,7 @@ import {
   ListChecks,
   Sparkles,
   Activity,
+  LayoutGrid,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ import {
 } from "@/components/ui/dialog";
 import { createPortal } from "react-dom";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useMyPermissions, PermissionCode } from "@/hooks/usePermission";
 
 // Role-based access helpers - IMPLEMENTED
 const SUPER_ADMIN_ROLES: AppRole[] = ["super_admin"];
@@ -144,6 +146,12 @@ interface NavItem {
   url: string;
   icon: any;
   roles: readonly string[];
+  /**
+   * Optional permission codes. If provided, the item is also visible to
+   * any user holding ANY of these permissions (in addition to role checks).
+   * Admins / super_admins always pass via the role check.
+   */
+  permissions?: PermissionCode[];
 }
 interface NavGroup {
   label: string;
@@ -179,31 +187,37 @@ const navigationGroups: NavGroup[] = [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
+          ...FINANCE_STAFF_ROLES,
         ] as AppRole[],
+        permissions: ["students:read"],
       },
       {
         title: "Disabled Students",
         url: "/students/disabled",
         icon: Accessibility,
         roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
+        permissions: ["students:read"],
       },
       {
         title: "Parents",
         url: "/parents",
         icon: Users,
         roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
+        permissions: ["parents:read"],
       },
       {
         title: "Attendance",
         url: "/attendance",
         icon: Calendar,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["attendance:read"],
       },
       {
         title: "Promotion",
         url: "/promotion",
         icon: TrendingUp,
         roles: ADMIN_ROLES,
+        permissions: ["students:promote"],
       },
     ],
   },
@@ -218,66 +232,77 @@ const navigationGroups: NavGroup[] = [
         url: "/classes",
         icon: School,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
       {
         title: "Streams",
         url: "/streams",
         icon: Layers,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
       {
         title: "Subjects",
         url: "/subjects",
         icon: BookOpen,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
       {
         title: "Subject Allocation",
         url: "/subject-allocation",
         icon: Layers,
         roles: ADMIN_ROLES,
+        permissions: ["classes:update"],
       },
       {
         title: "Teacher Allocation",
         url: "/teacher-allocation",
         icon: UserCog,
         roles: ADMIN_ROLES,
+        permissions: ["classes:update"],
       },
       {
         title: "Assign Class Teacher",
         url: "/assign-class-teacher",
         icon: UserCheck,
         roles: ADMIN_ROLES,
+        permissions: ["classes:update"],
       },
       {
         title: "Class Timetable",
         url: "/class-timetable",
         icon: TableProperties,
-        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        roles: ADMIN_ROLES,
+        permissions: ["classes:read"],
       },
       {
         title: "Teacher Timetable",
         url: "/teacher-timetable",
         icon: Clock,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
       {
         title: "Lesson Plans (CBE)",
         url: "/lesson-plans",
         icon: BookOpenCheck,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
       {
         title: "Homework",
         url: "/homework",
         icon: PenTool,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
       {
         title: "Clubs & Societies",
         url: "/clubs",
         icon: Sparkles,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["classes:read"],
       },
     ],
   },
@@ -292,36 +317,49 @@ const navigationGroups: NavGroup[] = [
         url: "/assessments",
         icon: ClipboardList,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:read"],
       },
       {
         title: "Assessment Tasks",
         url: "/assessments/tasks",
         icon: ListChecks,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:read"],
       },
       {
         title: "Results",
         url: "/assessments/results",
         icon: CheckSquare,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:read"],
       },
       {
         title: "Report Cards",
         url: "/assessments/report-cards",
         icon: FileBadge,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:publish", "exams:read"],
+      },
+      {
+        title: "Summative Reports",
+        url: "/assessments/summative",
+        icon: LayoutGrid,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["exams:publish", "exams:read"],
       },
       {
         title: "Report Templates",
         url: "/assessments/templates",
         icon: FileBadge,
         roles: ADMIN_ROLES,
+        permissions: ["exams:update"],
       },
       {
         title: "Remark Templates",
         url: "/assessments/remark-bands",
         icon: MessageSquare,
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
+        permissions: ["assessments:bands:manage"],
       },
       {
         title: "Analytics",
@@ -332,6 +370,7 @@ const navigationGroups: NavGroup[] = [
           ...TEACHER_ROLES,
           ...MANAGER_ROLES,
         ] as AppRole[],
+        permissions: ["exams:read", "reports:read"],
       },
     ],
   },
@@ -346,18 +385,21 @@ const navigationGroups: NavGroup[] = [
         url: "/finance",
         icon: Banknote,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
       },
       {
         title: "Fee Assignment",
         url: "/fee-assignment",
         icon: Receipt,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:assign", "finance:fees:create"],
       },
       {
         title: "Brought Forward Balances",
         url: "/finance/brought-forward",
         icon: ArrowUpRight,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
       },
       {
         title: "Payments",
@@ -368,42 +410,70 @@ const navigationGroups: NavGroup[] = [
           ...ACCOUNTANT_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
+        permissions: ["payments:read", "payments:create"],
       },
       {
         title: "Fee Discounts",
         url: "/fee-discounts",
         icon: Percent,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:waive"],
       },
       {
         title: "Excess Payments",
         url: "/excess-payments",
         icon: TrendingUp,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["payments:read"],
       },
       {
         title: "Unallocated Payments",
         url: "/unallocated-payments",
         icon: Archive,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["payments:read"],
       },
       {
         title: "Fee Adjustments",
         url: "/fee-adjustments",
         icon: Scale,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:update"],
       },
       {
         title: "Fee Reminders",
         url: "/fee-reminders",
         icon: Bell,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
       },
       {
         title: "Expenses",
         url: "/expenses",
         icon: Wallet,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["expenses:read"],
+      },
+      {
+        title: "Income",
+        url: "/income",
+        icon: TrendingUp,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+      },
+      {
+        title: "Payment in Kind",
+        url: "/payments/in-kind",
+        icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["payments:create"],
+      },
+      {
+        title: "Bulk Sponsorship",
+        url: "/payments/bulk-bursary",
+        icon: Wallet,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["payments:create"],
       },
     ],
   },
@@ -418,60 +488,129 @@ const navigationGroups: NavGroup[] = [
         url: "/staff-directory",
         icon: Users,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+        permissions: ["staff:read"],
       },
       {
         title: "Departments",
         url: "/departments",
         icon: Building2,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+        permissions: ["staff:read"],
       },
       {
         title: "Designations",
         url: "/designations",
         icon: UserCog,
         roles: ADMIN_ROLES,
+        permissions: ["staff:update"],
       },
       {
         title: "Staff Attendance",
         url: "/staff-attendance",
         icon: Calendar,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+        permissions: ["attendance:read"],
       },
       {
         title: "Leave Management",
         url: "/leave-management",
         icon: Clock,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+        permissions: ["staff:read"],
       },
       {
         title: "Payroll",
         url: "/payroll",
         icon: DollarSign,
         roles: ADMIN_ROLES,
+        permissions: ["staff:update"],
       },
       {
         title: "Staff Ratings",
         url: "/ratings",
         icon: Star,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+        permissions: ["staff:read"],
       },
     ],
   },
 
   // Communication
-  {
+ {
     label: "Communication",
     icon: MessageSquare,
     items: [
       {
-        title: "Communication",
+        title: "Dashboard",
         url: "/communication",
-        icon: MessageSquare,
+        icon: LayoutDashboard,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
+      },
+      {
+        title: "Send Message",
+        url: "/communication/send",
+        icon: Mail,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Campaigns",
+        url: "/communication/campaigns",
+        icon: BellRing,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Templates",
+        url: "/communication/templates",
+        icon: FileText,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Automated Messages",
+        url: "/communication/automations",
+        icon: Sparkles,
+        roles: [...ADMIN_ROLES] as AppRole[],
+      },
+      {
+        title: "Scheduled",
+        url: "/communication/scheduled",
+        icon: Clock,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Message History",
+        url: "/communication/history",
+        icon: Archive,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Settings",
+        url: "/communication/settings",
+        icon: Settings,
+        roles: ADMIN_ROLES,
       },
       {
         title: "Notices",
@@ -482,32 +621,6 @@ const navigationGroups: NavGroup[] = [
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
-      },
-      {
-        title: "SMS",
-        url: "/communication/sms",
-        icon: MessageSquare,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Email",
-        url: "/communication/email",
-        icon: Mail,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Messaging Templates",
-        url: "/communication/templates",
-        icon: FileText,
-        roles: [...ADMIN_ROLES, ...RECEPTIONIST_ROLES] as AppRole[],
       },
       {
         title: "Events Calendar",
@@ -528,6 +641,7 @@ const navigationGroups: NavGroup[] = [
         url: "/library",
         icon: Library,
         roles: [...ADMIN_ROLES, ...LIBRARIAN_ROLES] as AppRole[],
+        permissions: ["inventory:read"],
       },
     ],
   },
@@ -542,42 +656,49 @@ const navigationGroups: NavGroup[] = [
         url: "/inventory",
         icon: Package,
         roles: ADMIN_ROLES,
+        permissions: ["inventory:read"],
       },
       {
         title: "Catalog",
         url: "/inventory/catalog",
         icon: Package,
         roles: ADMIN_ROLES,
+        permissions: ["inventory:read"],
       },
       {
         title: "Categories",
         url: "/inventory/categories",
         icon: Layers,
         roles: ADMIN_ROLES,
+        permissions: ["inventory:read"],
       },
       {
         title: "Make Sale",
         url: "/inventory/sell",
         icon: CreditCard,
         roles: ADMIN_ROLES,
+        permissions: ["inventory:update"],
       },
       {
         title: "Sales History",
         url: "/inventory/history",
         icon: Clipboard,
         roles: ADMIN_ROLES,
+        permissions: ["inventory:read"],
       },
       {
         title: "Suppliers",
         url: "/inventory/suppliers",
         icon: Truck,
         roles: ADMIN_ROLES,
+        permissions: ["suppliers:manage"],
       },
       {
         title: "Purchase Orders",
         url: "/inventory/purchase-orders",
         icon: ShoppingCart,
         roles: ADMIN_ROLES,
+        permissions: ["inventory:update"],
       },
     ],
   },
@@ -596,17 +717,18 @@ const navigationGroups: NavGroup[] = [
           ...TEACHER_ROLES,
           ...MANAGER_ROLES,
         ] as AppRole[],
+        permissions: ["reports:read"],
       },
-      {
-        title: "Assessment Reports",
-        url: "/reports/assessments",
-        icon: FileBadge,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...MANAGER_ROLES,
-        ] as AppRole[],
-      },
+      // {
+      //   title: "Assessment Reports",
+      //   url: "/reports/assessments",
+      //   icon: FileBadge,
+      //   roles: [
+      //     ...ADMIN_ROLES,
+      //     ...TEACHER_ROLES,
+      //     ...MANAGER_ROLES,
+      //   ] as AppRole[],
+      // },
       {
         title: "Finance Reports",
         url: "/reports/finance",
@@ -616,6 +738,7 @@ const navigationGroups: NavGroup[] = [
           ...ACCOUNTANT_ROLES,
           ...MANAGER_ROLES,
         ] as AppRole[],
+        permissions: ["reports:read"],
       },
       {
         title: "Attendance Reports",
@@ -626,59 +749,67 @@ const navigationGroups: NavGroup[] = [
           ...TEACHER_ROLES,
           ...MANAGER_ROLES,
         ] as AppRole[],
+        permissions: ["reports:read"],
       },
       {
         title: "HR Reports",
         url: "/reports/hr",
         icon: Briefcase,
         roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
+        permissions: ["reports:read"],
       },
       {
         title: "Library Reports",
         url: "/reports/library",
         icon: Library,
         roles: [...ADMIN_ROLES, ...LIBRARIAN_ROLES] as AppRole[],
+        permissions: ["reports:read"],
       },
       {
         title: "Audit Trail",
         url: "/audit-trail",
         icon: Shield,
         roles: ADMIN_ROLES,
+        permissions: ["audit:read"],
       },
       {
         title: "User Logs",
         url: "/user-logs",
         icon: Activity,
         roles: ADMIN_ROLES,
+        permissions: ["audit:read"],
       },
     ],
   },
 
   // Administration
-  {
-    label: "Administration",
-    icon: Settings,
-    items: [
-      {
-        title: "Academic Settings",
-        url: "/settings/academic",
-        icon: BookOpen,
-        roles: ADMIN_ROLES,
-      },
-      {
-        title: "Archives",
-        url: "/archives",
-        icon: ArchiveIcon,
-        roles: ADMIN_ROLES,
-      },
-      {
-        title: "System Settings",
-        url: "/settings/system",
-        icon: Settings,
-        roles: SUPER_ADMIN_ROLES,
-      },
-    ],
-  },
+  // {
+  //   label: "Administration",
+  //   icon: Settings,
+  //   items: [
+  //     {
+  //       title: "Academic Settings",
+  //       url: "/settings/academics",
+  //       icon: BookOpen,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //     {
+  //       title: "Archives",
+  //       url: "/archives",
+  //       icon: ArchiveIcon,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //     {
+  //       title: "Public API Keys",
+  //       url: "/settings/api-keys",
+  //       icon: Shield,
+  //       roles: ADMIN_ROLES,
+  //       permissions: ["settings:read"],
+  //     },
+  //   ],
+  // },
 ];
 
 /* ── Session Timeout Hook ── */
@@ -1053,7 +1184,23 @@ export function DashboardLayout({
   title,
   subtitle,
 }: DashboardLayoutProps) {
-  const { profile, user, roleLabel, hasAnyRole, signOut } = useAuth();
+  const { profile, user, primaryRole, getRoleLabel, hasAnyRole, signOut } =
+    useAuth();
+  const computedRoleLabel = primaryRole ? getRoleLabel(primaryRole) : "Guest";
+
+  // Permission-based nav guard: items can specify `permissions` and become
+  // visible when the user holds any of those permission codes — even if their
+  // role isn't in the static `roles` allow-list. Admins always pass.
+  const { data: mePerms } = useMyPermissions();
+  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"] as any);
+  const permSet = new Set(mePerms?.permissions || []);
+  const hasWildcard = permSet.has("*");
+  const hasAnyPermission = (codes?: PermissionCode[]) => {
+    if (!codes || codes.length === 0) return false;
+    if (isAdmin || hasWildcard) return true;
+    return codes.some((c) => permSet.has(c));
+  };
+
   const { currentSchool } = useSchool();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1071,7 +1218,10 @@ export function DashboardLayout({
   const visibleGroups = navigationGroups
     .map((g) => ({
       ...g,
-      items: g.items.filter((item) => hasAnyRole(item.roles as any)),
+      items: g.items.filter(
+        (item) =>
+          hasAnyRole(item.roles as any) || hasAnyPermission(item.permissions),
+      ),
     }))
     .filter((g) => g.items.length > 0);
 
@@ -1196,7 +1346,7 @@ export function DashboardLayout({
                     {displayName}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {roleLabel}
+                    {computedRoleLabel}
                   </p>
                 </div>
                 <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />

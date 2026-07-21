@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 export type AppRole =
@@ -38,6 +39,8 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  teacher_id?: string | null;
+  staff_id?: string | null;
 }
 
 export interface UserRoleEntry {
@@ -146,14 +149,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [legacyRole, setLegacyRole] = useState<UserRole>("admin");
 
+  const queryClient = useQueryClient();
+
   const clearAuth = useCallback(() => {
     setUser(null);
     setProfile(null);
     setRoles([]);
     setToken(null);
-    localStorage.removeItem("chuo-token");
+    localStorage.clear();
+    sessionStorage.clear();
+    queryClient.clear();
     api.setToken(null);
-  }, []);
+    api.setSchoolId(null);
+  }, [queryClient]);
 
   // Restore session on mount
   useEffect(() => {
@@ -261,7 +269,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const hasRole = (role: AppRole) => roles.some((r) => r.role === role);
+  // Role aliases: canonical (2026 redesign) and legacy roles are equivalent.
+  // This ensures users with the canonical role (e.g. "accountant") can access
+  // routes that were originally guarded with the legacy name (e.g. "finance_officer").
+  const ROLE_ALIASES: Record<string, AppRole[]> = {
+    accountant: ["finance_officer"],
+    finance_officer: ["accountant"],
+    admin: ["school_admin"],
+    school_admin: ["admin"],
+    receptionist: ["front_office"],
+    front_office: ["receptionist"],
+    manager: ["deputy_admin"],
+    deputy_admin: ["manager"],
+  };
+  const hasRole = (role: AppRole) => {
+    if (roles.some((r) => r.role === role)) return true;
+    const aliases = ROLE_ALIASES[role] || [];
+    return aliases.some((a) => roles.some((r) => r.role === a));
+  };
   const hasAnyRole = (checkRoles: AppRole[]) =>
     checkRoles.some((r) => hasRole(r));
   const getRoleLabel = (role: string) => ROLE_LABELS[role] || role;

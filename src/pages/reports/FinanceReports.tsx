@@ -36,9 +36,11 @@ import {
   usePaymentsReportData,
 } from "@/hooks/useReports";
 import { useClasses } from "@/hooks/useClasses";
+import { ReportExportMenu } from "@/components/reports/ReportExportMenu";
 import { formatDate } from "@/utils/date";
 
-const formatKES = (a: number) => `KES ${Math.abs(a || 0).toLocaleString()}`;
+const formatKES = (a: number) =>
+  `KES ${Math.abs(Number(a) || 0).toLocaleString()}`;
 
 const LoadingSkeleton = () => (
   <div className="space-y-3 p-6">
@@ -100,12 +102,110 @@ const FinanceReports = () => {
   const classes = safeArray(classesData);
 
   const totalCollected = dailyCollections.reduce(
-    (s: number, d: any) => s + (d.total || 0),
+    (s: number, d: any) => s + (Number(d.total) || 0),
     0,
   );
   const totalTransactions = dailyCollections.reduce(
-    (s: number, d: any) => s + (d.transactions || 0),
+    (s: number, d: any) => s + (Number(d.transactions) || 0),
     0,
+  );
+  const totalOutstanding = balanceFees.reduce(
+    (s: number, r: any) => s + Number(r.balance || 0),
+    0,
+  );
+  const totalBilled = feeStatements.reduce(
+    (s: number, r: any) => s + Number(r.total_fee || 0),
+    0,
+  );
+  const totalExpenses = expenseReport.reduce(
+    (s: number, e: any) => s + Number(e.amount || 0),
+    0,
+  );
+  const mpesaTotal = mpesaPayments.reduce(
+    (s: number, m: any) => s + Number(m.amount || 0),
+    0,
+  );
+  const netRevenue = totalCollected - totalExpenses;
+
+  const SummaryCards = () => (
+    <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6 mb-2">
+      <Card className="border-success/30 bg-success/5">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="h-3.5 w-3.5 text-success" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Collected
+            </span>
+          </div>
+          <p className="text-base font-bold text-success">
+            {formatKES(totalCollected)}
+          </p>
+        </CardContent>
+      </Card>
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Outstanding
+            </span>
+          </div>
+          <p className="text-base font-bold text-destructive">
+            {formatKES(totalOutstanding)}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <FileText className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Billed
+            </span>
+          </div>
+          <p className="text-base font-bold">{formatKES(totalBilled)}</p>
+        </CardContent>
+      </Card>
+      <Card className="border-warning/30 bg-warning/5">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingDown className="h-3.5 w-3.5 text-warning" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Expenses
+            </span>
+          </div>
+          <p className="text-base font-bold text-warning">
+            {formatKES(totalExpenses)}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Banknote className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Net Revenue
+            </span>
+          </div>
+          <p
+            className={`text-base font-bold ${netRevenue >= 0 ? "text-success" : "text-destructive"}`}
+          >
+            {formatKES(netRevenue)}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Smartphone className="h-3.5 w-3.5 text-success" />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              M-Pesa
+            </span>
+          </div>
+          <p className="text-base font-bold">{formatKES(mpesaTotal)}</p>
+        </CardContent>
+      </Card>
+    </div>
   );
 
   return (
@@ -113,6 +213,7 @@ const FinanceReports = () => {
       title="Finance Reports"
       subtitle="Comprehensive finance, fees & payment reports"
     >
+      <SummaryCards />
       <Tabs defaultValue="balance" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
           <TabsTrigger value="balance">Balance Fees</TabsTrigger>
@@ -147,10 +248,15 @@ const FinanceReports = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export
-                  </Button>
+                  <ReportExportMenu
+                    path="/reports/finance/export"
+                    fileBase="finance-report"
+                    params={{
+                      class_id: classFilter !== "all" ? classFilter : undefined,
+                      start_date: startDate || undefined,
+                      end_date: endDate || undefined,
+                    }}
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -439,9 +545,7 @@ const FinanceReports = () => {
                     {allPayments.map((p: any) => (
                       <TableRow key={p.id}>
                         <TableCell className="text-muted-foreground">
-                          {p.received_at
-                            ? formatDate(p.received_at)
-                            : "—"}
+                          {p.received_at ? formatDate(p.received_at) : "—"}
                         </TableCell>
                         <TableCell className="font-medium">
                           {p.student_name || "—"}
@@ -565,9 +669,7 @@ const FinanceReports = () => {
                     {expenseReport.map((e: any) => (
                       <TableRow key={e.id}>
                         <TableCell className="text-muted-foreground">
-                          {e.expense_date
-                            ? formatDate(e.expense_date)
-                            : "—"}
+                          {e.expense_date ? formatDate(e.expense_date) : "—"}
                         </TableCell>
                         <TableCell className="font-medium">{e.title}</TableCell>
                         <TableCell>{e.category_name || "—"}</TableCell>

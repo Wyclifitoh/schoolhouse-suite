@@ -43,6 +43,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { PermissionGate } from "@/components/PermissionGate";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermission";
 import {
   useParents,
   useCreateParent,
@@ -83,9 +84,12 @@ const emptyForm = {
 
 const Parents = () => {
   const navigate = useNavigate();
-  const { hasAnyRole } = useAuth();
-  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"]);
-  const isSuperAdmin = hasAnyRole(["super_admin"]);
+  const perms = usePermissions(["parents:create", "parents:update", "parents:delete", "reports:export", "users:manage"]);
+  const canCreate = perms["parents:create"];
+  const canUpdate = perms["parents:update"];
+  const canDelete = perms["parents:delete"];
+  const canExport = perms["reports:export"];
+  const canManagePortal = perms["users:manage"] || canUpdate;
 
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -280,10 +284,13 @@ const Parents = () => {
               Parent Directory
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-1.5" />
-                Export
-              </Button>
+              {canExport && (
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-1.5" />
+                  Export
+                </Button>
+              )}
+              {canCreate && (
               <Dialog
                 open={showAdd}
                 onOpenChange={(o) => {
@@ -315,6 +322,7 @@ const Parents = () => {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -406,12 +414,16 @@ const Parents = () => {
                               <Eye className="h-4 w-4 mr-2" />
                               View Profile
                             </DropdownMenuItem>
-                            {isAdmin && (
+                            {canUpdate && (
                               <>
                                 <DropdownMenuItem onClick={() => openEdit(p)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Details
                                 </DropdownMenuItem>
+                              </>
+                            )}
+                            {canManagePortal && (
+                              <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuLabel className="text-xs">
                                   Portal Account
@@ -436,7 +448,7 @@ const Parents = () => {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {isSuperAdmin && (
+                            {canDelete && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

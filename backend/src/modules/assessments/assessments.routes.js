@@ -1,5 +1,15 @@
 const router = require("express").Router();
-const archiver = require("archiver");
+const archiverLib = require("archiver");
+// Normalise across CJS/ESM builds — some environments expose the function
+// on `.default` instead of the module root.
+const archiver =
+  typeof archiverLib === "function"
+    ? archiverLib
+    : typeof archiverLib?.default === "function"
+      ? archiverLib.default
+      : typeof archiverLib?.create === "function"
+        ? (fmt, opts) => archiverLib.create(fmt, opts)
+        : null;
 const cfg = require("./config.repository");
 const alloc = require("./allocations.repository");
 const assess = require("./assessments.repository");
@@ -11,6 +21,7 @@ const comparison = require("./comparison.repository");
 const pdfSvc = require("./pdf.service");
 const { queryOne } = require("../../config/database");
 const { success, error } = require("../../utils/response");
+const billing = require("../billing/billing.repository");
 
 const sid = (req) => req.schoolId || req.headers["x-school-id"];
 const uid = (req) => req.user?.id || null;
@@ -234,32 +245,98 @@ router.delete(
   }),
 );
 
+// ============== MARKS (list) — must come BEFORE /:id to avoid wildcard capture ==============
+// GET /assessments/marks?assessment_id=...&grade_id=...&stream_id=...
+// This is a dedicated preview endpoint for the Marks Preview tab in Results.
+// It uses its own isolated function so it won't affect marks entry or task roster.
+router.get(
+  "/marks",
+  h(async (req, res) =>
+    success(res, await marks.listForPreview(sid(req), req.query)),
+  ),
+);
+
 // ============== ASSESSMENTS (CRUD + lifecycle) ==============
 router.get(
   "/",
-  h(async (req, res) => success(res, await assess.list(sid(req), req.query))),
+  h(async (req, res) =>
+    success(res, await assess.list(sid(req), req.query, req.user)),
+  ),
 );
 router.get(
   "/:id",
   h(async (req, res) => {
     const a = await assess.get(req.params.id, sid(req));
     if (!a) return error(res, "Assessment not found", 404);
+
+    const userRoles = (req.user?.roles || []).map((r) => {
+      if (typeof r === "object" && r.role) return r.role;
+      if (typeof r === "string") return r;
+      return r;
+    });
+    const isTeacher = userRoles.some((role) => role === "teacher");
+    const isAdmin = userRoles.some((role) =>
+      [
+        "super_admin",
+        "school_admin",
+        "admin",
+        "manager",
+        "deputy_admin",
+      ].includes(role),
+    );
+
+    if (isTeacher && !isAdmin && a.status === "draft") {
+      return error(res, "Assessment not found", 404);
+    }
+
     return success(res, a);
   }),
 );
 router.post(
   "/",
-  h(async (req, res) =>
-    success(
-      res,
-      await assess.create({
-        ...req.body,
-        school_id: sid(req),
-        created_by: uid(req),
-      }),
-      201,
-    ),
-  ),
+  h(async (req, res) => {
+    const schoolId = sid(req);
+
+    // ── SaaS billing gate ────────────────────────────────────────────────────
+    // Allow creation during trial or when subscription is active.
+    // Block if trial expired AND there are unpaid assessment bills.
+    const gate = await billing.checkAssessmentAllowed(schoolId);
+    if (!gate.allowed) {
+      return error(
+        res,
+        gate.reason || "Assessment creation blocked: subscription required.",
+        402,
+      );
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const newAssessment = await assess.create({
+      ...req.body,
+      school_id: schoolId,
+      created_by: uid(req),
+    });
+
+    // If trial has expired but subscription is active, record billing
+    if (!gate.trialActive && gate.sub?.status === "active") {
+      try {
+        const studentCount = await billing.countActiveStudents(schoolId);
+        const pricePerStudent = gate.sub?.assessment_price_per_student || 10;
+        await billing.recordAssessmentBilling(
+          schoolId,
+          newAssessment.id,
+          studentCount,
+          pricePerStudent,
+        );
+      } catch (e) {
+        console.warn(
+          "[billing] Failed to record assessment billing:",
+          e.message,
+        );
+      }
+    }
+
+    return success(res, newAssessment, 201);
+  }),
 );
 router.put(
   "/:id",
@@ -287,6 +364,12 @@ router.post(
       res,
       await assess.setStatus(req.params.id, sid(req), req.body.status),
     ),
+  ),
+);
+router.post(
+  "/:id/resync-subjects",
+  h(async (req, res) =>
+    success(res, await assess.resyncSubjects(req.params.id, sid(req))),
   ),
 );
 
@@ -324,11 +407,8 @@ router.post(
   ),
 );
 
-// ============== MARKS ==============
-router.get(
-  "/marks",
-  h(async (req, res) => success(res, await marks.list(sid(req), req.query))),
-);
+// ============== MARKS (bulk save) ==============
+// NOTE: GET /marks is declared earlier (before /:id) to avoid Express wildcard capture.
 router.post(
   "/marks/bulk",
   h(async (req, res) =>
@@ -413,6 +493,9 @@ router.post(
           stream_id: req.body.stream_id || null,
           template_id: req.body.template_id || null,
           created_by: uid(req),
+          academic_year_id:
+            req.body.academic_year_id || req.session?.academicYearId || null,
+          term_id: req.body.term_id || req.session?.termId || null,
         });
       } catch (e) {
         console.warn("[assessments] auto report card run failed:", e.message);
@@ -435,28 +518,57 @@ router.get(
 );
 
 // ============== ANALYTICS ==============
+const _aFilters = (q) => ({
+  grade_id: q.grade_id || undefined,
+  stream_id: q.stream_id || undefined,
+  subject_id: q.subject_id || undefined,
+});
 router.get(
   "/:id/analytics/overview",
   h(async (req, res) =>
-    success(res, await analytics.overview(sid(req), req.params.id)),
+    success(
+      res,
+      await analytics.overview(sid(req), req.params.id, _aFilters(req.query)),
+    ),
   ),
 );
 router.get(
   "/:id/analytics/subjects",
   h(async (req, res) =>
-    success(res, await analytics.subjectMeans(sid(req), req.params.id)),
+    success(
+      res,
+      await analytics.subjectMeans(
+        sid(req),
+        req.params.id,
+        _aFilters(req.query),
+      ),
+    ),
   ),
 );
 router.get(
   "/:id/analytics/bands",
   h(async (req, res) =>
-    success(res, await analytics.bandDistribution(sid(req), req.params.id)),
+    success(
+      res,
+      await analytics.bandDistribution(
+        sid(req),
+        req.params.id,
+        _aFilters(req.query),
+      ),
+    ),
   ),
 );
 router.get(
   "/:id/analytics/levels",
   h(async (req, res) =>
-    success(res, await analytics.alDistribution(sid(req), req.params.id)),
+    success(
+      res,
+      await analytics.alDistribution(
+        sid(req),
+        req.params.id,
+        _aFilters(req.query),
+      ),
+    ),
   ),
 );
 router.get(
@@ -464,20 +576,35 @@ router.get(
   h(async (req, res) =>
     success(
       res,
-      await analytics.leaderboard(sid(req), req.params.id, req.query.limit),
+      await analytics.leaderboard(
+        sid(req),
+        req.params.id,
+        req.query.limit,
+        _aFilters(req.query),
+      ),
     ),
   ),
 );
 router.get(
   "/:id/analytics/grades",
   h(async (req, res) =>
-    success(res, await analytics.gradeMeans(sid(req), req.params.id)),
+    success(
+      res,
+      await analytics.gradeMeans(sid(req), req.params.id, _aFilters(req.query)),
+    ),
   ),
 );
 router.get(
   "/:id/analytics/streams",
   h(async (req, res) =>
-    success(res, await analytics.streamMeans(sid(req), req.params.id)),
+    success(
+      res,
+      await analytics.streamMeans(
+        sid(req),
+        req.params.id,
+        _aFilters(req.query),
+      ),
+    ),
   ),
 );
 
@@ -634,7 +761,7 @@ router.delete(
 router.get(
   "/report-cards/runs",
   h(async (req, res) =>
-    success(res, await reportCards.listRuns(sid(req), req.query)),
+    success(res, await reportCards.listRuns(sid(req), req.query, req.session)),
   ),
 );
 router.post(
@@ -646,6 +773,9 @@ router.post(
         ...req.body,
         school_id: sid(req),
         created_by: uid(req),
+        academic_year_id:
+          req.body.academic_year_id || req.session?.academicYearId || null,
+        term_id: req.body.term_id || req.session?.termId || null,
       }),
       201,
     ),
@@ -664,6 +794,61 @@ router.get(
   ),
 );
 
+// Delete a run (and its cards)
+router.delete(
+  "/report-cards/runs/:id",
+  h(async (req, res) => {
+    const schoolId = sid(req);
+    const run = await queryOne(
+      "SELECT id FROM report_card_runs_v2 WHERE id=? AND school_id=?",
+      [req.params.id, schoolId],
+    );
+    if (!run) return error(res, "Run not found", 404);
+    const { execute } = require("../../config/database");
+    await execute("DELETE FROM report_cards_v2 WHERE run_id=?", [
+      req.params.id,
+    ]);
+    await execute("DELETE FROM report_card_runs_v2 WHERE id=?", [
+      req.params.id,
+    ]);
+    return success(res, { ok: true });
+  }),
+);
+
+// Bulk combined PDF of all cards in a run (multi-page single PDF)
+router.get(
+  "/report-cards/runs/:id/download.pdf",
+  h(async (req, res) => {
+    const schoolId = sid(req);
+    const run = await queryOne(
+      "SELECT * FROM report_card_runs_v2 WHERE id=? AND school_id=?",
+      [req.params.id, schoolId],
+    );
+    if (!run) return error(res, "Run not found", 404);
+    const cards = await reportCards.listCards(req.params.id);
+    const school = await loadSchool(schoolId);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="report-cards-${run.id}.pdf"`,
+    );
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate",
+    );
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    await pdfSvc.streamCombinedReportCardsPdf({
+      res,
+      schoolId,
+      school,
+      cards: await Promise.all(
+        cards.map(async (c) => reportCards.getCard(c.id)),
+      ),
+    });
+  }),
+);
+
 // Single report card PDF
 router.get(
   "/report-cards/cards/:cardId/pdf",
@@ -678,6 +863,12 @@ router.get(
       "Content-Disposition",
       `attachment; filename="report-card-${card.student_id}.pdf"`,
     );
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate",
+    );
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     await pdfSvc.streamReportCardPdf({ res, schoolId, card, school });
   }),
 );
@@ -709,6 +900,12 @@ router.get(
       "Content-Disposition",
       `attachment; filename="report-cards-${run.id}.zip"`,
     );
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate",
+    );
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     const archive = archiver("zip", { zlib: { level: 6 } });
     archive.on("error", (err) => {
       throw err;
@@ -749,6 +946,56 @@ router.get(
       archive.append(pdfBuf, { name: `${safeName}.pdf` });
     }
     await archive.finalize();
+  }),
+);
+
+// ============================================================================
+// SUMMATIVE REPORTS
+// ============================================================================
+router.post(
+  "/summative-report",
+  h(async (req, res) => {
+    const { assessmentIds, gradeId, streamId, title } = req.body;
+    if (!assessmentIds || !assessmentIds.length) {
+      return res.status(400).json({ error: "No assessments selected" });
+    }
+
+    const summativeRepo = require("./summative.repository");
+    const { cards, assessments } = await summativeRepo.generateSummativeData(
+      sid(req),
+      assessmentIds,
+      gradeId,
+      streamId,
+    );
+
+    if (!cards || !cards.length) {
+      return res.status(404).json({ error: "No student data found" });
+    }
+
+    const school = await require("../../config/database").queryOne(
+      "SELECT * FROM schools WHERE id=?",
+      [sid(req)],
+    );
+    const settings = await require("../../config/database").queryOne(
+      "SELECT * FROM school_settings WHERE school_id=?",
+      [sid(req)],
+    );
+    school.settings = settings || {};
+
+    const pdfService = require("./pdf.service");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Summative_Report.pdf"`,
+    );
+
+    await pdfService.streamCombinedSummativePdf({
+      res,
+      school,
+      cards,
+      assessments,
+      title: title || "Summative Report",
+    });
   }),
 );
 

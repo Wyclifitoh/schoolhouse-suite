@@ -30,7 +30,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useStreams, useTeachers, useUpdateStream } from "@/hooks/useClasses";
-import { PermissionGate } from "@/components/PermissionGate";
+import { usePermissions } from "@/hooks/usePermission";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserCheck, Edit, Plus, X, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ import { toast } from "sonner";
 const AssignClassTeacher = () => {
   const { hasAnyRole } = useAuth();
   const isSuperAdmin = hasAnyRole(["super_admin"]);
+  const perms = usePermissions(["classes:create", "classes:update", "classes:delete"]);
   const { data: streams = [], isLoading } = useStreams();
   const { data: teachers = [] } = useTeachers();
   const updateStream = useUpdateStream();
@@ -146,6 +147,7 @@ const AssignClassTeacher = () => {
                     className="pl-8 h-9 w-64"
                   />
                 </div>
+                {perms["classes:update"] && (
                 <Dialog
                   open={showAssign}
                   onOpenChange={(o) => {
@@ -222,6 +224,7 @@ const AssignClassTeacher = () => {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -281,18 +284,20 @@ const AssignClassTeacher = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setStreamId(s.id);
-                              setTeacherId(s.class_teacher_id || "");
-                              setShowAssign(true);
-                            }}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          {t && isSuperAdmin && (
+                          {perms["classes:update"] && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setStreamId(s.id);
+                                setTeacherId(s.class_teacher_id || "");
+                                setShowAssign(true);
+                              }}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {t && isSuperAdmin && perms["classes:delete"] && (
                             <Button
                               variant="ghost"
                               size="sm"

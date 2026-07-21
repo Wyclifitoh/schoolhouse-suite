@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
   Table,
   TableBody,
@@ -35,6 +36,7 @@ import {
   Sparkles,
   Plus,
   Trash2,
+  Pencil,
   Scale,
   Award,
   Target,
@@ -247,69 +249,81 @@ function BandsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button
-              size="sm"
-              onClick={() =>
-                setForm({
-                  code: "",
-                  name: "",
-                  color: "#3b82f6",
-                  sort_order: ((bands as any[]).length || 0) + 1,
-                  is_active: true,
-                })
-              }
-            >
-              <Plus className="h-4 w-4 mr-1.5" /> Add Band
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Performance Band</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-3 py-2">
-              <div className="space-y-1">
-                <Label>Code</Label>
-                <Input
-                  value={form.code || ""}
-                  onChange={(e) =>
-                    setForm({ ...form, code: e.target.value.toUpperCase() })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Color</Label>
-                <Input
-                  type="color"
-                  value={form.color || "#3b82f6"}
-                  onChange={(e) => setForm({ ...form, color: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1 col-span-2">
-                <Label>Name</Label>
-                <Input
-                  value={form.name || ""}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
+      <PermissionGate
+        permission="assessments:bands:manage"
+        role={["admin", "super_admin", "school_admin"]}
+        fallback={
+          <p className="text-xs text-muted-foreground text-right">
+            Read-only — you do not have permission to manage performance bands.
+          </p>
+        }
+      >
+        <div className="flex justify-end">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
               <Button
+                size="sm"
                 onClick={() =>
-                  save.mutate(form, { onSuccess: () => setOpen(false) })
+                  setForm({
+                    code: "",
+                    name: "",
+                    color: "#3b82f6",
+                    sort_order: ((bands as any[]).length || 0) + 1,
+                    is_active: true,
+                  })
                 }
               >
-                Save
+                <Plus className="h-4 w-4 mr-1.5" /> Add Band
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Performance Band</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-3 py-2">
+                <div className="space-y-1">
+                  <Label>Code</Label>
+                  <Input
+                    value={form.code || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, code: e.target.value.toUpperCase() })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Color</Label>
+                  <Input
+                    type="color"
+                    value={form.color || "#3b82f6"}
+                    onChange={(e) =>
+                      setForm({ ...form, color: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label>Name</Label>
+                  <Input
+                    value={form.name || ""}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() =>
+                    save.mutate(form, { onSuccess: () => setOpen(false) })
+                  }
+                >
+                  Save
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </PermissionGate>
 
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
@@ -326,13 +340,34 @@ function BandsTab() {
                   <Badge variant="outline" className="font-mono">
                     {b.code}
                   </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => del.mutate(b.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setForm({
+                          id: b.id,
+                          code: b.code,
+                          name: b.name,
+                          color: b.color || "#3b82f6",
+                          sort_order: b.sort_order,
+                          is_active: b.is_active,
+                        });
+                        setOpen(true);
+                      }}
+                      title="Edit band"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => del.mutate(b.id)}
+                      title="Delete band"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="font-medium text-sm">{b.name}</div>
               </CardContent>
@@ -548,7 +583,7 @@ function CompetenciesTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        <strong className="text-foreground">Where these are used:</strong> CBC
+        <strong className="text-foreground">Where these are used:</strong> CBE
         competencies you define here power per-student competency ratings on
         report cards (Strengths &amp; Areas to Improve), the Competency Strands
         panel on student result details, and rubrics that teachers attach to
@@ -569,7 +604,7 @@ function CompetenciesTab() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>CBC Competency</DialogTitle>
+              <DialogTitle>CBE Competency</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
               <div className="space-y-1">
@@ -651,12 +686,12 @@ const AssessmentSettings = () => {
   return (
     <DashboardLayout
       title="Assessment Settings"
-      subtitle="Configure CBC types, bands, achievement levels & competencies"
+      subtitle="Configure CBE types, bands, achievement levels & competencies"
     >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-primary" /> CBC Assessment
+            <Sparkles className="h-4 w-4 text-primary" /> CBE Assessment
             Configuration
           </CardTitle>
         </CardHeader>

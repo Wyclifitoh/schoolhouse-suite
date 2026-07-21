@@ -2,17 +2,22 @@ const { query, queryOne, execute } = require("../../config/database");
 const { v4: uuid } = require("uuid");
 
 // ============ PERIODS ============
-exports.listPeriods = (schoolId) =>
-  query(
-    "SELECT * FROM timetable_periods WHERE school_id = ? ORDER BY position ASC, start_time ASC",
-    [schoolId],
-  );
+exports.listPeriods = (schoolId, curriculumType) => {
+  let sql = "SELECT * FROM timetable_periods WHERE school_id = ?";
+  const params = [schoolId];
+  if (curriculumType) {
+    sql += " AND curriculum_type = ?";
+    params.push(curriculumType);
+  }
+  sql += " ORDER BY position ASC, start_time ASC";
+  return query(sql, params);
+};
 
 exports.createPeriod = async (data) => {
   const id = uuid();
   await execute(
-    `INSERT INTO timetable_periods (id, school_id, label, start_time, end_time, position, kind, is_active)
-     VALUES (?,?,?,?,?,?,?,?)`,
+    `INSERT INTO timetable_periods (id, school_id, label, start_time, end_time, position, kind, is_active, curriculum_type)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
     [
       id,
       data.school_id,
@@ -22,6 +27,7 @@ exports.createPeriod = async (data) => {
       data.position ?? 0,
       data.kind || "lesson",
       data.is_active === false ? 0 : 1,
+      data.curriculum_type || "CBC",
     ],
   );
   return queryOne("SELECT * FROM timetable_periods WHERE id = ?", [id]);
@@ -35,6 +41,7 @@ exports.updatePeriod = async (id, schoolId, data) => {
     "position",
     "kind",
     "is_active",
+    "curriculum_type",
   ];
   const entries = Object.entries(data).filter(([k]) => allowed.includes(k));
   if (!entries.length)
@@ -58,7 +65,7 @@ exports.deletePeriod = (id, schoolId) =>
   ]);
 
 // ============ REQUIREMENTS ============
-exports.listRequirements = (schoolId, gradeId) => {
+exports.listRequirements = (schoolId, gradeId, curriculumType) => {
   let sql = `SELECT r.*, s.name AS subject_name, s.code AS subject_code, g.name AS grade_name
              FROM subject_lesson_requirements r
              JOIN subjects s ON s.id = r.subject_id
@@ -68,6 +75,10 @@ exports.listRequirements = (schoolId, gradeId) => {
   if (gradeId) {
     sql += " AND r.grade_id = ?";
     params.push(gradeId);
+  }
+  if (curriculumType) {
+    sql += " AND r.curriculum_type = ?";
+    params.push(curriculumType);
   }
   sql += " ORDER BY g.order_index, s.name";
   return query(sql, params);
@@ -79,6 +90,7 @@ exports.upsertRequirement = async ({
   subject_id,
   lessons_per_week,
   double_periods = 0,
+  curriculum_type = "CBC",
 }) => {
   const existing = await queryOne(
     "SELECT id FROM subject_lesson_requirements WHERE school_id=? AND grade_id=? AND subject_id=?",
@@ -86,16 +98,24 @@ exports.upsertRequirement = async ({
   );
   if (existing) {
     await execute(
-      "UPDATE subject_lesson_requirements SET lessons_per_week=?, double_periods=? WHERE id=?",
-      [lessons_per_week, double_periods, existing.id],
+      "UPDATE subject_lesson_requirements SET lessons_per_week=?, double_periods=?, curriculum_type=? WHERE id=?",
+      [lessons_per_week, double_periods, curriculum_type, existing.id],
     );
     return existing.id;
   }
   const id = uuid();
   await execute(
-    `INSERT INTO subject_lesson_requirements (id, school_id, grade_id, subject_id, lessons_per_week, double_periods)
-     VALUES (?,?,?,?,?,?)`,
-    [id, school_id, grade_id, subject_id, lessons_per_week, double_periods],
+    `INSERT INTO subject_lesson_requirements (id, school_id, grade_id, subject_id, lessons_per_week, double_periods, curriculum_type)
+     VALUES (?,?,?,?,?,?,?)`,
+    [
+      id,
+      school_id,
+      grade_id,
+      subject_id,
+      lessons_per_week,
+      double_periods,
+      curriculum_type,
+    ],
   );
   return id;
 };
@@ -117,9 +137,18 @@ exports.listEntries = (schoolId, { stream_id, teacher_id, grade_id }) => {
              LEFT JOIN staff    stf ON stf.id = t.teacher_id
              WHERE t.school_id = ?`;
   const params = [schoolId];
-  if (stream_id)  { sql += " AND t.stream_id = ?";  params.push(stream_id); }
-  if (teacher_id) { sql += " AND t.teacher_id = ?"; params.push(teacher_id); }
-  if (grade_id)   { sql += " AND t.grade_id = ?";   params.push(grade_id); }
+  if (stream_id) {
+    sql += " AND t.stream_id = ?";
+    params.push(stream_id);
+  }
+  if (teacher_id) {
+    sql += " AND t.teacher_id = ?";
+    params.push(teacher_id);
+  }
+  if (grade_id) {
+    sql += " AND t.grade_id = ?";
+    params.push(grade_id);
+  }
   sql +=
     ' ORDER BY FIELD(t.day,"Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"), t.period ASC';
   return query(sql, params);
@@ -138,9 +167,7 @@ exports.clearForStreams = async (schoolId, streamIds) => {
 exports.bulkInsertEntries = async (schoolId, rows) => {
   if (!rows.length) return 0;
   const values = [];
-  const placeholders = rows
-    .map(() => "(?,?,?,?,?,?,?,?,?,?,?)")
-    .join(",");
+  const placeholders = rows.map(() => "(?,?,?,?,?,?,?,?,?,?,?)").join(",");
   for (const r of rows) {
     values.push(
       uuid(),

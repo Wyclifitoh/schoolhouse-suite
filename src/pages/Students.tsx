@@ -47,6 +47,7 @@ import {
 import { useGrades, useStreams } from "@/hooks/useGrades";
 import { useParents, useUpdateParent } from "@/hooks/useParents";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermission";
 import { formatDate } from "@/utils/date";
 import {
   DropdownMenu,
@@ -755,10 +756,17 @@ const EditStudentDialog = ({
   const [form, setForm] = useState<Record<string, any>>({});
   const updateStudent = useUpdateStudent();
   const updateParent = useUpdateParent();
+  const { data: gradesList = [] } = useGrades();
+  const { data: streamsList = [] } = useStreams(form.current_grade_id);
 
-  const { data: parents, isLoading: parentsLoading } = useStudentParents(
+  const { data: allParents, isLoading: parentsLoading } = useStudentParents(
     student?.id,
   );
+  // All linked parents — show every guardian so they can all be edited.
+  const linkedParents: any[] = allParents && allParents.length > 0 ? allParents : [];
+
+  // Legacy parent form state (used when no linked parents exist in student_parents)
+  const [legacyParent, setLegacyParent] = useState<Record<string, any>>({});
   const [parentForms, setParentForms] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -770,18 +778,28 @@ const EditStudentDialog = ({
         admission_number: student.admission_number || "",
         gender: student.gender || "",
         date_of_birth: student.date_of_birth || "",
+        current_grade_id: student.current_grade_id || "",
+        current_stream_id: student.current_stream_id || "",
+        religion: (student as any).religion || "",
+        nationality: (student as any).nationality || "",
+        admission_date: (student as any).admission_date || "",
+        upi: (student as any).upi || "",
+        status: student.status || "active",
+      });
+      // Seed legacy parent from student columns
+      setLegacyParent({
         parent_name: student.parent_name || "",
         parent_phone: student.parent_phone || "",
-        status: student.status || "active",
       });
       setActiveTab("student");
     }
   }, [student, open]);
 
+  // Seed per-parent form state whenever linked parents load / dialog opens
   useEffect(() => {
-    if (parents && open) {
+    if (open) {
       const pForms: Record<string, any> = {};
-      parents.forEach((p) => {
+      (allParents || []).forEach((p: any) => {
         pForms[p.id] = {
           first_name: p.first_name || "",
           last_name: p.last_name || "",
@@ -793,7 +811,8 @@ const EditStudentDialog = ({
       });
       setParentForms(pForms);
     }
-  }, [parents, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allParents, open]);
 
   const handleSave = async () => {
     if (!student) return;
@@ -803,12 +822,29 @@ const EditStudentDialog = ({
     }
 
     try {
-      // 1. Update Student
-      await updateStudent.mutateAsync({ id: student.id, data: form as any });
+      // Build student payload — resolve grade/stream display names if IDs changed
+      const studentPayload: any = { ...form };
+      if (form.current_grade_id) {
+        const g = (gradesList as any[]).find((gr: any) => gr.id === form.current_grade_id);
+        if (g) studentPayload.grade = g.name;
+      }
+      if (form.current_stream_id) {
+        const s = (streamsList as any[]).find((st: any) => st.id === form.current_stream_id);
+        if (s) studentPayload.stream = s.name;
+      }
 
-      // 2. Update Parents (if any changed)
-      if (parents && parents.length > 0) {
-        const parentPromises = parents.map((p) => {
+      // When no linked parents exist, persist changes via legacy columns on student
+      if (linkedParents.length === 0) {
+        studentPayload.parent_name = legacyParent.parent_name || null;
+        studentPayload.parent_phone = legacyParent.parent_phone || null;
+      }
+
+      // 1. Update Student
+      await updateStudent.mutateAsync({ id: student.id, data: studentPayload });
+
+      // 2. Update linked Parents (if any)
+      if (linkedParents.length > 0) {
+        const parentPromises = linkedParents.map((p: any) => {
           const pData = parentForms[p.id];
           if (!pData) return Promise.resolve();
           return updateParent.mutateAsync({ id: p.id, data: pData });
@@ -912,25 +948,91 @@ const EditStudentDialog = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Parent / Guardian Name</Label>
+                  <Label className="text-xs">Class / Grade</Label>
+                  <Select
+                    value={form.current_grade_id || ""}
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        current_grade_id: v,
+                        current_stream_id: "",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(gradesList as any[]).map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Stream</Label>
+                  <Select
+                    value={form.current_stream_id || ""}
+                    onValueChange={(v) =>
+                      setForm({ ...form, current_stream_id: v })
+                    }
+                    disabled={!form.current_grade_id}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select stream" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(streamsList as any[]).map((s: any) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Admission Date</Label>
                   <Input
+                    type="date"
                     className="h-9"
-                    value={form.parent_name || ""}
+                    value={form.admission_date || ""}
                     onChange={(e) =>
-                      setForm({ ...form, parent_name: e.target.value })
+                      setForm({ ...form, admission_date: e.target.value })
                     }
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Parent Phone</Label>
+                  <Label className="text-xs">Religion</Label>
                   <Input
                     className="h-9"
-                    value={form.parent_phone || ""}
+                    value={form.religion || ""}
                     onChange={(e) =>
-                      setForm({ ...form, parent_phone: e.target.value })
+                      setForm({ ...form, religion: e.target.value })
                     }
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nationality</Label>
+                  <Input
+                    className="h-9"
+                    value={form.nationality || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, nationality: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">UPI</Label>
+                <Input
+                  className="h-9"
+                  value={form.upi || ""}
+                  onChange={(e) => setForm({ ...form, upi: e.target.value })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Status</Label>
@@ -955,9 +1057,9 @@ const EditStudentDialog = ({
           <TabsContent value="parents" className="space-y-4 mt-4">
             {parentsLoading ? (
               <Skeleton className="h-32 w-full" />
-            ) : parents && parents.length > 0 ? (
+            ) : linkedParents.length > 0 ? (
               <div className="space-y-6">
-                {parents.map((p) => (
+                {linkedParents.map((p: any) => (
                   <div
                     key={p.id}
                     className="grid gap-3 p-4 border rounded-md relative pt-6"
@@ -1070,8 +1172,38 @@ const EditStudentDialog = ({
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground border rounded-md border-dashed">
-                No parent/guardian records found for this student.
+              // Fallback: student has only legacy parent_name / parent_phone columns
+              <div className="grid gap-3 p-4 border rounded-md relative pt-6">
+                <div className="absolute -top-3 left-3 bg-background px-1 text-xs font-semibold text-muted-foreground border rounded-full shadow-sm">
+                  Primary Guardian
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  No linked parent record found. You can update the guardian's name and phone below.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Guardian Full Name</Label>
+                    <Input
+                      className="h-9"
+                      placeholder="e.g. John Kamau"
+                      value={legacyParent.parent_name || ""}
+                      onChange={(e) =>
+                        setLegacyParent((prev) => ({ ...prev, parent_name: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Phone Number</Label>
+                    <Input
+                      className="h-9"
+                      placeholder="0712345678"
+                      value={legacyParent.parent_phone || ""}
+                      onChange={(e) =>
+                        setLegacyParent((prev) => ({ ...prev, parent_phone: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </TabsContent>
@@ -1111,11 +1243,19 @@ const Students = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentRow | null>(null);
   const { hasAnyRole } = useAuth();
-  const canManageStudents = hasAnyRole([
-    "super_admin",
-    "admin",
-    "school_admin",
-  ] as any);
+  const perms = usePermissions([
+    "students:create",
+    "students:update",
+    "students:delete",
+    "students:import",
+    "students:export",
+  ]);
+  const canCreateStudent = perms["students:create"];
+  const canUpdateStudent = perms["students:update"];
+  const canDeleteStudent = perms["students:delete"];
+  const canImportStudents = perms["students:import"];
+  const canExportStudents = perms["students:export"];
+  const canManageStudents = canUpdateStudent || canDeleteStudent;
   const canViewFees = hasAnyRole([
     "super_admin",
     "admin",
@@ -1279,53 +1419,85 @@ const Students = () => {
                     Disabled
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBulkImportOpen(true)}
-                >
-                  <Upload className="h-4 w-4 mr-1.5" />
-                  Import
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const params = new URLSearchParams();
-                      params.set("status", "active");
-                      if (search) params.set("search", search);
-                      const token = api.getToken();
-                      const schoolId =
-                        localStorage.getItem("chuo-school-id") || "";
-                      const base =
-                        (import.meta as any).env?.VITE_API_URL ||
-                        "https://chuoapi.wikiteq.co.ke/api/v1";
-                      const res = await fetch(
-                        `${base}/students/export?${params}`,
-                        {
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                            "X-School-ID": schoolId,
-                          },
-                        },
-                      );
-                      if (!res.ok) throw new Error("Export failed");
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Export failed");
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1.5" />
-                  Export
-                </Button>
+                {canImportStudents && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkImportOpen(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-1.5" />
+                    Import
+                  </Button>
+                )}
+                {canExportStudents && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1.5" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {(["csv", "xlsx", "pdf"] as const).map((kind) => (
+                      <DropdownMenuItem
+                        key={kind}
+                        onClick={async () => {
+                          try {
+                            const params = new URLSearchParams();
+                            params.set("status", "active");
+                            if (search) params.set("search", search);
+                            if (gradeFilter !== "all" && selectedGrade?.id)
+                              params.set("grade_id", selectedGrade.id);
+                            if (streamFilters.length > 0) {
+                              const ids = streamsForGrade
+                                .filter((s: any) =>
+                                  streamFilters.includes(s.name),
+                                )
+                                .map((s: any) => s.id)
+                                .join(",");
+                              if (ids) params.set("stream_ids", ids);
+                            }
+                            const token = api.getToken();
+                            const schoolId =
+                              localStorage.getItem("chuo-school-id") || "";
+                            const base =
+                              (import.meta as any).env?.VITE_API_URL ||
+                              "https://chuoapi.wikiteq.co.ke/api/v1";
+                            const path =
+                              kind === "csv"
+                                ? "/students/export"
+                                : kind === "xlsx"
+                                  ? "/students/export.xlsx"
+                                  : "/students/export.pdf";
+                            const res = await fetch(
+                              `${base}${path}?${params}`,
+                              {
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                  "X-School-ID": schoolId,
+                                },
+                              },
+                            );
+                            if (!res.ok) throw new Error("Export failed");
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `students-${new Date().toISOString().slice(0, 10)}.${kind}`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          } catch (e: any) {
+                            toast.error(e?.message || "Export failed");
+                          }
+                        }}
+                      >
+                        Export as {kind.toUpperCase()}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                )}
+                {canCreateStudent && (
                 <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -1343,6 +1515,7 @@ const Students = () => {
                     />
                   </DialogContent>
                 </Dialog>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -1608,13 +1781,16 @@ const Students = () => {
                                   Collect Payment
                                 </DropdownMenuItem>
                               )}
-                              {canManageStudents && (
+                              {(canUpdateStudent || canDeleteStudent) && (
                                 <>
                                   <DropdownMenuSeparator />
+                                  {canUpdateStudent && (
                                   <DropdownMenuItem onClick={() => openEdit(s)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
                                   </DropdownMenuItem>
+                                  )}
+                                  {canDeleteStudent && (
                                   <DropdownMenuItem
                                     className="text-destructive"
                                     onClick={() => {
@@ -1631,6 +1807,7 @@ const Students = () => {
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Deactivate
                                   </DropdownMenuItem>
+                                  )}
                                 </>
                               )}
                             </DropdownMenuContent>

@@ -12,6 +12,7 @@ export interface StudentAttendanceRow {
   grade: string;
   grade_name?: string | null;
   stream_name?: string | null;
+  stream_id?: string | null;
   date: string;
   status: AttendanceStatus;
   remarks?: string | null;
@@ -41,6 +42,7 @@ export function useStudentAttendance(date: string, gradeFilter?: string) {
         grade: s.current_grade_id || "",
         grade_name: s.grade_name,
         stream_name: s.stream_name,
+        stream_id: s.current_stream_id,
         date,
         status: (s.status || "present") as AttendanceStatus,
         remarks: s.remarks ?? null,

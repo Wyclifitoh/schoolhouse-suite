@@ -43,10 +43,16 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (!currentSchoolId && schools.length > 0) {
-      setCurrentSchoolId(schools[0].id);
+    if (schools.length > 0) {
+      // If no school is selected, or the selected school is not in the accessible list, reset to the first accessible school
+      if (!currentSchoolId || !schools.find(s => s.id === currentSchoolId)) {
+        setCurrentSchoolId(schools[0].id);
+      }
+    } else if (!isLoading && currentSchoolId) {
+      // If no schools are accessible, clear the selected school
+      setCurrentSchoolId(null);
     }
-  }, [schools, currentSchoolId]);
+  }, [schools, currentSchoolId, isLoading]);
 
   useEffect(() => {
     if (currentSchoolId) {

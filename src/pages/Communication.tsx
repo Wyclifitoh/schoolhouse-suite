@@ -80,6 +80,8 @@ import {
   type Notice,
 } from "@/hooks/useCommHub";
 import { toast } from "sonner";
+import { usePermission } from "@/hooks/usePermission";
+import { AccessDenied } from "@/components/PermissionGate";
 
 /* ============= SHARED ============= */
 const StatusBadge = ({ status }: { status: string }) => {
@@ -408,6 +410,7 @@ export const Overview = ({ goto }: { goto?: (tab: string) => void }) => {
 
 /* ============= SMS COMPOSER ============= */
 export const SmsComposer = () => {
+  const canSend = usePermission("communication:create");
   const [audience, setAudience] = useState<Audience>({
     type: "parents",
     relationship: "all",
@@ -439,6 +442,7 @@ export const SmsComposer = () => {
     });
   };
 
+  if (!canSend) return <AccessDenied message="You don't have permission to send SMS." />;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -556,6 +560,7 @@ export const SmsComposer = () => {
 
 /* ============= EMAIL COMPOSER ============= */
 export const EmailComposer = () => {
+  const canSend = usePermission("communication:create");
   const [audience, setAudience] = useState<Audience>({
     type: "parents",
     relationship: "all",
@@ -589,6 +594,7 @@ export const EmailComposer = () => {
     });
   };
 
+  if (!canSend) return <AccessDenied message="You don't have permission to send emails." />;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -874,6 +880,7 @@ const emptyTpl: Partial<SmsTemplate> = {
   is_active: true,
 };
 export const TemplatesTab = () => {
+  const canManage = usePermission("communication:create");
   const [search, setSearch] = useState("");
   const { data: templates = [], isLoading } = useSmsTemplates({
     search: search || undefined,
@@ -915,7 +922,7 @@ export const TemplatesTab = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button
+            {canManage && <Button
               size="sm"
               onClick={() => {
                 setEditing(emptyTpl);
@@ -923,7 +930,7 @@ export const TemplatesTab = () => {
               }}
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" /> New Template
-            </Button>
+            </Button>}
           </div>
         </div>
       </CardHeader>
@@ -967,6 +974,7 @@ export const TemplatesTab = () => {
                 <div className="flex items-center gap-1 shrink-0">
                   <Switch
                     checked={t.is_active}
+                    disabled={!canManage}
                     onCheckedChange={() =>
                       update.mutate({
                         id: t.id,
@@ -985,7 +993,7 @@ export const TemplatesTab = () => {
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
+                  {canManage && <Button
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7"
@@ -995,8 +1003,8 @@ export const TemplatesTab = () => {
                     }}
                   >
                     <Edit3 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
+                  </Button>}
+                  {canManage && <Button
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 text-destructive"
@@ -1006,7 +1014,7 @@ export const TemplatesTab = () => {
                     }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  </Button>}
                 </div>
               </div>
             </div>
@@ -1131,6 +1139,7 @@ const emptyNotice: Partial<Notice> = {
   pinned: false,
 };
 export const NoticeboardTab = () => {
+  const canManage = usePermission("communication:create");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { data: notices = [], isLoading } = useNotices({
@@ -1164,43 +1173,48 @@ export const NoticeboardTab = () => {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="text-base flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-primary" /> Noticeboard
             <Badge variant="secondary" className="ml-2 text-[10px]">
               {notices.length}
             </Badge>
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto">
               <Search className="h-3.5 w-3.5 absolute left-2 top-2.5 text-muted-foreground" />
               <Input
-                className="h-8 pl-7 w-48 text-xs"
+                className="h-8 pl-7 w-full sm:w-48 text-xs"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 w-32 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="draft">Drafts</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditing(emptyNotice);
-                setOpen(true);
-              }}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" /> New Notice
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex-1 sm:flex-none">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-8 w-full sm:w-32 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="draft">Drafts</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {canManage && <Button
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => {
+                  setEditing(emptyNotice);
+                  setOpen(true);
+                }}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> New
+              </Button>}
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -1219,8 +1233,8 @@ export const NoticeboardTab = () => {
                 key={n.id}
                 className={`rounded-lg border p-3 ${n.pinned ? "border-primary/40 bg-primary/5" : "bg-background"} ${expired ? "opacity-60" : ""}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0 w-full">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       {n.pinned && <Pin className="h-3.5 w-3.5 text-primary" />}
                       <h4 className="font-semibold text-sm">{n.title}</h4>
@@ -1257,8 +1271,8 @@ export const NoticeboardTab = () => {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
+                  <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 justify-end border-t sm:border-0 pt-2 sm:pt-0">
+                    {canManage && <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7"
@@ -1268,16 +1282,16 @@ export const NoticeboardTab = () => {
                       <Pin
                         className={`h-3.5 w-3.5 ${n.pinned ? "text-primary fill-primary" : ""}`}
                       />
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canManage && <Button
                       size="sm"
                       variant="outline"
                       className="h-7 text-xs"
                       onClick={() => publish(n)}
                     >
                       {n.status === "published" ? "Unpublish" : "Publish"}
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canManage && <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7"
@@ -1287,8 +1301,8 @@ export const NoticeboardTab = () => {
                       }}
                     >
                       <Edit3 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
+                    </Button>}
+                    {canManage && <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7 text-destructive"
@@ -1297,7 +1311,7 @@ export const NoticeboardTab = () => {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </Button>}
                   </div>
                 </div>
               </div>
@@ -1333,7 +1347,7 @@ export const NoticeboardTab = () => {
                 }
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Audience</Label>
                 <Select
@@ -1392,7 +1406,7 @@ export const NoticeboardTab = () => {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Publish at</Label>
                 <Input

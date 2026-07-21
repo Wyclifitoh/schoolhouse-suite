@@ -13,6 +13,17 @@ const list = async (req, res) => {
   }
 };
 
+const getStats = async (req, res) => {
+  try {
+    return success(
+      res,
+      await paymentsService.stats(req.schoolId, req.query, req.session),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
 const getById = async (req, res) => {
   try {
     return success(
@@ -86,6 +97,53 @@ const voidPayment = async (req, res) => {
   }
 };
 
+const bulkVoidPayments = async (req, res) => {
+  try {
+    return success(
+      res,
+      await paymentsService.bulkVoidPayments(
+        req.schoolId,
+        req.body || {},
+        req.user?.id,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+
+const transferPayment = async (req, res) => {
+  try {
+    return success(
+      res,
+      await paymentsService.transferPayment(
+        req.params.id,
+        req.schoolId,
+        req.body || {},
+        req.user?.id,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 400);
+  }
+};
+
+const revertPayment = async (req, res) => {
+  try {
+    return success(
+      res,
+      await paymentsService.revertPayment(
+        req.params.id,
+        req.schoolId,
+        req.body || {},
+        req.user?.id,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 400);
+  }
+};
+
 const mpesaCallback = async (req, res) => {
   console.log("[mpesa-callback] Received:", JSON.stringify(req.body));
   res.json({ ResultCode: 0, ResultDesc: "Accepted" });
@@ -119,12 +177,17 @@ const reassign = async (req, res) => {
 };
 
 module.exports = {
+  getStats,
+
   list,
   getById,
   allocations,
   create,
   record,
   voidPayment,
+  bulkVoidPayments,
+  transferPayment,
+  revertPayment,
   mpesaCallback,
   listUnallocated,
   reassign,

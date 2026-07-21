@@ -20,6 +20,7 @@ import {
   useStudentsSummary,
 } from "@/hooks/useStudents";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
 import { formatDate } from "@/utils/date";
 import {
   ArrowLeft,
@@ -33,7 +34,7 @@ import {
 const DisabledStudents = () => {
   const navigate = useNavigate();
   const { hasAnyRole } = useAuth();
-  const canManage = hasAnyRole(["super_admin", "admin", "school_admin"] as any);
+  const canManage = usePermission("students:update");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 20;

@@ -25,9 +25,11 @@ import {
   useComputeResults,
   useBulkResultStatus,
   useRecomputeResultPositions,
+  useAssessmentMarksList,
   type ResultStatus,
 } from "@/hooks/useAssessments";
 import { useGrades, useStreams } from "@/hooks/useGrades";
+import { useSchoolProfile } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ClipboardCheck,
@@ -38,8 +40,14 @@ import {
   Undo2,
   Trophy,
   ShieldCheck,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { PermissionGate } from "@/components/PermissionGate";
 
 const STATUS_COLORS: Record<ResultStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -61,6 +69,7 @@ export default function Results() {
   const { hasAnyRole } = useAuth();
   const canApprove = hasAnyRole(APPROVER_ROLES as any);
 
+  const { data: school } = useSchoolProfile();
   const { data: assessments = [] } = useAssessmentsList();
   const { data: grades = [] } = useGrades();
   const [assessmentId, setAssessmentId] = useState<string>("");
@@ -69,6 +78,7 @@ export default function Results() {
   const { data: streams = [] } = useStreams(gradeId || undefined);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"results" | "preview">("results");
 
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
@@ -82,6 +92,13 @@ export default function Results() {
     assessmentId,
     filters,
   );
+
+  const { data: rawMarks = [], isLoading: marksLoading } =
+    useAssessmentMarksList({
+      assessment_id: assessmentId,
+      grade_id: gradeId || undefined,
+      stream_id: streamId || undefined,
+    });
   const compute = useComputeResults();
   const positions = useRecomputeResultPositions();
   const setStatus = useBulkResultStatus();
@@ -122,6 +139,377 @@ export default function Results() {
     ).length;
     return totals;
   }, [results]);
+
+  const exportRows = useMemo(
+    () =>
+      results.map((r, i) => ({
+        "#": streamId ? r.stream_position ?? i + 1 : r.grade_position ?? r.class_position ?? i + 1,
+        "Admission No.": r.admission_number,
+        Student: `${r.first_name} ${r.last_name}`,
+        Class: `${r.grade_name || ""}${r.stream_name ? " · " + r.stream_name : ""}`,
+        Total: Number(r.total_score || 0),
+        "Out Of": Number(r.total_out_of || 0),
+        "Mean %": Number(r.percentage || 0).toFixed(1),
+        AL: r.overall_al || "",
+        Band: r.overall_band || "",
+        Status: r.status,
+      })),
+    [results, streamId],
+  );
+
+  const broadsheet = useMemo(() => {
+    if (!rawMarks.length) return { students: [], subjects: [], subjectMeans: {} as Record<string, string>, overallTotalMean: "—", overallMeanPct: "—" };
+    const subjMap = new Map();
+    const stuMap = new Map();
+    rawMarks.forEach((m: any) => {
+      if (!subjMap.has(m.subject_id)) {
+        subjMap.set(m.subject_id, { id: m.subject_id, name: m.subject_name });
+      }
+      if (!stuMap.has(m.student_id)) {
+        stuMap.set(m.student_id, {
+          id: m.student_id,
+          name: `${m.first_name} ${m.last_name}`,
+          adm: m.admission_number,
+          className: `${m.grade_name || ""}${m.stream_name ? " · " + m.stream_name : ""}`,
+          marks: {},
+        });
+      }
+      stuMap.get(m.student_id).marks[m.subject_id] =
+        m.score != null ? Math.round(Number(m.score)) : null;
+    });
+
+    const subjects = Array.from(subjMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const students = Array.from(stuMap.values())
+      .map((stu) => {
+        const res = results.find((r) => r.student_id === stu.id);
+        return {
+          ...stu,
+          total: res ? Number(res.total_score || 0) : null,
+          mean: res ? Number(res.percentage || 0) : null,
+          rank: streamId ? (res?.stream_position ?? null) : (res?.grade_position ?? res?.class_position ?? null),
+          al: res?.overall_al || "",
+          band: res?.overall_band || "",
+          status: res?.status || "draft",
+        };
+      })
+      .sort((a, b) => {
+        if (a.rank && b.rank) return a.rank - b.rank;
+        return a.name.localeCompare(b.name);
+      });
+
+    const subjectMeans: Record<string, string> = {};
+    subjects.forEach((s) => {
+      let sum = 0;
+      let count = 0;
+      students.forEach((stu) => {
+        if (stu.marks[s.id] != null) {
+          sum += stu.marks[s.id];
+          count++;
+        }
+      });
+      subjectMeans[s.id] = count > 0 ? (sum / count).toFixed(1) : "—";
+    });
+
+    let totalSum = 0;
+    let totalCount = 0;
+    let meanSum = 0;
+    let meanCount = 0;
+
+    students.forEach((stu) => {
+      if (stu.total != null) {
+        totalSum += stu.total;
+        totalCount++;
+      }
+      if (stu.mean != null) {
+        meanSum += stu.mean;
+        meanCount++;
+      }
+    });
+
+    const overallTotalMean = totalCount > 0 ? (totalSum / totalCount).toFixed(0) : "—";
+    const overallMeanPct = meanCount > 0 ? (meanSum / meanCount).toFixed(1) : "—";
+
+    return { subjects, students, subjectMeans, overallTotalMean, overallMeanPct };
+  }, [rawMarks, results, streamId]);
+
+  const assessmentName = useMemo(
+    () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
+    [assessments, assessmentId],
+  );
+
+  const exportExcel = () => {
+    if (!exportRows.length) return toast.error("Nothing to export");
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    ws["!cols"] = [
+      { wch: 5 },
+      { wch: 14 },
+      { wch: 26 },
+      { wch: 22 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 9 },
+      { wch: 6 },
+      { wch: 10 },
+      { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Results");
+    XLSX.writeFile(wb, `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`);
+  };
+
+  const getBase64ImageFromUrl = async (imageUrl: string) => {
+    try {
+      let fullUrl = imageUrl;
+      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+        const apiBase = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+        const host = apiBase.replace(/\/api\/v1\/?$/, '');
+        fullUrl = `${host}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+      }
+      const res = await fetch(fullUrl);
+      if (!res.ok) throw new Error(`Image fetch failed with status ${res.status}`);
+      
+      // Also ensure we actually got an image before converting it
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.startsWith("image/")) {
+        throw new Error(`Invalid content type: ${contentType}`);
+      }
+
+      const blob = await res.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const drawSchoolHeader = async (doc: any, title: string, subtitle: string) => {
+    let textX = 40;
+    if (school?.logo_url) {
+      const b64 = await getBase64ImageFromUrl(school.logo_url);
+      if (b64) {
+        doc.addImage(b64, 40, 25, 45, 45);
+        textX = 95;
+      }
+    }
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text((school?.name || "School").toUpperCase(), textX, 40);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    const contact = [
+      school?.address,
+      school?.phone ? `Tel: ${school.phone}` : "",
+      school?.email ? `Email: ${school.email}` : ""
+    ].filter(Boolean).join(" | ");
+    if (contact) {
+      doc.text(contact, textX, 55);
+    }
+    
+    // Separator line
+    doc.setDrawColor(226, 232, 240);
+    doc.line(40, 80, doc.internal.pageSize.width - 40, 80);
+
+    // Title
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(title, 40, 105);
+    
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(subtitle, 40, 120);
+
+    // Filter label
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : null;
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : null;
+    if (gradeLabel) {
+      doc.setFontSize(10);
+      doc.setTextColor(37, 99, 235); // ACCENT
+      let filterText = gradeLabel.toUpperCase();
+      if (streamLabel) {
+        filterText += ` - ${streamLabel.toUpperCase()}`;
+      }
+      doc.text(filterText, 40, 135);
+      return 150;
+    }
+
+    return 135;
+  };
+
+  const exportPdf = async () => {
+    if (!exportRows.length) return toast.error("Nothing to export");
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
+    
+    const startY = await drawSchoolHeader(
+      doc, 
+      assessmentName, 
+      `Students: ${summary.count}  ·  Mean: ${summary.mean ? summary.mean.toFixed(1) + "%" : "—"}  ·  Published: ${summary.published}  ·  Pending: ${summary.pending}`
+    );
+
+    const head = [Object.keys(exportRows[0])];
+    const body = exportRows.map((r) => Object.values(r) as any[]);
+    autoTable(doc, {
+      head,
+      body,
+      startY,
+      styles: { fontSize: 9, cellPadding: 4 },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 40, right: 40 },
+    });
+    
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : "";
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : "";
+    let filenameSuffix = "";
+    if (gradeLabel) filenameSuffix += `_${gradeLabel}`;
+    if (streamLabel) filenameSuffix += `_${streamLabel}`;
+    
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}${filenameSuffix.replace(/\s+/g, "_")}.pdf`);
+  };
+
+  const exportPreviewPdf = async () => {
+    if (!broadsheet.students.length)
+      return toast.error("No marklist data available");
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
+    
+    const startY = await drawSchoolHeader(
+      doc, 
+      `${assessmentName} - Marklist`, 
+      `Students: ${broadsheet.students.length}`
+    );
+
+    const head = [
+      [
+        "Rank",
+        "Student",
+        "Adm",
+        ...broadsheet.subjects.map((s) => s.name),
+        "Total",
+        "Mean %",
+        "AL",
+        "Band",
+      ],
+    ];
+    const body = broadsheet.students.map((stu) => [
+      stu.rank ?? "—",
+      stu.name,
+      stu.adm,
+      ...broadsheet.subjects.map((s) =>
+        stu.marks[s.id] != null ? String(stu.marks[s.id]) : "—",
+      ),
+      stu.total != null ? stu.total.toFixed(0) : "—",
+      stu.mean != null ? stu.mean.toFixed(1) : "—",
+      stu.al || "—",
+      stu.band || "—",
+    ]);
+
+    // Add subject means summary row
+    body.push([
+      "",
+      "SUBJECT MEANS",
+      "",
+      ...broadsheet.subjects.map((s) => broadsheet.subjectMeans[s.id]),
+      broadsheet.overallTotalMean,
+      broadsheet.overallMeanPct,
+      "",
+      "",
+    ]);
+
+    autoTable(doc, {
+      head,
+      body,
+      startY,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { left: 40, right: 40 },
+    });
+    
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : "";
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : "";
+    let filenameSuffix = "";
+    if (gradeLabel) filenameSuffix += `_${gradeLabel}`;
+    if (streamLabel) filenameSuffix += `_${streamLabel}`;
+    
+    doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}${filenameSuffix.replace(/\s+/g, "_")}_marklist.pdf`);
+  };
+
+  const exportPreviewExcel = () => {
+    if (!broadsheet.students.length)
+      return toast.error("No marklist data available");
+
+    const rows = broadsheet.students.map((stu) => {
+      const row: any = {
+        Rank: stu.rank ?? "—",
+        Student: stu.name,
+        Adm: stu.adm,
+        Class: stu.className,
+      };
+
+      broadsheet.subjects.forEach((s) => {
+        row[s.name] = stu.marks[s.id] != null ? stu.marks[s.id] : "—";
+      });
+
+      row["Total"] = stu.total != null ? stu.total.toFixed(0) : "—";
+      row["Mean %"] = stu.mean != null ? stu.mean.toFixed(1) : "—";
+      row["AL"] = stu.al || "—";
+      row["Band"] = stu.band || "—";
+      return row;
+    });
+
+    const summaryRow: any = {
+      Rank: "",
+      Student: "SUBJECT MEANS",
+      Adm: "",
+      Class: "",
+    };
+    broadsheet.subjects.forEach((s) => {
+      summaryRow[s.name] = broadsheet.subjectMeans[s.id];
+    });
+    summaryRow["Total"] = broadsheet.overallTotalMean;
+    summaryRow["Mean %"] = broadsheet.overallMeanPct;
+    summaryRow["AL"] = "";
+    summaryRow["Band"] = "";
+    rows.push(summaryRow);
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Marklist");
+    
+    const gradeLabel = gradeId ? grades.find(g => g.id === gradeId)?.name : "";
+    const streamLabel = streamId ? streams.find((s) => s.id === streamId)?.name : "";
+    let filenameSuffix = "";
+    if (gradeLabel) filenameSuffix += `_${gradeLabel}`;
+    if (streamLabel) filenameSuffix += `_${streamLabel}`;
+    
+    XLSX.writeFile(
+      wb,
+      `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}${filenameSuffix.replace(/\s+/g, "_")}_marklist.xlsx`,
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -225,21 +613,41 @@ export default function Results() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || compute.isPending}
-              onClick={() => compute.mutate(assessmentId)}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              {compute.isPending ? "Computing…" : "Compute"}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!assessmentId || positions.isPending}
-              onClick={() => positions.mutate(assessmentId)}
-            >
-              <Trophy className="h-4 w-4 mr-1" /> Rank
-            </Button>
+            {canApprove && (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || compute.isPending}
+                  onClick={() => compute.mutate(assessmentId)}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  {compute.isPending ? "Computing…" : "Compute"}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!assessmentId || positions.isPending}
+                  onClick={() => positions.mutate(assessmentId)}
+                >
+                  <Trophy className="h-4 w-4 mr-1" /> Rank
+                </Button>
+              </>
+            )}
+            <PermissionGate permission="reports:export">
+              <Button
+                variant="outline"
+                disabled={!results.length}
+                onClick={exportExcel}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!results.length || !gradeId}
+                onClick={exportPdf}
+              >
+                <FileText className="h-4 w-4 mr-1" /> PDF
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -283,138 +691,285 @@ export default function Results() {
         </div>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
-            <CardTitle>Results roster</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3 pb-2">
+            <div className="flex items-center gap-4">
+              <CardTitle>Results roster</CardTitle>
+              <div className="flex bg-muted p-1 rounded-md">
+                <button
+                  className={`px-3 py-1 text-sm rounded-sm transition-colors ${viewMode === "results" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                  onClick={() => setViewMode("results")}
+                >
+                  Computed Results
+                </button>
+                <button
+                  className={`px-3 py-1 text-sm rounded-sm transition-colors ${viewMode === "preview" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                  onClick={() => setViewMode("preview")}
+                >
+                  Marklist (Broadsheet)
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!selected.size || setStatus.isPending}
-                onClick={() => doStatus("pending_review")}
-              >
-                <Send className="h-4 w-4 mr-1" /> Submit for review
-              </Button>
-              {canApprove && (
+              {viewMode === "preview" && (
                 <>
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("approved")}
+                    onClick={exportPreviewExcel}
+                    disabled={!broadsheet.students.length}
                   >
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                    <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
                   </Button>
                   <Button
                     size="sm"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("published")}
+                    variant="outline"
+                    onClick={exportPreviewPdf}
+                    disabled={!broadsheet.students.length}
                   >
-                    <Send className="h-4 w-4 mr-1" /> Publish
+                    <FileText className="h-4 w-4 mr-1" /> PDF
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!selected.size || setStatus.isPending}
-                    onClick={() => doStatus("revoked")}
+                </>
+              )}
+              {viewMode === "results" && (
+                <>
+                  <PermissionGate
+                    permission={["exams:update", "exams:publish"]}
                   >
-                    <Undo2 className="h-4 w-4 mr-1" /> Revoke
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("pending_review")}
+                    >
+                      <Send className="h-4 w-4 mr-1" /> Submit for review
+                    </Button>
+                  </PermissionGate>
+                  <PermissionGate permission="exams:publish">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("approved")}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("published")}
+                    >
+                      <Send className="h-4 w-4 mr-1" /> Publish
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!selected.size || setStatus.isPending}
+                      onClick={() => doStatus("revoked")}
+                    >
+                      <Undo2 className="h-4 w-4 mr-1" /> Revoke
+                    </Button>
+                  </PermissionGate>
                 </>
               )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={(v) =>
-                        setSelected(
-                          v ? new Set(results.map((r) => r.id)) : new Set(),
-                        )
-                      }
-                    />
-                  </TableHead>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Mean %</TableHead>
-                  <TableHead>AL</TableHead>
-                  <TableHead>Band</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {results.map((r, i) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selected.has(r.id)}
-                        onCheckedChange={() => toggle(r.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {r.class_position ?? i + 1}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">
-                        {r.first_name} {r.last_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.admission_number}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {r.grade_name}
-                      {r.stream_name ? ` · ${r.stream_name}` : ""}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {Number(r.total_score).toFixed(0)} /{" "}
-                      {Number(r.total_out_of).toFixed(0)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {Number(r.percentage || 0).toFixed(1)}
-                    </TableCell>
-                    <TableCell>
-                      {r.overall_al ? (
-                        <Badge variant="outline">{r.overall_al}</Badge>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}
-                      >
-                        {r.status.replace("_", " ")}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!results.length && (
+            {viewMode === "results" ? (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      className="text-center text-muted-foreground py-10"
-                    >
-                      {!assessmentId
-                        ? "Select an assessment to view results."
-                        : isLoading
-                          ? "Loading…"
-                          : "No results yet — click Compute."}
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(v) =>
+                          setSelected(
+                            v ? new Set(results.map((r) => r.id)) : new Set(),
+                          )
+                        }
+                      />
+                    </TableHead>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Mean %</TableHead>
+                    <TableHead>AL</TableHead>
+                    <TableHead>Band</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {results.map((r, i) => (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selected.has(r.id)}
+                          onCheckedChange={() => toggle(r.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {r.class_position ?? i + 1}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">
+                          {r.first_name} {r.last_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.admission_number}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {r.grade_name}
+                        {r.stream_name ? ` · ${r.stream_name}` : ""}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {Number(r.total_score).toFixed(0)} /{" "}
+                        {Number(r.total_out_of).toFixed(0)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {Number(r.percentage || 0).toFixed(1)}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const pts = (r as any).total_points;
+                          if (pts != null && !isNaN(Number(pts))) {
+                            return (
+                              <Badge variant="outline">
+                                AL{Math.round(Number(pts))}
+                              </Badge>
+                            );
+                          }
+                          return r.overall_al ? (
+                            <Badge variant="outline">{r.overall_al}</Badge>
+                          ) : (
+                            "—"
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {r.overall_band ? <Badge>{r.overall_band}</Badge> : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}
+                        >
+                          {r.status.replace("_", " ")}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!results.length && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={9}
+                        className="text-center text-muted-foreground py-10"
+                      >
+                        {!assessmentId
+                          ? "Select an assessment to view results."
+                          : isLoading
+                            ? "Loading…"
+                            : "No results yet — click Compute."}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Student</TableHead>
+                      {broadsheet.subjects.map((s) => (
+                        <TableHead key={s.id} className="text-center">
+                          {s.name}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Mean %</TableHead>
+                      <TableHead>AL</TableHead>
+                      <TableHead>Band</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {broadsheet.students.map((stu, i) => (
+                      <TableRow key={stu.id}>
+                        <TableCell className="text-muted-foreground">
+                          {i + 1}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{stu.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {stu.adm}
+                          </div>
+                        </TableCell>
+                        {broadsheet.subjects.map((s) => (
+                          <TableCell
+                            key={s.id}
+                            className="text-center tabular-nums"
+                          >
+                            {stu.marks[s.id] != null ? (
+                              stu.marks[s.id]
+                            ) : (
+                              <span className="text-muted-foreground/30">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right tabular-nums font-medium">
+                          {stu.total != null ? stu.total.toFixed(0) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">
+                          {stu.mean != null ? stu.mean.toFixed(1) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {stu.al ? (
+                            <Badge variant="outline">{stu.al}</Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {stu.band ? <Badge>{stu.band}</Badge> : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {broadsheet.students.length > 0 && (
+                      <TableRow className="font-bold bg-muted/30">
+                        <TableCell colSpan={2} className="text-right">SUBJECT MEANS:</TableCell>
+                        <TableCell />
+                        {broadsheet.subjects.map((s) => (
+                          <TableCell key={`mean-${s.id}`} className="text-center tabular-nums">
+                            {broadsheet.subjectMeans[s.id]}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right tabular-nums">{broadsheet.overallTotalMean}</TableCell>
+                        <TableCell className="text-right tabular-nums">{broadsheet.overallMeanPct}</TableCell>
+                        <TableCell colSpan={2} />
+                      </TableRow>
+                    )}
+                    {!broadsheet.students.length && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={broadsheet.subjects.length + 2}
+                          className="text-center text-muted-foreground py-10"
+                        >
+                          {!assessmentId
+                            ? "Select an assessment to preview marks."
+                            : marksLoading
+                              ? "Loading marks…"
+                              : "No marks recorded for this assessment yet."}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

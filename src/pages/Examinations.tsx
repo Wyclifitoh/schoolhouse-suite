@@ -52,6 +52,7 @@ import {
   useExamLifecycle,
 } from "@/hooks/useExamsExtended";
 import { useClasses, useSubjects } from "@/hooks/useClasses";
+import { usePermissions } from "@/hooks/usePermission";
 import { useTerm } from "@/contexts/TermContext";
 import {
   ClipboardCheck,
@@ -88,7 +89,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const CURRICULA = [
-  { value: "CBC", label: "CBC (Competency Based)" },
+  { value: "CBC", label: "CBE (Competency Based)" },
   { value: "8-4-4", label: "8-4-4 (Traditional)" },
   { value: "IGCSE", label: "IGCSE / International" },
 ];
@@ -561,6 +562,7 @@ const Examinations = () => {
   const update = useUpdateExam();
   const del = useDeleteExam();
   const lifecycle = useExamLifecycle();
+  const perms = usePermissions(["exams:create","exams:update","exams:delete","exams:publish"]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -610,7 +612,7 @@ const Examinations = () => {
   return (
     <DashboardLayout
       title="Examinations & Assessment"
-      subtitle="Manage exams, schedules, marks, analytics & report cards — CBC and 8-4-4 ready"
+      subtitle="Manage exams, schedules, marks, analytics & report cards — CBE and 8-4-4 ready"
     >
       <Tabs defaultValue="exams" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
@@ -695,10 +697,10 @@ const Examinations = () => {
                 <CardTitle className="text-base font-bold">
                   Examinations
                 </CardTitle>
-                <Button size="sm" className="rounded-lg" onClick={openCreate}>
+                {perms["exams:create"] && <Button size="sm" className="rounded-lg" onClick={openCreate}>
                   <Plus className="h-4 w-4 mr-1.5" />
                   Create Exam
-                </Button>
+                </Button>}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -765,17 +767,17 @@ const Examinations = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEdit(e)}>
+                                {perms["exams:update"] && <DropdownMenuItem onClick={() => openEdit(e)}>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
                                 <DropdownMenuItem asChild>
                                   <Link to={`/exams/entry?exam_id=${e.id}`}>
                                     <BookOpen className="h-4 w-4 mr-2" />
                                     Enter Marks
                                   </Link>
                                 </DropdownMenuItem>
-                                {e.status === "draft" && (
+                                {perms["exams:update"] && e.status === "draft" && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.submit.mutate({ id: e.id })
@@ -785,7 +787,7 @@ const Examinations = () => {
                                     Submit for Review
                                   </DropdownMenuItem>
                                 )}
-                                {e.status === "submitted" && (
+                                {perms["exams:publish"] && e.status === "submitted" && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.review.mutate({ id: e.id })
@@ -795,7 +797,7 @@ const Examinations = () => {
                                     Mark Reviewed
                                   </DropdownMenuItem>
                                 )}
-                                {["submitted", "reviewed"].includes(
+                                {perms["exams:publish"] && ["submitted", "reviewed"].includes(
                                   e.status,
                                 ) && (
                                   <DropdownMenuItem
@@ -807,7 +809,7 @@ const Examinations = () => {
                                     Approve & Publish
                                   </DropdownMenuItem>
                                 )}
-                                {e.status === "approved" && (
+                                {perms["exams:publish"] && e.status === "approved" && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.lock.mutate({ id: e.id })
@@ -817,7 +819,7 @@ const Examinations = () => {
                                     Lock
                                   </DropdownMenuItem>
                                 )}
-                                {["approved", "locked"].includes(e.status) && (
+                                {perms["exams:publish"] && ["approved", "locked"].includes(e.status) && (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       lifecycle.reopen.mutate({ id: e.id })
@@ -827,7 +829,7 @@ const Examinations = () => {
                                     Reopen
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
+                                {perms["exams:delete"] && <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => {
                                     if (confirm(`Delete exam "${e.name}"?`))
@@ -836,7 +838,7 @@ const Examinations = () => {
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

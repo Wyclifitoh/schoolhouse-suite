@@ -175,6 +175,83 @@ const findUsers = async (schoolId) => {
   );
 };
 
+// Replace a user's role for this school. If role = 'teacher', auto-create teacher record.
+const updateUserRole = async (schoolId, userId, role) => {
+  const { v4: uuidv4 } = require("uuid");
+  // Remove all existing roles for this user+school
+  await query("DELETE FROM user_roles WHERE user_id = ? AND school_id = ?", [
+    userId,
+    schoolId,
+  ]);
+  // Insert new role
+  await query(
+    "INSERT INTO user_roles (id, user_id, school_id, role, is_active) VALUES (?, ?, ?, ?, TRUE)",
+    [uuidv4(), userId, schoolId, role],
+  );
+
+  // If promoting to teacher, make sure they exist in teachers/staff
+  if (role === "teacher") {
+    try {
+      const user = await queryOne(
+        "SELECT id, email, full_name, phone FROM users WHERE id = ?",
+        [userId],
+      );
+      if (user) {
+        // staff record
+        const staff = await queryOne(
+          "SELECT id FROM staff WHERE user_id = ? AND school_id = ?",
+          [userId, schoolId],
+        );
+        if (!staff) {
+          const parts = (user.full_name || user.email || "Staff").split(" ");
+          await query(
+            `INSERT INTO staff (id, school_id, user_id, first_name, last_name, email, phone, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+            [
+              uuidv4(),
+              schoolId,
+              userId,
+              parts[0] || "Staff",
+              parts.slice(1).join(" ") || "Member",
+              user.email,
+              user.phone || null,
+            ],
+          );
+        }
+        // teachers table (if it exists)
+        try {
+          const t = await queryOne(
+            "SELECT id FROM teachers WHERE user_id = ? AND school_id = ?",
+            [userId, schoolId],
+          );
+          if (!t) {
+            await query(
+              `INSERT INTO teachers (id, school_id, user_id, first_name, last_name, email, phone, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+              [
+                uuidv4(),
+                schoolId,
+                userId,
+                (user.full_name || "Staff").split(" ")[0],
+                (user.full_name || "Member").split(" ").slice(1).join(" ") ||
+                  "Member",
+                user.email,
+                user.phone || null,
+              ],
+            );
+          }
+        } catch (_) {
+          /* teachers table may not exist */
+        }
+      }
+    } catch (e) {
+      console.warn("[updateUserRole] teacher sync warning:", e.message);
+    }
+  }
+
+  return { user_id: userId, school_id: schoolId, role };
+};
+
 const findNotificationTemplates = async (schoolId) => {
   return query(
     `SELECT id, name, event_type, channel, subject, body, is_active
@@ -218,6 +295,7 @@ module.exports = {
   deleteTerm,
   getDashboardStats,
   findUsers,
+  updateUserRole,
   findNotificationTemplates,
   updateNotificationTemplate,
 };

@@ -29,6 +29,30 @@ const createFeeCategory = async (req, res) => {
     return error(res, err.message, 500);
   }
 };
+const updateFeeCategory = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.updateFeeCategory(
+        req.params.id,
+        req.schoolId,
+        req.body,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
+const deleteFeeCategory = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.deleteFeeCategory(req.params.id, req.schoolId),
+    );
+  } catch (err) {
+    return error(res, err.message, err.statusCode || 500);
+  }
+};
 const getFeeStructures = async (req, res) => {
   try {
     return success(res, await financeService.getFeeStructures(req.schoolId));
@@ -135,6 +159,7 @@ const getStudentFeesList = async (req, res) => {
       }),
     );
   } catch (err) {
+    console.error("Error in getStudentFeesList:", err);
     return error(res, err.message, 500);
   }
 };
@@ -149,6 +174,7 @@ const createStudentFee = async (req, res) => {
       201,
     );
   } catch (err) {
+    console.error("Error in createStudentFee:", err);
     return error(res, err.message, 500);
   }
 };
@@ -169,21 +195,32 @@ const bulkAssignFee = async (req, res) => {
   try {
     return success(
       res,
-      await financeService.bulkAssignFee(req.schoolId, req.body, req.user?.id),
+      await financeService.bulkAssignFee(
+        req.schoolId,
+        req.body,
+        { id: req.user?.id, role: req.user?.role },
+        req.session || {},
+      ),
       201,
     );
   } catch (err) {
-    return error(res, err.message, 500);
+    console.error("Error in bulkAssignFee:", err);
+    return error(res, err.message, err.outOfScope ? 403 : 500);
   }
 };
 const bulkUnassignFee = async (req, res) => {
   try {
     return success(
       res,
-      await financeService.bulkUnassignFee(req.schoolId, req.body),
+      await financeService.bulkUnassignFee(
+        req.schoolId,
+        req.body,
+        { id: req.user?.id, role: req.user?.role },
+        req.session || {},
+      ),
     );
   } catch (err) {
-    return error(res, err.message, 500);
+    return error(res, err.message, err.outOfScope ? 403 : 500);
   }
 };
 const getExpenses = async (req, res) => {
@@ -297,6 +334,17 @@ const revokeDiscount = async (req, res) => {
   }
 };
 
+const bulkRevokeDiscounts = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.bulkRevokeDiscounts(req.schoolId, req.body || {}),
+    );
+  } catch (err) {
+    return error(res, err.message, 400);
+  }
+};
+
 const closeTerm = async (req, res) => {
   try {
     return success(
@@ -361,10 +409,27 @@ const getReconciliationReport = async (req, res) => {
   }
 };
 
+const rebalanceStudent = async (req, res) => {
+  try {
+    return success(
+      res,
+      await financeService.rebalanceStudent(
+        req.schoolId,
+        req.params.studentId,
+        req.user?.id,
+      ),
+    );
+  } catch (err) {
+    return error(res, err.message, 400);
+  }
+};
+
 module.exports = {
   getFeeTemplates,
   getFeeCategories,
   createFeeCategory,
+  updateFeeCategory,
+  deleteFeeCategory,
   getFeeStructures,
   createFeeStructure,
   updateFeeStructure,
@@ -388,9 +453,11 @@ module.exports = {
   listAppliedDiscounts,
   applyDiscount,
   revokeDiscount,
+  bulkRevokeDiscounts,
   closeTerm,
   createFeeAdjustment,
   listFeeAdjustments,
   decideFeeAdjustment,
   getReconciliationReport,
+  rebalanceStudent,
 };

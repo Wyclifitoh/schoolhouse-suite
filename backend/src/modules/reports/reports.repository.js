@@ -194,7 +194,8 @@ const getStudentReport = async (schoolId, filters = {}) => {
     )
     .catch(() => []);
 
-  // Best-effort history from student_history / student_status_log if available
+  // Best-effort history from student_history if present; otherwise synthesize
+  // from student admission/status records so the report is never blank.
   let history = [];
   try {
     history = await db.query(
@@ -207,6 +208,26 @@ const getStudentReport = async (schoolId, filters = {}) => {
     );
   } catch {
     history = [];
+  }
+
+  // Fallback: derive admission + status-change events from the students table.
+  if (!history || history.length === 0) {
+    history = students.slice(0, 200).map((s) => ({
+      student_id: s.id,
+      student_name: `${s.first_name} ${s.last_name}`,
+      event:
+        s.status === "graduated"
+          ? "Graduated"
+          : s.status === "transferred"
+            ? "Transferred"
+            : s.status === "inactive"
+              ? "Deactivated"
+              : "Admitted",
+      date: s.admission_date || s.created_at,
+      remarks: s.previous_school
+        ? `From ${s.previous_school}`
+        : `Class: ${s.grade_name || "—"} ${s.stream_name || ""}`.trim(),
+    }));
   }
 
   const total = students.length;
@@ -348,49 +369,56 @@ const getHRReport = async (schoolId) => {
 // Audit + user activity logs
 const getAuditTrail = async (schoolId, { limit = 200 } = {}) => {
   const lim = parseInt(limit, 10) || 200;
+  // Union generic audit_logs with finance_audit_logs so the trail surfaces
+  // every recorded action regardless of which subsystem wrote it.
   try {
     return await db.query(
-      `SELECT a.*, CONCAT(u.first_name,' ',u.last_name) AS user_name
-         FROM audit_logs a
-         LEFT JOIN users u ON u.id = a.user_id
-        WHERE a.school_id = ?
-        ORDER BY a.created_at DESC
-        LIMIT ${lim}`,
-      [schoolId],
+      `SELECT * FROM (
+         SELECT a.id, a.created_at, a.action, a.entity_type, a.entity_id,
+                a.user_id, a.ip_address,
+                CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) AS user_name,
+                a.new_values AS description,
+                a.new_values
+           FROM audit_logs a
+           LEFT JOIN users u ON u.id = a.user_id
+          WHERE a.school_id = ? OR a.school_id IS NULL
+         UNION ALL
+         SELECT f.id, f.created_at, f.action, f.entity_type, f.entity_id,
+                NULL AS user_id, NULL AS ip_address,
+                f.performed_by AS user_name,
+                CAST(f.metadata AS CHAR) AS description,
+                f.metadata AS new_values
+           FROM finance_audit_logs f
+          WHERE f.school_id = ?
+       ) x
+       ORDER BY x.created_at DESC
+       LIMIT ${lim}`,
+      [schoolId, schoolId],
     );
-  } catch {
+  } catch (e) {
+    console.warn("[reports.getAuditTrail] failed:", e.message);
     return [];
   }
 };
 
 const getUserLogs = async (schoolId, { limit = 200 } = {}) => {
   const lim = parseInt(limit, 10) || 200;
+  // Derive from audit_logs (LOGIN, LOGIN_FAILED, PASSWORD_CHANGED, etc.).
   try {
     return await db.query(
-      `SELECT ul.*, CONCAT(u.first_name,' ',u.last_name) AS user_name, u.role
-         FROM user_activity_logs ul
-         LEFT JOIN users u ON u.id = ul.user_id
-        WHERE ul.school_id = ?
-        ORDER BY ul.created_at DESC
+      `SELECT a.id, a.user_id, a.action, a.created_at, a.ip_address,
+              CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) AS user_name,
+              u.email
+         FROM audit_logs a
+         LEFT JOIN users u ON u.id = a.user_id
+        WHERE (a.school_id = ? OR a.school_id IS NULL)
+        ORDER BY a.created_at DESC
         LIMIT ${lim}`,
       [schoolId],
     );
-  } catch {
-    // Fallback: derive from audit_logs
-    try {
-      return await db.query(
-        `SELECT a.id, a.user_id, a.action, a.created_at, a.ip_address,
-                CONCAT(u.first_name,' ',u.last_name) AS user_name, u.role
-           FROM audit_logs a
-           LEFT JOIN users u ON u.id = a.user_id
-          WHERE a.school_id = ?
-          ORDER BY a.created_at DESC
-          LIMIT ${lim}`,
-        [schoolId],
-      );
-    } catch {
-      return [];
-    }
+  } catch (e) {
+    console.warn("[reports.getUserLogs] failed:", e.message);
+    return [];
   }
 };
 

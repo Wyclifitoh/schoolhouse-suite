@@ -74,6 +74,8 @@ import {
 } from "lucide-react";
 
 import { useSchool } from "@/contexts/SchoolContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermission";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -82,6 +84,8 @@ import { api } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import PurchaseOrders from "@/components/inventory/PurchaseOrders";
 import { useStudents } from "@/hooks/useStudents";
+import MakeOrderDialog from "@/components/inventory/MakeOrderDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const statusConfig = {
   in_stock: {
@@ -203,6 +207,11 @@ export const ProductCatalog = () => {
   const [catFilter, setCatFilter] = useState("all");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const perms = usePermissions([
+    "inventory:create",
+    "inventory:update",
+    "inventory:delete",
+  ]);
 
   const [productForm, setProductForm] = useState({
     name: "",
@@ -214,10 +223,17 @@ export const ProductCatalog = () => {
     unit: "",
   });
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  const [editing, setEditing] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState<any | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [orderOpen, setOrderOpen] = useState(false);
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["inventory-items", schoolId],
 
-    queryFn: () => api.get<any[]>("/inventory/items"),
+    queryFn: () => api.get<any[]>("/inventory/items?limit=1000"),
 
     enabled: !!schoolId,
   });
@@ -241,10 +257,42 @@ export const ProductCatalog = () => {
     },
   });
 
-  const filtered = items.filter(
-    (i) =>
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.sku?.toLowerCase().includes(search.toLowerCase()),
+  const updateMutation = useMutation({
+    mutationFn: (payload: any) =>
+      api.put(`/inventory/items/${payload.id}`, payload.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      toast({ title: "Product updated" });
+      setEditing(null);
+    },
+    onError: (err: Error) =>
+      toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/inventory/items/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      toast({ title: "Product deleted" });
+      setDeleting(null);
+    },
+    onError: (err: Error) =>
+      toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const filtered = items.filter((i) => {
+    const matchSearch =
+      i.name?.toLowerCase().includes(search.toLowerCase()) ||
+      i.sku?.toLowerCase().includes(search.toLowerCase());
+    const matchCat = catFilter === "all" || i.category_id === catFilter;
+    return matchSearch && matchCat;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
   );
 
   return (
@@ -255,119 +303,140 @@ export const ProductCatalog = () => {
             Product Catalog ({items.length})
           </CardTitle>
 
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm" className="rounded-lg">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Product
+          <div className="flex items-center gap-2">
+            {perms["inventory:create"] && selected.size > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => setOrderOpen(true)}
+              >
+                <ShoppingCart className="h-4 w-4 mr-1.5" />
+                Make Order ({selected.size})
               </Button>
-            </DialogTrigger>
+            )}
+            {perms["inventory:create"] && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="rounded-lg">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Add Product
+                  </Button>
+                </DialogTrigger>
 
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>New Product</DialogTitle>
-              </DialogHeader>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>New Product</DialogTitle>
+                  </DialogHeader>
 
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label>Name</Label>
-                    <Input
-                      value={productForm.name}
-                      onChange={(e) =>
-                        setProductForm({ ...productForm, name: e.target.value })
-                      }
-                    />
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>Name</Label>
+                        <Input
+                          value={productForm.name}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              name: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label>Category</Label>
+
+                        <Select
+                          onValueChange={(v) =>
+                            setProductForm({ ...productForm, category_id: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {categories.map((c: any) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label>Cost</Label>
+                        <Input
+                          type="number"
+                          value={productForm.cost_price}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              cost_price: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label>Selling</Label>
+                        <Input
+                          type="number"
+                          value={productForm.selling_price}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              selling_price: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label>Stock</Label>
+                        <Input
+                          type="number"
+                          value={productForm.quantity_in_stock}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              quantity_in_stock: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>SKU</Label>
+                      <Input
+                        value={productForm.sku}
+                        onChange={(e) =>
+                          setProductForm({
+                            ...productForm,
+                            sku: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <Label>Category</Label>
-
-                    <Select
-                      onValueChange={(v) =>
-                        setProductForm({ ...productForm, category_id: v })
-                      }
+                  <DialogFooter>
+                    <Button
+                      onClick={() => addProductMutation.mutate()}
+                      className="w-full"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        {categories.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <Label>Cost</Label>
-                    <Input
-                      type="number"
-                      value={productForm.cost_price}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          cost_price: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Selling</Label>
-                    <Input
-                      type="number"
-                      value={productForm.selling_price}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          selling_price: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label>Stock</Label>
-                    <Input
-                      type="number"
-                      value={productForm.quantity_in_stock}
-                      onChange={(e) =>
-                        setProductForm({
-                          ...productForm,
-                          quantity_in_stock: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label>SKU</Label>
-                  <Input
-                    value={productForm.sku}
-                    onChange={(e) =>
-                      setProductForm({ ...productForm, sku: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  onClick={() => addProductMutation.mutate()}
-                  className="w-full"
-                >
-                  Save Product
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                      Save Product
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -405,6 +474,22 @@ export const ProductCatalog = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                <TableHead className="w-8">
+                  <Checkbox
+                    checked={
+                      pageItems.length > 0 &&
+                      pageItems.every((i) => selected.has(i.id))
+                    }
+                    onCheckedChange={(v) => {
+                      setSelected((s) => {
+                        const next = new Set(s);
+                        if (v) pageItems.forEach((i) => next.add(i.id));
+                        else pageItems.forEach((i) => next.delete(i.id));
+                        return next;
+                      });
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="font-semibold">Product</TableHead>
 
                 <TableHead className="font-semibold">Category</TableHead>
@@ -428,7 +513,7 @@ export const ProductCatalog = () => {
             </TableHeader>
 
             <TableBody>
-              {filtered.map((item) => {
+              {pageItems.map((item) => {
                 const status =
                   item.quantity_in_stock <= 0
                     ? "out_of_stock"
@@ -440,6 +525,19 @@ export const ProductCatalog = () => {
 
                 return (
                   <TableRow key={item.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(item.id)}
+                        onCheckedChange={(v) =>
+                          setSelected((s) => {
+                            const next = new Set(s);
+                            if (v) next.add(item.id);
+                            else next.delete(item.id);
+                            return next;
+                          })
+                        }
+                      />
+                    </TableCell>
                     <TableCell>
                       <p className="font-medium">{item.name}</p>
                       <p className="text-xs font-mono">{item.sku}</p>
@@ -467,30 +565,252 @@ export const ProductCatalog = () => {
                     </TableCell>
 
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
+                      {(perms["inventory:update"] ||
+                        perms["inventory:delete"]) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
 
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Restock</DropdownMenuItem>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Price History</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <DropdownMenuContent align="end">
+                            {perms["inventory:update"] && (
+                              <DropdownMenuItem
+                                onClick={() => setEditing(item)}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {perms["inventory:delete"] && (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleting(item)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
               })}
+              {!pageItems.length && (
+                <TableRow>
+                  <TableCell
+                    colSpan={9}
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    {isLoading ? "Loading..." : "No products found"}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between mt-4 px-1">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}-
+              {Math.min(currentPage * PAGE_SIZE, filtered.length)} of{" "}
+              {filtered.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit dialog */}
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Product</DialogTitle>
+            </DialogHeader>
+            {editing && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>Name</Label>
+                    <Input
+                      value={editing.name || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Category</Label>
+                    <Select
+                      value={editing.category_id || ""}
+                      onValueChange={(v) =>
+                        setEditing({ ...editing, category_id: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <Label>Cost</Label>
+                    <Input
+                      type="number"
+                      value={editing.cost_price ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          cost_price: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Selling</Label>
+                    <Input
+                      type="number"
+                      value={editing.selling_price ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          selling_price: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Stock</Label>
+                    <Input
+                      type="number"
+                      value={editing.quantity_in_stock ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          quantity_in_stock: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>SKU</Label>
+                    <Input
+                      value={editing.sku || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, sku: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Reorder Level</Label>
+                    <Input
+                      type="number"
+                      value={editing.reorder_level ?? 0}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          reorder_level: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  editing &&
+                  updateMutation.mutate({
+                    id: editing.id,
+                    data: {
+                      name: editing.name,
+                      sku: editing.sku,
+                      category_id: editing.category_id || null,
+                      cost_price: editing.cost_price,
+                      selling_price: editing.selling_price,
+                      quantity_in_stock: editing.quantity_in_stock,
+                      reorder_level: editing.reorder_level,
+                    },
+                  })
+                }
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete confirm */}
+        <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete product?</DialogTitle>
+              <DialogDescription>
+                {deleting?.name} will be permanently removed. This cannot be
+                undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleting && deleteMutation.mutate(deleting.id)}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <MakeOrderDialog
+          open={orderOpen}
+          onOpenChange={setOrderOpen}
+          products={items.filter((i) => selected.has(i.id))}
+          onDone={() => setSelected(new Set())}
+        />
       </CardContent>
     </Card>
   );
@@ -571,62 +891,128 @@ export const SellToStudent = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [studentClass, setStudentClass] = useState<string>("");
+  const [studentStream, setStudentStream] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: studentsData, isLoading } = useStudents({
     search: searchTerm,
+    gradeId: studentClass || undefined,
+    streamIds: studentStream ? [studentStream] : undefined,
     enabled: true,
   });
 
   const studentList = Array.isArray(studentsData) ? studentsData : [];
-
-  const displayedStudents = studentList.slice(0, 10);
+  const displayedStudents = studentList.slice(0, 25);
+  const selected = studentList.find((s: any) => s.id === selectedStudent);
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
-        <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a student or walk-in" />
-          </SelectTrigger>
-
-          <SelectContent>
-            <div className="p-2 sticky top-0 bg-popover z-10 border-b border-border">
-              <input
-                type="text"
-                className="w-full px-2 py-1 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="Search students..."
+        {/* Stable student picker — input lives in normal DOM so the mobile
+            keyboard doesn't dismiss between keystrokes. */}
+        <Card className="glass-card">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Search students by name or admission no…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={() => setPickerOpen(true)}
+                className="flex-1 min-w-[180px]"
+                autoComplete="off"
+                inputMode="search"
               />
+              <select
+                value={studentClass}
+                onChange={(e) => {
+                  setStudentClass(e.target.value);
+                  setStudentStream("");
+                }}
+                className="text-sm border border-input rounded-md px-2 bg-background"
+              >
+                <option value="">All classes</option>
+                {/* Class options pulled from items query is too heavy here;
+                    leave as a freeform fallback so we don't add a network call. */}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedStudent("walk-in");
+                  setPickerOpen(false);
+                }}
+              >
+                Walk-in
+              </Button>
             </div>
-
-            <SelectItem
-              value="walk-in"
-              className="font-medium text-muted-foreground"
-            >
-              Walk-in Customer
-            </SelectItem>
-
-            {isLoading ? (
-              <div className="p-2 text-xs text-center text-muted-foreground">
-                Loading...
-              </div>
-            ) : displayedStudents.length === 0 && searchTerm ? (
-              <div className="p-2 text-xs text-center text-muted-foreground">
-                No students found
-              </div>
-            ) : (
-              displayedStudents.map((student) => (
-                <SelectItem key={student.id} value={student.id}>
-                  {student.first_name} {student.last_name}
-                  {student.admission_number
-                    ? ` (${student.admission_number})`
+            {selected && (
+              <div className="text-xs text-muted-foreground">
+                Selected:{" "}
+                <span className="font-medium text-foreground">
+                  {selected.first_name} {selected.last_name}
+                  {selected.admission_number
+                    ? ` (${selected.admission_number})`
                     : ""}
-                </SelectItem>
-              ))
+                </span>{" "}
+                <button
+                  className="underline ml-2"
+                  onClick={() => setSelectedStudent("")}
+                >
+                  change
+                </button>
+              </div>
             )}
-          </SelectContent>
-        </Select>
+            {selectedStudent === "walk-in" && (
+              <div className="text-xs text-muted-foreground">
+                Selected: <span className="font-medium">Walk-in Customer</span>{" "}
+                <button
+                  className="underline ml-2"
+                  onClick={() => setSelectedStudent("")}
+                >
+                  change
+                </button>
+              </div>
+            )}
+            {pickerOpen && !selected && selectedStudent !== "walk-in" && (
+              <div className="max-h-64 overflow-auto border rounded-md divide-y">
+                {isLoading && (
+                  <div className="p-3 text-xs text-center text-muted-foreground">
+                    Loading…
+                  </div>
+                )}
+                {!isLoading && displayedStudents.length === 0 && (
+                  <div className="p-3 text-xs text-center text-muted-foreground">
+                    {searchTerm
+                      ? "No students found"
+                      : "Type to search students"}
+                  </div>
+                )}
+                {displayedStudents.map((s: any) => (
+                  <button
+                    type="button"
+                    key={s.id}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                    onClick={() => {
+                      setSelectedStudent(s.id);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    <div className="font-medium">
+                      {s.first_name} {s.last_name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {s.admission_number}
+                      {s.grade_name ? ` • ${s.grade_name}` : ""}
+                      {s.stream_name ? ` ${s.stream_name}` : ""}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {items
@@ -844,12 +1230,18 @@ export const SupplierManagement = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
+  const { hasRole } = useAuth();
+  const canManage = hasRole("super_admin") || hasRole("admin");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
   const [form, setForm] = useState({
     name: "",
     contact_person: "",
     phone: "",
     email: "",
+    tax_pin: "",
   });
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -864,9 +1256,60 @@ export const SupplierManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-suppliers"] });
       setIsAddOpen(false);
+      setForm({
+        name: "",
+        contact_person: "",
+        phone: "",
+        email: "",
+        tax_pin: "",
+      });
       toast({ title: "Supplier added" });
     },
   });
+
+  const editMutation = useMutation({
+    mutationFn: () => api.put(`/inventory/suppliers/${selected?.id}`, form),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-suppliers"] });
+      setIsEditOpen(false);
+      setSelected(null);
+      toast({ title: "Supplier updated" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/inventory/suppliers/${selected?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-suppliers"] });
+      setIsDeleteOpen(false);
+      setSelected(null);
+      toast({ title: "Supplier deleted" });
+    },
+    onError: (err: any) =>
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      }),
+  });
+
+  const openEdit = (s: any) => {
+    setSelected(s);
+    setForm({
+      name: s.name || "",
+      contact_person: s.contact_person || "",
+      phone: s.phone || "",
+      email: s.email || "",
+      tax_pin: s.tax_pin || "",
+    });
+    setIsEditOpen(true);
+  };
 
   return (
     <Card>
@@ -908,6 +1351,11 @@ export const SupplierManagement = () => {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
               </div>
+              <Input
+                placeholder="Tax PIN (e.g. KRA PIN)"
+                value={form.tax_pin}
+                onChange={(e) => setForm({ ...form, tax_pin: e.target.value })}
+              />
               <Button className="w-full" onClick={() => addMutation.mutate()}>
                 Save Supplier
               </Button>
@@ -922,6 +1370,10 @@ export const SupplierManagement = () => {
               <TableHead>Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Phone</TableHead>
+              <TableHead>Tax PIN</TableHead>
+              {canManage && (
+                <TableHead className="text-right">Actions</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -930,11 +1382,112 @@ export const SupplierManagement = () => {
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell>{s.contact_person}</TableCell>
                 <TableCell>{s.phone}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {s.tax_pin || "—"}
+                </TableCell>
+                {canManage && (
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(s)}>
+                          <Pencil className="h-4 w-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => {
+                            setSelected(s);
+                            setIsDeleteOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Edit dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Supplier</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Company Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <Input
+              placeholder="Contact Person"
+              value={form.contact_person}
+              onChange={(e) =>
+                setForm({ ...form, contact_person: e.target.value })
+              }
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="Phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+              <Input
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <Input
+              placeholder="Tax PIN (e.g. KRA PIN)"
+              value={form.tax_pin}
+              onChange={(e) => setForm({ ...form, tax_pin: e.target.value })}
+            />
+            <Button
+              className="w-full"
+              onClick={() => editMutation.mutate()}
+              disabled={editMutation.isPending || !form.name}
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Supplier</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-semibold">{selected?.name}</span>? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
@@ -944,6 +1497,11 @@ export const CategoriesOverview = () => {
   const { currentSchool } = useSchool();
   const schoolId = currentSchool?.id;
   const queryClient = useQueryClient();
+  const perms = usePermissions([
+    "inventory:create",
+    "inventory:update",
+    "inventory:delete",
+  ]);
   const [isCatOpen, setIsCatOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -1032,53 +1590,57 @@ export const CategoriesOverview = () => {
     <>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Categories</h2>
-        <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>New Category</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Input
-                placeholder="Category Name"
-                value={catForm.name}
-                onChange={(e) =>
-                  setCatForm({ ...catForm, name: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Description"
-                value={catForm.description}
-                onChange={(e) =>
-                  setCatForm({ ...catForm, description: e.target.value })
-                }
-              />
-              <Button
-                className="w-full"
-                onClick={() => addCatMutation.mutate()}
-                disabled={addCatMutation.isPending || !catForm.name}
-              >
-                {addCatMutation.isPending ? "Saving..." : "Save Category"}
+        {perms["inventory:create"] && (
+          <Dialog open={isCatOpen} onOpenChange={setIsCatOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Category
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>New Category</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <Input
+                  placeholder="Category Name"
+                  value={catForm.name}
+                  onChange={(e) =>
+                    setCatForm({ ...catForm, name: e.target.value })
+                  }
+                />
+                <Input
+                  placeholder="Description"
+                  value={catForm.description}
+                  onChange={(e) =>
+                    setCatForm({ ...catForm, description: e.target.value })
+                  }
+                />
+                <Button
+                  className="w-full"
+                  onClick={() => addCatMutation.mutate()}
+                  disabled={addCatMutation.isPending || !catForm.name}
+                >
+                  {addCatMutation.isPending ? "Saving..." : "Save Category"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Add category card */}
-        <div
-          className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
-          onClick={() => setIsCatOpen(true)}
-        >
-          <Plus className="h-8 w-8 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground">Add New Category</p>
-        </div>
+        {perms["inventory:create"] && (
+          <div
+            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted p-6 cursor-pointer hover:bg-accent transition-colors min-h-[180px]"
+            onClick={() => setIsCatOpen(true)}
+          >
+            <Plus className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">Add New Category</p>
+          </div>
+        )}
 
         {/* Categories list */}
         {categories.map((cat: any) => (
@@ -1094,22 +1656,26 @@ export const CategoriesOverview = () => {
 
               {/* Action buttons */}
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleEdit(cat)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(cat)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {perms["inventory:update"] && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleEdit(cat)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+                {perms["inventory:delete"] && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(cat)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

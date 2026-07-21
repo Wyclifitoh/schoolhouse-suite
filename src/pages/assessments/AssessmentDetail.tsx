@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,23 +6,44 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PermissionGate } from "@/components/PermissionGate";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  useAssessment, useAssessmentTasks, usePublishAssessment,
-  useSetAssessmentStatus, useSubmitTask, useResyncAssessment,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  useAssessment,
+  useAssessmentTasks,
+  usePublishAssessment,
+  useSetAssessmentStatus,
+  useSubmitTask, useResyncAssessment,
+  useResyncAssessmentSubjects,
 } from "@/hooks/useAssessments";
-import { ClipboardCheck, PlayCircle, Lock, ArrowLeft, PencilLine, RefreshCw } from "lucide-react";
+import { ClipboardCheck, PlayCircle, Lock, ArrowLeft, PencilLine } from "lucide-react";
 
 export default function AssessmentDetail() {
   const { id } = useParams();
   const { data: a, isLoading } = useAssessment(id);
-  const { data: tasks = [] } = useAssessmentTasks({ assessment_id: id });
+  // Fetch with a high limit so the class/stream filter dropdowns and
+  // pagination see every task (backend defaults to 25 per page).
+  const { data: tasks = [] } = useAssessmentTasks({
+    assessment_id: id,
+    limit: "1000",
+  });
   const publish = usePublishAssessment();
   const setStatus = useSetAssessmentStatus();
   const submit = useSubmitTask();
-  const sync = useResyncAssessment();
 
   if (isLoading || !a) {
     return (
@@ -32,8 +54,10 @@ export default function AssessmentDetail() {
     );
   }
 
-  const taskCount = tasks.length;
-  const doneCount = tasks.filter((t) => t.marked_count >= t.student_count && t.student_count > 0).length;
+  const taskCount = filteredTasks.length;
+  const doneCount = filteredTasks.filter(
+    (t) => t.marked_count >= t.student_count && t.student_count > 0,
+  ).length;
   const pct = taskCount ? Math.round((doneCount / taskCount) * 100) : 0;
 
   return (
@@ -41,7 +65,10 @@ export default function AssessmentDetail() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <Link to="/assessments" className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1">
+            <Link
+              to="/assessments"
+              className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1"
+            >
               <ArrowLeft className="h-3.5 w-3.5" /> All assessments
             </Link>
             <h1 className="text-3xl font-bold flex items-center gap-2 mt-1">
@@ -51,8 +78,16 @@ export default function AssessmentDetail() {
             <p className="text-muted-foreground">{a.description}</p>
             <div className="flex flex-wrap gap-2 mt-2">
               <Badge variant="outline">{a.status.replace("_", " ")}</Badge>
-              {a.type_name && <Badge variant="outline">{a.type_name} · {a.type_weight}%</Badge>}
-              {a.start_date && <Badge variant="outline">{a.start_date} → {a.end_date}</Badge>}
+              {a.type_name && (
+                <Badge variant="outline">
+                  {a.type_name} · {a.type_weight}%
+                </Badge>
+              )}
+              {a.start_date && (
+                <Badge variant="outline">
+                  {a.start_date} → {a.end_date}
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -62,14 +97,9 @@ export default function AssessmentDetail() {
               </Button>
             )}
             {(a.status === "published" || a.status === "in_progress") && (
-              <>
-                <Button variant="outline" onClick={() => sync.mutate(a.id)} disabled={sync.isPending}>
-                  <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync subjects & students
-                </Button>
-                <Button variant="outline" onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}>
-                  <Lock className="h-4 w-4 mr-1" /> Lock
-                </Button>
-              </>
+              <Button variant="outline" onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}>
+                <Lock className="h-4 w-4 mr-1" /> Lock
+              </Button>
             )}
           </div>
         </div>
@@ -77,21 +107,31 @@ export default function AssessmentDetail() {
         <div className="grid sm:grid-cols-3 gap-3">
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs uppercase text-muted-foreground">Classes</div>
+              <div className="text-xs uppercase text-muted-foreground">
+                Classes
+              </div>
               <div className="text-2xl font-bold">{a.classes?.length || 0}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs uppercase text-muted-foreground">Subjects</div>
-              <div className="text-2xl font-bold">{a.subjects?.length || 0}</div>
+              <div className="text-xs uppercase text-muted-foreground">
+                Subjects
+              </div>
+              <div className="text-2xl font-bold">
+                {a.subjects?.length || 0}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs uppercase text-muted-foreground">Tasks completed</div>
+              <div className="text-xs uppercase text-muted-foreground">
+                Tasks completed
+              </div>
               <div className="flex items-center gap-2">
-                <div className="text-2xl font-bold">{doneCount}/{taskCount}</div>
+                <div className="text-2xl font-bold">
+                  {doneCount}/{taskCount}
+                </div>
                 <Progress value={pct} className="h-2 flex-1" />
               </div>
             </CardContent>
@@ -99,7 +139,46 @@ export default function AssessmentDetail() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle>Teacher tasks</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <CardTitle>Teacher tasks</CardTitle>
+              <div className="flex gap-2 flex-wrap">
+                <Select
+                  value={gradeFilter}
+                  onValueChange={(v) => {
+                    setGradeFilter(v);
+                    setStreamFilter("all");
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All classes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All classes</SelectItem>
+                    {gradeOptions.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={streamFilter} onValueChange={setStreamFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All streams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All streams</SelectItem>
+                    <SelectItem value="none">No stream</SelectItem>
+                    {streamOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
@@ -115,49 +194,102 @@ export default function AssessmentDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tasks.map((t) => {
+                  {pagedTasks.map((t) => {
                     const p = t.student_count
-                      ? Math.round((t.marked_count / t.student_count) * 100) : 0;
+                      ? Math.round((t.marked_count / t.student_count) * 100)
+                      : 0;
                     return (
                       <TableRow key={t.id}>
                         <TableCell>{t.grade_name}</TableCell>
                         <TableCell>{t.stream_name || "—"}</TableCell>
                         <TableCell>{t.subject_name}</TableCell>
-                        <TableCell>{t.teacher_name || <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                        <TableCell>
+                          {t.teacher_name || (
+                            <span className="text-muted-foreground">
+                              Unassigned
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="min-w-[160px]">
                           <div className="flex items-center gap-2">
                             <Progress value={p} className="h-2" />
-                            <span className="text-xs text-muted-foreground">{t.marked_count}/{t.student_count}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {t.marked_count}/{t.student_count}
+                            </span>
                           </div>
                         </TableCell>
-                        <TableCell><Badge variant="outline">{t.status}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{t.status}</Badge>
+                        </TableCell>
                         <TableCell className="text-right space-x-1">
-                          <Link to={`/assessments/marks/${t.id}`}>
-                            <Button size="sm" variant="outline">
-                              <PencilLine className="h-3.5 w-3.5 mr-1" /> Enter marks
-                            </Button>
-                          </Link>
-                          {t.status === "in_progress" && (
-                            <Button size="sm" variant="ghost" onClick={() => submit.mutate(t.id)}>
-                              Submit
-                            </Button>
-                          )}
+                          <PermissionGate permission="exams:update">
+                            <Link to={`/assessments/marks/${t.id}`}>
+                              <Button size="sm" variant="outline">
+                                <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
+                                Enter marks
+                              </Button>
+                            </Link>
+                            {t.status === "in_progress" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => submit.mutate(t.id)}
+                              >
+                                Submit
+                              </Button>
+                            )}
+                          </PermissionGate>
                         </TableCell>
                       </TableRow>
                     );
                   })}
-                  {!tasks.length && (
+                  {!filteredTasks.length && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-muted-foreground py-6"
+                      >
                         {a.status === "draft"
                           ? "Publish this assessment to auto-generate teacher tasks."
-                          : "No tasks yet."}
+                          : tasks.length
+                            ? "No tasks match the selected class/stream."
+                            : "No tasks yet."}
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
+            {filteredTasks.length > pageSize && (
+              <div className="flex items-center justify-between gap-3 pt-4 flex-wrap">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * pageSize + 1}–
+                  {Math.min(currentPage * pageSize, filteredTasks.length)} of{" "}
+                  {filteredTasks.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

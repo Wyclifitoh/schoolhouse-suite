@@ -1,8 +1,8 @@
-const { query, queryOne } = require("../../config/database");
+const { query, queryOne, cleanValues } = require("../../config/database");
 const { v4: uuidv4 } = require("uuid");
 
 // Items
-const findAllItems = async (
+const findAllItemsV1 = async (
   schoolId,
   { limit, offset, search, categoryId },
 ) => {
@@ -27,6 +27,51 @@ const findAllItems = async (
     query(sql, params),
     query(countSql, params.slice(0, -2)),
   ]);
+  return { rows, total: countRows[0]?.count || 0 };
+};
+
+const findAllItems = async (
+  schoolId,
+  { limit, offset, search, categoryId },
+) => {
+  // Parse and validate pagination values
+  const limitNum = parseInt(limit, 10);
+  const offsetNum = parseInt(offset, 10);
+
+  let sql =
+    "SELECT i.*, c.name as category_name FROM inventory_items i LEFT JOIN inventory_categories c ON c.id = i.category_id WHERE i.school_id = ?";
+  const params = [schoolId];
+
+  if (search) {
+    sql += " AND (i.name LIKE ? OR i.sku LIKE ?)";
+    const s = `%${search}%`;
+    params.push(s, s);
+  }
+  if (categoryId) {
+    sql += " AND i.category_id = ?";
+    params.push(categoryId);
+  }
+
+  // Build count query - remove ORDER BY and LIMIT/OFFSET
+  let countSql = sql;
+  // Remove ORDER BY clause if exists
+  const orderByIndex = countSql.toUpperCase().indexOf(" ORDER BY ");
+  if (orderByIndex !== -1) {
+    countSql = countSql.substring(0, orderByIndex);
+  }
+  countSql = countSql.replace(
+    /SELECT .+? FROM/i,
+    "SELECT COUNT(*) as count FROM",
+  );
+
+  // Use template literals for LIMIT and OFFSET
+  sql += ` ORDER BY i.name ASC LIMIT ${limitNum} OFFSET ${offsetNum}`;
+
+  const [rows, countRows] = await Promise.all([
+    query(sql, params),
+    query(countSql, params),
+  ]);
+
   return { rows, total: countRows[0]?.count || 0 };
 };
 
@@ -65,6 +110,44 @@ const updateItemQuantity = async (id, schoolId, quantityChange) => {
     [quantityChange, id, schoolId],
   );
   return queryOne("SELECT * FROM inventory_items WHERE id = ?", [id]);
+};
+
+const updateItem = async (id, schoolId, data) => {
+  const fields = [];
+  const params = [];
+  const allowed = [
+    "name",
+    "sku",
+    "description",
+    "category_id",
+    "cost_price",
+    "selling_price",
+    "quantity_in_stock",
+    "reorder_level",
+    "unit",
+    "is_active",
+  ];
+  for (const k of allowed) {
+    if (data[k] !== undefined) {
+      fields.push(`${k} = ?`);
+      params.push(data[k] === "" ? null : data[k]);
+    }
+  }
+  if (!fields.length) return findItemById(id, schoolId);
+  params.push(id, schoolId);
+  await query(
+    `UPDATE inventory_items SET ${fields.join(", ")} WHERE id = ? AND school_id = ?`,
+    params,
+  );
+  return findItemById(id, schoolId);
+};
+
+const deleteItem = async (id, schoolId) => {
+  await query("DELETE FROM inventory_items WHERE id = ? AND school_id = ?", [
+    id,
+    schoolId,
+  ]);
+  return { id };
 };
 
 // Categories
@@ -179,8 +262,8 @@ const createTransaction = async (data) => {
 const createSupplier = async (data) => {
   const id = uuidv4();
   await query(
-    `INSERT INTO inventory_suppliers (id, school_id, name, contact_person, phone, email, location) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO inventory_suppliers (id, school_id, name, contact_person, phone, email, tax_pin, location)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.school_id,
@@ -188,6 +271,7 @@ const createSupplier = async (data) => {
       data.contact_person ?? null,
       data.phone ?? null,
       data.email ?? null,
+      data.tax_pin ?? null,
       data.location ?? null,
     ],
   );
@@ -199,6 +283,47 @@ const findAllSuppliers = (schoolId) =>
     "SELECT * FROM inventory_suppliers WHERE school_id = ? ORDER BY name ASC",
     [schoolId],
   );
+
+const updateSupplier = async (id, schoolId, data) => {
+  await query(
+    `UPDATE inventory_suppliers
+       SET name = ?, contact_person = ?, phone = ?, email = ?, tax_pin = ?, location = ?
+     WHERE id = ? AND school_id = ?`,
+    [
+      data.name ?? null,
+      data.contact_person ?? null,
+      data.phone ?? null,
+      data.email ?? null,
+      data.tax_pin ?? null,
+      data.location ?? null,
+      id,
+      schoolId,
+    ],
+  );
+  return queryOne(
+    "SELECT * FROM inventory_suppliers WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+};
+
+const deleteSupplier = async (id, schoolId) => {
+  const inUse = await queryOne(
+    "SELECT COUNT(*) AS count FROM inventory_purchase_orders WHERE supplier_id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  if (Number(inUse?.count || 0) > 0) {
+    const err = new Error(
+      "Cannot delete supplier: it is referenced by existing purchase orders.",
+    );
+    err.status = 409;
+    throw err;
+  }
+  await query(
+    "DELETE FROM inventory_suppliers WHERE id = ? AND school_id = ?",
+    [id, schoolId],
+  );
+  return { id };
+};
 
 const editPO = async (poId, schoolId, data) => {
   const totalAmount =
@@ -346,28 +471,6 @@ const findPOItems = async (poId) => {
      WHERE poi.po_id = ?`,
     [poId],
   );
-  (`INSERT INTO inventory_transactions (id, school_id, item_id, type, quantity, unit_price, total_amount, reference_type, reference_id, notes, recorded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      data.school_id,
-      data.item_id,
-      data.type,
-      data.quantity,
-      data.unit_price || null,
-      data.total_amount || null,
-      data.reference_type || null,
-      data.reference_id || null,
-      data.notes || null,
-      data.recorded_by || null,
-    ]);
-  // Update stock
-  const qtyChange = data.type === "sale" ? -data.quantity : data.quantity;
-  await query(
-    "UPDATE inventory_items SET quantity_in_stock = quantity_in_stock + ? WHERE id = ?",
-    [qtyChange, data.item_id],
-  );
-  return queryOne("SELECT * FROM inventory_transactions WHERE id = ?", [id]);
 };
 
 module.exports = {
@@ -375,8 +478,20 @@ module.exports = {
   findItemById,
   createItem,
   updateItemQuantity,
+  updateItem,
+  deleteItem,
   findAllCategories,
   createCategory,
   findTransactions,
   createTransaction,
+  findAllSuppliers,
+  createSupplier,
+  createPO,
+  findAllPOs,
+  updatePOStatus,
+  findPOById,
+  findPOItems,
+  editPO,
+  updateSupplier,
+  deleteSupplier,
 };
