@@ -16,21 +16,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  useAssessment,
-  useAssessmentTasks,
-  usePublishAssessment,
-  useSetAssessmentStatus,
-  useSubmitTask, useResyncAssessment,
-  useResyncAssessmentSubjects,
+  useAssessment, useAssessmentTasks, usePublishAssessment,
+  useSetAssessmentStatus, useSubmitTask, useResyncAssessment,
 } from "@/hooks/useAssessments";
-import { ClipboardCheck, PlayCircle, Lock, ArrowLeft, PencilLine } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { 
+  ClipboardCheck, PlayCircle, Lock, LockOpen, Archive, ArchiveRestore, 
+  ArrowLeft, PencilLine, RefreshCw 
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AssessmentDetail() {
   const { id } = useParams();
@@ -44,6 +40,56 @@ export default function AssessmentDetail() {
   const publish = usePublishAssessment();
   const setStatus = useSetAssessmentStatus();
   const submit = useSubmitTask();
+  const sync = useResyncAssessment();
+  const { primaryRole } = useAuth();
+  const isTeacher = primaryRole === "teacher";
+
+  const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [streamFilter, setStreamFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
+
+  const gradeOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    tasks.forEach((t) => m.set(t.grade_id, t.grade_name));
+    return Array.from(m, ([id, name]) => ({ id, name }));
+  }, [tasks]);
+
+  const streamOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    tasks
+      .filter((t) => gradeFilter === "all" || t.grade_id === gradeFilter)
+      .forEach((t) => {
+        if (t.stream_id) m.set(t.stream_id, t.stream_name || "—");
+      });
+    return Array.from(m, ([id, name]) => ({ id, name }));
+  }, [tasks, gradeFilter]);
+
+  const filteredTasks = useMemo(
+    () =>
+      tasks.filter((t) => {
+        if (gradeFilter !== "all" && t.grade_id !== gradeFilter) return false;
+        if (streamFilter !== "all") {
+          if (streamFilter === "none" && t.stream_id) return false;
+          if (streamFilter !== "none" && t.stream_id !== streamFilter)
+            return false;
+        }
+        return true;
+      }),
+    [tasks, gradeFilter, streamFilter],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [gradeFilter, streamFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedTasks = useMemo(
+    () =>
+      filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredTasks, currentPage],
+  );
 
   if (isLoading || !a) {
     return (
@@ -90,16 +136,65 @@ export default function AssessmentDetail() {
               )}
             </div>
           </div>
-          <div className="flex gap-2">
-            {a.status === "draft" && (
-              <Button onClick={() => publish.mutate(a.id)}>
-                <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate tasks
-              </Button>
-            )}
-            {(a.status === "published" || a.status === "in_progress") && (
-              <Button variant="outline" onClick={() => setStatus.mutate({ id: a.id, status: "locked" })}>
-                <Lock className="h-4 w-4 mr-1" /> Lock
-              </Button>
+          <div className="flex gap-2 flex-wrap">
+            {!isTeacher && (
+              <PermissionGate permission={["exams:update", "exams:publish"]}>
+                {a.status !== "archived" && a.status !== "locked" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => sync.mutate(a.id)}
+                    disabled={sync.isPending}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync subjects & students
+                  </Button>
+                )}
+                {a.status === "draft" && (
+                  <Button onClick={() => publish.mutate(a.id)}>
+                    <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
+                    tasks
+                  </Button>
+                )}
+                {(a.status === "published" || a.status === "in_progress") && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setStatus.mutate({ id: a.id, status: "locked" })
+                    }
+                  >
+                    <Lock className="h-4 w-4 mr-1" /> Lock
+                  </Button>
+                )}
+                {a.status === "locked" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setStatus.mutate({ id: a.id, status: "published" })
+                      }
+                    >
+                      <LockOpen className="h-4 w-4 mr-1" /> Unlock
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setStatus.mutate({ id: a.id, status: "archived" })
+                      }
+                    >
+                      <Archive className="h-4 w-4 mr-1" /> Archive
+                    </Button>
+                  </>
+                )}
+                {a.status === "archived" && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setStatus.mutate({ id: a.id, status: "draft" })
+                    }
+                  >
+                    <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
+                  </Button>
+                )}
+              </PermissionGate>
             )}
           </div>
         </div>
