@@ -95,6 +95,10 @@ export default function ReportCardsV2() {
   const [runGrade, setRunGrade] = useState("");
   const [runTpl, setRunTpl] = useState("");
 
+  const [showDates, setShowDates] = useState(false);
+  const [closingDate, setClosingDate] = useState("");
+  const [openingDate, setOpeningDate] = useState("");
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -291,6 +295,32 @@ export default function ReportCardsV2() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2 mt-2 pt-2 border-t">
+                  <Label className="flex items-center gap-2">
+                    <Switch checked={showDates} onCheckedChange={setShowDates} />
+                    Include term opening & closing dates
+                  </Label>
+                  {showDates && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Closing Date</Label>
+                        <Input
+                          type="date"
+                          value={closingDate}
+                          onChange={(e) => setClosingDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Next Term Opening</Label>
+                        <Input
+                          type="date"
+                          value={openingDate}
+                          onChange={(e) => setOpeningDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <Button
                   className="w-full"
                   disabled={!runAssess || createRun.isPending}
@@ -299,6 +329,8 @@ export default function ReportCardsV2() {
                       assessment_id: runAssess,
                       grade_id: runGrade || null,
                       template_id: runTpl || null,
+                      closing_date: showDates ? closingDate : null,
+                      opening_date: showDates ? openingDate : null,
                     })
                   }
                 >

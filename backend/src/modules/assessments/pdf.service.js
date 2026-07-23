@@ -135,9 +135,9 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
   const MUTED = "#94a3b8";
 
   // ===== Header band =====
-  doc.rect(0, 0, doc.page.width, 116).fill(PRIMARY);
+  doc.rect(0, 0, doc.page.width, 85).fill(PRIMARY);
   // Accent ribbon
-  doc.rect(0, 116, doc.page.width, 4).fill(ACCENT);
+  doc.rect(0, 85, doc.page.width, 4).fill(ACCENT);
 
   // School logo (left side, if available)
   const logoUrl =
@@ -149,8 +149,8 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
   let textStartX = 40;
   if (logoBuf) {
     try {
-      doc.image(logoBuf, 40, 26, { fit: [70, 70] });
-      textStartX = 120;
+      doc.image(logoBuf, 40, 15, { fit: [55, 55] });
+      textStartX = 105;
     } catch {
       /* invalid image, ignore */
     }
@@ -161,28 +161,28 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
   const headerRight = doc.page.width - 40;
   const headerTextWidth = headerRight - textStartX;
   doc
-    .fontSize(20)
+    .fontSize(16)
     .font("Heading")
-    .text(safe(school.name, "School").toUpperCase(), textStartX, 30, {
+    .text(safe(school.name, "School").toUpperCase(), textStartX, 18, {
       width: headerTextWidth,
       characterSpacing: 0.5,
     });
-  doc.fontSize(9).font("Body").fillColor("#cbd5e1");
-  doc.text(safe(school.address), textStartX, 56, {
+  doc.fontSize(8).font("Body").fillColor("#cbd5e1");
+  doc.text(safe(school.address), textStartX, 38, {
     width: headerTextWidth,
   });
   doc.text(
     `Tel: ${safe(school.phone)}   Email: ${safe(school.email)}`,
     textStartX,
-    69,
+    49,
     { width: headerTextWidth },
   );
   if (school.settings?.motto) {
     doc
       .fillColor("#fde68a")
       .font("Italic")
-      .fontSize(9)
-      .text(`"${school.settings.motto}"`, textStartX, 86, {
+      .fontSize(8)
+      .text(`"${school.settings.motto}"`, textStartX, 62, {
         width: headerTextWidth,
       });
   }
@@ -192,45 +192,45 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
   const curriculumLabel = curriculumRaw === "CBC" ? "CBE" : curriculumRaw;
 
   doc.fillColor(PRIMARY);
-  let y = 136;
+  let y = 98;
 
   // ===== Title =====
   doc
     .font("Heading")
-    .fontSize(16)
+    .fontSize(14)
     .fillColor(PRIMARY)
     .text("LEARNER'S PROGRESS REPORT", 40, y, {
       width: pageW,
       align: "center",
       characterSpacing: 1,
     });
-  y += 22;
+  y += 16;
   doc
     .font("Italic")
-    .fontSize(10)
+    .fontSize(9)
     .fillColor(SOFT)
     .text(safe(payload.assessment_name), 40, y, {
       width: pageW,
       align: "center",
     });
-  y += 24;
+  y += 14;
 
   // ===== Student details box =====
-  doc.fillColor(PRIMARY).font("Heading").fontSize(9);
-  const boxH = 54;
+  doc.fillColor(PRIMARY).font("Heading").fontSize(8);
+  const boxH = 40;
   doc.roundedRect(40, y, pageW, boxH, 6).fillAndStroke("#f8fafc", "#e2e8f0");
   doc.fillColor(PRIMARY);
   const col = (label, val, x, yy) => {
     doc
       .font("Heading")
-      .fontSize(7)
+      .fontSize(6)
       .fillColor(MUTED)
       .text(String(label).toUpperCase(), x, yy, { characterSpacing: 0.6 });
     doc
       .font("Heading")
-      .fontSize(11)
+      .fontSize(9)
       .fillColor(PRIMARY)
-      .text(safe(val), x, yy + 11);
+      .text(safe(val), x, yy + 8);
   };
   const c1 = 52,
     c2 = 230,
@@ -239,11 +239,11 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
     "STUDENT NAME",
     `${payload.first_name || ""} ${payload.last_name || ""}`.trim(),
     c1,
-    y + 10,
+    y + 6,
   );
-  col("ADMISSION NO.", payload.admission_number, c1, y + 32);
-  col("CLASS", payload.grade_name, c2, y + 10);
-  col("STREAM", payload.stream_name, c2, y + 32);
+  col("ADMISSION NO.", payload.admission_number, c1, y + 22);
+  col("CLASS", payload.grade_name, c2, y + 6);
+  col("STREAM", payload.stream_name, c2, y + 22);
   if (showPosition) {
     let posStr = String(payload.class_position || "—");
     if (payload.class_position != null && payload.previous_assessment && payload.previous_assessment.class_position != null) {
@@ -252,9 +252,9 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
       else if (diff < 0) posStr += ` (▼${Math.abs(diff)})`;
       else posStr += ` (--)`;
     }
-    col("POSITION (CLASS)", posStr, c3, y + 10);
+    col("POSITION (CLASS)", posStr, c3, y + 6);
   } else {
-    col("CURRICULUM", curriculumLabel, c3, y + 10);
+    col("CURRICULUM", curriculumLabel, c3, y + 6);
   }
   
   let overallPctStr = String(fmt(payload.percentage));
@@ -263,16 +263,16 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
     const diffStr = diff > 0 ? `+${diff.toFixed(1)}` : diff < 0 ? diff.toFixed(1) : "0.0";
     overallPctStr += ` (${diffStr}%)`;
   }
-  col("OVERALL %", overallPctStr, c3, y + 32);
-  y += boxH + 10;
+  col("OVERALL %", overallPctStr, c3, y + 22);
+  y += boxH + 6;
 
   // ===== Subject table =====
   doc
     .font("Heading")
-    .fontSize(11)
+    .fontSize(9)
     .fillColor(PRIMARY)
     .text("Subject Performance", 36, y);
-  y += 16;
+  y += 12;
   const headers = [
     { t: "Subject", w: 150 },
     { t: "Score", w: 45, a: "right" },
@@ -288,15 +288,15 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
   doc.fillColor("#ffffff").font("Heading").fontSize(9);
   let x = 46;
   for (const h of headers) {
-    doc.text(String(h.t).toUpperCase(), x, y + 7, {
+    doc.text(String(h.t).toUpperCase(), x, y + 5, {
       width: h.w - 6,
       align: h.a || "left",
       characterSpacing: 0.5,
     });
     x += h.w;
   }
-  y += 22;
-  doc.font("Body").fontSize(9).fillColor(PRIMARY);
+  y += 18;
+  doc.font("Body").fontSize(8).fillColor(PRIMARY);
 
   const marks = payload.marks || [];
   marks.forEach((m, i) => {
@@ -304,7 +304,7 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
       doc.addPage();
       y = 50;
     }
-    const rowH = 17;
+    const rowH = 14;
     if (i % 2 === 0) doc.rect(40, y, pageW, rowH).fill("#f8fafc");
     doc.fillColor(PRIMARY);
     const pct = m.out_of ? (Number(m.score) / Number(m.out_of)) * 100 : null;
@@ -331,8 +331,8 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
     cells.forEach((c, idx) => {
       doc
         .font("Body")
-        .fontSize(9)
-        .text(String(c), x, y + 6, {
+        .fontSize(8)
+        .text(String(c), x, y + 3, {
           width: headers[idx].w - 6,
           align: headers[idx].a || "left",
           ellipsis: true,
@@ -345,40 +345,40 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
     doc
       .fillColor("#94a3b8")
       .font("Italic")
-      .fontSize(9)
-      .text("No marks recorded.", 42, y + 4);
-    y += 20;
+      .fontSize(8)
+      .text("No marks recorded.", 42, y + 3);
+    y += 14;
   }
 
-  y += 10;
+  y += 6;
 
   // ===== Summary strip =====
   if (y > 720) {
     doc.addPage();
     y = 50;
   }
-  const sumH = 50;
+  const sumH = 40;
   doc.roundedRect(40, y, pageW, sumH, 6).fillAndStroke("#eff6ff", "#bfdbfe");
   doc.fillColor(PRIMARY);
   const sCell = (label, val, x, yy, color) => {
     doc
       .font("Heading")
-      .fontSize(7)
+      .fontSize(6)
       .fillColor(SOFT)
       .text(String(label).toUpperCase(), x, yy, { characterSpacing: 0.6 });
     doc
       .font("Heading")
-      .fontSize(14)
+      .fontSize(11)
       .fillColor(color || PRIMARY)
-      .text(safe(val), x, yy + 11);
+      .text(safe(val), x, yy + 8);
   };
   sCell(
     "TOTAL SCORE",
     `${fmt(payload.total_score, 0)} / ${fmt(payload.total_out_of, 0)}`,
     52,
-    y + 14,
+    y + 10,
   );
-  sCell("MEAN %", overallPctStr, 200, y + 14, ACCENT);
+  sCell("MEAN %", overallPctStr, 200, y + 10, ACCENT);
   // Overall AL = sum of subject AL points (CBC convention) — e.g. 6 subjects of AL7 → AL42
   const totalPts =
     payload.total_points != null ? Number(payload.total_points) : null;
@@ -386,17 +386,17 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
     totalPts != null && !isNaN(totalPts)
       ? `AL${Math.round(totalPts)}`
       : safe(payload.overall_al);
-  sCell("OVERALL AL", overallAlLabel, 310, y + 14);
+  sCell("OVERALL AL", overallAlLabel, 310, y + 10);
   sCell(
     "OVERALL BAND",
     payload.overall_band
       ? `${payload.overall_band} — ${BAND_LABELS[payload.overall_band] || ""}`
       : "—",
     400,
-    y + 14,
+    y + 10,
     BAND_COLORS[payload.overall_band],
   );
-  y += sumH + 10;
+  y += sumH + 6;
 
   // ===== Performance Trend =====
   if (payload.progress && payload.progress.trend && payload.progress.trend.length > 1) {
@@ -480,77 +480,94 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
       .fontSize(10)
       .fillColor(PRIMARY)
       .text("Attendance Summary", 36, y);
-    y += 14;
+    y += 10;
     doc
       .font("Body")
-      .fontSize(9)
+      .fontSize(8)
       .fillColor(PRIMARY)
       .text(
         `Present: ${att.present || 0}    Absent: ${att.absent || 0}    Late: ${att.late || 0}    Total Days: ${att.total || 0}    Rate: ${att.pct != null ? att.pct.toFixed(1) + "%" : "—"}`,
         36,
         y,
       );
-    y += 22;
+    y += 14;
   }
 
-  // ===== Remarks =====
-  const remarkBox = (title, text, h = 50) => {
-    if (y > 760 - h) {
+  // ===== Term Dates =====
+  if (tpl.closing_date || tpl.opening_date) {
+    if (y > 750) {
       doc.addPage();
       y = 50;
     }
-    doc.font("Heading").fontSize(9).fillColor(PRIMARY).text(title, 36, y);
-    y += 12;
+    const datesText = [
+      tpl.closing_date ? `Closing: ${tpl.closing_date}` : "",
+      tpl.opening_date ? `Opening: ${tpl.opening_date}` : ""
+    ].filter(Boolean).join("    |    ");
+    
+    doc.font("Heading").fontSize(8).fillColor(PRIMARY).text("Term Dates", 36, y);
+    y += 10;
+    doc.font("Body").fontSize(8).fillColor(PRIMARY).text(datesText, 36, y);
+    y += 14;
+  }
+
+  // ===== Remarks =====
+  const remarkBox = (title, text, h = 32) => {
+    if (y > 770 - h) {
+      doc.addPage();
+      y = 50;
+    }
+    doc.font("Heading").fontSize(8).fillColor(PRIMARY).text(title, 36, y);
+    y += 10;
     doc.roundedRect(36, y, pageW, h, 3).stroke("#cbd5e1");
     doc
       .font("Body")
-      .fontSize(9)
+      .fontSize(8)
       .fillColor("#334155")
-      .text(safe(text, "—"), 42, y + 6, { width: pageW - 12, height: h - 12 });
-    y += h + 10;
+      .text(safe(text, "—"), 42, y + 4, { width: pageW - 12, height: h - 8 });
+    y += h + 6;
   };
   remarkBox(
     "Class Teacher's Remarks",
     card.class_teacher_remarks || card.teacher_remarks,
-    44,
+    34,
   );
-  remarkBox("Principal / Headteacher's Remarks", card.principal_remarks, 44);
+  remarkBox("Principal / Headteacher's Remarks", card.principal_remarks, 34);
 
   // ===== Signatures =====
-  // Reserve enough room for sigs (60px) AND footer (25px) on the same page
-  if (y > doc.page.height - 100) {
+  // Reserve enough room for sigs (50px) AND footer (25px) on the same page
+  if (y > doc.page.height - 70) {
     doc.addPage();
     y = 50;
   }
-  y += 10;
+  y += 6;
   const sigY = y;
   const sigBlock = (label, name, x) => {
     doc
-      .moveTo(x, sigY + 30)
-      .lineTo(x + 160, sigY + 30)
+      .moveTo(x, sigY + 24)
+      .lineTo(x + 160, sigY + 24)
       .stroke("#94a3b8");
     doc
       .font("Body")
-      .fontSize(8)
+      .fontSize(7)
       .fillColor("#475569")
-      .text(label, x, sigY + 34);
+      .text(label, x, sigY + 28);
     if (name)
       doc
         .font("Heading")
-        .fontSize(9)
+        .fontSize(8)
         .fillColor(PRIMARY)
-        .text(name, x, sigY + 46);
+        .text(name, x, sigY + 38);
   };
   sigBlock("Class Teacher", null, 36);
   sigBlock("Principal", school.settings?.principal_name, 230);
   sigBlock("Parent / Guardian", null, 420);
-  y = sigY + 60;
+  y = sigY + 50;
 
   // Footer — always pinned to the bottom of the CURRENT page so we never
   // spill onto a near-empty second page. Using Math.max here previously
   // pushed the footer past page.height when signatures sat low, forcing
   // pdfkit to auto-add a blank page just for the footer.
-  const footerY = doc.page.height - 25;
+  const footerY = doc.page.height - 30; // safer padding to prevent auto page-break
   doc
     .font("Italic")
     .fontSize(7)
@@ -559,7 +576,7 @@ exports.streamReportCardPdf = async ({ res, schoolId, card, school }) => {
       `Generated ${new Date().toLocaleString()}  •  ${safe(school.name)}  •  Confidential`,
       36,
       footerY,
-      { width: pageW, align: "center", lineBreak: false },
+      { width: pageW, align: "center", lineBreak: false, height: 10 },
     );
 
   doc.end();

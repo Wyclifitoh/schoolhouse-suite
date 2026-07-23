@@ -179,8 +179,16 @@ exports.createRun = async (data) => {
         show_competencies: !!template.show_competencies,
         show_teacher_remarks: !!template.show_teacher_remarks,
         show_principal_remarks: !!template.show_principal_remarks,
+        closing_date: data.closing_date || null,
+        opening_date: data.opening_date || null,
       }
-    : { show_position: true, show_band: true, show_competencies: true };
+    : {
+        show_position: true,
+        show_band: true,
+        show_competencies: true,
+        closing_date: data.closing_date || null,
+        opening_date: data.opening_date || null,
+      };
 
   const runId = uuid();
   await execute(

@@ -139,10 +139,12 @@ export default function MarksEntry() {
       if (!remarks && score !== "" && status === "present") {
         const numScore = Number(score);
         if (!isNaN(numScore)) {
+          const al = previewAL(levels as any[], numScore, localOutOf);
           const auto = previewRemark(bands as any, {
             subject_id: subjectId,
             grade_id: gradeId,
             pct: outOf > 0 ? (numScore / outOf) * 100 : 0,
+            level_code: al?.code || null,
           });
           if (auto) remarks = auto;
         }

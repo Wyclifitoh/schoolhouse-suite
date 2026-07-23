@@ -890,6 +890,8 @@ export function useCreateRcRun() {
       template_id?: string | null;
       grade_id?: string | null;
       stream_id?: string | null;
+      closing_date?: string | null;
+      opening_date?: string | null;
     }) => api.post("/assessments/report-cards/runs", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rc-runs"] });
