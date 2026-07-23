@@ -13,6 +13,7 @@ export interface School {
   address: string | null;
   curriculum_type: string | null;
   paybill_number: string | null;
+  edition?: "cloud" | "enterprise";
 }
 
 interface SchoolContextValue {

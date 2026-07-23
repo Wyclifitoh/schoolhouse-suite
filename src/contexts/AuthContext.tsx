@@ -28,7 +28,11 @@ export type AppRole =
   | "pos_attendant"
   | "student"
   | "parent"
-  | "auditor";
+  | "auditor"
+  // CHUO Flow Enterprise finance roles (Phase 0)
+  | "bursar"
+  | "accounts_clerk"
+  | "principal_finance";
 
 export interface Profile {
   id: string;

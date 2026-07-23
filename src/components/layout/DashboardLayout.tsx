@@ -152,6 +152,11 @@ interface NavItem {
    * Admins / super_admins always pass via the role check.
    */
   permissions?: PermissionCode[];
+  /**
+   * When true, the item is only rendered for schools on the Enterprise
+   * (CHUO Flow) edition. Cloud schools never see it.
+   */
+  enterpriseOnly?: boolean;
 }
 interface NavGroup {
   label: string;
@@ -407,6 +412,118 @@ const navigationGroups: NavGroup[] = [
         icon: ArrowUpRight,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
+      },
+      {
+        title: "Vote Heads",
+        url: "/finance/vote-heads",
+        icon: Wallet,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Bank Accounts",
+        url: "/finance/bank-accounts",
+        icon: CreditCard,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Student Fee Account",
+        url: "/finance/student-account",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Cash Book",
+        url: "/finance/cash-book",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "General Ledger",
+        url: "/finance/general-ledger",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Procurement",
+        url: "/finance/procurement",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Payment Vouchers",
+        url: "/finance/payment-vouchers",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Bank Reconciliation",
+        url: "/finance/bank-reconciliation",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Budgets",
+        url: "/finance/budgets",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Capitation",
+        url: "/finance/capitation",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Assets",
+        url: "/finance/assets",
+        icon: Package,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Financial Reports",
+        url: "/finance/reports",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Bursar Dashboard",
+        url: "/finance/bursar-dashboard",
+        icon: LayoutDashboard,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
+      },
+      {
+        title: "Audit Trail",
+        url: "/finance/audit-trail",
+        icon: FileText,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+        enterpriseOnly: true,
       },
       {
         title: "Payments",
@@ -1222,12 +1339,15 @@ export function DashboardLayout({
       "?"
     : "?";
 
+  const isEnterprise =
+    (currentSchool as { edition?: string } | null)?.edition === "enterprise";
   const visibleGroups = navigationGroups
     .map((g) => ({
       ...g,
       items: g.items.filter(
         (item) =>
-          hasAnyRole(item.roles as any) || hasAnyPermission(item.permissions),
+          (!item.enterpriseOnly || isEnterprise) &&
+          (hasAnyRole(item.roles as any) || hasAnyPermission(item.permissions)),
       ),
     }))
     .filter((g) => g.items.length > 0);

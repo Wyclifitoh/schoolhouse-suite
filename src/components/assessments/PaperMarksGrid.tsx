@@ -22,6 +22,7 @@ import {
 import { useGradingSystem } from "@/hooks/useGradingSystems";
 import type { TaskRoster } from "@/hooks/useAssessments";
 import { useBulkSavePaperMarks, useSubmitTask } from "@/hooks/useAssessments";
+import { useRemarkBands, previewRemark } from "@/hooks/useRemarkBands";
 
 type Draft = Record<
   string,
@@ -55,6 +56,10 @@ export function PaperMarksGrid({
   const { data: gradingSystem } = useGradingSystem(gradingSystemId);
   const levels = gradingSystem?.levels || null;
   const task = roster.task;
+  const { data: bands = [] } = useRemarkBands({
+    subject_id: task.subject_id,
+    grade_id: task.grade_id,
+  });
 
   const save = useBulkSavePaperMarks();
   const submit = useSubmitTask();
@@ -87,11 +92,19 @@ export function PaperMarksGrid({
       const grade =
         gradeForLevels(calc.percentage, levels as any) ||
         (gradeFor844(calc.percentage) as any);
-      const remarks =
-        draft[s.id]?.remarks ?? s.mark?.remarks ?? (grade ? grade.remark : "");
+      let remarks = draft[s.id]?.remarks ?? s.mark?.remarks ?? "";
+      if (!remarks && Number.isFinite(calc.percentage)) {
+        const auto = previewRemark(bands as any, {
+          subject_id: task.subject_id,
+          grade_id: task.grade_id,
+          pct: calc.percentage,
+          level_code: grade?.code || null,
+        });
+        remarks = auto || (grade ? grade.remark : "");
+      }
       return { student: s, paperVals, calc, grade, remarks };
     });
-  }, [roster.students, papers, draft, calcType, calcCfg, levels]);
+  }, [roster.students, papers, draft, calcType, calcCfg, levels, bands, task.subject_id, task.grade_id]);
 
   const setPaper = (sid: string, pid: string, v: string) =>
     setDraft((p) => ({

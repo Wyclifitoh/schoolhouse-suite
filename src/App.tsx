@@ -87,6 +87,20 @@ import FeeAdjustments from "./pages/FeeAdjustments";
 import Reconciliation from "./pages/Reconciliation";
 import Archives from "./pages/Archives";
 import BroughtForwardBalances from "./pages/finance/BroughtForwardBalances";
+import VoteHeadsPage from "./pages/finance/VoteHeads";
+import StudentAccountPage from "./pages/finance/StudentAccount";
+import BankAccountsPage from "./pages/finance/BankAccounts";
+import CashBookPage from "./pages/finance/CashBook";
+import GeneralLedgerPage from "./pages/finance/GeneralLedger";
+import ProcurementPage from "./pages/finance/Procurement";
+import PaymentVouchersPage from "./pages/finance/PaymentVouchers";
+import BankReconciliationPage from "./pages/finance/BankReconciliation";
+import BudgetsPage from "./pages/finance/Budgets";
+import CapitationPage from "./pages/finance/Capitation";
+import AssetsPage from "./pages/finance/Assets";
+import FinancialReportsPage from "./pages/finance/FinancialReports";
+import BursarDashboardPage from "./pages/finance/BursarDashboard";
+import AuditTrailPage from "./pages/finance/AuditTrail";
 
 // Exam Module v2
 import MarksEntry from "./pages/exams/MarksEntry";
@@ -172,6 +186,7 @@ import InventoryHistory from "./pages/inventory/HistoryPage";
 import InventorySuppliers from "./pages/inventory/SuppliersPage";
 import InventoryPurchaseOrders from "./pages/inventory/PurchaseOrdersPage";
 import InventoryCategories from "./pages/inventory/CategoriesPage";
+import SupplierProfile from "./pages/finance/SupplierProfile";
 
 // Lesson Plans (CBE)
 import LessonPlans from "./pages/lesson-plans/LessonPlans";
@@ -882,6 +897,251 @@ const App = () => (
                         }
                       />
                       <Route
+                        path="/finance/vote-heads"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <VoteHeadsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/bank-accounts"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <BankAccountsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/student-account"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                              "bursar",
+                              "principal_finance",
+                              "accounts_clerk",
+                            ]}
+                          >
+                            <StudentAccountPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/cash-book"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                              "bursar",
+                              "principal_finance",
+                              "accounts_clerk",
+                            ]}
+                          >
+                            <CashBookPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/general-ledger"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <GeneralLedgerPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/procurement"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <ProcurementPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/payment-vouchers"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <PaymentVouchersPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/bank-reconciliation"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <BankReconciliationPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/budgets"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <BudgetsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/capitation"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <CapitationPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/assets"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <AssetsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/reports"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <FinancialReportsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/bursar-dashboard"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <BursarDashboardPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/finance/audit-trail"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "bursar",
+                              "principal_finance",
+                            ]}
+                          >
+                            <AuditTrailPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="/reports/reconciliation"
                         element={
                           <ProtectedRoute
@@ -1470,6 +1730,14 @@ const App = () => (
                         element={
                           <ProtectedRoute>
                             <InventorySuppliers />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/suppliers/:id"
+                        element={
+                          <ProtectedRoute>
+                            <SupplierProfile />
                           </ProtectedRoute>
                         }
                       />
