@@ -10,120 +10,271 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PermissionGate } from "@/components/PermissionGate";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  useFeeTemplates, useFeeCategories, useFeeStructures, useFeeDiscounts,
-  useStudentFeesList, useCarryForwards,
+  useFeeTemplates,
+  useFeeCategories,
+  useFeeStructures,
+  useFeeDiscounts,
+  useStudentFeesList,
+  useCarryForwards,
 } from "@/hooks/useFinance";
 import { useClasses } from "@/hooks/useClasses";
 import { useTerm } from "@/contexts/TermContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermission } from "@/hooks/usePermission";
+import { useIsEnterprise } from "@/components/enterprise/EnterpriseGate";
+import { useVoteHeads } from "@/hooks/useVoteHeads";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
-  Banknote, Plus, Receipt, FileText, CreditCard, Search, Download,
-  Percent, Tags, ArrowUpRight, Wallet, AlertCircle, MoreHorizontal, Edit, Trash2,
+  Banknote,
+  Plus,
+  Receipt,
+  FileText,
+  CreditCard,
+  Search,
+  Download,
+  Percent,
+  Tags,
+  ArrowUpRight,
+  Wallet,
+  AlertCircle,
+  MoreHorizontal,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
-const formatKES = (amount: number) => `KES ${Math.abs(amount || 0).toLocaleString()}`;
+const formatKES = (amount: number) =>
+  `KES ${Math.abs(amount || 0).toLocaleString()}`;
 
 const Finance = () => {
   const qc = useQueryClient();
   const { hasAnyRole } = useAuth();
   const canUpdateFees = usePermission("finance:fees:update");
   const canDeleteFees = usePermission("finance:fees:delete");
-  const canManage = canUpdateFees || canDeleteFees || hasAnyRole(["super_admin", "school_admin", "deputy_admin", "finance_officer"] as any);
+  const canManage =
+    canUpdateFees ||
+    canDeleteFees ||
+    hasAnyRole([
+      "super_admin",
+      "school_admin",
+      "deputy_admin",
+      "finance_officer",
+    ] as any);
+  const isEnterprise = useIsEnterprise();
+  const { data: voteHeadsResp } = useVoteHeads({ activeOnly: true });
+  const voteHeads: any[] = Array.isArray(voteHeadsResp)
+    ? voteHeadsResp
+    : (voteHeadsResp as any)?.data || [];
   const [collectSearch, setCollectSearch] = useState("");
 
-  const { data: feeTemplates = [], isLoading: templatesLoading } = useFeeTemplates();
-  const { data: feeCategories = [], isLoading: categoriesLoading } = useFeeCategories();
-  const { data: feeStructures = [], isLoading: structuresLoading } = useFeeStructures();
-  const { data: feeDiscounts = [], isLoading: discountsLoading } = useFeeDiscounts();
-  const { data: studentFees = [], isLoading: feesLoading } = useStudentFeesList(collectSearch);
+  const { data: feeTemplates = [], isLoading: templatesLoading } =
+    useFeeTemplates();
+  const { data: feeCategories = [], isLoading: categoriesLoading } =
+    useFeeCategories();
+  const { data: feeStructures = [], isLoading: structuresLoading } =
+    useFeeStructures();
+  const { data: feeDiscounts = [], isLoading: discountsLoading } =
+    useFeeDiscounts();
+  const { data: studentFees = [], isLoading: feesLoading } =
+    useStudentFeesList(collectSearch);
   const { data: carryForwards = [], isLoading: cfLoading } = useCarryForwards();
   const { data: grades = [] } = useClasses();
   const { terms, academicYears, currentAcademicYear, selectedTerm } = useTerm();
 
   // --- Fee Category CRUD ---
   const [catDialogOpen, setCatDialogOpen] = useState(false);
-  const [catForm, setCatForm] = useState({ name: "", type: "tuition", description: "", gl_code: "", is_optional: false });
+  const [catForm, setCatForm] = useState({
+    name: "",
+    type: "tuition",
+    description: "",
+    gl_code: "",
+    is_optional: false,
+  });
 
   const createCategory = useMutation({
     mutationFn: (data: any) => api.post("/finance/fee-categories", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-categories"] }); toast.success("Fee category created!"); setCatDialogOpen(false); setCatForm({ name: "", type: "tuition", description: "", gl_code: "", is_optional: false }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-categories"] });
+      toast.success("Fee category created!");
+      setCatDialogOpen(false);
+      setCatForm({
+        name: "",
+        type: "tuition",
+        description: "",
+        gl_code: "",
+        is_optional: false,
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const [editCatOpen, setEditCatOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<any>(null);
   const updateCategory = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/finance/fee-categories/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-categories"] }); toast.success("Fee category updated"); setEditCatOpen(false); setEditingCat(null); },
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      api.put(`/finance/fee-categories/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-categories"] });
+      toast.success("Fee category updated");
+      setEditCatOpen(false);
+      setEditingCat(null);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const deleteCategory = useMutation({
     mutationFn: (id: string) => api.delete(`/finance/fee-categories/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-categories"] }); toast.success("Fee category deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-categories"] });
+      toast.success("Fee category deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   // --- Fee Structure CRUD (renamed from template) ---
   const [structDialogOpen, setStructDialogOpen] = useState(false);
-  const [structForm, setStructForm] = useState({ name: "", fee_category_id: "", amount: "", grade_id: "", term_id: "", due_date: "" });
+  const [structForm, setStructForm] = useState({
+    name: "",
+    fee_category_id: "",
+    vote_head_id: "",
+    amount: "",
+    grade_id: "",
+    term_id: "",
+    due_date: "",
+  });
 
   const createStructure = useMutation({
     mutationFn: (data: any) => api.post("/finance/fee-structures", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure created!"); setStructDialogOpen(false); setStructForm({ name: "", fee_category_id: "", amount: "", grade_id: "", term_id: "", due_date: "" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-structures"] });
+      toast.success("Fee structure created!");
+      setStructDialogOpen(false);
+      setStructForm({
+        name: "",
+        fee_category_id: "",
+        vote_head_id: "",
+        amount: "",
+        grade_id: "",
+        term_id: "",
+        due_date: "",
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const [editStructOpen, setEditStructOpen] = useState(false);
   const [editingStruct, setEditingStruct] = useState<any>(null);
   const updateStructure = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/finance/fee-structures/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure updated"); setEditStructOpen(false); setEditingStruct(null); },
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      api.put(`/finance/fee-structures/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-structures"] });
+      toast.success("Fee structure updated");
+      setEditStructOpen(false);
+      setEditingStruct(null);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const deleteStructure = useMutation({
     mutationFn: (id: string) => api.delete(`/finance/fee-structures/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); toast.success("Fee structure deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-structures"] });
+      toast.success("Fee structure deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   // --- Discount CRUD ---
   const [discDialogOpen, setDiscDialogOpen] = useState(false);
-  const [discForm, setDiscForm] = useState({ name: "", type: "percentage", value: "", code: "", description: "", applicable_to: "" });
+  const [discForm, setDiscForm] = useState({
+    name: "",
+    type: "percentage",
+    value: "",
+    code: "",
+    description: "",
+    applicable_to: "",
+  });
 
   const createDiscount = useMutation({
     mutationFn: (data: any) => api.post("/finance/fee-discounts", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-discounts"] }); toast.success("Discount created!"); setDiscDialogOpen(false); setDiscForm({ name: "", type: "percentage", value: "", code: "", description: "", applicable_to: "" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-discounts"] });
+      toast.success("Discount created!");
+      setDiscDialogOpen(false);
+      setDiscForm({
+        name: "",
+        type: "percentage",
+        value: "",
+        code: "",
+        description: "",
+        applicable_to: "",
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const templates = Array.isArray(feeTemplates) ? feeTemplates : (feeTemplates as any)?.rows || [];
+  const templates = Array.isArray(feeTemplates)
+    ? feeTemplates
+    : (feeTemplates as any)?.rows || [];
 
   return (
-    <DashboardLayout title="Finance" subtitle="Complete fee management, structures, discounts & collection">
+    <DashboardLayout
+      title="Finance"
+      subtitle="Complete fee management, structures, discounts & collection"
+    >
       <Tabs defaultValue="categories" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
-          <TabsTrigger value="categories" className="gap-1.5"><FileText className="h-3.5 w-3.5" />Fee Categories</TabsTrigger>
-          <TabsTrigger value="structures" className="gap-1.5"><Receipt className="h-3.5 w-3.5" />Fee Structures</TabsTrigger>
-          <TabsTrigger value="discounts" className="gap-1.5"><Percent className="h-3.5 w-3.5" />Discounts</TabsTrigger>
-          <TabsTrigger value="collect" className="gap-1.5"><Wallet className="h-3.5 w-3.5" />Collect Fees</TabsTrigger>
-          <TabsTrigger value="carry-forward" className="gap-1.5"><ArrowUpRight className="h-3.5 w-3.5" />Carry Forward</TabsTrigger>
+          {!isEnterprise && (
+            <TabsTrigger value="categories" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              Fee Categories
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="structures" className="gap-1.5">
+            <Receipt className="h-3.5 w-3.5" />
+            Fee Structures
+          </TabsTrigger>
+          <TabsTrigger value="discounts" className="gap-1.5">
+            <Percent className="h-3.5 w-3.5" />
+            Discounts
+          </TabsTrigger>
+          <TabsTrigger value="collect" className="gap-1.5">
+            <Wallet className="h-3.5 w-3.5" />
+            Collect Fees
+          </TabsTrigger>
+          <TabsTrigger value="carry-forward" className="gap-1.5">
+            <ArrowUpRight className="h-3.5 w-3.5" />
+            Carry Forward
+          </TabsTrigger>
         </TabsList>
 
         {/* Fee Categories */}
@@ -131,77 +282,203 @@ const Finance = () => {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Fee Categories</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Fee Categories
+                </CardTitle>
                 <PermissionGate permission="finance:fees:create">
-                <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
-                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Category</Button></DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Add Fee Category</DialogTitle></DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Name</Label><Input placeholder="e.g. Tuition Fee" value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} /></div>
-                        <div className="space-y-2"><Label>Type</Label>
-                          <Select value={catForm.type} onValueChange={v => setCatForm(f => ({ ...f, type: v }))}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="tuition">Tuition</SelectItem>
-                              <SelectItem value="boarding">Boarding</SelectItem>
-                              <SelectItem value="transport">Transport</SelectItem>
-                              <SelectItem value="activity">Activity</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>GL Code (optional)</Label><Input placeholder="e.g. 4001" value={catForm.gl_code} onChange={e => setCatForm(f => ({ ...f, gl_code: e.target.value }))} /></div>
-                        <div className="space-y-2 flex items-end gap-2">
-                          <label className="flex items-center gap-2 cursor-pointer text-sm pb-2">
-                            <Checkbox checked={catForm.is_optional} onCheckedChange={(v) => setCatForm(f => ({ ...f, is_optional: !!v }))} />
-                            Optional Fee
-                          </label>
-                        </div>
-                      </div>
-                      <div className="space-y-2"><Label>Description</Label><Input placeholder="Description" value={catForm.description} onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))} /></div>
-                      <Button className="w-full mt-2" onClick={() => createCategory.mutate(catForm)} disabled={createCategory.isPending || !catForm.name}>
-                        {createCategory.isPending ? "Creating..." : "Add Category"}
+                  <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Add Category
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Fee Category</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Name</Label>
+                            <Input
+                              placeholder="e.g. Tuition Fee"
+                              value={catForm.name}
+                              onChange={(e) =>
+                                setCatForm((f) => ({
+                                  ...f,
+                                  name: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Type</Label>
+                            <Select
+                              value={catForm.type}
+                              onValueChange={(v) =>
+                                setCatForm((f) => ({ ...f, type: v }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="tuition">Tuition</SelectItem>
+                                <SelectItem value="boarding">
+                                  Boarding
+                                </SelectItem>
+                                <SelectItem value="transport">
+                                  Transport
+                                </SelectItem>
+                                <SelectItem value="activity">
+                                  Activity
+                                </SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>GL Code (optional)</Label>
+                            <Input
+                              placeholder="e.g. 4001"
+                              value={catForm.gl_code}
+                              onChange={(e) =>
+                                setCatForm((f) => ({
+                                  ...f,
+                                  gl_code: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2 flex items-end gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer text-sm pb-2">
+                              <Checkbox
+                                checked={catForm.is_optional}
+                                onCheckedChange={(v) =>
+                                  setCatForm((f) => ({
+                                    ...f,
+                                    is_optional: !!v,
+                                  }))
+                                }
+                              />
+                              Optional Fee
+                            </label>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Input
+                            placeholder="Description"
+                            value={catForm.description}
+                            onChange={(e) =>
+                              setCatForm((f) => ({
+                                ...f,
+                                description: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <Button
+                          className="w-full mt-2"
+                          onClick={() => createCategory.mutate(catForm)}
+                          disabled={createCategory.isPending || !catForm.name}
+                        >
+                          {createCategory.isPending
+                            ? "Creating..."
+                            : "Add Category"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Name</TableHead><TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">GL Code</TableHead><TableHead className="font-semibold">Optional</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Name</TableHead>
+                    <TableHead className="font-semibold">Type</TableHead>
+                    <TableHead className="font-semibold">GL Code</TableHead>
+                    <TableHead className="font-semibold">Optional</TableHead>
+                    <TableHead className="font-semibold text-right">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {categoriesLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  (feeCategories as any[]).length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No categories. Click "Add Category" to create one.</TableCell></TableRow> :
-                  (feeCategories as any[]).map((c: any) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell><Badge variant="secondary" className="capitalize">{c.type}</Badge></TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{c.gl_code || "—"}</TableCell>
-                      <TableCell>{c.is_optional ? <Badge className="bg-info/10 text-info border-0">Optional</Badge> : <Badge variant="secondary">Mandatory</Badge>}</TableCell>
-                      <TableCell className="text-right">
-                        {canManage && (
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCat({ ...c }); setEditCatOpen(true); }}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete "${c.name}"?`)) deleteCategory.mutate(c.id); }}>
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          </div>
-                        )}
+                  {categoriesLoading ? (
+                    [1, 2, 3].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={5}>
+                          <Skeleton className="h-10 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (feeCategories as any[]).length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No categories. Click "Add Category" to create one.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    (feeCategories as any[]).map((c: any) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="capitalize">
+                            {c.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {c.gl_code || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {c.is_optional ? (
+                            <Badge className="bg-info/10 text-info border-0">
+                              Optional
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Mandatory</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canManage && (
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  setEditingCat({ ...c });
+                                  setEditCatOpen(true);
+                                }}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  if (confirm(`Delete "${c.name}"?`))
+                                    deleteCategory.mutate(c.id);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -213,78 +490,245 @@ const Finance = () => {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Fee Structures</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Fee Structures
+                </CardTitle>
                 <PermissionGate permission="finance:fees:create">
-                <Dialog open={structDialogOpen} onOpenChange={setStructDialogOpen}>
-                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Fee Structure</Button></DialogTrigger>
-                  <DialogContent className="sm:max-w-lg">
-                    <DialogHeader><DialogTitle>Add Fee Structure</DialogTitle></DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2"><Label>Name</Label><Input placeholder="e.g. Term 1 Tuition" value={structForm.name} onChange={e => setStructForm(f => ({ ...f, name: e.target.value }))} /></div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Fee Category</Label>
-                          <Select value={structForm.fee_category_id} onValueChange={v => setStructForm(f => ({ ...f, fee_category_id: v }))}>
-                            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                            <SelectContent>
-                              {(feeCategories as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" placeholder="0" value={structForm.amount} onChange={e => setStructForm(f => ({ ...f, amount: e.target.value }))} /></div>
-                      </div>
-                      {/* Grade & Term dropdowns intentionally hidden per requirements —
-                          they're set at fee-assignment time, not at structure creation. */}
-                      <div className="space-y-2"><Label>Due Date (optional)</Label><Input type="date" value={structForm.due_date} onChange={e => setStructForm(f => ({ ...f, due_date: e.target.value }))} /></div>
-                      <Button className="w-full mt-2" onClick={() => createStructure.mutate({
-                        ...structForm,
-                        amount: parseFloat(structForm.amount) || 0,
-                        academic_year_id: currentAcademicYear?.id,
-                        grade_id: structForm.grade_id || undefined,
-                        term_id: structForm.term_id || undefined,
-                        due_date: structForm.due_date || undefined,
-                      })} disabled={createStructure.isPending || !structForm.name || !structForm.fee_category_id || !structForm.amount}>
-                        {createStructure.isPending ? "Creating..." : "Add Fee Structure"}
+                  <Dialog
+                    open={structDialogOpen}
+                    onOpenChange={setStructDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Add Fee Structure
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Add Fee Structure</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Name</Label>
+                          <Input
+                            placeholder="e.g. Term 1 Tuition"
+                            value={structForm.name}
+                            onChange={(e) =>
+                              setStructForm((f) => ({
+                                ...f,
+                                name: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {isEnterprise ? (
+                            <div className="space-y-2">
+                              <Label>Vote Head</Label>
+                              <Select
+                                value={structForm.vote_head_id}
+                                onValueChange={(v) =>
+                                  setStructForm((f) => ({
+                                    ...f,
+                                    vote_head_id: v,
+                                  }))
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select vote head" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {voteHeads.map((vh: any) => (
+                                    <SelectItem key={vh.id} value={vh.id}>
+                                      {vh.code} — {vh.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <Label>Fee Category</Label>
+                              <Select
+                                value={structForm.fee_category_id}
+                                onValueChange={(v) =>
+                                  setStructForm((f) => ({
+                                    ...f,
+                                    fee_category_id: v,
+                                  }))
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(feeCategories as any[]).map((c: any) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                      {c.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <Label>Amount (KES)</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={structForm.amount}
+                              onChange={(e) =>
+                                setStructForm((f) => ({
+                                  ...f,
+                                  amount: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        {/* Grade & Term dropdowns intentionally hidden per requirements —
+                          they're set at fee-assignment time, not at structure creation. */}
+                        <div className="space-y-2">
+                          <Label>Due Date (optional)</Label>
+                          <Input
+                            type="date"
+                            value={structForm.due_date}
+                            onChange={(e) =>
+                              setStructForm((f) => ({
+                                ...f,
+                                due_date: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <Button
+                          className="w-full mt-2"
+                          onClick={() =>
+                            createStructure.mutate({
+                              ...structForm,
+                              amount: parseFloat(structForm.amount) || 0,
+                              academic_year_id: currentAcademicYear?.id,
+                              grade_id: structForm.grade_id || undefined,
+                              term_id: structForm.term_id || undefined,
+                              due_date: structForm.due_date || undefined,
+                            })
+                          }
+                          disabled={
+                            createStructure.isPending ||
+                            !structForm.name ||
+                            (isEnterprise
+                              ? !structForm.vote_head_id
+                              : !structForm.fee_category_id) ||
+                            !structForm.amount
+                          }
+                        >
+                          {createStructure.isPending
+                            ? "Creating..."
+                            : "Add Fee Structure"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Name</TableHead><TableHead className="font-semibold">Category</TableHead>
-                  <TableHead className="font-semibold">Amount</TableHead><TableHead className="font-semibold">Grade</TableHead>
-                  <TableHead className="font-semibold">Due Date</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Name</TableHead>
+                    <TableHead className="font-semibold">
+                      {isEnterprise ? "Vote Head" : "Category"}
+                    </TableHead>
+                    <TableHead className="font-semibold">Amount</TableHead>
+                    <TableHead className="font-semibold">Grade</TableHead>
+                    <TableHead className="font-semibold">Due Date</TableHead>
+                    <TableHead className="font-semibold text-right">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {structuresLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  (feeStructures as any[]).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No fee structures. Add categories first, then create structures.</TableCell></TableRow> :
-                  (feeStructures as any[]).map((fs: any) => (
-                    <TableRow key={fs.id}>
-                      <TableCell className="font-medium">{fs.name}</TableCell>
-                      <TableCell><Badge variant="secondary">{fs.category_name || fs.fee_category_id}</Badge></TableCell>
-                      <TableCell className="font-semibold">{formatKES(fs.amount)}</TableCell>
-                      <TableCell>{fs.grade_name || <span className="text-muted-foreground">All</span>}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{fs.due_date || "—"}</TableCell>
-                       <TableCell className="text-right">
-                        {fs.is_system ? (
-                          <Badge variant="outline" className="text-xs">System</Badge>
-                        ) : canManage && (
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingStruct(fs); setEditStructOpen(true); }}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete "${fs.name}"?`)) deleteStructure.mutate(fs.id); }}>
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          </div>
-                        )}
+                  {structuresLoading ? (
+                    [1, 2, 3].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={6}>
+                          <Skeleton className="h-10 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (feeStructures as any[]).length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No fee structures. Add categories first, then create
+                        structures.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    (feeStructures as any[]).map((fs: any) => (
+                      <TableRow key={fs.id}>
+                        <TableCell className="font-medium">{fs.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {isEnterprise
+                              ? fs.vote_head_code
+                                ? `${fs.vote_head_code} — ${fs.vote_head_name}`
+                                : fs.vote_head_name || "—"
+                              : fs.category_name || fs.fee_category_id || "—"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {formatKES(fs.amount)}
+                        </TableCell>
+                        <TableCell>
+                          {fs.grade_name || (
+                            <span className="text-muted-foreground">All</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {fs.due_date || "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {fs.is_system ? (
+                            <Badge variant="outline" className="text-xs">
+                              System
+                            </Badge>
+                          ) : (
+                            canManage && (
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    setEditingStruct(fs);
+                                    setEditStructOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => {
+                                    if (confirm(`Delete "${fs.name}"?`))
+                                      deleteStructure.mutate(fs.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                            )
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -296,69 +740,220 @@ const Finance = () => {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Fee Discounts</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Fee Discounts
+                </CardTitle>
                 <PermissionGate permission="finance:fees:create">
-                <Dialog open={discDialogOpen} onOpenChange={setDiscDialogOpen}>
-                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Discount</Button></DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Add Fee Discount</DialogTitle></DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2"><Label>Discount Name</Label><Input placeholder="e.g. Sibling Discount" value={discForm.name} onChange={e => setDiscForm(f => ({ ...f, name: e.target.value }))} /></div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Type</Label>
-                          <Select value={discForm.type} onValueChange={v => setDiscForm(f => ({ ...f, type: v }))}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percentage">Percentage</SelectItem>
-                              <SelectItem value="fixed">Fixed Amount</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2"><Label>Value</Label><Input type="number" placeholder={discForm.type === "percentage" ? "e.g. 10" : "e.g. 5000"} value={discForm.value} onChange={e => setDiscForm(f => ({ ...f, value: e.target.value }))} /></div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Code (optional)</Label><Input placeholder="e.g. SIB10" value={discForm.code} onChange={e => setDiscForm(f => ({ ...f, code: e.target.value }))} /></div>
-                        <div className="space-y-2"><Label>Applicable To</Label>
-                          <Select value={discForm.applicable_to} onValueChange={v => setDiscForm(f => ({ ...f, applicable_to: v }))}>
-                            <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All</SelectItem>
-                              <SelectItem value="tuition">Tuition</SelectItem>
-                              <SelectItem value="boarding">Boarding</SelectItem>
-                              <SelectItem value="transport">Transport</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2"><Label>Description</Label><Input placeholder="Description" value={discForm.description} onChange={e => setDiscForm(f => ({ ...f, description: e.target.value }))} /></div>
-                      <Button className="w-full mt-2" onClick={() => createDiscount.mutate({ ...discForm, value: parseFloat(discForm.value) || 0 })} disabled={createDiscount.isPending || !discForm.name || !discForm.value}>
-                        {createDiscount.isPending ? "Creating..." : "Add Discount"}
+                  <Dialog
+                    open={discDialogOpen}
+                    onOpenChange={setDiscDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Add Discount
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Fee Discount</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Discount Name</Label>
+                          <Input
+                            placeholder="e.g. Sibling Discount"
+                            value={discForm.name}
+                            onChange={(e) =>
+                              setDiscForm((f) => ({
+                                ...f,
+                                name: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Type</Label>
+                            <Select
+                              value={discForm.type}
+                              onValueChange={(v) =>
+                                setDiscForm((f) => ({ ...f, type: v }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="percentage">
+                                  Percentage
+                                </SelectItem>
+                                <SelectItem value="fixed">
+                                  Fixed Amount
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Value</Label>
+                            <Input
+                              type="number"
+                              placeholder={
+                                discForm.type === "percentage"
+                                  ? "e.g. 10"
+                                  : "e.g. 5000"
+                              }
+                              value={discForm.value}
+                              onChange={(e) =>
+                                setDiscForm((f) => ({
+                                  ...f,
+                                  value: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Code (optional)</Label>
+                            <Input
+                              placeholder="e.g. SIB10"
+                              value={discForm.code}
+                              onChange={(e) =>
+                                setDiscForm((f) => ({
+                                  ...f,
+                                  code: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Applicable To</Label>
+                            <Select
+                              value={discForm.applicable_to}
+                              onValueChange={(v) =>
+                                setDiscForm((f) => ({ ...f, applicable_to: v }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="All" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All</SelectItem>
+                                <SelectItem value="tuition">Tuition</SelectItem>
+                                <SelectItem value="boarding">
+                                  Boarding
+                                </SelectItem>
+                                <SelectItem value="transport">
+                                  Transport
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Input
+                            placeholder="Description"
+                            value={discForm.description}
+                            onChange={(e) =>
+                              setDiscForm((f) => ({
+                                ...f,
+                                description: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                        <Button
+                          className="w-full mt-2"
+                          onClick={() =>
+                            createDiscount.mutate({
+                              ...discForm,
+                              value: parseFloat(discForm.value) || 0,
+                            })
+                          }
+                          disabled={
+                            createDiscount.isPending ||
+                            !discForm.name ||
+                            !discForm.value
+                          }
+                        >
+                          {createDiscount.isPending
+                            ? "Creating..."
+                            : "Add Discount"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </PermissionGate>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Discount</TableHead><TableHead className="font-semibold">Code</TableHead><TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Value</TableHead><TableHead className="font-semibold">Applicable To</TableHead><TableHead className="font-semibold">Stackable</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Discount</TableHead>
+                    <TableHead className="font-semibold">Code</TableHead>
+                    <TableHead className="font-semibold">Type</TableHead>
+                    <TableHead className="font-semibold">Value</TableHead>
+                    <TableHead className="font-semibold">
+                      Applicable To
+                    </TableHead>
+                    <TableHead className="font-semibold">Stackable</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {discountsLoading ? [1,2].map(i => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  (feeDiscounts as any[]).length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No discounts configured</TableCell></TableRow> :
-                  (feeDiscounts as any[]).map((d: any) => (
-                    <TableRow key={d.id}>
-                      <TableCell className="font-medium">{d.name}</TableCell>
-                      <TableCell><Badge variant="secondary" className="font-mono">{d.code || "—"}</Badge></TableCell>
-                      <TableCell className="capitalize text-muted-foreground">{d.type}</TableCell>
-                      <TableCell className="font-semibold text-success">{d.type === "percentage" ? `${d.value}%` : formatKES(d.value)}</TableCell>
-                      <TableCell><Badge variant="secondary">{d.applicable_to || "All"}</Badge></TableCell>
-                      <TableCell>{d.stackable ? <Badge className="bg-info/10 text-info border-0">Yes</Badge> : <Badge variant="secondary">No</Badge>}</TableCell>
+                  {discountsLoading ? (
+                    [1, 2].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={6}>
+                          <Skeleton className="h-10 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (feeDiscounts as any[]).length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No discounts configured
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    (feeDiscounts as any[]).map((d: any) => (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">{d.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="font-mono">
+                            {d.code || "—"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="capitalize text-muted-foreground">
+                          {d.type}
+                        </TableCell>
+                        <TableCell className="font-semibold text-success">
+                          {d.type === "percentage"
+                            ? `${d.value}%`
+                            : formatKES(d.value)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {d.applicable_to || "All"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {d.stackable ? (
+                            <Badge className="bg-info/10 text-info border-0">
+                              Yes
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">No</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -370,34 +965,93 @@ const Finance = () => {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <CardTitle className="text-base font-semibold">Collect Fees</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Collect Fees
+                </CardTitle>
                 <div className="relative w-full sm:max-w-xs">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search student..." className="pl-9 h-9" value={collectSearch} onChange={e => setCollectSearch(e.target.value)} />
+                  <Input
+                    placeholder="Search student..."
+                    className="pl-9 h-9"
+                    value={collectSearch}
+                    onChange={(e) => setCollectSearch(e.target.value)}
+                  />
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Student</TableHead><TableHead className="font-semibold">Class</TableHead><TableHead className="font-semibold">Total Fee</TableHead>
-                  <TableHead className="font-semibold">Paid</TableHead><TableHead className="font-semibold">Balance</TableHead><TableHead className="font-semibold">Status</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Student</TableHead>
+                    <TableHead className="font-semibold">Class</TableHead>
+                    <TableHead className="font-semibold">Total Fee</TableHead>
+                    <TableHead className="font-semibold">Paid</TableHead>
+                    <TableHead className="font-semibold">Balance</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {feesLoading ? [1,2,3].map(i => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  studentFees.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No fee records</TableCell></TableRow> :
-                  studentFees.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell><div><p className="font-medium text-foreground">{s.student_name}</p><p className="text-xs text-muted-foreground font-mono">{s.admission_no}</p></div></TableCell>
-                      <TableCell className="text-muted-foreground">{s.class}</TableCell>
-                      <TableCell className="font-semibold">{formatKES(s.total_fee)}</TableCell>
-                      <TableCell className="font-semibold text-success">{formatKES(s.paid)}</TableCell>
-                      <TableCell className={`font-semibold ${s.balance > 0 ? "text-destructive" : "text-muted-foreground"}`}>{s.balance === 0 ? "—" : formatKES(s.balance)}</TableCell>
-                      <TableCell>
-                        <Badge className={s.status === "paid" ? "bg-success/10 text-success border-0" : s.status === "partial" ? "bg-warning/10 text-warning border-0" : "bg-info/10 text-info border-0"}>{s.status}</Badge>
+                  {feesLoading ? (
+                    [1, 2, 3].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={6}>
+                          <Skeleton className="h-10 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : studentFees.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No fee records
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    studentFees.map((s: any) => (
+                      <TableRow key={s.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {s.student_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {s.admission_no}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {s.class}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {formatKES(s.total_fee)}
+                        </TableCell>
+                        <TableCell className="font-semibold text-success">
+                          {formatKES(s.paid)}
+                        </TableCell>
+                        <TableCell
+                          className={`font-semibold ${s.balance > 0 ? "text-destructive" : "text-muted-foreground"}`}
+                        >
+                          {s.balance === 0 ? "—" : formatKES(s.balance)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              s.status === "paid"
+                                ? "bg-success/10 text-success border-0"
+                                : s.status === "partial"
+                                  ? "bg-warning/10 text-warning border-0"
+                                  : "bg-info/10 text-info border-0"
+                            }
+                          >
+                            {s.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -407,26 +1061,77 @@ const Finance = () => {
         {/* Carry Forward */}
         <TabsContent value="carry-forward" className="space-y-6">
           <Card>
-            <CardHeader className="pb-4"><CardTitle className="text-base font-semibold">Fee Carry Forward</CardTitle></CardHeader>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-semibold">
+                Fee Carry Forward
+              </CardTitle>
+            </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">Student</TableHead><TableHead className="font-semibold">From Term</TableHead><TableHead className="font-semibold">To Term</TableHead>
-                  <TableHead className="font-semibold">Type</TableHead><TableHead className="font-semibold">Amount</TableHead><TableHead className="font-semibold">Status</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-semibold">Student</TableHead>
+                    <TableHead className="font-semibold">From Term</TableHead>
+                    <TableHead className="font-semibold">To Term</TableHead>
+                    <TableHead className="font-semibold">Type</TableHead>
+                    <TableHead className="font-semibold">Amount</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {cfLoading ? [1,2].map(i => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell></TableRow>) :
-                  carryForwards.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No carry forward records</TableCell></TableRow> :
-                  carryForwards.map((cf: any) => (
-                    <TableRow key={cf.id}>
-                      <TableCell className="font-medium">{cf.student_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{cf.from_term_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{cf.to_term_name}</TableCell>
-                      <TableCell><Badge className={cf.type === "arrears" ? "bg-destructive/10 text-destructive border-0" : "bg-success/10 text-success border-0"}>{cf.type}</Badge></TableCell>
-                      <TableCell className={`font-semibold ${cf.type === "arrears" ? "text-destructive" : "text-success"}`}>{formatKES(cf.amount)}</TableCell>
-                      <TableCell><Badge className="bg-success/10 text-success border-0">{cf.status}</Badge></TableCell>
+                  {cfLoading ? (
+                    [1, 2].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={6}>
+                          <Skeleton className="h-10 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : carryForwards.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No carry forward records
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    carryForwards.map((cf: any) => (
+                      <TableRow key={cf.id}>
+                        <TableCell className="font-medium">
+                          {cf.student_name}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {cf.from_term_name}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {cf.to_term_name}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              cf.type === "arrears"
+                                ? "bg-destructive/10 text-destructive border-0"
+                                : "bg-success/10 text-success border-0"
+                            }
+                          >
+                            {cf.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell
+                          className={`font-semibold ${cf.type === "arrears" ? "text-destructive" : "text-success"}`}
+                        >
+                          {formatKES(cf.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-success/10 text-success border-0">
+                            {cf.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -437,48 +1142,172 @@ const Finance = () => {
       {/* Edit Fee Structure Dialog */}
       <Dialog open={editStructOpen} onOpenChange={setEditStructOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Edit Fee Structure</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Edit Fee Structure</DialogTitle>
+          </DialogHeader>
           {editingStruct && (
             <div className="grid gap-4 py-4">
-              <div className="space-y-2"><Label>Name</Label><Input value={editingStruct.name || ""} onChange={e => setEditingStruct((s: any) => ({ ...s, name: e.target.value }))} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Fee Category</Label>
-                  <Select value={editingStruct.fee_category_id || ""} onValueChange={v => setEditingStruct((s: any) => ({ ...s, fee_category_id: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{(feeCategories as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" value={editingStruct.amount || 0} onChange={e => setEditingStruct((s: any) => ({ ...s, amount: e.target.value }))} /></div>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  value={editingStruct.name || ""}
+                  onChange={(e) =>
+                    setEditingStruct((s: any) => ({
+                      ...s,
+                      name: e.target.value,
+                    }))
+                  }
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Grade</Label>
-                  <Select value={editingStruct.grade_id || "__all__"} onValueChange={v => setEditingStruct((s: any) => ({ ...s, grade_id: v === "__all__" ? null : v }))}>
-                    <SelectTrigger><SelectValue placeholder="All grades" /></SelectTrigger>
+                {isEnterprise ? (
+                  <div className="space-y-2">
+                    <Label>Vote Head</Label>
+                    <Select
+                      value={editingStruct.vote_head_id || ""}
+                      onValueChange={(v) =>
+                        setEditingStruct((s: any) => ({
+                          ...s,
+                          vote_head_id: v,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vote head" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {voteHeads.map((vh: any) => (
+                          <SelectItem key={vh.id} value={vh.id}>
+                            {vh.code} — {vh.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Fee Category</Label>
+                    <Select
+                      value={editingStruct.fee_category_id || ""}
+                      onValueChange={(v) =>
+                        setEditingStruct((s: any) => ({
+                          ...s,
+                          fee_category_id: v,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(feeCategories as any[]).map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Amount (KES)</Label>
+                  <Input
+                    type="number"
+                    value={editingStruct.amount || 0}
+                    onChange={(e) =>
+                      setEditingStruct((s: any) => ({
+                        ...s,
+                        amount: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Grade</Label>
+                  <Select
+                    value={editingStruct.grade_id || "__all__"}
+                    onValueChange={(v) =>
+                      setEditingStruct((s: any) => ({
+                        ...s,
+                        grade_id: v === "__all__" ? null : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All grades" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All grades</SelectItem>
-                      {grades.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                      {grades.map((g: any) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Term</Label>
-                  <Select value={editingStruct.term_id || "__all__"} onValueChange={v => setEditingStruct((s: any) => ({ ...s, term_id: v === "__all__" ? null : v }))}>
-                    <SelectTrigger><SelectValue placeholder="All terms" /></SelectTrigger>
+                <div className="space-y-2">
+                  <Label>Term</Label>
+                  <Select
+                    value={editingStruct.term_id || "__all__"}
+                    onValueChange={(v) =>
+                      setEditingStruct((s: any) => ({
+                        ...s,
+                        term_id: v === "__all__" ? null : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All terms" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__all__">All terms</SelectItem>
-                      {terms.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                      {terms.map((t: any) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={editingStruct.due_date ? String(editingStruct.due_date).split("T")[0] : ""} onChange={e => setEditingStruct((s: any) => ({ ...s, due_date: e.target.value }))} /></div>
-              <Button className="w-full mt-2" onClick={() => updateStructure.mutate({ id: editingStruct.id, data: {
-                name: editingStruct.name,
-                fee_category_id: editingStruct.fee_category_id,
-                amount: parseFloat(editingStruct.amount) || 0,
-                grade_id: editingStruct.grade_id || null,
-                term_id: editingStruct.term_id || null,
-                due_date: editingStruct.due_date || null,
-              }})} disabled={updateStructure.isPending}>
+              <div className="space-y-2">
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={
+                    editingStruct.due_date
+                      ? String(editingStruct.due_date).split("T")[0]
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setEditingStruct((s: any) => ({
+                      ...s,
+                      due_date: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <Button
+                className="w-full mt-2"
+                onClick={() =>
+                  updateStructure.mutate({
+                    id: editingStruct.id,
+                    data: {
+                      name: editingStruct.name,
+                      fee_category_id: editingStruct.fee_category_id,
+                      vote_head_id: editingStruct.vote_head_id || null,
+                      amount: parseFloat(editingStruct.amount) || 0,
+                      grade_id: editingStruct.grade_id || null,
+                      term_id: editingStruct.term_id || null,
+                      due_date: editingStruct.due_date || null,
+                    },
+                  })
+                }
+                disabled={updateStructure.isPending}
+              >
                 {updateStructure.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
@@ -489,14 +1318,35 @@ const Finance = () => {
       {/* Edit Fee Category Dialog */}
       <Dialog open={editCatOpen} onOpenChange={setEditCatOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Edit Fee Category</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Edit Fee Category</DialogTitle>
+          </DialogHeader>
           {editingCat && (
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Name</Label><Input value={editingCat.name || ""} onChange={e => setEditingCat((c: any) => ({ ...c, name: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Type</Label>
-                  <Select value={editingCat.type || "tuition"} onValueChange={v => setEditingCat((c: any) => ({ ...c, type: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input
+                    value={editingCat.name || ""}
+                    onChange={(e) =>
+                      setEditingCat((c: any) => ({
+                        ...c,
+                        name: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Type</Label>
+                  <Select
+                    value={editingCat.type || "tuition"}
+                    onValueChange={(v) =>
+                      setEditingCat((c: any) => ({ ...c, type: v }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="tuition">Tuition</SelectItem>
                       <SelectItem value="boarding">Boarding</SelectItem>
@@ -508,17 +1358,56 @@ const Finance = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>GL Code</Label><Input value={editingCat.gl_code || ""} onChange={e => setEditingCat((c: any) => ({ ...c, gl_code: e.target.value }))} /></div>
+                <div className="space-y-2">
+                  <Label>GL Code</Label>
+                  <Input
+                    value={editingCat.gl_code || ""}
+                    onChange={(e) =>
+                      setEditingCat((c: any) => ({
+                        ...c,
+                        gl_code: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
                 <label className="flex items-center gap-2 cursor-pointer text-sm pt-7">
-                  <Checkbox checked={!!editingCat.is_optional} onCheckedChange={(v) => setEditingCat((c: any) => ({ ...c, is_optional: !!v }))} />
+                  <Checkbox
+                    checked={!!editingCat.is_optional}
+                    onCheckedChange={(v) =>
+                      setEditingCat((c: any) => ({ ...c, is_optional: !!v }))
+                    }
+                  />
                   Optional Fee
                 </label>
               </div>
-              <div className="space-y-2"><Label>Description</Label><Input value={editingCat.description || ""} onChange={e => setEditingCat((c: any) => ({ ...c, description: e.target.value }))} /></div>
-              <Button className="w-full mt-2" onClick={() => updateCategory.mutate({ id: editingCat.id, data: {
-                name: editingCat.name, type: editingCat.type, description: editingCat.description,
-                gl_code: editingCat.gl_code, is_optional: !!editingCat.is_optional,
-              }})} disabled={updateCategory.isPending || !editingCat.name}>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={editingCat.description || ""}
+                  onChange={(e) =>
+                    setEditingCat((c: any) => ({
+                      ...c,
+                      description: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <Button
+                className="w-full mt-2"
+                onClick={() =>
+                  updateCategory.mutate({
+                    id: editingCat.id,
+                    data: {
+                      name: editingCat.name,
+                      type: editingCat.type,
+                      description: editingCat.description,
+                      gl_code: editingCat.gl_code,
+                      is_optional: !!editingCat.is_optional,
+                    },
+                  })
+                }
+                disabled={updateCategory.isPending || !editingCat.name}
+              >
                 {updateCategory.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
