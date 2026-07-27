@@ -56,6 +56,7 @@ import {
   FileText,
   FolderArchive,
   Eye,
+  Loader2,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -400,7 +401,12 @@ export default function ReportCardsV2() {
                           disabled={downloadZip.isPending || !r.total_cards}
                           onClick={() => downloadZip.mutate({ runId: r.id })}
                         >
-                          <FolderArchive className="h-4 w-4 mr-1" /> ZIP
+                          {downloadZip.isPending && (downloadZip.variables as any)?.runId === r.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <FolderArchive className="h-4 w-4 mr-1" />
+                          )}
+                          ZIP
                         </Button>
                         <Button
                           size="sm"
@@ -409,7 +415,12 @@ export default function ReportCardsV2() {
                           onClick={() => downloadPdf.mutate({ runId: r.id })}
                           title="Download all cards as one PDF"
                         >
-                          <FileText className="h-4 w-4 mr-1" /> PDF
+                          {downloadPdf.isPending && (downloadPdf.variables as any)?.runId === r.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <FileText className="h-4 w-4 mr-1" />
+                          )}
+                          PDF
                         </Button>
                         {r.status !== "published" && canApprove && (
                           <Button
@@ -564,7 +575,12 @@ function RunCardsDialog({
                             })
                           }
                         >
-                          <FileText className="h-4 w-4 mr-1" /> PDF
+                          {dl.isPending && (dl.variables as any)?.cardId === c.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <FileText className="h-4 w-4 mr-1" />
+                          )}
+                          PDF
                         </Button>
                       </div>
                     </TableCell>
