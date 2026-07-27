@@ -157,6 +157,12 @@ interface NavItem {
    * (CHUO Flow) edition. Cloud schools never see it.
    */
   enterpriseOnly?: boolean;
+  /**
+   * Optional sub-group label. When a nav group has items carrying
+   * sections, the desktop dropdown renders as a multi-column mega menu
+   * and the mobile drawer renders labelled sub-headings.
+   */
+  section?: string;
 }
 interface NavGroup {
   label: string;
@@ -398,6 +404,7 @@ const navigationGroups: NavGroup[] = [
         icon: Banknote,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
+        section: "Setup",
       },
       {
         title: "Fee Assignment",
@@ -405,6 +412,7 @@ const navigationGroups: NavGroup[] = [
         icon: Receipt,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:assign", "finance:fees:create"],
+        section: "Student Finance",
       },
       {
         title: "Brought Forward Balances",
@@ -412,6 +420,7 @@ const navigationGroups: NavGroup[] = [
         icon: ArrowUpRight,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
+        section: "Student Finance",
       },
       {
         title: "Vote Heads",
@@ -420,6 +429,7 @@ const navigationGroups: NavGroup[] = [
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Setup",
       },
       {
         title: "Bank Accounts",
@@ -428,6 +438,7 @@ const navigationGroups: NavGroup[] = [
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Setup",
       },
       {
         title: "Student Fee Account",
@@ -436,62 +447,70 @@ const navigationGroups: NavGroup[] = [
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Student Finance",
       },
       {
         title: "Cash Book",
         url: "/finance/cash-book",
-        icon: FileText,
+        icon: BookOpen,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Accounting",
       },
       {
         title: "General Ledger",
         url: "/finance/general-ledger",
-        icon: FileText,
+        icon: ScrollText,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Accounting",
       },
       {
         title: "Procurement",
         url: "/finance/procurement",
-        icon: FileText,
+        icon: ShoppingCart,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Procurement & Payables",
       },
       {
         title: "Payment Vouchers",
         url: "/finance/payment-vouchers",
-        icon: FileText,
+        icon: ScrollText,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Procurement & Payables",
       },
       {
         title: "Bank Reconciliation",
         url: "/finance/bank-reconciliation",
-        icon: FileText,
+        icon: Scale,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Accounting",
       },
       {
         title: "Budgets",
         url: "/finance/budgets",
-        icon: FileText,
+        icon: TableProperties,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Accounting",
       },
       {
         title: "Capitation",
         url: "/finance/capitation",
-        icon: FileText,
+        icon: DollarSign,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Accounting",
       },
       {
         title: "Assets",
@@ -500,14 +519,16 @@ const navigationGroups: NavGroup[] = [
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Procurement & Payables",
       },
       {
         title: "Financial Reports",
         url: "/finance/reports",
-        icon: FileText,
+        icon: BarChart3,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Reports & Audit",
       },
       {
         title: "Bursar Dashboard",
@@ -516,14 +537,16 @@ const navigationGroups: NavGroup[] = [
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Reports & Audit",
       },
       {
         title: "Audit Trail",
         url: "/finance/audit-trail",
-        icon: FileText,
+        icon: Shield,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
         enterpriseOnly: true,
+        section: "Reports & Audit",
       },
       {
         title: "Payments",
@@ -535,6 +558,7 @@ const navigationGroups: NavGroup[] = [
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
         permissions: ["payments:read", "payments:create"],
+        section: "Student Finance",
       },
       {
         title: "Fee Discounts",
@@ -542,6 +566,7 @@ const navigationGroups: NavGroup[] = [
         icon: Percent,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:waive"],
+        section: "Setup",
       },
       {
         title: "Excess Payments",
@@ -549,6 +574,7 @@ const navigationGroups: NavGroup[] = [
         icon: TrendingUp,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["payments:read"],
+        section: "Student Finance",
       },
       {
         title: "Unallocated Payments",
@@ -556,6 +582,7 @@ const navigationGroups: NavGroup[] = [
         icon: Archive,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["payments:read"],
+        section: "Student Finance",
       },
       {
         title: "Fee Adjustments",
@@ -563,6 +590,7 @@ const navigationGroups: NavGroup[] = [
         icon: Scale,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:update"],
+        section: "Student Finance",
       },
       {
         title: "Fee Reminders",
@@ -570,6 +598,7 @@ const navigationGroups: NavGroup[] = [
         icon: Bell,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
+        section: "Student Finance",
       },
       {
         title: "Expenses",
@@ -577,6 +606,7 @@ const navigationGroups: NavGroup[] = [
         icon: Wallet,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["expenses:read"],
+        section: "Procurement & Payables",
       },
       {
         title: "Income",
@@ -584,6 +614,7 @@ const navigationGroups: NavGroup[] = [
         icon: TrendingUp,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["finance:fees:read"],
+        section: "Accounting",
       },
       {
         title: "Payment in Kind",
@@ -591,6 +622,7 @@ const navigationGroups: NavGroup[] = [
         icon: Receipt,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["payments:create"],
+        section: "Student Finance",
       },
       {
         title: "Bulk Sponsorship",
@@ -598,6 +630,7 @@ const navigationGroups: NavGroup[] = [
         icon: Wallet,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
         permissions: ["payments:create"],
+        section: "Student Finance",
       },
     ],
   },
@@ -660,7 +693,7 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Communication
- {
+  {
     label: "Communication",
     icon: MessageSquare,
     items: [
@@ -1022,6 +1055,20 @@ function useSessionTimeout(onLogout: () => void, onRefresh: () => void) {
 }
 
 /* ── Portal-based Desktop Nav Dropdown ── */
+function groupBySection(items: NavItem[]) {
+  const order: string[] = [];
+  const map = new Map<string, NavItem[]>();
+  items.forEach((item) => {
+    const key = item.section || "";
+    if (!map.has(key)) {
+      map.set(key, []);
+      order.push(key);
+    }
+    map.get(key)!.push(item);
+  });
+  return order.map((label) => ({ label, items: map.get(label)! }));
+}
+
 function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -1037,19 +1084,23 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
       location.pathname.startsWith(item.url + "/"),
   );
   const isSingle = group.items.length === 1;
+  const sections = groupBySection(group.items);
+  const isMega = sections.length > 1;
+  const columns = isMega ? Math.min(sections.length, 3) : 1;
+  const dropdownWidth = isMega ? columns * 230 + 20 : 220;
 
   const updatePos = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      const dropdownWidth = 220;
       let left = rect.left;
       // Prevent overflow on right
       if (left + dropdownWidth > window.innerWidth - 8) {
         left = window.innerWidth - dropdownWidth - 8;
       }
+      if (left < 8) left = 8;
       setPos({ top: rect.bottom + 4, left });
     }
-  }, []);
+  }, [dropdownWidth]);
 
   const handleEnter = () => {
     clearTimeout(timeoutRef.current);
@@ -1098,27 +1149,64 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
           ref={dropdownRef}
           onMouseEnter={() => clearTimeout(timeoutRef.current)}
           onMouseLeave={handleLeave}
-          className="fixed z-[9999] min-w-[220px] rounded-xl border border-border/60 bg-popover p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150"
-          style={{ top: pos.top, left: pos.left }}
+          className="fixed z-[9999] max-h-[70vh] overflow-y-auto rounded-xl border border-border/60 bg-popover p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-150"
+          style={{ top: pos.top, left: pos.left, width: dropdownWidth }}
         >
-          {group.items.map((item) => (
-            <button
-              key={item.url}
-              onClick={() => {
-                navigate(item.url);
-                setOpen(false);
+          {isMega ? (
+            <div
+              className="grid gap-x-2 gap-y-3 p-1"
+              style={{
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
               }}
-              className={cn(
-                "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
-                location.pathname === item.url
-                  ? "bg-primary/10 text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-              )}
             >
-              <item.icon className="h-4 w-4" />
-              <span>{item.title}</span>
-            </button>
-          ))}
+              {sections.map((section) => (
+                <div key={section.label} className="min-w-0">
+                  <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    {section.label || "General"}
+                  </p>
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => (
+                      <button
+                        key={item.url}
+                        onClick={() => {
+                          navigate(item.url);
+                          setOpen(false);
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 text-[13px] rounded-lg transition-all text-left",
+                          location.pathname === item.url
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                        )}
+                      >
+                        <item.icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{item.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            group.items.map((item) => (
+              <button
+                key={item.url}
+                onClick={() => {
+                  navigate(item.url);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
+                  location.pathname === item.url
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                <span>{item.title}</span>
+              </button>
+            ))
+          )}
         </div>,
         document.body,
       )
@@ -1220,23 +1308,32 @@ function MobileNavGroup({
       </button>
       {open && (
         <div className="ml-5 mt-1 mb-1 space-y-0.5 border-l-2 border-primary/20 pl-4">
-          {group.items.map((item) => (
-            <button
-              key={item.url}
-              onClick={() => {
-                navigate(item.url);
-                onNavigate();
-              }}
-              className={cn(
-                "flex items-center gap-2 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
-                location.pathname === item.url
-                  ? "bg-primary/10 text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+          {groupBySection(group.items).map((section) => (
+            <div key={section.label} className="mb-1">
+              {section.label && (
+                <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  {section.label}
+                </p>
               )}
-            >
-              <item.icon className="h-3.5 w-3.5" />
-              <span>{item.title}</span>
-            </button>
+              {section.items.map((item) => (
+                <button
+                  key={item.url}
+                  onClick={() => {
+                    navigate(item.url);
+                    onNavigate();
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
+                    location.pathname === item.url
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                  )}
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  <span>{item.title}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}

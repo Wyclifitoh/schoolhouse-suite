@@ -494,14 +494,48 @@ const Finance = () => {
                   Fee Structures
                 </CardTitle>
                 <PermissionGate permission="finance:fees:create">
-                  <Dialog
-                    open={structDialogOpen}
-                    onOpenChange={setStructDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-1.5" />
-                        Add Fee Structure
+                <Dialog open={structDialogOpen} onOpenChange={setStructDialogOpen}>
+                  <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Fee Structure</Button></DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader><DialogTitle>Add Fee Structure</DialogTitle></DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2"><Label>Name</Label><Input placeholder="e.g. Term 1 Tuition" value={structForm.name} onChange={e => setStructForm(f => ({ ...f, name: e.target.value }))} /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {isEnterprise ? (
+                          <div className="space-y-2"><Label>Vote Head</Label>
+                            <Select value={structForm.vote_head_id} onValueChange={v => setStructForm(f => ({ ...f, vote_head_id: v }))}>
+                              <SelectTrigger><SelectValue placeholder="Select vote head" /></SelectTrigger>
+                              <SelectContent>
+                                {voteHeads.map((vh: any) => <SelectItem key={vh.id} value={vh.id}>{vh.code} — {vh.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div className="space-y-2"><Label>Fee Category</Label>
+                            <Select value={structForm.fee_category_id} onValueChange={v => setStructForm(f => ({ ...f, fee_category_id: v }))}>
+                              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                              <SelectContent>
+                                {(feeCategories as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        <div className="space-y-2"><Label>Amount (KES)</Label><Input type="number" placeholder="0" value={structForm.amount} onChange={e => setStructForm(f => ({ ...f, amount: e.target.value }))} /></div>
+                      </div>
+                      {/* Grade & Term dropdowns intentionally hidden per requirements —
+                          they're set at fee-assignment time, not at structure creation. */}
+                      <div className="space-y-2"><Label>Due Date (optional)</Label><Input type="date" value={structForm.due_date} onChange={e => setStructForm(f => ({ ...f, due_date: e.target.value }))} /></div>
+                      <Button className="w-full mt-2" onClick={() => createStructure.mutate({
+                        ...structForm,
+                        fee_category_id: isEnterprise ? undefined : (structForm.fee_category_id || undefined),
+                        vote_head_id: structForm.vote_head_id || undefined,
+                        amount: parseFloat(structForm.amount) || 0,
+                        academic_year_id: currentAcademicYear?.id,
+                        grade_id: structForm.grade_id || undefined,
+                        term_id: structForm.term_id || undefined,
+                        due_date: structForm.due_date || undefined,
+                      })} disabled={createStructure.isPending || !structForm.name || (isEnterprise ? !structForm.vote_head_id : !structForm.fee_category_id) || !structForm.amount}>
+                        {createStructure.isPending ? "Creating..." : "Add Fee Structure"}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-lg">
@@ -1273,41 +1307,16 @@ const Finance = () => {
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Input
-                  type="date"
-                  value={
-                    editingStruct.due_date
-                      ? String(editingStruct.due_date).split("T")[0]
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setEditingStruct((s: any) => ({
-                      ...s,
-                      due_date: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <Button
-                className="w-full mt-2"
-                onClick={() =>
-                  updateStructure.mutate({
-                    id: editingStruct.id,
-                    data: {
-                      name: editingStruct.name,
-                      fee_category_id: editingStruct.fee_category_id,
-                      vote_head_id: editingStruct.vote_head_id || null,
-                      amount: parseFloat(editingStruct.amount) || 0,
-                      grade_id: editingStruct.grade_id || null,
-                      term_id: editingStruct.term_id || null,
-                      due_date: editingStruct.due_date || null,
-                    },
-                  })
-                }
-                disabled={updateStructure.isPending}
-              >
+              <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={editingStruct.due_date ? String(editingStruct.due_date).split("T")[0] : ""} onChange={e => setEditingStruct((s: any) => ({ ...s, due_date: e.target.value }))} /></div>
+              <Button className="w-full mt-2" onClick={() => updateStructure.mutate({ id: editingStruct.id, data: {
+                name: editingStruct.name,
+                fee_category_id: editingStruct.fee_category_id || null,
+                vote_head_id: editingStruct.vote_head_id || null,
+                amount: parseFloat(editingStruct.amount) || 0,
+                grade_id: editingStruct.grade_id || null,
+                term_id: editingStruct.term_id || null,
+                due_date: editingStruct.due_date || null,
+              }})} disabled={updateStructure.isPending}>
                 {updateStructure.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
