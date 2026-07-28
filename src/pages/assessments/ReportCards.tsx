@@ -39,6 +39,11 @@ import {
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useGrades } from "@/hooks/useGrades";
 import {
   Dialog,
@@ -57,6 +62,7 @@ import {
   FolderArchive,
   Eye,
   Loader2,
+  CalendarIcon,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,8 +103,8 @@ export default function ReportCardsV2() {
   const [runTpl, setRunTpl] = useState("");
 
   const [showDates, setShowDates] = useState(false);
-  const [closingDate, setClosingDate] = useState("");
-  const [openingDate, setOpeningDate] = useState("");
+  const [openingDate, setOpeningDate] = useState<Date>();
+  const [closingDate, setClosingDate] = useState<Date>();
 
   return (
     <DashboardLayout>
@@ -304,20 +310,54 @@ export default function ReportCardsV2() {
                   {showDates && (
                     <div className="grid grid-cols-2 gap-2 mt-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Closing Date</Label>
-                        <Input
-                          type="date"
-                          value={closingDate}
-                          onChange={(e) => setClosingDate(e.target.value)}
-                        />
+                        <label className="text-xs font-medium">Closing Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !closingDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {closingDate ? format(closingDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={closingDate}
+                              onSelect={setClosingDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Next Term Opening</Label>
-                        <Input
-                          type="date"
-                          value={openingDate}
-                          onChange={(e) => setOpeningDate(e.target.value)}
-                        />
+                        <label className="text-xs font-medium">Opening Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !openingDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {openingDate ? format(openingDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={openingDate}
+                              onSelect={setOpeningDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                   )}
@@ -330,8 +370,8 @@ export default function ReportCardsV2() {
                       assessment_id: runAssess,
                       grade_id: runGrade || null,
                       template_id: runTpl || null,
-                      closing_date: showDates ? closingDate : null,
-                      opening_date: showDates ? openingDate : null,
+                      closing_date: showDates && closingDate ? format(closingDate, "yyyy-MM-dd") : null,
+                      opening_date: showDates && openingDate ? format(openingDate, "yyyy-MM-dd") : null,
                     })
                   }
                 >

@@ -6,9 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAssessmentsList } from "@/hooks/useAssessments";
 import { useGrades, useStreams } from "@/hooks/useGrades";
-import { Download, FileText, Layers } from "lucide-react";
+import { Download, FileText, Layers, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function SummativeReports() {
   const { data: assessments = [] } = useAssessmentsList();
@@ -17,10 +21,12 @@ export default function SummativeReports() {
   const [gradeId, setGradeId] = useState("");
   const [streamId, setStreamId] = useState("");
   const { data: streams = [] } = useStreams(gradeId || undefined);
-  
   const [selectedAssessments, setSelectedAssessments] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState("Summative Term Report");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showDates, setShowDates] = useState(false);
+  const [openingDate, setOpeningDate] = useState<Date>();
+  const [closingDate, setClosingDate] = useState<Date>();
 
   const toggleAssessment = (id: string) => {
     const next = new Set(selectedAssessments);
@@ -49,7 +55,9 @@ export default function SummativeReports() {
           assessmentIds: Array.from(selectedAssessments),
           gradeId,
           streamId: streamId || undefined,
-          title
+          title,
+          opening_date: showDates && openingDate ? format(openingDate, "yyyy-MM-dd") : null,
+          closing_date: showDates && closingDate ? format(closingDate, "yyyy-MM-dd") : null,
         })
       });
       
@@ -172,6 +180,73 @@ export default function SummativeReports() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="pt-2 border-t">
+                <div className="flex items-center space-x-2 py-2">
+                  <Checkbox 
+                    id="show-dates" 
+                    checked={showDates} 
+                    onCheckedChange={(c) => setShowDates(c === true)} 
+                  />
+                  <label htmlFor="show-dates" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Include term opening & closing dates
+                  </label>
+                </div>
+                {showDates && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Closing Date</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !closingDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {closingDate ? format(closingDate, "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={closingDate}
+                            onSelect={setClosingDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Opening Date</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !openingDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {openingDate ? format(openingDate, "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={openingDate}
+                            onSelect={setOpeningDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t">
