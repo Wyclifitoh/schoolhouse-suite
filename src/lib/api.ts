@@ -67,16 +67,31 @@ class ApiClient {
   }
 
   /** Returns full paginated envelope: { data, pagination } */
-  async getPaginated<T>(path: string): Promise<{ data: T; pagination: { total: number; page: number; limit: number; totalPages: number } }> {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+  async getPaginated<T>(
+    path: string,
+  ): Promise<{
+    data: T;
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
     if (this.schoolId) headers["X-School-ID"] = this.schoolId;
-    if (this.academicYearId) headers["X-Academic-Year-Id"] = this.academicYearId;
+    if (this.academicYearId)
+      headers["X-Academic-Year-Id"] = this.academicYearId;
     if (this.termId) headers["X-Term-Id"] = this.termId;
-    const API_BASE = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+    const API_BASE =
+      import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
     const res = await fetch(`${API_BASE}${path}`, { headers });
     const json = await res.json();
-    if (!res.ok || json.success === false) throw new Error(json.error?.message || `Request failed: ${res.status}`);
+    if (!res.ok || json.success === false)
+      throw new Error(json.error?.message || `Request failed: ${res.status}`);
     return { data: json.data as T, pagination: json.pagination };
   }
   post<T>(path: string, body: unknown) {
@@ -104,6 +119,44 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ logo_base64: base64Data }),
     });
+  }
+
+  /**
+   * Fetch a binary file (PDF/XLSX) with auth headers and open it in a new tab.
+   * window.open() cannot send Authorization headers, which is why direct links
+   * to authenticated endpoints return "Authentication required".
+   */
+  async openFile(path: string, filename?: string): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+    if (this.schoolId) headers["X-School-ID"] = this.schoolId;
+    if (this.academicYearId)
+      headers["X-Academic-Year-Id"] = this.academicYearId;
+    if (this.termId) headers["X-Term-Id"] = this.termId;
+
+    const res = await fetch(`${API_BASE}${path}`, { headers });
+    if (!res.ok) {
+      let message = `Download failed (${res.status})`;
+      try {
+        const json = await res.json();
+        message = json?.error?.message || message;
+      } catch {
+        /* binary or empty body */
+      }
+      throw new Error(message);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "download.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 }
 

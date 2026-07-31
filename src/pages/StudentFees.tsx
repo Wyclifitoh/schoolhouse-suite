@@ -36,6 +36,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { FinanceErrorAlert } from "@/components/finance/FinanceErrorAlert";
 import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -87,32 +88,27 @@ const StudentFees = () => {
   const { selectedTerm } = useTerm();
   const { data: student, isLoading } = useStudentWithFees(studentId);
 
-  const { data: studentFees = [] } = useQuery({
+  const { data: studentFees = [], error: feesError } = useQuery({
     queryKey: ["student-fee-items", studentId, selectedTerm?.id],
     queryFn: async () => {
-      try {
-        const params = new URLSearchParams();
-        if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
-        const data = await api.get<any>(
-          `/finance/student-fees/${studentId}?${params}`,
-        );
-        return (data?.data || data || []) as any[];
-      } catch {
-        return [];
-      }
+      const params = new URLSearchParams();
+      if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
+      const data = await api.get<any>(
+        `/finance/student-fees/${studentId}?${params}`,
+      );
+      return (data?.data || data || []) as any[];
     },
     enabled: !!studentId,
   });
 
-  const { data: paymentHistory = [] } = useQuery({
+  const { data: paymentHistory = [], error: paymentsError } = useQuery({
     queryKey: ["student-payments", studentId],
     queryFn: async () => {
-      try {
-        const data = await api.get<any>(`/payments?student_id=${studentId}`);
-        return (data?.data || data || []) as any[];
-      } catch {
-        return [];
-      }
+      // range=all → full history, not just the currently selected term.
+      const data = await api.get<any>(
+        `/payments?student_id=${studentId}&range=all&limit=200`,
+      );
+      return (data?.data || data || []) as any[];
     },
     enabled: !!studentId,
   });
@@ -120,14 +116,10 @@ const StudentFees = () => {
   const { data: allocationHistory = [] } = useQuery({
     queryKey: ["payment-allocations", studentId],
     queryFn: async () => {
-      try {
-        const data = await api.get<any>(
-          `/payments/allocations?student_id=${studentId}`,
-        );
-        return (data?.data || data || []) as any[];
-      } catch {
-        return [];
-      }
+      const data = await api.get<any>(
+        `/payments/allocations?student_id=${studentId}`,
+      );
+      return (data?.data || data || []) as any[];
     },
     enabled: !!studentId,
   });
@@ -437,6 +429,9 @@ const StudentFees = () => {
         className="space-y-6"
       >
         {/* Top Bar */}
+        {(feesError || paymentsError) && (
+          <FinanceErrorAlert error={(feesError || paymentsError) as Error} />
+        )}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Button
             variant="outline"
