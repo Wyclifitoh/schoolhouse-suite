@@ -693,7 +693,7 @@ const navigationGroups: NavGroup[] = [
   },
 
   // Communication
-  {
+ {
     label: "Communication",
     icon: MessageSquare,
     items: [
@@ -1155,9 +1155,7 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
           {isMega ? (
             <div
               className="grid gap-x-2 gap-y-3 p-1"
-              style={{
-                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-              }}
+              style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
             >
               {sections.map((section) => (
                 <div key={section.label} className="min-w-0">
@@ -1189,22 +1187,22 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
             </div>
           ) : (
             group.items.map((item) => (
-              <button
-                key={item.url}
-                onClick={() => {
-                  navigate(item.url);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
-                  location.pathname === item.url
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{item.title}</span>
-              </button>
+            <button
+              key={item.url}
+              onClick={() => {
+                navigate(item.url);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex items-center gap-2.5 w-full px-3 py-2.5 text-sm rounded-lg transition-all",
+                location.pathname === item.url
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              <span>{item.title}</span>
+            </button>
             ))
           )}
         </div>,

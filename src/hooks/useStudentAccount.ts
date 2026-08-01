@@ -59,14 +59,23 @@ export interface StatementV2 {
 
 export function useStudentAccountV2(
   studentId: string | undefined,
-  opts?: { termId?: string; academicYearId?: string },
+  opts?: { termId?: string; academicYearId?: string; allHistory?: boolean },
 ) {
   const params = new URLSearchParams();
-  if (opts?.termId) params.set("term_id", opts.termId);
-  if (opts?.academicYearId) params.set("academic_year_id", opts.academicYearId);
+  // term_id=all tells the API to drop the period filter entirely, otherwise it
+  // falls back to the session term and hides older payments.
+  if (opts?.allHistory) params.set("term_id", "all");
+  else if (opts?.termId) params.set("term_id", opts.termId);
+  if (!opts?.allHistory && opts?.academicYearId)
+    params.set("academic_year_id", opts.academicYearId);
   const qs = params.toString();
   return useQuery({
-    queryKey: ["student-account-v2", studentId, opts?.termId, opts?.academicYearId],
+    queryKey: [
+      "student-account-v2",
+      studentId,
+      opts?.allHistory ? "all" : opts?.termId,
+      opts?.academicYearId,
+    ],
     queryFn: () =>
       api.get<StatementV2>(
         `/finance/enterprise/students/${studentId}/statement${qs ? `?${qs}` : ""}`,

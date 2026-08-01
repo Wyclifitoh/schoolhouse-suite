@@ -607,11 +607,6 @@ const Finance = () => {
                           onClick={() =>
                             createStructure.mutate({
                               ...structForm,
-                              fee_category_id: isEnterprise
-                                ? undefined
-                                : structForm.fee_category_id || undefined,
-                              vote_head_id:
-                                structForm.vote_head_id || undefined,
                               amount: parseFloat(structForm.amount) || 0,
                               academic_year_id: currentAcademicYear?.id,
                               grade_id: structForm.grade_id || undefined,
@@ -1302,7 +1297,7 @@ const Finance = () => {
                     id: editingStruct.id,
                     data: {
                       name: editingStruct.name,
-                      fee_category_id: editingStruct.fee_category_id || null,
+                      fee_category_id: editingStruct.fee_category_id,
                       vote_head_id: editingStruct.vote_head_id || null,
                       amount: parseFloat(editingStruct.amount) || 0,
                       grade_id: editingStruct.grade_id || null,

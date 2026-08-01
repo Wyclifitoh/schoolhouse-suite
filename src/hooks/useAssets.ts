@@ -2,13 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
-const unwrap = <T>(r: any): T => (r?.data ?? r) as T;
+const unwrap = <T,>(r: any): T => (r?.data ?? r) as T;
 
-export type AssetStatus =
-  | "active"
-  | "disposed"
-  | "written_off"
-  | "under_repair";
+export type AssetStatus = "active" | "disposed" | "written_off" | "under_repair";
 export type DepMethod = "straight_line" | "reducing_balance" | "none";
 
 export interface AssetCategory {
@@ -57,10 +53,8 @@ export interface AssetMovement {
   movement_date: string;
   from_location?: string | null;
   to_location?: string | null;
-  from_first?: string;
-  from_last?: string;
-  to_first?: string;
-  to_last?: string;
+  from_first?: string; from_last?: string;
+  to_first?: string; to_last?: string;
   reason?: string | null;
 }
 
@@ -105,11 +99,8 @@ export interface AssetSummary {
     under_repair: number;
   };
   by_category: Array<{
-    id: string;
-    name: string;
-    asset_count: number;
-    total_cost: number;
-    total_book_value: number;
+    id: string; name: string;
+    asset_count: number; total_cost: number; total_book_value: number;
   }>;
 }
 
@@ -140,10 +131,7 @@ export const useAssets = (params: Record<string, string> = {}) =>
       // wrapper, leaving `data.data` undefined in the UI and the register
       // always appearing empty even though inserts succeeded.
       return raw as {
-        data: Asset[];
-        total: number;
-        page: number;
-        limit: number;
+        data: Asset[]; total: number; page: number; limit: number;
         totals: Record<string, number>;
       };
     },
@@ -166,104 +154,65 @@ export const useAssetMutations = (id?: string) => {
     if (id) qc.invalidateQueries({ queryKey: ["asset", id] });
   };
   const onErr = (e: Error) =>
-    toast({
-      title: "Action failed",
-      description: e.message,
-      variant: "destructive",
-    });
+    toast({ title: "Action failed", description: e.message, variant: "destructive" });
 
   return {
     createCategory: useMutation({
       mutationFn: (b: Partial<AssetCategory>) =>
         api.post<any>("/assets/categories", b).then(unwrap<AssetCategory>),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Category saved" });
-      },
+      onSuccess: () => { invalidate(); toast({ title: "Category saved" }); },
       onError: onErr,
     }),
     updateCategory: useMutation({
       mutationFn: (b: Partial<AssetCategory> & { id: string }) =>
         api.put<any>(`/assets/categories/${b.id}`, b).then(unwrap),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Category saved" });
-      },
+      onSuccess: () => { invalidate(); toast({ title: "Category saved" }); },
       onError: onErr,
     }),
     removeCategory: useMutation({
-      mutationFn: (cid: string) =>
-        api.delete<any>(`/assets/categories/${cid}`).then(unwrap),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Category removed" });
-      },
+      mutationFn: (cid: string) => api.delete<any>(`/assets/categories/${cid}`).then(unwrap),
+      onSuccess: () => { invalidate(); toast({ title: "Category removed" }); },
       onError: onErr,
     }),
     createAsset: useMutation({
-      mutationFn: (b: Partial<Asset>) =>
-        api.post<any>("/assets", b).then(unwrap<Asset>),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Asset created" });
-      },
+      mutationFn: (b: Partial<Asset>) => api.post<any>("/assets", b).then(unwrap<Asset>),
+      onSuccess: () => { invalidate(); toast({ title: "Asset created" }); },
       onError: onErr,
     }),
     updateAsset: useMutation({
       mutationFn: (b: Partial<Asset> & { id: string }) =>
         api.put<any>(`/assets/${b.id}`, b).then(unwrap),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Asset saved" });
-      },
+      onSuccess: () => { invalidate(); toast({ title: "Asset saved" }); },
       onError: onErr,
     }),
     removeAsset: useMutation({
-      mutationFn: (aid: string) =>
-        api.delete<any>(`/assets/${aid}`).then(unwrap),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Asset removed" });
-      },
+      mutationFn: (aid: string) => api.delete<any>(`/assets/${aid}`).then(unwrap),
+      onSuccess: () => { invalidate(); toast({ title: "Asset removed" }); },
       onError: onErr,
     }),
     addMovement: useMutation({
       mutationFn: (b: {
-        to_location?: string;
-        to_custodian_id?: string;
-        movement_date?: string;
-        reason?: string;
+        to_location?: string; to_custodian_id?: string;
+        movement_date?: string; reason?: string;
       }) => api.post<any>(`/assets/${id}/movements`, b).then(unwrap),
-      onSuccess: () => {
-        invalidate();
-        toast({ title: "Movement recorded" });
-      },
+      onSuccess: () => { invalidate(); toast({ title: "Movement recorded" }); },
       onError: onErr,
     }),
     depreciate: useMutation({
       mutationFn: (b: {
-        period_start: string;
-        period_end: string;
-        amount?: number;
-        notes?: string;
+        period_start: string; period_end: string;
+        amount?: number; notes?: string;
       }) => api.post<any>(`/assets/${id}/depreciate`, b).then(unwrap),
       onSuccess: () => {
         invalidate();
-        toast({
-          title: "Depreciation posted",
-          description: "Book value updated",
-        });
+        toast({ title: "Depreciation posted", description: "Book value updated" });
       },
       onError: onErr,
     }),
     dispose: useMutation({
       mutationFn: (b: {
-        disposal_date?: string;
-        method?: string;
-        proceeds?: number;
-        bank_account_id?: string;
-        buyer?: string;
-        reason?: string;
+        disposal_date?: string; method?: string; proceeds?: number;
+        bank_account_id?: string; buyer?: string; reason?: string;
       }) => api.post<any>(`/assets/${id}/dispose`, b).then(unwrap),
       onSuccess: () => {
         invalidate();

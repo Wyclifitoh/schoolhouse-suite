@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { AllocationRulesCard } from "@/components/finance/AllocationRulesCard";
 
 interface FormState {
   id?: string;
@@ -259,6 +260,8 @@ function VoteHeadsInner() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AllocationRulesCard />
     </div>
   );
 }

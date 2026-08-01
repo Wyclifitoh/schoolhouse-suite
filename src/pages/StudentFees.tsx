@@ -430,7 +430,9 @@ const StudentFees = () => {
       >
         {/* Top Bar */}
         {(feesError || paymentsError) && (
-          <FinanceErrorAlert error={(feesError || paymentsError) as Error} />
+          <FinanceErrorAlert
+            error={(feesError || paymentsError) as Error}
+          />
         )}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Button
