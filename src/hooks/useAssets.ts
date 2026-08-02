@@ -42,8 +42,7 @@ export interface Asset {
   book_value: number;
   location?: string | null;
   custodian_id?: string | null;
-  custodian_first_name?: string | null;
-  custodian_last_name?: string | null;
+  custodian_full_name?: string | null;
   supplier_id?: string | null;
   vote_head_id?: string | null;
   purchase_ref?: string | null;
