@@ -41,6 +41,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useStudents } from "@/hooks/useStudents";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useIsEnterprise } from "@/components/enterprise/EnterpriseGate";
 
 const formatKES = (n: number) => `KES ${n.toLocaleString()}`;
 
@@ -68,6 +70,7 @@ interface RecordPaymentDialogProps {
     feeIds: string[];
     notes: string;
     idempotencyKey: string;
+    bankAccountId?: string | null;
   }) => void;
   isSubmitting?: boolean;
 }
@@ -90,6 +93,7 @@ export function RecordPaymentDialog({
   const [amount, setAmount] = useState(preselectedAmount?.toString() || "");
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
+  const [bankAccountId, setBankAccountId] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedFeeIds, setSelectedFeeIds] = useState<string[]>(
     preselectedFeeId ? [preselectedFeeId] : [],
@@ -112,6 +116,7 @@ export function RecordPaymentDialog({
       setAmount(preselectedAmount?.toString() || "");
       setMethod("");
       setReference("");
+      setBankAccountId("");
       setNotes("");
       setSelectedFeeIds(preselectedFeeId ? [preselectedFeeId] : []);
       setAllocateMode(preselectedFeeId ? "manual" : "fifo");
@@ -128,6 +133,9 @@ export function RecordPaymentDialog({
   const { data: studentsData = [] } = useStudents({
     search: studentSearch || undefined,
   });
+  const isEnterprise = useIsEnterprise();
+  const { data: bankAccounts = [] } = useBankAccounts({ activeOnly: true });
+  const depositAccounts = isEnterprise ? bankAccounts : [];
   const allStudents = (studentsData as any[]).map((s: any) => ({
     id: s.id,
     full_name: s.full_name || `${s.first_name} ${s.last_name}`,
@@ -201,6 +209,7 @@ export function RecordPaymentDialog({
       feeIds: allocateMode === "manual" ? selectedFeeIds : [],
       notes,
       idempotencyKey,
+      bankAccountId: bankAccountId || null,
     });
   };
 
@@ -385,6 +394,29 @@ export function RecordPaymentDialog({
                 onChange={(e) => setReference(e.target.value)}
               />
             </div>
+
+            {depositAccounts.length > 0 && (
+              <div className="space-y-2">
+                <Label>Deposit To (Bank / Cash Account)</Label>
+                <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Use default account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {depositAccounts.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                        {b.bank_name ? ` — ${b.bank_name}` : ""}
+                        {b.account_number ? ` (${b.account_number})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  The receipt and cash book entry post to this account.
+                </p>
+              </div>
+            )}
 
             {/* Allocation mode */}
             <div className="space-y-3">

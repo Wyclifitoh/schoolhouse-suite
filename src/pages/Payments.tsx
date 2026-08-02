@@ -148,6 +148,7 @@ const Payments = () => {
         notes: data.notes,
         term_id: selectedTerm?.id || null,
         idempotency_key: data.idempotencyKey,
+        bank_account_id: data.bankAccountId || null,
       });
       setShowRecordPayment(false);
     } catch {

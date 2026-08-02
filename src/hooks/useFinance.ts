@@ -268,6 +268,7 @@ export function useRecordPayment() {
       notes?: string;
       term_id?: string | null;
       idempotency_key?: string;
+      bank_account_id?: string | null;
     }) => {
       const idempotencyKey =
         body.idempotency_key ||
