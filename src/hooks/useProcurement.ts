@@ -128,3 +128,44 @@ export const useSupplierInvoiceMutations = () => {
     }),
   };
 };
+// Purchase orders (from inventory) — needed to raise GRNs and invoices.
+export interface PurchaseOrderItem {
+  id: string;
+  item_id?: string | null;
+  item_name?: string;
+  quantity: number;
+  unit_price: number;
+}
+export interface PurchaseOrder {
+  id: string;
+  order_number: string;
+  supplier_id: string;
+  supplier_name?: string;
+  status: string;
+  order_date?: string;
+  total_amount?: number;
+}
+
+export const usePurchaseOrders = () =>
+  useQuery({
+    queryKey: ["purchase-orders"],
+    queryFn: async () =>
+      unwrap<PurchaseOrder[]>(await api.get<any>("/inventory/purchase-orders")) || [],
+  });
+
+export const usePurchaseOrderItems = (poId?: string | null) =>
+  useQuery({
+    queryKey: ["purchase-order-items", poId],
+    enabled: !!poId,
+    queryFn: async () =>
+      unwrap<PurchaseOrderItem[]>(
+        await api.get<any>(`/inventory/purchase-orders/${poId}/items`),
+      ) || [],
+  });
+
+export const useGRN = (id?: string | null) =>
+  useQuery({
+    queryKey: ["grns", "one", id],
+    enabled: !!id,
+    queryFn: async () => unwrap<GRN>(await api.get<any>(`/procurement/grns/${id}`)),
+  });

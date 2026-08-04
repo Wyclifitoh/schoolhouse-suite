@@ -14,11 +14,17 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Plus, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 import {
   useRequisitions, useRequisitionMutations,
-  useGRNs, useSupplierInvoices, useSupplierInvoiceMutations,
+  useGRNs, useGRN, useGRNMutations,
+  useSupplierInvoices, useSupplierInvoiceMutations,
+  usePurchaseOrders, usePurchaseOrderItems,
 } from "@/hooks/useProcurement";
 
 const fmt = (n: number) =>
@@ -156,11 +162,240 @@ function RequisitionsTab() {
   );
 }
 
+function NewGRNDialog() {
+  const [open, setOpen] = useState(false);
+  const [poId, setPoId] = useState("");
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [deliveryNote, setDeliveryNote] = useState("");
+  const [qty, setQty] = useState<Record<string, string>>({});
+  const { data: pos = [] } = usePurchaseOrders();
+  const { data: poItems = [] } = usePurchaseOrderItems(poId || null);
+  const { create } = useGRNMutations();
+
+  const receivable = pos.filter((p) => !["cancelled", "received"].includes(p.status));
+
+  const submit = async () => {
+    if (!poId) return toast.error("Select a purchase order");
+    const items = poItems
+      .filter((i) => Number(qty[i.id] || 0) > 0)
+      .map((i) => ({
+        po_item_id: i.id,
+        quantity: Number(qty[i.id]),
+        unit_price: Number(i.unit_price || 0),
+        description: i.item_name,
+      }));
+    if (!items.length) return toast.error("Enter received quantities");
+    try {
+      await create.mutateAsync({
+        po_id: poId,
+        received_date: receivedDate,
+        delivery_note: deliveryNote || null,
+        items,
+      });
+      toast.success("Goods received note posted");
+      setOpen(false); setPoId(""); setQty({}); setDeliveryNote("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to create GRN");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Receive Goods</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>New Goods Received Note</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Purchase Order *</Label>
+              <Select value={poId} onValueChange={(v) => { setPoId(v); setQty({}); }}>
+                <SelectTrigger><SelectValue placeholder="Select PO" /></SelectTrigger>
+                <SelectContent>
+                  {receivable.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.order_number} — {p.supplier_name || "supplier"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Received Date</Label>
+              <Input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Delivery Note #</Label>
+              <Input value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} />
+            </div>
+          </div>
+          {poId && (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead className="text-right">Ordered</TableHead>
+                <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead className="text-right w-32">Received</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {poItems.map((i) => (
+                  <TableRow key={i.id}>
+                    <TableCell>{i.item_name}</TableCell>
+                    <TableCell className="text-right">{i.quantity}</TableCell>
+                    <TableCell className="text-right">{fmt(i.unit_price)}</TableCell>
+                    <TableCell className="text-right">
+                      <Input type="number" min={0} max={Number(i.quantity)}
+                        className="w-28 ml-auto text-right"
+                        value={qty[i.id] ?? ""}
+                        onChange={(e) => setQty({ ...qty, [i.id]: e.target.value })} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={create.isPending}>Post GRN</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewInvoiceDialog() {
+  const [open, setOpen] = useState(false);
+  const [grnId, setGrnId] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState("");
+  const [tax, setTax] = useState("0");
+  const [lines, setLines] = useState<Record<string, string>>({});
+  const { data: grns = [] } = useGRNs();
+  const { data: grn } = useGRN(grnId || null);
+  const { create } = useSupplierInvoiceMutations();
+
+  const grnItems: any[] = (grn as any)?.items || [];
+  const subtotal = grnItems.reduce(
+    (s, it) => s + Number(lines[it.id] || 0) * Number(it.unit_price || 0), 0);
+  const total = subtotal + Number(tax || 0);
+
+  const submit = async () => {
+    if (!grnId || !grn) return toast.error("Select a GRN");
+    const items = grnItems
+      .filter((it) => Number(lines[it.id] || 0) > 0)
+      .map((it) => ({
+        grn_item_id: it.id,
+        item_id: it.item_id || null,
+        description: it.description,
+        quantity: Number(lines[it.id]),
+        unit_price: Number(it.unit_price || 0),
+      }));
+    if (!items.length) return toast.error("Enter invoiced quantities");
+    try {
+      await create.mutateAsync({
+        supplier_id: (grn as any).supplier_id,
+        po_id: (grn as any).po_id,
+        invoice_no: invoiceNo || undefined,
+        invoice_date: invoiceDate,
+        due_date: dueDate || null,
+        tax_amount: Number(tax || 0),
+        items,
+      });
+      toast.success("Supplier invoice recorded");
+      setOpen(false); setGrnId(""); setLines({}); setInvoiceNo("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to record invoice");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="h-4 w-4 mr-1" /> New Invoice</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Record Supplier Invoice</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Goods Received Note *</Label>
+              <Select value={grnId} onValueChange={(v) => { setGrnId(v); setLines({}); }}>
+                <SelectTrigger><SelectValue placeholder="Select GRN" /></SelectTrigger>
+                <SelectContent>
+                  {grns.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.grn_no} — {g.supplier_name || "supplier"} ({g.po_number || "no PO"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Supplier Invoice #</Label>
+              <Input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Auto if blank" />
+            </div>
+            <div className="space-y-2">
+              <Label>Invoice Date</Label>
+              <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Tax (KES)</Label>
+              <Input type="number" min={0} value={tax} onChange={(e) => setTax(e.target.value)} />
+            </div>
+          </div>
+          {grnItems.length > 0 && (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead className="text-right">Received</TableHead>
+                <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead className="text-right w-32">Invoice Qty</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {grnItems.map((it) => (
+                  <TableRow key={it.id}>
+                    <TableCell>{it.description}</TableCell>
+                    <TableCell className="text-right">{it.quantity}</TableCell>
+                    <TableCell className="text-right">{fmt(it.unit_price)}</TableCell>
+                    <TableCell className="text-right">
+                      <Input type="number" min={0} max={Number(it.quantity)}
+                        className="w-28 ml-auto text-right"
+                        value={lines[it.id] ?? ""}
+                        onChange={(e) => setLines({ ...lines, [it.id]: e.target.value })} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <div className="text-right text-sm">
+            Subtotal {fmt(subtotal)} · Total <b>{fmt(total)}</b>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={create.isPending}>Save Invoice</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function GRNsTab() {
   const { data: grns = [], isLoading } = useGRNs();
   return (
     <Card>
-      <CardHeader><CardTitle>Goods Received Notes</CardTitle></CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Goods Received Notes</CardTitle>
+        <NewGRNDialog />
+      </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader><TableRow>
@@ -202,7 +437,10 @@ function InvoicesTab() {
   };
   return (
     <Card>
-      <CardHeader><CardTitle>Supplier Invoices</CardTitle></CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Supplier Invoices</CardTitle>
+        <NewInvoiceDialog />
+      </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader><TableRow>
@@ -232,6 +470,10 @@ function InvoicesTab() {
                 <TableCell><Badge variant={statusVariant(i.status)}>{i.status}</Badge></TableCell>
                 <TableCell className="text-right">{fmt(i.total_amount)}</TableCell>
                 <TableCell className="text-right space-x-1">
+                  <Button size="sm" variant="outline" title="Invoice PDF"
+                    onClick={() => api.openFile(`/procurement/invoices/${i.id}/invoice.pdf`)}>
+                    <FileText className="h-4 w-4" />
+                  </Button>
                   {i.status === "submitted" && (
                     <Button size="sm" variant="outline" onClick={() => act(i.id, "approved")}>
                       <CheckCircle2 className="h-4 w-4 mr-1" />Approve

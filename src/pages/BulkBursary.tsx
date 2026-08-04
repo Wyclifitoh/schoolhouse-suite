@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,14 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSchool } from "@/contexts/SchoolContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useStudents } from "@/hooks/useStudents";
+import { SponsorshipGroups } from "@/components/finance/SponsorshipGroups";
+import { useSponsorshipGroup, useSponsorshipGroups } from "@/hooks/useSponsorshipGroups";
 import { formatDate } from "@/utils/date";
 import { Plus, Users, Check, Trash2, Eye } from "lucide-react";
 
@@ -85,6 +88,15 @@ export default function BulkBursary() {
           </Dialog>
         </div>
 
+        <Tabs defaultValue="runs">
+          <TabsList>
+            <TabsTrigger value="runs">Bulk Payments</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
+          </TabsList>
+          <TabsContent value="groups" className="mt-4">
+            <SponsorshipGroups />
+          </TabsContent>
+          <TabsContent value="runs" className="mt-4">
         <Card>
           <CardHeader><CardTitle>Bulk Payments</CardTitle></CardHeader>
           <CardContent>
@@ -136,6 +148,8 @@ export default function BulkBursary() {
             </Table>
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
 
         <Dialog open={!!viewId} onOpenChange={(o) => !o && setViewId(null)}>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -188,8 +202,31 @@ function BulkWizard({ onSaved, onClose }: { onSaved: () => void; onClose: () => 
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<"equal" | "manual">("equal");
   const [search, setSearch] = useState("");
+  const [groupId, setGroupId] = useState<string>("none");
 
   const { data: students = [] } = useStudents({ enabled: !!schoolId, search });
+  const { data: groups = [] } = useSponsorshipGroups();
+  const { data: group } = useSponsorshipGroup(groupId !== "none" ? groupId : null);
+
+  const applyGroup = (id: string) => {
+    setGroupId(id);
+    if (id === "none") return;
+  };
+
+  useEffect(() => {
+    if (groupId === "none" || !group) return;
+    const sel: Record<string, boolean> = {};
+    const amts: Record<string, string> = {};
+    (group.members || []).forEach((m) => {
+      sel[m.student_id] = true;
+      if (m.default_amount != null) amts[m.student_id] = String(m.default_amount);
+    });
+    setSelected(sel);
+    setAmounts(amts);
+    if (Object.keys(amts).length) setMode("manual");
+    if (group.sponsor_name) setSponsor((s) => s || group.sponsor_name || "");
+    if (group.sponsor_contact) setContact((c) => c || group.sponsor_contact || "");
+  }, [groupId, group]);
 
   const selectedIds = useMemo(() => Object.keys(selected).filter((k) => selected[k]), [selected]);
 
@@ -253,6 +290,20 @@ function BulkWizard({ onSaved, onClose }: { onSaved: () => void; onClose: () => 
 
       {step === 2 && (
         <div className="space-y-2">
+          <div className="space-y-2">
+            <Label>Load from Sponsorship Group</Label>
+            <Select value={groupId} onValueChange={applyGroup}>
+              <SelectTrigger><SelectValue placeholder="Select a group (optional)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No group — pick manually</SelectItem>
+                {groups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name} ({g.member_count ?? 0} students)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Input placeholder="Search students..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <div className="text-sm text-muted-foreground">{selectedIds.length} selected</div>
           <div className="border rounded max-h-[400px] overflow-y-auto">
@@ -291,10 +342,12 @@ function BulkWizard({ onSaved, onClose }: { onSaved: () => void; onClose: () => 
             <TableHeader><TableRow><TableHead>Student</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
             <TableBody>
               {allocations.map((a) => {
-                const s = students.find((x: any) => x.id === a.student_id);
+                const s =
+                  students.find((x: any) => x.id === a.student_id) ||
+                  (group?.members || []).find((m: any) => m.student_id === a.student_id);
                 return (
                   <TableRow key={a.student_id}>
-                    <TableCell>{s?.full_name || a.student_id}</TableCell>
+                    <TableCell>{(s as any)?.full_name || (s as any)?.student_name || a.student_id}</TableCell>
                     <TableCell className="text-right">
                       {mode === "manual" ? (
                         <Input type="number" className="w-32 ml-auto text-right"

@@ -352,25 +352,37 @@ function InKindForm({
 }: any) {
   const [supplierId, setSupplierId] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [desc, setDesc] = useState("");
-  const [qty, setQty] = useState("1");
-  const [unit, setUnit] = useState("");
-  const [value, setValue] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<any[]>([
+    { description: "", quantity: "1", unit: "", unit_value: "" },
+  ]);
+
+  const lineTotal = (l: any) =>
+    Math.round(Number(l.quantity || 0) * Number(l.unit_value || 0) * 100) / 100;
+  const total = lines.reduce((s, l) => s + lineTotal(l), 0);
+  const setLine = (i: number, patch: any) =>
+    setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
   const submit = () => {
-    if (!desc || !value) return toast.error("Description and value required");
+    const items = lines
+      .filter((l) => l.description.trim() && lineTotal(l) > 0)
+      .map((l) => ({
+        description: l.description.trim(),
+        quantity: Number(l.quantity) || 1,
+        unit: l.unit || null,
+        unit_value: Number(l.unit_value) || 0,
+        total_value: lineTotal(l),
+      }));
+    if (!items.length)
+      return toast.error("Add at least one item with a description and value");
     if (kind === "supplier_offset" && !supplierId)
       return toast.error("Select supplier");
     if (!studentId) return toast.error("Select the student fees to credit");
     onSave({
       supplier_id: supplierId || null,
       student_id: studentId,
-      goods_description: desc,
-      quantity: Number(qty) || 1,
-      unit,
-      assessed_value: Number(value),
+      items,
       reference,
       notes,
     });
@@ -411,37 +423,66 @@ function InKindForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Goods / Services *</Label>
-        <Textarea
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          rows={2}
-        />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="space-y-2">
-          <Label>Quantity</Label>
-          <Input
-            type="number"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Unit</Label>
-          <Input
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            placeholder="bags, hrs..."
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Assessed Value (KES) *</Label>
-          <Input
-            type="number"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
+        <Label>Items provided *</Label>
+        {lines.map((l, i) => (
+          <div key={i} className="grid grid-cols-12 gap-2 items-center">
+            <Input
+              className="col-span-4"
+              placeholder="Item / service"
+              value={l.description}
+              onChange={(e) => setLine(i, { description: e.target.value })}
+            />
+            <Input
+              className="col-span-2"
+              type="number"
+              min={0}
+              placeholder="Qty"
+              value={l.quantity}
+              onChange={(e) => setLine(i, { quantity: e.target.value })}
+            />
+            <Input
+              className="col-span-2"
+              placeholder="Unit"
+              value={l.unit}
+              onChange={(e) => setLine(i, { unit: e.target.value })}
+            />
+            <Input
+              className="col-span-3"
+              type="number"
+              min={0}
+              placeholder="Unit value"
+              value={l.unit_value}
+              onChange={(e) => setLine(i, { unit_value: e.target.value })}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="col-span-1"
+              onClick={() => setLines(lines.filter((_, j) => j !== i))}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="col-span-12 text-right text-xs text-muted-foreground">
+              Line value: KES {lineTotal(l).toLocaleString()}
+            </div>
+          </div>
+        ))}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setLines([
+                ...lines,
+                { description: "", quantity: "1", unit: "", unit_value: "" },
+              ])
+            }
+          >
+            <Plus className="h-4 w-4 mr-1" /> Add item
+          </Button>
+          <div className="text-sm font-medium">
+            Total assessed value: KES {total.toLocaleString()}
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">

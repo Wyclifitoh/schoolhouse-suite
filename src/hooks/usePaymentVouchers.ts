@@ -59,3 +59,57 @@ export const usePaymentVoucherMutations = () => {
     }),
   };
 };
+export interface VoucherAllocation {
+  id?: string;
+  vote_head_id: string;
+  vote_head_name?: string;
+  vote_head_code?: string;
+  amount: number;
+  mode?: string;
+}
+
+export const useVoucher = (id?: string | null) =>
+  useQuery({
+    queryKey: ["payment-vouchers", "one", id],
+    enabled: !!id,
+    queryFn: async () =>
+      unwrap<any>(await api.get<any>(`/payment-vouchers/${id}`)),
+  });
+
+export const useVoucherAllocations = (id?: string | null) =>
+  useQuery({
+    queryKey: ["payment-vouchers", "allocations", id],
+    enabled: !!id,
+    queryFn: async () =>
+      unwrap<VoucherAllocation[]>(
+        await api.get<any>(`/payment-vouchers/${id}/allocations`),
+      ) || [],
+  });
+
+export const useVoucherApproval = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      allocation_mode,
+      allocations,
+      status,
+    }: {
+      id: string;
+      allocation_mode: "auto" | "manual";
+      allocations?: { vote_head_id: string; amount: number }[];
+      status?: "approved" | "paid";
+    }) =>
+      api
+        .post<any>(`/payment-vouchers/${id}/approve`, {
+          allocation_mode,
+          allocations,
+          status,
+        })
+        .then(unwrap<any>),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payment-vouchers"] });
+      qc.invalidateQueries({ queryKey: ["supplier-invoices"] });
+    },
+  });
+};

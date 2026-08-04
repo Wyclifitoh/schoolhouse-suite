@@ -2,10 +2,15 @@ import { useMemo, useState } from "react";
 import {
   usePaymentVouchers,
   usePaymentVoucherMutations,
+  useVoucherAllocations,
+  useVoucherApproval,
 } from "@/hooks/usePaymentVouchers";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useSupplierInvoices } from "@/hooks/useProcurement";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useVoteHeads } from "@/hooks/useVoteHeads";
+import { api } from "@/lib/api";
+import { FileText, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +52,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> = 
 export default function PaymentVouchers() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [open, setOpen] = useState(false);
+  const [approving, setApproving] = useState<any | null>(null);
   const { data: vouchers = [], isLoading } = usePaymentVouchers({
     status: statusFilter,
   });
@@ -146,13 +152,30 @@ export default function PaymentVouchers() {
                         </Badge>
                       </TableCell>
                       <TableCell className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Voucher PDF"
+                          onClick={() =>
+                            api.openFile(`/payment-vouchers/${v.id}/voucher.pdf`)
+                          }
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Acknowledgement letter"
+                          onClick={() =>
+                            api.openFile(
+                              `/payment-vouchers/${v.id}/acknowledgement.pdf`,
+                            )
+                          }
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
                         {v.status === "draft" && (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              act(v.id, "approved", "Approved & posted")
-                            }
-                          >
+                          <Button size="sm" onClick={() => setApproving(v)}>
                             Approve
                           </Button>
                         )}
@@ -185,8 +208,197 @@ export default function PaymentVouchers() {
         </Card>
 
         <NewVoucherDialog open={open} onOpenChange={setOpen} />
+        <ApproveVoucherDialog
+          voucher={approving}
+          onOpenChange={(o) => !o && setApproving(null)}
+        />
       </div>
     </EnterpriseGate>
+  );
+}
+
+function ApproveVoucherDialog({
+  voucher,
+  onOpenChange,
+}: {
+  voucher: any | null;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const { data: voteHeads = [] } = useVoteHeads();
+  const { data: existing = [] } = useVoucherAllocations(voucher?.id);
+  const approve = useVoucherApproval();
+  const [mode, setMode] = useState<"auto" | "manual">("auto");
+  const [lines, setLines] = useState<{ vote_head_id: string; amount: string }[]>(
+    [{ vote_head_id: "", amount: "" }],
+  );
+
+  const amount = Number(voucher?.amount || 0);
+  const allocated = useMemo(
+    () => lines.reduce((s, l) => s + Number(l.amount || 0), 0),
+    [lines],
+  );
+  const balanced = Math.abs(allocated - amount) < 0.01;
+
+  const submit = () => {
+    if (mode === "manual") {
+      const clean = lines
+        .filter((l) => l.vote_head_id && Number(l.amount) > 0)
+        .map((l) => ({ vote_head_id: l.vote_head_id, amount: Number(l.amount) }));
+      if (!clean.length) return toast.error("Add at least one vote head line");
+      if (!balanced)
+        return toast.error("Allocated amount must equal the voucher amount");
+      approve.mutate(
+        { id: voucher.id, allocation_mode: "manual", allocations: clean },
+        {
+          onSuccess: () => {
+            toast.success("Approved & posted");
+            onOpenChange(false);
+          },
+          onError: (e: any) => toast.error(e?.message || "Failed"),
+        },
+      );
+      return;
+    }
+    approve.mutate(
+      { id: voucher.id, allocation_mode: "auto" },
+      {
+        onSuccess: () => {
+          toast.success("Approved & posted using TIFO allocation rules");
+          onOpenChange(false);
+        },
+        onError: (e: any) => toast.error(e?.message || "Failed"),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={!!voucher} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            Approve {voucher?.voucher_no} — {amount.toLocaleString()}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Vote head assignment</Label>
+            <Select value={mode} onValueChange={(v) => setMode(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">
+                  Auto — split by TIFO allocation rules
+                </SelectItem>
+                <SelectItem value="manual">Manual — assign vote heads</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {mode === "manual" ? (
+            <div className="space-y-2">
+              {lines.map((l, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2">
+                  <div className="col-span-7">
+                    <Select
+                      value={l.vote_head_id}
+                      onValueChange={(v) =>
+                        setLines(
+                          lines.map((x, j) =>
+                            j === i ? { ...x, vote_head_id: v } : x,
+                          ),
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vote head" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {voteHeads.map((vh: any) => (
+                          <SelectItem key={vh.id} value={vh.id}>
+                            {vh.code ? `${vh.code} — ` : ""}
+                            {vh.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    className="col-span-4"
+                    type="number"
+                    min={0}
+                    placeholder="Amount"
+                    value={l.amount}
+                    onChange={(e) =>
+                      setLines(
+                        lines.map((x, j) =>
+                          j === i ? { ...x, amount: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <Button
+                    className="col-span-1"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLines(lines.filter((_, j) => j !== i))}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setLines([...lines, { vote_head_id: "", amount: "" }])
+                  }
+                >
+                  Add line
+                </Button>
+                <span
+                  className={
+                    balanced ? "text-sm" : "text-sm text-destructive font-medium"
+                  }
+                >
+                  Allocated {allocated.toLocaleString()} of{" "}
+                  {amount.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              The voucher amount will be split across vote heads using the
+              school's active allocation (TIFO) percentages. Configure them under
+              Finance → Setup.
+            </p>
+          )}
+
+          {existing.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Existing allocation:{" "}
+              {existing
+                .map(
+                  (a) =>
+                    `${a.vote_head_name || a.vote_head_id}: ${Number(
+                      a.amount,
+                    ).toLocaleString()}`,
+                )
+                .join(", ")}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={approve.isPending}>
+            {approve.isPending ? "Approving…" : "Approve & Post"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
