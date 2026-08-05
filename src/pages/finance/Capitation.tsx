@@ -21,9 +21,11 @@ import {
 } from "@/components/ui/table";
 import {
   Plus, ChevronLeft, Trash2, PlayCircle, Lock, CheckCircle2, Landmark,
+  FileText, Users, RefreshCw,
 } from "lucide-react";
 import {
   useCapitations, useCapitation, useCapitationMutations,
+  useCapitationAllocations, capitationFiles,
   type Capitation, type CapitationTranche,
 } from "@/hooks/useCapitation";
 import { useVoteHeads } from "@/hooks/useVoteHeads";
@@ -210,9 +212,11 @@ function ReceiveTrancheDialog({
   capitationId: string;
 }) {
   const { data: banks = [] } = useBankAccounts({ activeOnly: true });
+  const { data: voteHeads = [] } = useVoteHeads({ activeOnly: true });
   const { receiveTranche } = useCapitationMutations(capitationId);
   const [amount, setAmount] = useState("");
   const [bankId, setBankId] = useState<string>("");
+  const [voteHeadId, setVoteHeadId] = useState<string>("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
 
@@ -220,6 +224,7 @@ function ReceiveTrancheDialog({
     if (open && tranche) {
       setAmount(String(tranche.expected_amount || ""));
       setBankId(tranche.bank_account_id || "");
+      setVoteHeadId(tranche.vote_head_id || "");
     }
   }, [open, tranche]);
 
@@ -230,6 +235,7 @@ function ReceiveTrancheDialog({
       received_amount: Number(amount),
       received_date: date,
       bank_account_id: bankId,
+      vote_head_id: voteHeadId || undefined,
       reference,
     });
     onOpenChange(false);
@@ -270,9 +276,29 @@ function ReceiveTrancheDialog({
             <Input value={reference} onChange={(e) => setReference(e.target.value)}
               placeholder="e.g. TSC/2026/T1/001" />
           </div>
+          <div className="space-y-2">
+            <Label>Vote head (optional)</Label>
+            <Select value={voteHeadId || "__auto"}
+              onValueChange={(v) => setVoteHeadId(v === "__auto" ? "" : v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__auto">Use approved distribution (%)</SelectItem>
+                {voteHeads.map((vh) => (
+                  <SelectItem key={vh.id} value={vh.id}>
+                    {vh.code} · {vh.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Select a single vote head when the circular disburses the whole amount
+              to one vote head; otherwise the configured percentage split is used.
+            </p>
+          </div>
           <p className="text-xs text-muted-foreground">
             This will post a balanced entry to the General Ledger:
-            Dr Bank / Cr Income (by vote-head distribution).
+            Dr Bank / Cr Income (by vote head), generate a payment voucher and
+            acknowledgement letter, and allocate the grant across active students.
           </p>
         </div>
         <DialogFooter>
@@ -290,6 +316,79 @@ function ReceiveTrancheDialog({
 }
 
 /* ------------------------------ DETAIL ------------------------------- */
+function StudentAllocationsPanel({
+  capitationId, trancheId, onReallocate, reallocating,
+}: {
+  capitationId: string;
+  trancheId: string;
+  onReallocate: () => void;
+  reallocating: boolean;
+}) {
+  const { data, isLoading } = useCapitationAllocations({
+    capitation_id: capitationId,
+    tranche_id: trancheId,
+  });
+  const rows = data?.data ?? [];
+
+  return (
+    <div className="mt-4 rounded-md border p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-medium">Student capitation allocation</p>
+          <p className="text-xs text-muted-foreground">
+            {data ? `${data.students} students · ${fmt(data.total)} allocated` : "Loading…"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onReallocate} disabled={reallocating}>
+            <RefreshCw className="mr-1 h-4 w-4" /> Re-run allocation
+          </Button>
+          <Button size="sm" variant="outline"
+            onClick={() => capitationFiles.allocationReport(trancheId)}>
+            <FileText className="mr-1 h-4 w-4" /> Download report
+          </Button>
+        </div>
+      </div>
+      <div className="max-h-80 overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Adm No.</TableHead>
+              <TableHead>Student</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Vote head</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow><TableCell colSpan={5}
+                className="py-4 text-center text-muted-foreground">Loading…</TableCell></TableRow>
+            )}
+            {!isLoading && rows.length === 0 && (
+              <TableRow><TableCell colSpan={5}
+                className="py-4 text-center text-muted-foreground">
+                No student allocations recorded. Use "Re-run allocation".
+              </TableCell></TableRow>
+            )}
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>{r.admission_number}</TableCell>
+                <TableCell className="font-medium">{r.student_name}</TableCell>
+                <TableCell>{r.class_name || "—"}</TableCell>
+                <TableCell className="text-xs">
+                  {r.vote_head_code ? `${r.vote_head_code} · ` : ""}{r.vote_head_name || "—"}
+                </TableCell>
+                <TableCell className="text-right">{fmt(r.amount)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 function CapitationDetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const { data, isLoading } = useCapitation(id);
   const { data: voteHeads = [] } = useVoteHeads({ activeOnly: true });
@@ -302,6 +401,7 @@ function CapitationDetailView({ id, onBack }: { id: string; onBack: () => void }
   const [trExpected, setTrExpected] = useState("");
   const [trTermId, setTrTermId] = useState<string>("");
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [allocTrancheId, setAllocTrancheId] = useState<string | null>(null);
   const [activeTranche, setActiveTranche] = useState<CapitationTranche | null>(null);
 
   if (isLoading || !data) {
@@ -521,15 +621,40 @@ function CapitationDetailView({ id, onBack }: { id: string; onBack: () => void }
                       </div>
                     )}
                     {t.status === "received" && (
-                      <Badge variant="outline" className="gap-1">
-                        <Landmark className="h-3 w-3" /> Posted
-                      </Badge>
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                        <Badge variant="outline" className="gap-1">
+                          <Landmark className="h-3 w-3" /> Posted
+                        </Badge>
+                        <Button size="sm" variant="outline"
+                          onClick={() => capitationFiles.acknowledgement(t.id)}>
+                          <FileText className="mr-1 h-4 w-4" /> Letter
+                        </Button>
+                        <Button size="sm" variant="outline"
+                          onClick={() => capitationFiles.allocationReport(t.id)}>
+                          <Users className="mr-1 h-4 w-4" /> Allocation
+                        </Button>
+                        <Button size="sm" variant="ghost"
+                          onClick={() => setAllocTrancheId(
+                            allocTrancheId === t.id ? null : t.id,
+                          )}>
+                          {allocTrancheId === t.id ? "Hide" : "View"}
+                        </Button>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+
+          {allocTrancheId && (
+            <StudentAllocationsPanel
+              capitationId={id}
+              trancheId={allocTrancheId}
+              onReallocate={() => mut.reallocate.mutate(allocTrancheId)}
+              reallocating={mut.reallocate.isPending}
+            />
+          )}
           {!locked && (
             <div className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4">
               <div className="min-w-[200px] flex-1 space-y-2">

@@ -31,11 +31,59 @@ export interface CapitationTranche {
   received_date?: string | null;
   bank_account_id?: string | null;
   bank_account_name?: string | null;
+  vote_head_id?: string | null;
+  vote_head_name?: string | null;
+  vote_head_code?: string | null;
   reference?: string | null;
   posting_ref?: string | null;
   status: "pending" | "received" | "cancelled";
   notes?: string | null;
 }
+
+export interface CapitationStudentAllocation {
+  id: string;
+  student_id: string;
+  admission_number: string;
+  student_name: string;
+  class_name?: string | null;
+  vote_head_id?: string | null;
+  vote_head_code?: string | null;
+  vote_head_name?: string | null;
+  tranche_name?: string | null;
+  amount: number;
+}
+
+export const useCapitationAllocations = (params: {
+  capitation_id?: string;
+  tranche_id?: string;
+}) =>
+  useQuery({
+    queryKey: ["capitation-allocations", params],
+    enabled: !!(params.capitation_id || params.tranche_id),
+    queryFn: async () => {
+      const qs = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => !!v) as [string, string][],
+      ).toString();
+      return unwrap<{
+        data: CapitationStudentAllocation[];
+        total: number;
+        students: number;
+      }>(await api.get<any>(`/capitation/allocations?${qs}`));
+    },
+  });
+
+export const capitationFiles = {
+  acknowledgement: (trancheId: string) =>
+    api.openFile(
+      `/capitation/tranches/${trancheId}/acknowledgement.pdf`,
+      `capitation-acknowledgement-${trancheId}.pdf`,
+    ),
+  allocationReport: (trancheId: string) =>
+    api.openFile(
+      `/capitation/tranches/${trancheId}/allocation-report.pdf`,
+      `capitation-allocation-${trancheId}.pdf`,
+    ),
+};
 
 export interface CapitationDistribution {
   id: string;
@@ -144,11 +192,26 @@ export const useCapitationMutations = (id?: string) => {
         received_amount?: number;
         received_date?: string;
         bank_account_id?: string;
+        vote_head_id?: string;
         reference?: string;
       }) => api.post<any>(`/capitation/${id}/tranches/${tid}/receive`, body).then(unwrap),
       onSuccess: () => {
         invalidate();
+        qc.invalidateQueries({ queryKey: ["capitation-allocations"] });
         toast({ title: "Tranche received", description: "Posted to General Ledger" });
+      },
+      onError: onErr,
+    }),
+    reallocate: useMutation({
+      mutationFn: (tid: string) =>
+        api.post<any>(`/capitation/${id}/tranches/${tid}/allocate`, {}).then(unwrap),
+      onSuccess: (r: any) => {
+        invalidate();
+        qc.invalidateQueries({ queryKey: ["capitation-allocations"] });
+        toast({
+          title: "Students allocated",
+          description: `${r?.count ?? 0} student allocations recorded`,
+        });
       },
       onError: onErr,
     }),

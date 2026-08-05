@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+import { ApproveInKindDialog } from "@/components/finance/ApproveInKindDialog";
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
@@ -73,6 +74,7 @@ export default function InKindPayments() {
     "supplier_offset",
   );
   const [open, setOpen] = useState(false);
+  const [approveTarget, setApproveTarget] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
@@ -126,10 +128,12 @@ export default function InKindPayments() {
     onError: (e: any) => toast.error(e.message),
   });
   const approveMut = useMutation({
-    mutationFn: (id: string) => api.post(`/in-kind-payments/${id}/approve`, {}),
+    mutationFn: ({ id, ...body }: any) =>
+      api.post(`/in-kind-payments/${id}/approve`, body),
     onSuccess: () => {
-      toast.success("Approved & posted");
+      toast.success("Approved — ledger, voucher & acknowledgement posted");
       qc.invalidateQueries({ queryKey: ["in-kind"] });
+      setApproveTarget(null);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -274,7 +278,7 @@ export default function InKindPayments() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => approveMut.mutate(r.id)}
+                                  onClick={() => setApproveTarget(r)}
                                 >
                                   <Check className="h-4 w-4" />
                                 </Button>
@@ -338,6 +342,16 @@ export default function InKindPayments() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ApproveInKindDialog
+        record={approveTarget}
+        open={!!approveTarget}
+        onOpenChange={(o) => !o && setApproveTarget(null)}
+        isPending={approveMut.isPending}
+        onConfirm={(payload) =>
+          approveMut.mutate({ id: approveTarget.id, ...payload })
+        }
+      />
     </DashboardLayout>
   );
 }
