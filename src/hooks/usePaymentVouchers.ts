@@ -30,7 +30,17 @@ export const usePaymentVouchers = (
   useQuery({
     queryKey: ["payment-vouchers", params],
     queryFn: async () => {
-      const qs = new URLSearchParams(params as any).toString();
+      const qs = new URLSearchParams(
+        Object.entries(params).reduce<Record<string, string>>(
+          (filtered, [key, value]) => {
+            if (value && value !== "undefined" && value !== "all") {
+              filtered[key] = value;
+            }
+            return filtered;
+          },
+          {},
+        ),
+      ).toString();
       return unwrap<PaymentVoucher[]>(
         await api.get<any>(`/payment-vouchers${qs ? `?${qs}` : ""}`),
       );
