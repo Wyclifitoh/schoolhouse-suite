@@ -137,6 +137,7 @@ function BankAccountsInner() {
                 <TableHead>Type</TableHead>
                 <TableHead>Bank / Branch</TableHead>
                 <TableHead>Account #</TableHead>
+                <TableHead>Ledger account</TableHead>
                 <TableHead>Opening</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
@@ -145,12 +146,12 @@ function BankAccountsInner() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7}>Loading…</TableCell>
+                  <TableCell colSpan={8}>Loading…</TableCell>
                 </TableRow>
               )}
               {!isLoading && data.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-muted-foreground">
+                  <TableCell colSpan={8} className="text-muted-foreground">
                     No bank accounts yet. Add your first one.
                   </TableCell>
                 </TableRow>
@@ -171,6 +172,15 @@ function BankAccountsInner() {
                     {row.branch ? ` / ${row.branch}` : ""}
                   </TableCell>
                   <TableCell>{row.account_number || "—"}</TableCell>
+                  <TableCell>
+                    {(row as any).account_code ? (
+                      <span className="text-sm">
+                        {(row as any).account_code} · {(row as any).coa_account_name}
+                      </span>
+                    ) : (
+                      <Badge variant="outline">Auto-links on first posting</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {row.currency} {Number(row.opening_balance || 0).toLocaleString()}
                   </TableCell>

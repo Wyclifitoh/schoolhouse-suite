@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -124,7 +124,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased overflow-x-hidden;
-    font-family: 'Lato', system-ui, -apple-system, sans-serif;
+    font-family: 'Sora', system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -158,7 +158,7 @@
     @apply bg-muted/60 backdrop-blur-sm rounded-xl p-1.5;
   }
   .font-mono {
-    font-family: 'Lato', system-ui, -apple-system, sans-serif;
+    font-family: 'Sora', system-ui, -apple-system, sans-serif;
   }
 
   /* Global Mobile Responsiveness Overrides */
