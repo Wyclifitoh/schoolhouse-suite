@@ -33,6 +33,7 @@ import {
   XCircle,
   ChevronsUpDown,
   Check,
+  Eye,
 } from "lucide-react";
 import {
   Popover,
@@ -78,6 +79,7 @@ export default function PurchaseOrders() {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activePoId, setActivePoId] = useState<string | null>(null);
+  const [viewPo, setViewPo] = useState<any | null>(null);
 
   const [supplierId, setSupplierId] = useState("");
   const [shippingCost, setShippingCost] = useState(0);
@@ -108,6 +110,13 @@ export default function PurchaseOrders() {
       return (res?.data ?? res ?? []) as any[];
     },
     enabled: !!schoolId,
+  });
+
+  const { data: viewItems = [], isLoading: viewLoading } = useQuery({
+    queryKey: ["inventory-po-items", viewPo?.id],
+    queryFn: () =>
+      api.get<any[]>(`/inventory/purchase-orders/${viewPo.id}/items`),
+    enabled: !!viewPo?.id,
   });
 
   const subtotal = useMemo(
@@ -355,6 +364,72 @@ export default function PurchaseOrders() {
           </DialogContent>
         </Dialog>
 
+        {/* VIEW ITEMS MODAL */}
+        <Dialog open={!!viewPo} onOpenChange={(o) => !o && setViewPo(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Order {viewPo?.order_number} · {viewPo?.supplier_name}
+              </DialogTitle>
+            </DialogHeader>
+            {viewLoading ? (
+              <p className="text-sm text-muted-foreground py-6">Loading items…</p>
+            ) : viewItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6">
+                No items on this order.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Unit Price</TableHead>
+                    <TableHead className="text-right">Line Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {viewItems.map((it: any) => (
+                    <TableRow key={it.id}>
+                      <TableCell>
+                        {it.item_name ||
+                          (catalog as any[]).find((c) => c.id === it.item_id)
+                            ?.name ||
+                          "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {Number(it.quantity).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        KES {Number(it.unit_price).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        KES{" "}
+                        {(
+                          Number(it.quantity) * Number(it.unit_price)
+                        ).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            <div className="border-t pt-4 space-y-1 text-sm text-right">
+              <p>
+                Shipping: KES{" "}
+                {Number(viewPo?.shipping_cost || 0).toLocaleString()}
+              </p>
+              <p>
+                Discount: KES{" "}
+                {Number(viewPo?.discount_amount || 0).toLocaleString()}
+              </p>
+              <p className="text-lg font-bold text-primary">
+                Total: KES {Number(viewPo?.total_amount || 0).toLocaleString()}
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* TABLE LIST */}
         <Table>
           <TableHeader>
@@ -371,7 +446,12 @@ export default function PurchaseOrders() {
             {pos.map((po: any) => (
               <TableRow key={po.id}>
                 <TableCell className="font-mono font-bold text-primary">
-                  {po.order_number}
+                  <button
+                    className="hover:underline"
+                    onClick={() => setViewPo(po)}
+                  >
+                    {po.order_number}
+                  </button>
                 </TableCell>
                 <TableCell>{po.supplier_name}</TableCell>
                 <TableCell>{formatDate(po.order_date)}</TableCell>
@@ -399,6 +479,13 @@ export default function PurchaseOrders() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem
+                        onClick={() => setViewPo(po)}
+                        className="cursor-pointer"
+                      >
+                        <Eye className="h-4 w-4 mr-2" /> View Items
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       {po.status === "pending" ||
                       po.status === "ordered" ||
                       po.status === "in_transit" ? (

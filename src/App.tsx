@@ -186,6 +186,7 @@ import InventoryHistory from "./pages/inventory/HistoryPage";
 import InventorySuppliers from "./pages/inventory/SuppliersPage";
 import InventoryPurchaseOrders from "./pages/inventory/PurchaseOrdersPage";
 import InventoryCategories from "./pages/inventory/CategoriesPage";
+import InventoryStaffAssignments from "./pages/inventory/StaffAssignmentsPage";
 import SupplierProfile from "./pages/finance/SupplierProfile";
 
 // Lesson Plans (CBE)
@@ -1754,6 +1755,14 @@ const App = () => (
                         element={
                           <ProtectedRoute>
                             <InventoryCategories />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/assignments"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryStaffAssignments />
                           </ProtectedRoute>
                         }
                       />

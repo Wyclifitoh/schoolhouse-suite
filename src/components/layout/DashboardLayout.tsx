@@ -837,6 +837,13 @@ const navigationGroups: NavGroup[] = [
         permissions: ["inventory:update"],
       },
       {
+        title: "Staff Assignments",
+        url: "/inventory/assignments",
+        icon: Users,
+        roles: ADMIN_ROLES,
+        permissions: ["inventory:update"],
+      },
+      {
         title: "Sales History",
         url: "/inventory/history",
         icon: Clipboard,

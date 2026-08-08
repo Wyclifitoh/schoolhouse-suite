@@ -43,13 +43,12 @@ import {
 import { EnterpriseGate } from "@/components/enterprise/EnterpriseGate";
 import { toast } from "sonner";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> =
-  {
-    draft: "secondary",
-    approved: "default",
-    paid: "default",
-    cancelled: "destructive",
-  };
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
+  draft: "secondary",
+  approved: "default",
+  paid: "default",
+  cancelled: "destructive",
+};
 
 export default function PaymentVouchers() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
@@ -73,154 +72,148 @@ export default function PaymentVouchers() {
     <DashboardLayout>
       <EnterpriseGate>
         <div className="space-y-6 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Payment Vouchers</h1>
-              <p className="text-sm text-muted-foreground">
-                Authorise supplier payments — approval posts to the ledger.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select
-                value={statusFilter || "all"}
-                onValueChange={(v) =>
-                  setStatusFilter(v === "all" ? undefined : v)
-                }
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={() => setOpen(true)}>New Voucher</Button>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Payment Vouchers</h1>
+            <p className="text-sm text-muted-foreground">
+              Authorise supplier payments — approval posts to the ledger.
+            </p>
           </div>
+          <div className="flex items-center gap-2">
+            <Select
+              value={statusFilter || "all"}
+              onValueChange={(v) =>
+                setStatusFilter(v === "all" ? undefined : v)
+              }
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setOpen(true)}>New Voucher</Button>
+          </div>
+        </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Vouchers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
+        <Card>
+          <CardHeader>
+            <CardTitle>Vouchers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Voucher #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead>Bank</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
                   <TableRow>
-                    <TableHead>Voucher #</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Bank</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableCell colSpan={8} className="text-center">
+                      Loading…
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center">
-                        Loading…
+                ) : vouchers.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="text-center text-muted-foreground"
+                    >
+                      No vouchers yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  vouchers.map((v) => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-mono">
+                        {v.voucher_no}
                       </TableCell>
-                    </TableRow>
-                  ) : vouchers.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="text-center text-muted-foreground"
-                      >
-                        No vouchers yet.
+                      <TableCell>{v.payment_date?.slice(0, 10)}</TableCell>
+                      <TableCell>{v.supplier_name || "—"}</TableCell>
+                      <TableCell>{v.invoice_no || "—"}</TableCell>
+                      <TableCell>{v.bank_account_name || "Cash"}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {Number(v.amount).toLocaleString()}
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    vouchers.map((v) => (
-                      <TableRow key={v.id}>
-                        <TableCell className="font-mono">
-                          {v.voucher_no}
-                        </TableCell>
-                        <TableCell>{v.payment_date?.slice(0, 10)}</TableCell>
-                        <TableCell>{v.supplier_name || "—"}</TableCell>
-                        <TableCell>{v.invoice_no || "—"}</TableCell>
-                        <TableCell>{v.bank_account_name || "Cash"}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          {Number(v.amount).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={STATUS_VARIANT[v.status] || "secondary"}
-                          >
-                            {v.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="flex justify-end gap-1">
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[v.status] || "secondary"}>
+                          {v.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Voucher PDF"
+                          onClick={() =>
+                            api.openFile(`/payment-vouchers/${v.id}/voucher.pdf`)
+                          }
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          title="Acknowledgement letter"
+                          onClick={() =>
+                            api.openFile(
+                              `/payment-vouchers/${v.id}/acknowledgement.pdf`,
+                            )
+                          }
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        {v.status === "draft" && (
+                          <Button size="sm" onClick={() => setApproving(v)}>
+                            Approve
+                          </Button>
+                        )}
+                        {v.status === "approved" && (
                           <Button
                             size="sm"
-                            variant="outline"
-                            title="Voucher PDF"
-                            onClick={() =>
-                              api.openFile(
-                                `/payment-vouchers/${v.id}/voucher.pdf`,
-                              )
-                            }
+                            onClick={() => act(v.id, "paid", "Marked as paid")}
                           >
-                            <FileText className="h-4 w-4" />
+                            Mark Paid
                           </Button>
+                        )}
+                        {v.status !== "cancelled" && (
                           <Button
                             size="sm"
-                            variant="outline"
-                            title="Acknowledgement letter"
+                            variant="ghost"
                             onClick={() =>
-                              api.openFile(
-                                `/payment-vouchers/${v.id}/acknowledgement.pdf`,
-                              )
+                              act(v.id, "cancelled", "Cancelled & reversed")
                             }
                           >
-                            <Mail className="h-4 w-4" />
+                            Cancel
                           </Button>
-                          {v.status === "draft" && (
-                            <Button size="sm" onClick={() => setApproving(v)}>
-                              Approve
-                            </Button>
-                          )}
-                          {v.status === "approved" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                act(v.id, "paid", "Marked as paid")
-                              }
-                            >
-                              Mark Paid
-                            </Button>
-                          )}
-                          {v.status !== "cancelled" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                act(v.id, "cancelled", "Cancelled & reversed")
-                              }
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
-          <NewVoucherDialog open={open} onOpenChange={setOpen} />
-          <ApproveVoucherDialog
-            voucher={approving}
-            onOpenChange={(o) => !o && setApproving(null)}
-          />
+        <NewVoucherDialog open={open} onOpenChange={setOpen} />
+        <ApproveVoucherDialog
+          voucher={approving}
+          onOpenChange={(o) => !o && setApproving(null)}
+        />
         </div>
       </EnterpriseGate>
     </DashboardLayout>
@@ -238,9 +231,9 @@ function ApproveVoucherDialog({
   const { data: existing = [] } = useVoucherAllocations(voucher?.id);
   const approve = useVoucherApproval();
   const [mode, setMode] = useState<"auto" | "manual">("auto");
-  const [lines, setLines] = useState<
-    { vote_head_id: string; amount: string }[]
-  >([{ vote_head_id: "", amount: "" }]);
+  const [lines, setLines] = useState<{ vote_head_id: string; amount: string }[]>(
+    [{ vote_head_id: "", amount: "" }],
+  );
 
   const amount = Number(voucher?.amount || 0);
   const allocated = useMemo(
@@ -253,10 +246,7 @@ function ApproveVoucherDialog({
     if (mode === "manual") {
       const clean = lines
         .filter((l) => l.vote_head_id && Number(l.amount) > 0)
-        .map((l) => ({
-          vote_head_id: l.vote_head_id,
-          amount: Number(l.amount),
-        }));
+        .map((l) => ({ vote_head_id: l.vote_head_id, amount: Number(l.amount) }));
       if (!clean.length) return toast.error("Add at least one vote head line");
       if (!balanced)
         return toast.error("Allocated amount must equal the voucher amount");
@@ -303,9 +293,7 @@ function ApproveVoucherDialog({
                 <SelectItem value="auto">
                   Auto — split by TIFO allocation rules
                 </SelectItem>
-                <SelectItem value="manual">
-                  Manual — assign vote heads
-                </SelectItem>
+                <SelectItem value="manual">Manual — assign vote heads</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -374,9 +362,7 @@ function ApproveVoucherDialog({
                 </Button>
                 <span
                   className={
-                    balanced
-                      ? "text-sm"
-                      : "text-sm text-destructive font-medium"
+                    balanced ? "text-sm" : "text-sm text-destructive font-medium"
                   }
                 >
                   Allocated {allocated.toLocaleString()} of{" "}
@@ -387,8 +373,8 @@ function ApproveVoucherDialog({
           ) : (
             <p className="text-sm text-muted-foreground">
               The voucher amount will be split across vote heads using the
-              school's active allocation (TIFO) percentages. Configure them
-              under Finance → Setup.
+              school's active allocation (TIFO) percentages. Configure them under
+              Finance → Setup.
             </p>
           )}
 
@@ -523,9 +509,7 @@ function NewVoucherDialog({
                 <SelectValue placeholder="Direct payment" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">
-                  Direct payment (no invoice)
-                </SelectItem>
+                <SelectItem value="none">Direct payment (no invoice)</SelectItem>
                 {outstandingInvoices.map((i: any) => (
                   <SelectItem key={i.id} value={i.id}>
                     {i.invoice_no} — outstanding{" "}
