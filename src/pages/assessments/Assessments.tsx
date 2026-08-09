@@ -60,7 +60,7 @@ import {
   type AssessmentStatus,
 } from "@/hooks/useAssessments";
 import { useGrades } from "@/hooks/useGrades";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCan } from "@/hooks/usePermission";
 
 const STATUS_STYLES: Record<AssessmentStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -283,8 +283,12 @@ function NewAssessmentDialog() {
 }
 
 export default function Assessments() {
-  const { primaryRole } = useAuth();
-  const isTeacher = primaryRole === "teacher";
+  const canSeeSettings = useCan(
+    "exams:update",
+    "assessments:bands:manage",
+    "settings:update",
+  );
+  const canCreate = useCan("exams:create");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("");
   const { data: list = [], isLoading } = useAssessmentsList({
@@ -324,7 +328,7 @@ export default function Assessments() {
             </p>
           </div>
           <div className="flex gap-2">
-            {!isTeacher && (
+            {canSeeSettings && (
               <Link to="/assessments/settings">
                 <Button variant="outline">
                   <Settings className="h-4 w-4 mr-1" /> Settings
@@ -336,7 +340,7 @@ export default function Assessments() {
                 <FileText className="h-4 w-4 mr-1" /> My Tasks
               </Button>
             </Link>
-            {!isTeacher && <NewAssessmentDialog />}
+            <NewAssessmentDialog />
           </div>
         </div>
 
@@ -490,20 +494,23 @@ export default function Assessments() {
                                     onClick={() => sync.mutate(a.id)}
                                     disabled={sync.isPending}
                                   >
-                                    <RefreshCw className={`h-3.5 w-3.5 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync
+                                    <RefreshCw
+                                      className={`h-3.5 w-3.5 mr-1 ${sync.isPending ? "animate-spin" : ""}`}
+                                    />{" "}
+                                    Sync
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() =>
-                                    setStatusM.mutate({
-                                      id: a.id,
-                                      status: "locked",
-                                    })
-                                  }
-                                >
-                                  <Lock className="h-3.5 w-3.5 mr-1" /> Lock
-                                </Button>
+                                      setStatusM.mutate({
+                                        id: a.id,
+                                        status: "locked",
+                                      })
+                                    }
+                                  >
+                                    <Lock className="h-3.5 w-3.5 mr-1" /> Lock
+                                  </Button>
                                 </>
                               )}
                               {a.status === "locked" && (
@@ -584,7 +591,7 @@ export default function Assessments() {
                 </TableBody>
               </Table>
             </div>
-            
+
             {/* Mobile View */}
             <div className="md:hidden flex flex-col gap-3 p-4">
               {isLoading &&
@@ -597,7 +604,8 @@ export default function Assessments() {
                 ))}
               {!isLoading && (list as any[]).length === 0 && (
                 <div className="text-center text-muted-foreground py-8 border rounded-lg">
-                  No assessments yet. {isTeacher ? "" : "Click New Assessment to create one."}
+                  No assessments yet.{" "}
+                  {canCreate ? "Click New Assessment to create one." : ""}
                 </div>
               )}
               {!isLoading &&
@@ -623,7 +631,9 @@ export default function Assessments() {
                         </div>
                         <Badge
                           variant="outline"
-                          className={STATUS_STYLES[a.status as AssessmentStatus]}
+                          className={
+                            STATUS_STYLES[a.status as AssessmentStatus]
+                          }
                         >
                           {a.status.replace("_", " ")}
                         </Badge>
@@ -631,24 +641,40 @@ export default function Assessments() {
 
                       <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                         <div>
-                          <span className="block text-xs uppercase opacity-70">Type</span>
+                          <span className="block text-xs uppercase opacity-70">
+                            Type
+                          </span>
                           {a.type_name ? (
-                            <span className="font-medium text-foreground">{a.type_code} · {a.type_weight}%</span>
+                            <span className="font-medium text-foreground">
+                              {a.type_code} · {a.type_weight}%
+                            </span>
                           ) : (
                             <span>—</span>
                           )}
                         </div>
                         <div>
-                          <span className="block text-xs uppercase opacity-70">Window</span>
-                          <span className="font-medium text-foreground">{a.start_date || "—"} → {a.end_date || "—"}</span>
+                          <span className="block text-xs uppercase opacity-70">
+                            Window
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {a.start_date || "—"} → {a.end_date || "—"}
+                          </span>
                         </div>
                         <div>
-                          <span className="block text-xs uppercase opacity-70">Scope</span>
-                          <span className="font-medium text-foreground">{a.class_count} classes, {a.subject_count} subj</span>
+                          <span className="block text-xs uppercase opacity-70">
+                            Scope
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {a.class_count} classes, {a.subject_count} subj
+                          </span>
                         </div>
                         <div>
-                          <span className="block text-xs uppercase opacity-70">Tasks</span>
-                          <span className="font-medium text-foreground">{a.task_done}/{a.task_count} done</span>
+                          <span className="block text-xs uppercase opacity-70">
+                            Tasks
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {a.task_done}/{a.task_count} done
+                          </span>
                         </div>
                       </div>
 
@@ -671,7 +697,8 @@ export default function Assessments() {
                               <PlayCircle className="h-4 w-4 mr-1" /> Publish
                             </Button>
                           )}
-                          {(a.status === "published" || a.status === "in_progress") && (
+                          {(a.status === "published" ||
+                            a.status === "in_progress") && (
                             <>
                               <Button
                                 size="sm"
@@ -679,20 +706,23 @@ export default function Assessments() {
                                 onClick={() => sync.mutate(a.id)}
                                 disabled={sync.isPending}
                               >
-                                <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync
+                                <RefreshCw
+                                  className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`}
+                                />{" "}
+                                Sync
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                setStatusM.mutate({
-                                  id: a.id,
-                                  status: "locked",
-                                })
-                              }
-                            >
-                              <Lock className="h-4 w-4 mr-1" /> Lock
-                            </Button>
+                                  setStatusM.mutate({
+                                    id: a.id,
+                                    status: "locked",
+                                  })
+                                }
+                              >
+                                <Lock className="h-4 w-4 mr-1" /> Lock
+                              </Button>
                             </>
                           )}
                           {a.status === "locked" && (
@@ -734,7 +764,8 @@ export default function Assessments() {
                                 })
                               }
                             >
-                              <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
+                              <ArchiveRestore className="h-4 w-4 mr-1" />{" "}
+                              Unarchive
                             </Button>
                           )}
                         </PermissionGate>
@@ -744,7 +775,8 @@ export default function Assessments() {
                               size="sm"
                               variant="ghost"
                               onClick={() => {
-                                if (confirm("Delete this assessment?")) remove.mutate(a.id);
+                                if (confirm("Delete this assessment?"))
+                                  remove.mutate(a.id);
                               }}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
