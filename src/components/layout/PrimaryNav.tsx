@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { groupIntoSections } from "./navSections";
@@ -30,9 +30,10 @@ const MORE_RESERVED = 104;
 
 /** Panel sizing grows with the number of items so nothing is hidden. */
 function panelLayout(count: number) {
-  if (count > 16) return { cols: 3, width: 780 };
-  if (count > 8) return { cols: 2, width: 520 };
-  return { cols: 1, width: 264 };
+  // Large modules (Finance, More) switch to the two-pane browser below.
+  if (count > 12) return { cols: 1, width: 620, browser: true };
+  if (count > 8) return { cols: 2, width: 520, browser: false };
+  return { cols: 1, width: 264, browser: false };
 }
 
 /** Rough width estimate so the bar never wraps to a second row. */
@@ -57,7 +58,114 @@ function DropdownPanel({
 }) {
   const { pathname } = useLocation();
   const sections = useMemo(() => groupIntoSections(group.items), [group.items]);
-  const { cols, width } = panelLayout(group.items.length);
+  const { cols, width, browser } = panelLayout(group.items.length);
+  const [query, setQuery] = useState("");
+  const [activeSection, setActiveSection] = useState<string>(
+    sections[0]?.[0] ?? "",
+  );
+
+  useEffect(() => {
+    setQuery("");
+    setActiveSection(sections[0]?.[0] ?? "");
+  }, [group.label, sections]);
+
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? group.items.filter((i) => i.title.toLowerCase().includes(q))
+    : [];
+  const currentItems =
+    sections.find(([s]) => s === activeSection)?.[1] ?? group.items;
+
+  const renderItem = (item: ShellNavItem) => {
+    const active =
+      pathname === item.url || pathname.startsWith(item.url + "/");
+    return (
+      <button
+        key={item.url}
+        role="menuitem"
+        onClick={() => onNavigate(item.url)}
+        className={cn(
+          "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors",
+          active
+            ? "bg-primary/10 font-semibold text-primary"
+            : "text-foreground/80 hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <item.icon className="h-4 w-4 shrink-0 opacity-70" />
+        <span className="truncate text-left">{item.title}</span>
+      </button>
+    );
+  };
+
+  if (browser) {
+    return createPortal(
+      <div
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        role="menu"
+        className={cn(
+          "fixed z-[9999] flex flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-[0_16px_40px_-12px_hsl(var(--foreground)/0.18)]",
+          "animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-100",
+        )}
+        style={{
+          top: anchor.top,
+          left: anchor.left,
+          width,
+          maxHeight: `min(440px, calc(100vh - ${anchor.top + 16}px))`,
+        }}
+      >
+        <div className="flex items-center gap-2 border-b border-border/70 px-3 py-2">
+          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${group.label.toLowerCase()}…`}
+            className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/70"
+          />
+        </div>
+
+        {q ? (
+          <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+            {matches.length ? (
+              matches.map(renderItem)
+            ) : (
+              <p className="px-2.5 py-6 text-center text-[13px] text-muted-foreground">
+                No matches
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <div className="w-[190px] shrink-0 overflow-y-auto border-r border-border/70 bg-muted/30 p-1.5">
+              {sections.map(([section, items]) => (
+                <button
+                  key={section}
+                  onMouseEnter={() => setActiveSection(section)}
+                  onClick={() => setActiveSection(section)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold transition-colors",
+                    activeSection === section
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span className="truncate">{section}</span>
+                  <span className="ml-2 shrink-0 text-[10px] font-normal opacity-60">
+                    {items.length}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+              {currentItems.map(renderItem)}
+            </div>
+          </div>
+        )}
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <div
