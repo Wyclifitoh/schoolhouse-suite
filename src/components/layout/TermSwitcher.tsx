@@ -15,9 +15,14 @@ import { toast } from "sonner";
 interface TermSwitcherProps {
   /** Compact = top-header style; otherwise sidebar style */
   compact?: boolean;
+  /** Show the "past term" indicator next to the selector */
+  showSwitchButton?: boolean;
 }
 
-export function TermSwitcher({ compact = false }: TermSwitcherProps) {
+export function TermSwitcher({
+  compact = false,
+  showSwitchButton = true,
+}: TermSwitcherProps) {
   const { selectedTerm, terms, switchTerm, isViewingCurrentTerm, currentTerm } = useTerm();
   const [pendingTerm, setPendingTerm] = useState<Term | null>(null);
   const [password, setPassword] = useState("");

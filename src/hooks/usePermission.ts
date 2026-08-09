@@ -68,11 +68,34 @@ export type PermissionCode =
   // Comms
   | "communication:create"
   | "communication:read"
+  | "communication:send"
+  | "communication:update"
+  // Academics extras
+  | "subjects:read"
+  | "subjects:manage"
+  | "timetable:read"
+  | "timetable:manage"
+  | "homework:read"
+  | "homework:manage"
+  | "lessonplans:read"
+  | "lessonplans:manage"
+  // HR extras
+  | "leaves:read"
+  | "leaves:create"
+  | "payroll:read"
+  // Finance extras
+  | "income:read"
+  | "billing:read"
+  | "billing:manage"
   // Inventory
   | "inventory:create"
   | "inventory:read"
   | "inventory:update"
   | "inventory:delete"
+  | "inventory:sell"
+  | "inventory:reports"
+  | "library:read"
+  | "library:manage"
   | "suppliers:manage"
   // Reports / audit
   | "reports:read"
@@ -87,7 +110,10 @@ export type PermissionCode =
   | "settings:read"
   | "settings:update"
   | "users:manage"
-  | "roles:manage";
+  | "roles:manage"
+  | "roles:read"
+  | "roles:assign_permissions"
+  | "apikeys:manage";
 
 interface MePermissions {
   permissions: string[]; // ["*"] = admin wildcard

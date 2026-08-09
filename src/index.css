@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,11 +6,14 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
+    --background: 214 38% 97.5%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
+
+    --surface: 0 0% 100%;
+    --surface-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
@@ -72,6 +75,9 @@
     --card: 224 47% 8%;
     --card-foreground: 210 40% 98%;
 
+    --surface: 224 47% 9%;
+    --surface-foreground: 210 40% 98%;
+
     --popover: 224 47% 8%;
     --popover-foreground: 210 40% 98%;
 
@@ -123,12 +129,32 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased overflow-x-hidden;
-    font-family: 'Sora', system-ui, -apple-system, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      "Sora",
+      system-ui,
+      -apple-system,
+      sans-serif;
   }
 }
 
 @layer utilities {
+  .shell-header {
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(217 33% 93%);
+  }
+  .dark .shell-header {
+    border-bottom-color: hsl(var(--border));
+  }
+  .shell-nav {
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(217 33% 93%);
+    box-shadow: 0 4px 14px -12px hsl(222 47% 11% / 0.18);
+  }
+  .dark .shell-nav {
+    border-bottom-color: hsl(var(--border));
+  }
+
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm;
   }
@@ -139,17 +165,22 @@
     @apply glass-card rounded-xl overflow-hidden relative;
   }
   .stat-card::before {
-    content: '';
+    content: "";
     @apply absolute inset-0 opacity-[0.03];
-    background: radial-gradient(ellipse at top right, hsl(var(--primary)), transparent 70%);
+    background: radial-gradient(
+      ellipse at top right,
+      hsl(var(--primary)),
+      transparent 70%
+    );
   }
   .gradient-text {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-[hsl(var(--primary-glow))];
   }
   .premium-shadow {
-    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04),
-                0 4px 12px hsl(var(--foreground) / 0.04),
-                0 0 0 1px hsl(var(--border) / 0.5);
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.04),
+      0 4px 12px hsl(var(--foreground) / 0.04),
+      0 0 0 1px hsl(var(--border) / 0.5);
   }
   .table-modern {
     @apply rounded-xl border overflow-hidden premium-shadow;
@@ -158,14 +189,10 @@
     @apply bg-muted/60 backdrop-blur-sm rounded-xl p-1.5;
   }
   .font-mono {
-    font-family: 'Sora', system-ui, -apple-system, sans-serif;
-  }
-
-  /* Global Mobile Responsiveness Overrides */
-  @media (max-width: 639px) {
-    /* Force grids to single column on mobile to prevent overflow, unless explicitly opted out */
-    .grid[class*="grid-cols-"]:not(.grid-cols-1):not(.mobile-grid-keep) {
-      grid-template-columns: minmax(0, 1fr) !important;
-    }
+    font-family:
+      "Sora",
+      system-ui,
+      -apple-system,
+      sans-serif;
   }
 }

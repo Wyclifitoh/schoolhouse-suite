@@ -556,17 +556,34 @@ export const ProductCatalog = () => {
                     </TableCell>
 
                     <TableCell>
-                      <Badge
-                        variant="default"
-                        className={cfg.className + " rounded-lg"}
-                      >
-                        {cfg.label}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="default"
+                          className={cfg.className + " rounded-lg"}
+                        >
+                          {cfg.label}
+                        </Badge>
+                        {status !== "in_stock" && perms["inventory:create"] && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-lg px-2 text-xs"
+                            onClick={() => {
+                              setSelected(new Set([item.id]));
+                              setOrderOpen(true);
+                            }}
+                          >
+                            <ShoppingCart className="h-3.5 w-3.5 mr-1" />
+                            Make Order
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
 
                     <TableCell>
                       {(perms["inventory:update"] ||
-                        perms["inventory:delete"]) && (
+                        perms["inventory:delete"] ||
+                        perms["inventory:create"]) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -579,6 +596,17 @@ export const ProductCatalog = () => {
                           </DropdownMenuTrigger>
 
                           <DropdownMenuContent align="end">
+                            {perms["inventory:create"] && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelected(new Set([item.id]));
+                                  setOrderOpen(true);
+                                }}
+                              >
+                                <ShoppingCart className="h-4 w-4 mr-2" />
+                                Make Order
+                              </DropdownMenuItem>
+                            )}
                             {perms["inventory:update"] && (
                               <DropdownMenuItem
                                 onClick={() => setEditing(item)}
