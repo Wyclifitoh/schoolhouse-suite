@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -105,9 +106,13 @@ type ModuleGroup = { module: string; list: Permission[] };
 type CategoryGroup = { key: string; label: string; modules: ModuleGroup[] };
 
 /**
- * Roles & Permissions workspace — roles on the left, the selected role's
- * grants on the right. Presentation only: every read and write goes through
- * the existing RBAC endpoints, so authorization stays the single write path.
+ * Roles & Permissions workspace — a single page: roles on the left, the
+ * selected role's grants on the right.
+ *
+ * This is presentation only. Every read and write goes through the existing
+ * RBAC endpoints (`/roles`, `/roles/permissions`, `/roles/:role/permissions`),
+ * so the central authorization service, auth_version propagation and audit
+ * trail are untouched.
  */
 const RolesWorkspace = () => {
   const { role: roleParam } = useParams();
@@ -132,12 +137,12 @@ const RolesWorkspace = () => {
 
   const rolesQ = useQuery({
     queryKey: ["roles", "list"],
-    queryFn: async () => unwrap<Role[]>(await api.get("/roles")) || [],
+    queryFn: async () => unwrap<Role[]>(await api.get<any>("/roles")) || [],
   });
   const permsQ = useQuery({
     queryKey: ["roles", "catalog"],
     queryFn: async () =>
-      unwrap<Permission[]>(await api.get("/roles/permissions")) || [],
+      unwrap<Permission[]>(await api.get<any>("/roles/permissions")) || [],
   });
 
   const roles = rolesQ.data || [];
@@ -152,11 +157,13 @@ const RolesWorkspace = () => {
   const grantsQ = useQuery({
     queryKey: ["roles", "grants", selected],
     queryFn: async () =>
-      unwrap<Permission[]>(await api.get(`/roles/${selected}/permissions`)) ||
-      [],
+      unwrap<Permission[]>(
+        await api.get<any>(`/roles/${selected}/permissions`),
+      ) || [],
     enabled: !!selected,
   });
 
+  // Reset the draft whenever the server state for this role arrives.
   useEffect(() => {
     if (grantsQ.data) setDraft(new Set(grantsQ.data.map((p) => p.id)));
   }, [grantsQ.data, selected]);
@@ -186,6 +193,7 @@ const RolesWorkspace = () => {
 
   const dirty = changes.granted.length > 0 || changes.revoked.length > 0;
 
+  // Warn on accidental tab close / reload while there are unsaved changes.
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -207,6 +215,7 @@ const RolesWorkspace = () => {
     );
   }, [roles, roleSearch]);
 
+  /** Catalog grouped into categories → modules, filtered by the search box. */
   const categoryGroups: CategoryGroup[] = useMemo(() => {
     const q = search.trim().toLowerCase();
     const matches = (p: Permission) =>
@@ -250,8 +259,8 @@ const RolesWorkspace = () => {
       }),
     onSuccess: (res: any) => {
       const d = unwrap<any>(res) || {};
-      const added = d.added?.length ?? changes.granted.length;
-      const removed = d.removed?.length ?? changes.revoked.length;
+      const added = d.added?.length || 0;
+      const removed = d.removed?.length || 0;
       toast.success(
         `Saved — ${added} granted, ${removed} revoked. Active immediately for all users with this role.`,
       );
@@ -276,10 +285,12 @@ const RolesWorkspace = () => {
   const createRole = useMutation({
     mutationFn: async () => {
       const created = unwrap<any>(await api.post("/roles/custom", form));
+      // Duplicate: copy the source role's grants through the same endpoint the
+      // editor uses, so authorization stays the single write path.
       if (duplicateOf && created?.code) {
         const src =
           unwrap<Permission[]>(
-            await api.get(`/roles/${duplicateOf}/permissions`),
+            await api.get<any>(`/roles/${duplicateOf}/permissions`),
           ) || [];
         await api.put(`/roles/${created.code}/permissions`, {
           permission_ids: src.map((p) => p.id),
@@ -358,14 +369,12 @@ const RolesWorkspace = () => {
 
   if (ready && !has("roles:read") && !has("roles:manage")) {
     return (
-      <DashboardLayout title="Roles & Permissions" subtitle="Access control">
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+      <DashboardLayout>
+        <Card className="mx-auto mt-10 max-w-md">
+          <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
             <Lock className="h-8 w-8 text-muted-foreground" />
-            <p className="text-base font-semibold">
-              You cannot view Roles &amp; Permissions
-            </p>
-            <p className="max-w-sm text-sm text-muted-foreground">
+            <p className="font-medium">You cannot view Roles & Permissions</p>
+            <p className="text-sm text-muted-foreground">
               Ask an administrator for the “Roles &amp; Permissions” access.
             </p>
           </CardContent>
@@ -375,9 +384,9 @@ const RolesWorkspace = () => {
   }
 
   const rolesSidebar = (
-    <div className="rounded-xl border border-border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Roles (
           {roleSearch.trim()
             ? `${filteredRoles.length}/${roles.length}`
@@ -388,7 +397,7 @@ const RolesWorkspace = () => {
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 px-2 text-xs"
+            className="h-7 px-2 text-primary hover:bg-primary/10"
             onClick={() => {
               setDuplicateOf(null);
               setForm({ code: "", label: "", description: "" });
@@ -399,9 +408,9 @@ const RolesWorkspace = () => {
           </Button>
         )}
       </div>
-      <div className="border-b border-border p-2">
+      <div className="border-b p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={roleSearch}
             onChange={(e) => setRoleSearch(e.target.value)}
@@ -410,77 +419,87 @@ const RolesWorkspace = () => {
           />
         </div>
       </div>
-      <div className="p-2">
-        {loading &&
-          [...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="mb-1 h-16 w-full rounded-lg" />
-          ))}
-        {filteredRoles.map((r) => {
-          const active = r.code === selected;
-          return (
-            <button
-              key={r.code}
-              onClick={() => {
-                setSelected(r.code);
-                setMobileRoles(false);
-              }}
-              className={cn(
-                "mb-1 w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
-                active
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-transparent hover:bg-muted/60",
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold">
-                  {r.label}
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  {r.user_count ?? 0}
-                </span>
-              </div>
-              <div className="mt-0.5 flex items-center justify-between gap-2">
-                <span className="truncate font-mono text-[11px] text-muted-foreground">
-                  {r.code}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  {r.permission_count}
-                  {r.customised && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  )}
-                </span>
-              </div>
-              <Badge
-                variant={r.builtin ? "secondary" : "outline"}
-                className="mt-1.5 text-[10px]"
+      {/* The list scrolls itself (header + search stay usable). No max-height
+          cap: a Radix ScrollArea inside an `h-fit` card clipped the roles that
+          did not fit and hid the scrollbar, which made roles look missing. */}
+      <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[calc(100vh-15rem)]">
+        <div className="p-2">
+          {loading &&
+            [...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="mb-2 h-16 w-full" />
+            ))}
+          {filteredRoles.map((r) => {
+            const active = r.code === selected;
+            return (
+              <button
+                key={r.code}
+                onClick={() => {
+                  setSelected(r.code);
+                  setMobileRoles(false);
+                }}
+                className={cn(
+                  "mb-1 w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                  active
+                    ? "border-primary/30 bg-primary/5"
+                    : "border-transparent hover:bg-muted/60",
+                )}
               >
-                {r.builtin ? "Built-in" : "Custom"}
-              </Badge>
-            </button>
-          );
-        })}
-        {!loading && !filteredRoles.length && (
-          <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-            No roles match “{roleSearch}”.
-          </p>
-        )}
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={cn(
+                      "truncate text-sm font-medium",
+                      active && "text-primary",
+                    )}
+                  >
+                    {r.label}
+                  </span>
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                    <Users className="h-3 w-3" />
+                    {r.user_count ?? 0}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-[11px] text-muted-foreground">
+                    {r.code}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                    {r.permission_count}
+                    {r.customised && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="mt-2 border-border/70 text-[9px] font-medium uppercase tracking-wide text-muted-foreground"
+                >
+                  {r.builtin ? "Built-in" : "Custom"}
+                </Badge>
+              </button>
+            );
+          })}
+          {!loading && !filteredRoles.length && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No roles match “{roleSearch}”.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
 
   return (
-    <DashboardLayout
-      title="Roles & Permissions"
-      subtitle="Control what each role can access"
-    >
-      <div className={cn("pb-24", !dirty && "pb-4")}>
-        <div className="mb-5 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+    <DashboardLayout>
+      <div className="space-y-5">
+        {/* Page header */}
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
             <Shield className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold">Roles &amp; Permissions</h1>
+            <h1 className="text-xl font-semibold tracking-tight">
+              Roles &amp; Permissions
+            </h1>
             <p className="text-sm text-muted-foreground">
               Manage roles and control what each role can access. Changes apply
               to every user with the role, immediately.
@@ -489,24 +508,33 @@ const RolesWorkspace = () => {
         </div>
 
         {/* Mobile role selector */}
-        <div className="mb-4 lg:hidden">
+        <div className="lg:hidden">
           <Button
             variant="outline"
             className="w-full justify-between"
             onClick={() => setMobileRoles((v) => !v)}
           >
-            <span>{activeRole?.label || "Select a role"}</span>
+            <span className="truncate">
+              {activeRole?.label || "Select a role"}
+            </span>
             <ChevronDown className="h-4 w-4" />
           </Button>
-          {mobileRoles && <div className="mt-2">{rolesSidebar}</div>}
+          {mobileRoles && (
+            <Card className="mt-2 overflow-hidden">{rolesSidebar}</Card>
+          )}
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="hidden lg:block">{rolesSidebar}</div>
+        <div className="grid gap-5 lg:grid-cols-[290px_1fr]">
+          {/* Roles sidebar (desktop) */}
+          <Card className="hidden h-fit overflow-hidden lg:block">
+            {rolesSidebar}
+          </Card>
 
+          {/* Permissions workspace */}
           <div className="min-w-0 space-y-4">
+            {/* Role header */}
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="space-y-4 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -515,14 +543,14 @@ const RolesWorkspace = () => {
                       </h2>
                       {activeRole && (
                         <Badge
-                          variant={activeRole.builtin ? "secondary" : "outline"}
-                          className="text-[10px]"
+                          variant="outline"
+                          className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground"
                         >
                           {activeRole.builtin ? "Built-in" : "Custom"}
                         </Badge>
                       )}
                     </div>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {activeRole?.description ||
                         "Choose a role on the left to review its access."}
                     </p>
@@ -530,12 +558,11 @@ const RolesWorkspace = () => {
                   <div className="flex items-center gap-2">
                     {canEdit && activeRole?.customised && (
                       <Button
-                        size="sm"
                         variant="outline"
+                        size="sm"
                         onClick={() => setResetOpen(true)}
                       >
-                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset to
-                        defaults
+                        <RotateCcw className="mr-2 h-4 w-4" /> Reset to defaults
                       </Button>
                     )}
                     {canEdit && dirty && (
@@ -544,14 +571,14 @@ const RolesWorkspace = () => {
                         onClick={() => save.mutate()}
                         disabled={save.isPending}
                       >
-                        <Save className="mr-1.5 h-3.5 w-3.5" />
+                        <Save className="mr-2 h-4 w-4" />
                         {save.isPending ? "Saving…" : "Save changes"}
                       </Button>
                     )}
                     {canEdit && activeRole && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-8 w-8">
+                          <Button variant="outline" size="sm" className="px-2">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -581,14 +608,14 @@ const RolesWorkspace = () => {
                               setAddOpen(true);
                             }}
                           >
-                            <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate role
+                            <Copy className="mr-2 h-4 w-4" /> Duplicate role
                           </DropdownMenuItem>
                           {!activeRole.builtin && (
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => setDeleteOpen(true)}
                             >
-                              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete role
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete role
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -597,22 +624,27 @@ const RolesWorkspace = () => {
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
+                {/* Summary */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    <Users className="h-4 w-4" />
                     {activeRole?.user_count ?? 0} users
                   </span>
-                  <span>
-                    <span className="font-semibold text-foreground">
+                  <span className="text-muted-foreground">
+                    <span className="font-medium text-foreground">
                       {grantedTotal}
                     </span>{" "}
                     of {catalogTotal} permissions granted
                   </span>
-                  {modifiedLabel && <span>Modified {modifiedLabel}</span>}
+                  {modifiedLabel && (
+                    <span className="text-muted-foreground">
+                      Modified {modifiedLabel}
+                    </span>
+                  )}
                 </div>
                 <Progress
                   value={catalogTotal ? (grantedTotal / catalogTotal) * 100 : 0}
-                  className="mt-2 h-1.5"
+                  className="h-1.5"
                 />
               </CardContent>
             </Card>
@@ -620,7 +652,7 @@ const RolesWorkspace = () => {
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-[220px] flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -640,15 +672,15 @@ const RolesWorkspace = () => {
               {canEdit && (
                 <>
                   <Button
-                    size="sm"
                     variant="outline"
+                    size="sm"
                     onClick={() => setBulk("all")}
                   >
                     Select all permissions
                   </Button>
                   <Button
-                    size="sm"
                     variant="outline"
+                    size="sm"
                     onClick={() => setBulk("none")}
                   >
                     Clear all
@@ -658,46 +690,54 @@ const RolesWorkspace = () => {
               {dirty && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button size="sm" variant="ghost">
-                      <ListChecks className="mr-1.5 h-3.5 w-3.5" /> View changes
+                    <Button variant="outline" size="sm">
+                      <ListChecks className="mr-2 h-4 w-4" /> View changes
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-80 p-0">
-                    <div className="border-b border-border px-3 py-2">
-                      <p className="text-sm font-semibold">
+                    <div className="border-b px-4 py-2.5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Permission changes
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm">
                         {changes.granted.length + changes.revoked.length} total
                         changes
                       </p>
                     </div>
-                    <div className="max-h-72 overflow-y-auto p-3 text-xs">
-                      {!!changes.granted.length && (
-                        <div className="mb-3">
-                          <p className="mb-1 font-semibold text-foreground">
-                            Granted
-                          </p>
-                          {changes.granted.map((c) => (
-                            <p key={c} className="font-mono text-primary">
-                              + {c}
+                    <ScrollArea className="max-h-64">
+                      <div className="space-y-3 p-4 text-sm">
+                        {!!changes.granted.length && (
+                          <div>
+                            <p className="mb-1 text-xs font-medium text-muted-foreground">
+                              Granted
                             </p>
-                          ))}
-                        </div>
-                      )}
-                      {!!changes.revoked.length && (
-                        <div>
-                          <p className="mb-1 font-semibold text-foreground">
-                            Revoked
-                          </p>
-                          {changes.revoked.map((c) => (
-                            <p key={c} className="font-mono text-destructive">
-                              − {c}
+                            {changes.granted.map((c) => (
+                              <p
+                                key={c}
+                                className="font-mono text-xs text-primary"
+                              >
+                                + {c}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {!!changes.revoked.length && (
+                          <div>
+                            <p className="mb-1 text-xs font-medium text-muted-foreground">
+                              Revoked
                             </p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                            {changes.revoked.map((c) => (
+                              <p
+                                key={c}
+                                className="font-mono text-xs text-destructive"
+                              >
+                                − {c}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
                   </PopoverContent>
                 </Popover>
               )}
@@ -705,7 +745,7 @@ const RolesWorkspace = () => {
 
             {grantsQ.isError && (
               <Card className="border-destructive/40">
-                <CardContent className="flex items-center gap-2 py-4 text-sm text-destructive">
+                <CardContent className="flex items-center gap-2 p-4 text-sm text-destructive">
                   <AlertTriangle className="h-4 w-4" />
                   Could not load this role’s permissions. Nothing was changed.
                 </CardContent>
@@ -713,13 +753,14 @@ const RolesWorkspace = () => {
             )}
 
             {grantsQ.isLoading && (
-              <div className="space-y-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-28 w-full rounded-xl" />
+                  <Skeleton key={i} className="h-40 w-full" />
                 ))}
               </div>
             )}
 
+            {/* Category → module cards */}
             {!grantsQ.isLoading && !grantsQ.isError && selected && (
               <div className="space-y-5">
                 {categoryGroups.map((cat) => {
@@ -727,7 +768,7 @@ const RolesWorkspace = () => {
                   const on = flat.filter((p) => draft.has(p.id)).length;
                   const isCollapsed = collapsed.has(cat.key);
                   return (
-                    <div key={cat.key}>
+                    <section key={cat.key}>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <button
                           onClick={() => toggleCategory(cat.key)}
@@ -739,7 +780,7 @@ const RolesWorkspace = () => {
                             <ChevronDown className="h-3.5 w-3.5" />
                           )}
                           {cat.label}
-                          <span className="font-normal normal-case">
+                          <span className="font-normal normal-case tracking-normal">
                             ({on}/{flat.length})
                           </span>
                         </button>
@@ -755,19 +796,19 @@ const RolesWorkspace = () => {
                         )}
                       </div>
                       {!isCollapsed && (
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                           {cat.modules.map(({ module, list }) => {
                             const mOn = list.filter((p) =>
                               draft.has(p.id),
                             ).length;
                             const all = mOn === list.length;
                             return (
-                              <Card key={module}>
-                                <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+                              <Card key={module} className="overflow-hidden">
+                                <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2.5">
                                   <p className="truncate text-sm font-semibold">
                                     {moduleLabel(module)}
                                   </p>
-                                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                                  <span className="shrink-0 text-xs text-muted-foreground">
                                     {mOn} / {list.length}
                                   </span>
                                 </div>
@@ -780,30 +821,36 @@ const RolesWorkspace = () => {
                                       all
                                         ? "bg-primary/10 text-primary"
                                         : "text-primary hover:bg-primary/10",
-                                      !canEdit && "cursor-not-allowed opacity-50",
+                                      !canEdit &&
+                                        "cursor-not-allowed opacity-50",
                                     )}
                                   >
                                     {all && <Check className="h-3 w-3" />}
                                     {all ? "All selected" : "Select all"}
                                   </button>
                                   <Separator className="my-2" />
-                                  <div className="space-y-2">
+                                  <div className="space-y-1.5">
                                     {list.map((p) => (
                                       <label
                                         key={p.id}
-                                        className="flex cursor-pointer items-start gap-2"
+                                        className={cn(
+                                          "flex items-start gap-2.5 rounded-md px-2 py-1.5",
+                                          canEdit
+                                            ? "cursor-pointer hover:bg-muted/50"
+                                            : "cursor-not-allowed opacity-80",
+                                        )}
                                       >
                                         <Checkbox
-                                          disabled={!canEdit}
                                           checked={draft.has(p.id)}
+                                          disabled={!canEdit}
                                           onCheckedChange={() => toggle(p.id)}
                                           className="mt-0.5"
                                         />
                                         <span className="min-w-0">
-                                          <span className="block text-xs font-medium">
+                                          <span className="block text-sm leading-tight">
                                             {actionLabel(p.action)}
                                           </span>
-                                          <span className="block truncate text-[11px] text-muted-foreground">
+                                          <span className="block truncate text-xs text-muted-foreground">
                                             {p.description || p.code}
                                           </span>
                                         </span>
@@ -816,12 +863,12 @@ const RolesWorkspace = () => {
                           })}
                         </div>
                       )}
-                    </div>
+                    </section>
                   );
                 })}
                 {!categoryGroups.length && (
                   <Card>
-                    <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                    <CardContent className="p-8 text-center text-sm text-muted-foreground">
                       No permissions match “{search}”.
                     </CardContent>
                   </Card>
@@ -834,15 +881,15 @@ const RolesWorkspace = () => {
 
       {/* Sticky save bar */}
       {canEdit && dirty && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-3 shadow-[0_-8px_24px_-16px_hsl(var(--foreground)/0.3)]">
-          <div>
-            <p className="text-sm font-semibold">Unsaved changes</p>
-            <p className="text-xs text-muted-foreground">
+        <div className="sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-lg backdrop-blur">
+          <div className="text-sm">
+            <p className="font-medium">Unsaved changes</p>
+            <p className="text-muted-foreground">
               {changes.granted.length} granted · {changes.revoked.length}{" "}
               revoked for {activeRole?.label}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <Button
               variant="ghost"
               onClick={() => setDraft(new Set(serverIds))}
@@ -851,7 +898,7 @@ const RolesWorkspace = () => {
               Discard
             </Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="mr-2 h-4 w-4" />
               {save.isPending ? "Saving…" : "Save changes"}
             </Button>
           </div>

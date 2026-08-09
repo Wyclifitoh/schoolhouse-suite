@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 
@@ -6,6 +6,12 @@ import { useAuth, AppRole } from "@/contexts/AuthContext";
 // PERMISSION CODES (catalog mirrors backend permissions table)
 // ============================================
 
+/**
+ * Every code below exists in the backend `permissions` catalog
+ * (see backend/src/utils/rolesBootstrap.js). Keep the two in sync — a code
+ * that is not in the catalog can never be granted, so it would silently
+ * lock a page out.
+ */
 export type PermissionCode =
   // Students
   | "students:create"
@@ -26,11 +32,21 @@ export type PermissionCode =
   | "staff:read"
   | "staff:update"
   | "staff:delete"
-  // Classes
+  // Classes / academics
   | "classes:create"
   | "classes:read"
   | "classes:update"
   | "classes:delete"
+  | "subjects:read"
+  | "subjects:manage"
+  | "timetable:read"
+  | "timetable:manage"
+  | "homework:read"
+  | "homework:manage"
+  | "lessonplans:read"
+  | "lessonplans:manage"
+  | "library:read"
+  | "library:manage"
   // Finance
   | "finance:fees:read"
   | "finance:fees:create"
@@ -46,13 +62,17 @@ export type PermissionCode =
   | "payments:import"
   | "payments:receipt"
   | "payments:reverse"
-  // Expenses
+  // Expenses / income
   | "expenses:create"
   | "expenses:read"
   | "expenses:update"
   | "expenses:delete"
   | "expenses:approve"
   | "expenses:import"
+  | "income:create"
+  | "income:read"
+  | "income:update"
+  | "income:delete"
   // Attendance
   | "attendance:create"
   | "attendance:read"
@@ -65,37 +85,29 @@ export type PermissionCode =
   | "exams:delete"
   | "exams:publish"
   | "assessments:bands:manage"
+  // HR
+  | "leaves:read"
+  | "leaves:create"
+  | "leaves:approve"
+  | "payroll:read"
+  | "payroll:process"
+  | "payroll:approve"
   // Comms
   | "communication:create"
   | "communication:read"
-  | "communication:send"
   | "communication:update"
-  // Academics extras
-  | "subjects:read"
-  | "subjects:manage"
-  | "timetable:read"
-  | "timetable:manage"
-  | "homework:read"
-  | "homework:manage"
-  | "lessonplans:read"
-  | "lessonplans:manage"
-  // HR extras
-  | "leaves:read"
-  | "leaves:create"
-  | "payroll:read"
-  // Finance extras
-  | "income:read"
-  | "billing:read"
-  | "billing:manage"
+  | "communication:delete"
+  | "communication:send"
   // Inventory
   | "inventory:create"
   | "inventory:read"
   | "inventory:update"
   | "inventory:delete"
   | "inventory:sell"
+  | "inventory:issue"
+  | "inventory:return"
+  | "inventory:purchase"
   | "inventory:reports"
-  | "library:read"
-  | "library:manage"
   | "suppliers:manage"
   // Reports / audit
   | "reports:read"
@@ -106,65 +118,128 @@ export type PermissionCode =
   | "events:read"
   | "events:update"
   | "events:delete"
-  // Settings / roles
+  // Settings / roles / users / billing
   | "settings:read"
   | "settings:update"
+  | "apikeys:manage"
+  | "billing:read"
+  | "billing:manage"
+  | "users:read"
+  | "users:create"
+  | "users:update"
+  | "users:delete"
   | "users:manage"
-  | "roles:manage"
   | "roles:read"
-  | "roles:assign_permissions"
-  | "apikeys:manage";
+  | "roles:create"
+  | "roles:update"
+  | "roles:delete"
+  | "roles:manage"
+  | "roles:assign_permissions";
 
 interface MePermissions {
   permissions: string[]; // ["*"] = admin wildcard
   roles: string[];
+  auth_version: number;
 }
 
+const EMPTY: MePermissions = { permissions: [], roles: [], auth_version: 0 };
+
+/**
+ * The caller's effective permissions, resolved SERVER-SIDE.
+ *
+ * Rules this hook obeys:
+ *  - The server is the only authority. No role names are special-cased here;
+ *    an admin simply receives ["*"].
+ *  - It FAILS CLOSED. A failed request yields no permissions, and `isError`
+ *    lets callers show an error instead of a silently empty screen.
+ *  - It self-invalidates. The school's `auth_version` is polled cheaply, so a
+ *    permission change by an administrator takes effect within seconds
+ *    without the user logging out and back in.
+ */
 export function useMyPermissions() {
   const { user } = useAuth();
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const q = useQuery({
     queryKey: ["me-permissions", user?.id],
     queryFn: async () => {
-      try {
-        const data = await api.get<MePermissions>("/roles/me/permissions");
-        return data || { permissions: [], roles: [] };
-      } catch {
-        return { permissions: [], roles: [] };
-      }
+      const data = await api.get<MePermissions>("/roles/me/permissions");
+      return data || EMPTY;
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    retry: 1,
   });
+
+  // Lightweight change detector: if the school's authorization version moves,
+  // drop the cached permission set immediately.
+  const version = q.data?.auth_version;
+  useQuery({
+    queryKey: ["auth-version", user?.id],
+    queryFn: async () => {
+      const data = await api.get<{ auth_version: number }>(
+        "/roles/me/auth-version",
+      );
+      const next = data?.auth_version ?? 0;
+      if (version !== undefined && next !== version) {
+        queryClient.invalidateQueries({ queryKey: ["me-permissions"] });
+        queryClient.invalidateQueries({ queryKey: ["roles"] });
+      }
+      return next;
+    },
+    enabled: !!user && version !== undefined,
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
+  return q;
+}
+
+/** Permission set + readiness, the primitive every other helper builds on. */
+export function usePermissionSet() {
+  const { data, isLoading, isError } = useMyPermissions();
+  const permissions = data?.permissions || [];
+  const set = new Set(permissions);
+  return {
+    /** True only once a real answer has arrived from the server. */
+    ready: !isLoading && !isError && !!data,
+    isLoading,
+    isError,
+    wildcard: set.has("*"),
+    roles: data?.roles || [],
+    has: (code: string) => set.has("*") || set.has(code),
+  };
 }
 
 /**
- * Check if current user has a specific permission.
- * Admins (super_admin / admin) get "*" wildcard.
+ * Does the user hold this permission? Server-authoritative and fail-closed:
+ * returns false while loading or on error.
  */
 export function usePermission(permission: PermissionCode): boolean {
-  const { hasAnyRole } = useAuth();
-  // Admins always have permission (also handled server-side)
-  if (hasAnyRole(["super_admin", "admin", "school_admin"])) return true;
-  const { data } = useMyPermissions();
-  const perms = data?.permissions || [];
-  if (perms.includes("*")) return true;
-  return perms.includes(permission);
+  const { ready, has } = usePermissionSet();
+  return ready && has(permission);
 }
 
-/**
- * Check multiple permissions at once.
- */
+/** True when the user holds ANY of the given permissions. */
+export function useCan(...codes: PermissionCode[]): boolean {
+  const { ready, has } = usePermissionSet();
+  return ready && codes.some((c) => has(c));
+}
+
+/** True when the user holds EVERY given permission. */
+export function useCanAll(...codes: PermissionCode[]): boolean {
+  const { ready, has } = usePermissionSet();
+  return ready && codes.every((c) => has(c));
+}
+
+/** Batch lookup, handy for toolbars and menus. */
 export function usePermissions(
   permissions: PermissionCode[],
 ): Record<PermissionCode, boolean> {
-  const { hasAnyRole } = useAuth();
-  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"]);
-  const { data } = useMyPermissions();
-  const set = new Set(data?.permissions || []);
+  const { ready, has } = usePermissionSet();
   const out: Record<string, boolean> = {};
-  for (const p of permissions) {
-    out[p] = isAdmin || set.has("*") || set.has(p);
-  }
+  for (const p of permissions) out[p] = ready && has(p);
   return out as Record<PermissionCode, boolean>;
 }
 
@@ -172,25 +247,6 @@ export function usePermissions(
  * Get the primary dashboard redirect path based on the user's primary role.
  */
 export function getDashboardRedirect(primaryRole: AppRole | null): string {
-  return getDashboardRedirectImpl(primaryRole);
-}
-
-/**
- * Permission set helper: `has(code)` plus a `ready` flag so callers can wait
- * for the permission payload before hiding UI.
- */
-export function usePermissionSet() {
-  const { hasAnyRole } = useAuth();
-  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"]);
-  const { data, isLoading } = useMyPermissions();
-  const set = new Set(data?.permissions || []);
-  return {
-    ready: isAdmin || !isLoading,
-    has: (code: string) => isAdmin || set.has("*") || set.has(code),
-  };
-}
-
-function getDashboardRedirectImpl(primaryRole: AppRole | null): string {
   const redirectMap: Partial<Record<AppRole, string>> = {
     super_admin: "/dashboard",
     school_admin: "/dashboard",
