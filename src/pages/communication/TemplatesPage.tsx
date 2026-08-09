@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CommunicationNav } from "@/components/communication/CommunicationNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +46,6 @@ export default function TemplatesPage() {
 
   return (
     <DashboardLayout title="Templates" subtitle="Reusable SMS and Email templates with placeholders">
-      <CommunicationNav />
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

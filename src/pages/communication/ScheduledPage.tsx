@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CommunicationNav } from "@/components/communication/CommunicationNav";
 import { StatusPill } from "@/components/communication/StatusPill";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ export default function ScheduledPage() {
 
   return (
     <DashboardLayout title="Scheduled Messages" subtitle="Future messages queued for delivery">
-      <CommunicationNav />
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">

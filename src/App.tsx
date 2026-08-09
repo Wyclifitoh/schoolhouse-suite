@@ -148,6 +148,8 @@ import Ratings from "./pages/Ratings";
 import ChangePassword from "./pages/ChangePassword";
 
 // Reports
+import ReportCenter from "./pages/reports/ReportCenter";
+import ReportCategoryPage from "./pages/reports/ReportCategoryPage";
 import FinanceReports from "./pages/reports/FinanceReports";
 import StudentReports from "./pages/reports/StudentReports";
 import AttendanceReports from "./pages/reports/AttendanceReports";
@@ -1425,6 +1427,22 @@ const App = () => (
                       />
 
                       {/* Reports */}
+                      <Route
+                        path="/reports"
+                        element={
+                          <ProtectedRoute>
+                            <ReportCenter />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/c/:categoryId"
+                        element={
+                          <ProtectedRoute>
+                            <ReportCategoryPage />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route
                         path="/reports/finance"
                         element={

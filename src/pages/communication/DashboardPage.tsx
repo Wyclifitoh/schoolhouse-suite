@@ -1,5 +1,4 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CommunicationNav } from "@/components/communication/CommunicationNav";
 import { SmsBalanceCard } from "@/components/communication/SmsBalanceCard";
 import { StatusPill } from "@/components/communication/StatusPill";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +44,6 @@ export default function CommunicationDashboardPage() {
 
   return (
     <DashboardLayout title="Communication" subtitle="Command center for all school messaging">
-      <CommunicationNav />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
         {isLoading ? (

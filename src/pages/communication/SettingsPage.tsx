@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CommunicationNav } from "@/components/communication/CommunicationNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -22,7 +21,6 @@ export default function CommunicationSettingsPage() {
 
   return (
     <DashboardLayout title="Communication Settings" subtitle="Configure SMS, Email, and delivery preferences">
-      <CommunicationNav />
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">

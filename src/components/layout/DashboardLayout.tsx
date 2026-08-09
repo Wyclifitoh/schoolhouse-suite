@@ -69,6 +69,8 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
+import { ModuleTabs } from "@/components/layout/ModuleTabs";
+import { workspaceTabsForRoute } from "@/components/layout/workspaceTabs";
 
 import { SessionBanner } from "@/components/layout/SessionBanner";
 import { useIsHistoricalView } from "@/hooks/useAcademicContext";
@@ -697,92 +699,14 @@ const navigationGroups: NavGroup[] = [
     icon: MessageSquare,
     items: [
       {
-        title: "Dashboard",
+        title: "Communication",
         url: "/communication",
-        icon: LayoutDashboard,
+        icon: MessageSquare,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
-      },
-      {
-        title: "Send Message",
-        url: "/communication/send",
-        icon: Mail,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Campaigns",
-        url: "/communication/campaigns",
-        icon: BellRing,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Templates",
-        url: "/communication/templates",
-        icon: FileText,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Automated Messages",
-        url: "/communication/automations",
-        icon: Sparkles,
-        roles: [...ADMIN_ROLES] as AppRole[],
-      },
-      {
-        title: "Scheduled",
-        url: "/communication/scheduled",
-        icon: Clock,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Message History",
-        url: "/communication/history",
-        icon: Archive,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Settings",
-        url: "/communication/settings",
-        icon: Settings,
-        roles: ADMIN_ROLES,
-      },
-      {
-        title: "Notices",
-        url: "/communication/noticeboard",
-        icon: BellRing,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Events Calendar",
-        url: "/events",
-        icon: Calendar,
-        roles: ALL_STAFF_ROLES,
       },
     ],
   },
@@ -808,60 +732,11 @@ const navigationGroups: NavGroup[] = [
     icon: Package,
     items: [
       {
-        title: "Overview",
+        title: "Inventory & Store",
         url: "/inventory",
         icon: Package,
         roles: ADMIN_ROLES,
         permissions: ["inventory:read"],
-      },
-      {
-        title: "Catalog",
-        url: "/inventory/catalog",
-        icon: Package,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:read"],
-      },
-      {
-        title: "Categories",
-        url: "/inventory/categories",
-        icon: Layers,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:read"],
-      },
-      {
-        title: "Make Sale",
-        url: "/inventory/sell",
-        icon: CreditCard,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:update"],
-      },
-      {
-        title: "Staff Assignments",
-        url: "/inventory/assignments",
-        icon: Users,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:update"],
-      },
-      {
-        title: "Sales History",
-        url: "/inventory/history",
-        icon: Clipboard,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:read"],
-      },
-      {
-        title: "Suppliers",
-        url: "/inventory/suppliers",
-        icon: Truck,
-        roles: ADMIN_ROLES,
-        permissions: ["suppliers:manage"],
-      },
-      {
-        title: "Purchase Orders",
-        url: "/inventory/purchase-orders",
-        icon: ShoppingCart,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:update"],
       },
     ],
   },
@@ -872,61 +747,45 @@ const navigationGroups: NavGroup[] = [
     icon: BarChart3,
     items: [
       {
-        title: "Student Reports",
-        url: "/reports/students",
-        icon: GraduationCap,
+        title: "Reports",
+        url: "/reports",
+        icon: BarChart3,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...MANAGER_ROLES,
-        ] as AppRole[],
-        permissions: ["reports:read"],
-      },
-      // {
-      //   title: "Assessment Reports",
-      //   url: "/reports/assessments",
-      //   icon: FileBadge,
-      //   roles: [
-      //     ...ADMIN_ROLES,
-      //     ...TEACHER_ROLES,
-      //     ...MANAGER_ROLES,
-      //   ] as AppRole[],
-      // },
-      {
-        title: "Finance Reports",
-        url: "/reports/finance",
-        icon: Banknote,
-        roles: [
-          ...ADMIN_ROLES,
           ...ACCOUNTANT_ROLES,
-          ...MANAGER_ROLES,
         ] as AppRole[],
         permissions: ["reports:read"],
       },
+    ],
+  },
+
+  // Administration & compliance (secondary — lives in the More menu)
+  {
+    label: "Administration",
+    icon: Settings,
+    items: [
       {
-        title: "Attendance Reports",
-        url: "/reports/attendance",
-        icon: Calendar,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...MANAGER_ROLES,
-        ] as AppRole[],
-        permissions: ["reports:read"],
+        title: "School Settings",
+        url: "/settings",
+        icon: Settings,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
       },
       {
-        title: "HR Reports",
-        url: "/reports/hr",
-        icon: Briefcase,
-        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
-        permissions: ["reports:read"],
+        title: "Roles & Permissions",
+        url: "/settings/roles",
+        icon: Shield,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
       },
       {
-        title: "Library Reports",
-        url: "/reports/library",
-        icon: Library,
-        roles: [...ADMIN_ROLES, ...LIBRARIAN_ROLES] as AppRole[],
-        permissions: ["reports:read"],
+        title: "Archives",
+        url: "/archives",
+        icon: Archive,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
       },
       {
         title: "Audit Trail",
@@ -1424,6 +1283,11 @@ export function DashboardLayout({
 
   const canOpenSettings = hasWildcard || permSet.has("settings:read");
 
+  // Second-level (in-workspace) navigation, permission filtered.
+  const moduleTabs = (workspaceTabsForRoute(location.pathname) || []).filter(
+    (t) => canSeeNavItem({ url: t.to }),
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <ImpersonationBanner />
@@ -1610,6 +1474,8 @@ export function DashboardLayout({
             <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           )}
         </div>
+
+        {moduleTabs.length > 1 && <ModuleTabs items={moduleTabs} />}
 
         <main>{children}</main>
       </div>

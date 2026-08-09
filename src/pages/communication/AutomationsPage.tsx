@@ -1,5 +1,4 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CommunicationNav } from "@/components/communication/CommunicationNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +14,6 @@ export default function AutomationsPage() {
 
   return (
     <DashboardLayout title="Automated Messages" subtitle="Auto-send messages on school events">
-      <CommunicationNav />
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">

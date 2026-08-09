@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CommunicationNav } from "@/components/communication/CommunicationNav";
 import { SmsPreview, EmailPreview } from "@/components/communication/MessagePreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,7 +81,6 @@ export default function SendMessagePage() {
 
   return (
     <DashboardLayout title="Send Message" subtitle="Compose and deliver messages across channels">
-      <CommunicationNav />
 
       <div className="grid gap-4 lg:grid-cols-[1fr,360px]">
         <Card>
