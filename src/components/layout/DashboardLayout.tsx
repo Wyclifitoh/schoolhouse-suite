@@ -795,7 +795,7 @@ const navigationGroups: NavGroup[] = [
         permissions: ["audit:read"],
       },
       {
-        title: "User Logs",
+        title: "System Logs",
         url: "/user-logs",
         icon: Activity,
         roles: ADMIN_ROLES,

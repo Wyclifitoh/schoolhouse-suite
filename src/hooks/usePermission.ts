@@ -172,6 +172,25 @@ export function usePermissions(
  * Get the primary dashboard redirect path based on the user's primary role.
  */
 export function getDashboardRedirect(primaryRole: AppRole | null): string {
+  return getDashboardRedirectImpl(primaryRole);
+}
+
+/**
+ * Permission set helper: `has(code)` plus a `ready` flag so callers can wait
+ * for the permission payload before hiding UI.
+ */
+export function usePermissionSet() {
+  const { hasAnyRole } = useAuth();
+  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"]);
+  const { data, isLoading } = useMyPermissions();
+  const set = new Set(data?.permissions || []);
+  return {
+    ready: isAdmin || !isLoading,
+    has: (code: string) => isAdmin || set.has("*") || set.has(code),
+  };
+}
+
+function getDashboardRedirectImpl(primaryRole: AppRole | null): string {
   const redirectMap: Partial<Record<AppRole, string>> = {
     super_admin: "/dashboard",
     school_admin: "/dashboard",

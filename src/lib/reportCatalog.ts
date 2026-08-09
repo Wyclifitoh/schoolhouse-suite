@@ -17,6 +17,7 @@ export interface ReportDef {
   /** Existing application route — never invented. */
   url: string;
   category: ReportCategoryId;
+  icon?: LucideIcon;
   keywords?: string[];
   popular?: boolean;
 }
@@ -97,6 +98,7 @@ export const REPORTS: ReportDef[] = [
     description: "Class and stream results with ranking for a selected assessment.",
     url: "/assessments/results",
     category: "academic",
+    icon: GraduationCap,
     popular: true,
     keywords: ["exam", "marks", "ranking", "results"],
   },
@@ -106,6 +108,7 @@ export const REPORTS: ReportDef[] = [
     description: "Generate and print learner report cards.",
     url: "/assessments/report-cards",
     category: "academic",
+    icon: GraduationCap,
     keywords: ["report card", "print"],
   },
   {
@@ -114,6 +117,7 @@ export const REPORTS: ReportDef[] = [
     description: "Batch report card generation history and downloads.",
     url: "/reports/cards",
     category: "academic",
+    icon: GraduationCap,
     keywords: ["batch", "zip", "report card"],
   },
   {
@@ -122,6 +126,7 @@ export const REPORTS: ReportDef[] = [
     description: "End of term summative performance reporting.",
     url: "/assessments/summative",
     category: "academic",
+    icon: GraduationCap,
     keywords: ["summative", "term"],
   },
   {
@@ -130,6 +135,7 @@ export const REPORTS: ReportDef[] = [
     description: "Performance distribution, trends and subject analysis.",
     url: "/assessments/analytics",
     category: "academic",
+    icon: GraduationCap,
     popular: true,
     keywords: ["analytics", "performance", "trend"],
   },
@@ -139,6 +145,7 @@ export const REPORTS: ReportDef[] = [
     description: "Examination-level reporting across classes.",
     url: "/reports/examinations",
     category: "academic",
+    icon: GraduationCap,
     keywords: ["exam"],
   },
   {
@@ -147,6 +154,7 @@ export const REPORTS: ReportDef[] = [
     description: "Homework issued, submitted and outstanding.",
     url: "/reports/homework",
     category: "academic",
+    icon: GraduationCap,
     keywords: ["homework", "assignment"],
   },
   {
@@ -155,6 +163,7 @@ export const REPORTS: ReportDef[] = [
     description: "Borrowing, returns and library stock reporting.",
     url: "/reports/library",
     category: "academic",
+    icon: GraduationCap,
     keywords: ["library", "books", "borrowing"],
   },
 
@@ -165,6 +174,7 @@ export const REPORTS: ReportDef[] = [
     description: "Enrolment register by class, stream and academic period.",
     url: "/reports/students",
     category: "students",
+    icon: Users,
     popular: true,
     keywords: ["register", "enrolment", "students"],
   },
@@ -176,6 +186,7 @@ export const REPORTS: ReportDef[] = [
     description: "Collection performance by class, stream and academic period.",
     url: "/reports/finance",
     category: "finance",
+    icon: Banknote,
     popular: true,
     keywords: ["fee", "collection", "payments", "outstanding", "balances"],
   },
@@ -185,6 +196,7 @@ export const REPORTS: ReportDef[] = [
     description: "Income statement, trial balance and financial position.",
     url: "/finance/reports",
     category: "finance",
+    icon: Banknote,
     popular: true,
     keywords: ["trial balance", "income", "statement", "fee"],
   },
@@ -194,6 +206,7 @@ export const REPORTS: ReportDef[] = [
     description: "Daily collection, arrears and cash position overview.",
     url: "/finance/bursar-dashboard",
     category: "finance",
+    icon: Banknote,
     keywords: ["bursar", "cash", "fee"],
   },
   {
@@ -202,6 +215,7 @@ export const REPORTS: ReportDef[] = [
     description: "Detailed student fee statements and account history.",
     url: "/finance/student-account",
     category: "finance",
+    icon: Banknote,
     popular: true,
     keywords: ["fee", "statement", "student account", "balance"],
   },
@@ -211,6 +225,7 @@ export const REPORTS: ReportDef[] = [
     description: "Receipts and payments recorded per cash or bank account.",
     url: "/finance/cash-book",
     category: "finance",
+    icon: Banknote,
     keywords: ["cash", "bank", "receipts"],
   },
   {
@@ -219,6 +234,7 @@ export const REPORTS: ReportDef[] = [
     description: "Double-entry ledger postings by account and period.",
     url: "/finance/general-ledger",
     category: "finance",
+    icon: Banknote,
     keywords: ["ledger", "gl", "accounting"],
   },
   {
@@ -227,6 +243,7 @@ export const REPORTS: ReportDef[] = [
     description: "Budget allocation against actual expenditure.",
     url: "/finance/budgets",
     category: "finance",
+    icon: Banknote,
     keywords: ["budget", "expenditure"],
   },
   {
@@ -235,6 +252,7 @@ export const REPORTS: ReportDef[] = [
     description: "Capitation receipts and allocation to learners.",
     url: "/finance/capitation",
     category: "finance",
+    icon: Banknote,
     keywords: ["capitation", "government", "fee"],
   },
   {
@@ -243,6 +261,7 @@ export const REPORTS: ReportDef[] = [
     description: "Discounts, scholarships and bursaries awarded.",
     url: "/fee-discounts",
     category: "finance",
+    icon: Banknote,
     keywords: ["fee", "discount", "bursary", "scholarship"],
   },
   {
@@ -251,6 +270,7 @@ export const REPORTS: ReportDef[] = [
     description: "Reconcile received payments against school records.",
     url: "/reports/reconciliation",
     category: "finance",
+    icon: Banknote,
     keywords: ["payment", "reconciliation", "mpesa", "bank"],
   },
 
@@ -261,6 +281,7 @@ export const REPORTS: ReportDef[] = [
     description: "Learner attendance rates by class and period.",
     url: "/reports/attendance",
     category: "attendance",
+    icon: CalendarCheck,
     popular: true,
     keywords: ["attendance", "absent", "present"],
   },
@@ -270,6 +291,7 @@ export const REPORTS: ReportDef[] = [
     description: "Staff clock-in records and attendance trends.",
     url: "/staff-attendance",
     category: "attendance",
+    icon: CalendarCheck,
     keywords: ["attendance", "staff", "clock"],
   },
 
@@ -280,6 +302,7 @@ export const REPORTS: ReportDef[] = [
     description: "Staff establishment, departments and designations.",
     url: "/reports/hr",
     category: "hr",
+    icon: Briefcase,
     keywords: ["hr", "staff"],
   },
   {
@@ -288,6 +311,7 @@ export const REPORTS: ReportDef[] = [
     description: "Payroll runs, deductions and net pay summaries.",
     url: "/payroll",
     category: "hr",
+    icon: Briefcase,
     keywords: ["payroll", "salary"],
   },
 
@@ -298,6 +322,7 @@ export const REPORTS: ReportDef[] = [
     description: "Sent SMS and email delivery outcomes.",
     url: "/communication/history",
     category: "communication",
+    icon: MessageSquare,
     keywords: ["sms", "email", "delivery", "history"],
   },
   {
@@ -306,6 +331,7 @@ export const REPORTS: ReportDef[] = [
     description: "Campaign reach, delivery and failure rates.",
     url: "/communication/campaigns",
     category: "communication",
+    icon: MessageSquare,
     keywords: ["campaign", "sms"],
   },
 
@@ -316,6 +342,7 @@ export const REPORTS: ReportDef[] = [
     description: "Items sold to learners with values and dates.",
     url: "/inventory/history",
     category: "inventory",
+    icon: Package,
     keywords: ["sales", "store", "inventory"],
   },
   {
@@ -324,6 +351,7 @@ export const REPORTS: ReportDef[] = [
     description: "Orders raised to suppliers and their status.",
     url: "/inventory/purchase-orders",
     category: "inventory",
+    icon: Package,
     keywords: ["purchase", "supplier", "order"],
   },
   {
@@ -332,6 +360,7 @@ export const REPORTS: ReportDef[] = [
     description: "Items issued to staff, returns and outstanding items.",
     url: "/inventory/assignments",
     category: "inventory",
+    icon: Package,
     keywords: ["assignment", "issue", "staff", "store"],
   },
   {
@@ -340,6 +369,7 @@ export const REPORTS: ReportDef[] = [
     description: "Transport routes, usage and charges.",
     url: "/reports/transport",
     category: "inventory",
+    icon: Package,
     keywords: ["transport", "bus", "route"],
   },
 
@@ -350,6 +380,7 @@ export const REPORTS: ReportDef[] = [
     description: "Tamper-evident log of all record changes.",
     url: "/audit-trail",
     category: "administration",
+    icon: Shield,
     keywords: ["audit", "compliance", "log"],
   },
   {
@@ -358,6 +389,7 @@ export const REPORTS: ReportDef[] = [
     description: "System sign-ins and user activity history.",
     url: "/user-logs",
     category: "administration",
+    icon: Shield,
     keywords: ["logs", "users", "activity"],
   },
   {
@@ -366,6 +398,7 @@ export const REPORTS: ReportDef[] = [
     description: "Archived academic years, learners and documents.",
     url: "/archives",
     category: "administration",
+    icon: Shield,
     keywords: ["archive", "history"],
   },
 ];
