@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSchool } from "@/contexts/SchoolContext";
+import { useTerm } from "@/contexts/TermContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -63,7 +64,7 @@ import {
 import { api } from "@/lib/api";
 import { formatDate } from "@/utils/date";
 import { BulkExpenseImportDialog } from "@/components/expenses/BulkExpenseImportDialog";
-import { Upload } from "lucide-react";
+import { Upload, Lock } from "lucide-react";
 import { PermissionGate } from "@/components/PermissionGate";
 
 const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
@@ -309,6 +310,7 @@ const ExpenseForm = ({
 
 const Expenses = () => {
   const { currentSchool } = useSchool();
+  const { isReadOnly } = useTerm();
   const queryClient = useQueryClient();
   const schoolId = currentSchool?.id;
   const [search, setSearch] = useState("");
@@ -544,12 +546,8 @@ const Expenses = () => {
                     />
                   </div>
                   <PermissionGate permission="expenses:import">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBulkImportOpen(true)}
-                    >
-                      <Upload className="h-4 w-4 mr-1.5" />
+                    <Button disabled={isReadOnly} variant="outline" size="sm" onClick={() => document.getElementById("import-expenses")?.click()}>
+                      {!isReadOnly ? <Upload className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
                       Bulk Import
                     </Button>
                   </PermissionGate>
@@ -562,8 +560,8 @@ const Expenses = () => {
                       }}
                     >
                       <DialogTrigger asChild>
-                        <Button size="sm">
-                          <Plus className="h-4 w-4 mr-1.5" />
+                        <Button disabled={isReadOnly} size="sm">
+                          {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
                           Add Expense
                         </Button>
                       </DialogTrigger>
@@ -662,6 +660,7 @@ const Expenses = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-primary"
+                                disabled={isReadOnly}
                                 onClick={() =>
                                   updateStatus.mutate({
                                     id: e.id,
@@ -677,6 +676,7 @@ const Expenses = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-success"
+                                disabled={isReadOnly}
                                 onClick={() =>
                                   updateStatus.mutate({
                                     id: e.id,
@@ -693,6 +693,7 @@ const Expenses = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
+                              disabled={isReadOnly}
                               onClick={() => {
                                 setEditingExp(e);
                                 setExpDialogOpen(true);
@@ -708,6 +709,7 @@ const Expenses = () => {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive"
+                                  disabled={isReadOnly}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -759,8 +761,8 @@ const Expenses = () => {
                   }}
                 >
                   <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-1.5" />
+                    <Button disabled={isReadOnly} size="sm">
+                      {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
                       Add Category
                     </Button>
                   </DialogTrigger>

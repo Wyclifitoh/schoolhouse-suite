@@ -18,12 +18,14 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, Wallet, Trash2 } from "lucide-react";
+import { useTerm } from "@/contexts/TermContext";
+import { Plus, Wallet, Trash2, Lock } from "lucide-react";
 import { formatDate } from "@/utils/date";
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
 export const PettyCashTab = ({ schoolId }: { schoolId?: string }) => {
+  const { isReadOnly } = useTerm();
   const qc = useQueryClient();
   const [acctOpen, setAcctOpen] = useState(false);
   const [txnOpen, setTxnOpen] = useState(false);
@@ -92,8 +94,9 @@ export const PettyCashTab = ({ schoolId }: { schoolId?: string }) => {
             <div className="flex gap-2">
               <Dialog open={txnOpen} onOpenChange={setTxnOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline" disabled={accounts.length === 0}>
-                    <Plus className="h-4 w-4 mr-1.5" />Record Transaction
+                  <Button size="sm" variant="outline" disabled={accounts.length === 0 || isReadOnly}>
+                    {!isReadOnly ? <Plus className="h-4 w-4 mr-1.5" /> : <Lock className="h-4 w-4 mr-1.5" />}
+                    Record Transaction
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -103,7 +106,10 @@ export const PettyCashTab = ({ schoolId }: { schoolId?: string }) => {
               </Dialog>
               <Dialog open={acctOpen} onOpenChange={setAcctOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />New Account</Button>
+                  <Button size="sm" disabled={isReadOnly}>
+                    {!isReadOnly ? <Plus className="h-4 w-4 mr-1.5" /> : <Lock className="h-4 w-4 mr-1.5" />}
+                    New Account
+                  </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>New Petty Cash Account</DialogTitle></DialogHeader>
@@ -133,7 +139,7 @@ export const PettyCashTab = ({ schoolId }: { schoolId?: string }) => {
                   </TableCell>
                   <TableCell><Badge variant={a.is_active ? "default" : "secondary"}>{a.is_active ? "Active" : "Closed"}</Badge></TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => delAcct.mutate(a.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={isReadOnly} onClick={() => delAcct.mutate(a.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>

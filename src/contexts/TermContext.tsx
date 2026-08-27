@@ -38,6 +38,7 @@ interface TermContextValue {
   switchTerm: (termId: string) => void;
   switchAcademicYear: (yearId: string) => void;
   isViewingCurrentTerm: boolean;
+  isReadOnly: boolean;
   isLoading: boolean;
 }
 
@@ -148,6 +149,10 @@ export function TermProvider({ children }: { children: ReactNode }) {
         isViewingCurrentTerm:
           selectedTerm?.id === currentTerm?.id &&
           selectedAcademicYear?.id === currentAcademicYear?.id,
+        isReadOnly:
+          selectedTerm && currentTerm
+            ? new Date(selectedTerm.end_date) <= new Date(currentTerm.start_date)
+            : false,
         isLoading: termsLoading,
       }}
     >
