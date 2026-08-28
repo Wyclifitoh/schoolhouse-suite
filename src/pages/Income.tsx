@@ -18,12 +18,11 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSchool } from "@/contexts/SchoolContext";
-import { useTerm } from "@/contexts/TermContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { formatDate } from "@/utils/date";
-import { Plus, TrendingUp, Wallet, BarChart3, Trash2, FolderOpen, Receipt, Lock } from "lucide-react";
+import { Plus, TrendingUp, Wallet, BarChart3, Trash2, FolderOpen, Receipt } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
@@ -126,7 +125,6 @@ const CategoryForm = ({ onSave, onClose }: any) => {
 
 const Income = () => {
   const { currentSchool } = useSchool();
-  const { isReadOnly } = useTerm();
   const qc = useQueryClient();
   const schoolId = currentSchool?.id;
   const [entryOpen, setEntryOpen] = useState(false);
@@ -225,10 +223,7 @@ const Income = () => {
                 <CardTitle className="text-base font-semibold">Income Records</CardTitle>
                 <Dialog open={entryOpen} onOpenChange={setEntryOpen}>
                   <DialogTrigger asChild>
-                    <Button disabled={isReadOnly}>
-                      {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                      Receive Income
-                    </Button>
+                    <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Income</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Record Income</DialogTitle></DialogHeader>
@@ -259,7 +254,6 @@ const Income = () => {
                       <TableCell className="text-muted-foreground">{e.reference || "—"}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                          disabled={isReadOnly}
                           onClick={() => delEntry.mutate(e.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -279,10 +273,7 @@ const Income = () => {
                 <CardTitle className="text-base font-semibold">Income Categories</CardTitle>
                 <Dialog open={catOpen} onOpenChange={setCatOpen}>
                   <DialogTrigger asChild>
-                    <Button disabled={isReadOnly}>
-                      {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                      New Category
-                    </Button>
+                    <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Category</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Add Income Category</DialogTitle></DialogHeader>
@@ -307,10 +298,7 @@ const Income = () => {
                       <TableCell className="text-muted-foreground">{c.description || "—"}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                          disabled={!isViewingCurrentTerm}
-                          onClick={() => delCat.mutate(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                          onClick={() => delCat.mutate(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}

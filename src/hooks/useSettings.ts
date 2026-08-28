@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { invalidateSetupProgress } from "@/components/help/SetupChecklist";
 
 export interface SchoolProfile {
   id: string;
@@ -64,22 +65,10 @@ export function useUpdateSchoolProfile() {
       api.put<SchoolProfile>("/schools/profile", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["school-profile"] });
+      invalidateSetupProgress(qc);
       toast.success("School profile updated!");
     },
     onError: (err: Error) => toast.error(err.message),
-  });
-}
-
-export function useUploadSchoolLogo() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (base64Data: string) =>
-      api.uploadLogoBase64("/schools/logo", base64Data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["school-profile"] });
-      toast.success("Logo updated successfully!");
-    },
-    onError: (err: Error) => toast.error(`Logo upload failed: ${err.message}`),
   });
 }
 
@@ -114,8 +103,8 @@ export function useSchoolUsers() {
 export function useUpdateUserRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, roles }: { userId: string; roles: string[] }) =>
-      api.put(`/schools/users/${userId}/role`, { roles }),
+    mutationFn: ({ userId, role, roles }: { userId: string; role?: string; roles?: string[] }) =>
+      api.put(`/schools/users/${userId}/role`, { role, roles }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["school-users"] });
       toast.success("User role updated");

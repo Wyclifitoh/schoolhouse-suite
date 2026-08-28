@@ -35,10 +35,12 @@ import {
   useUpdateSubject,
   useDeleteSubject,
 } from "@/hooks/useClasses";
+import { useEnrichedSubjects } from "@/hooks/useAssessments";
+import { useGrades } from "@/hooks/useGrades";
+import { useStreams } from "@/hooks/useClasses";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermission";
 import SubjectPapersDialog from "@/components/academics/SubjectPapersDialog";
-import { useAuth } from "@/contexts/AuthContext";
 
 const CATEGORIES = [
   "Core",
@@ -51,18 +53,19 @@ const CATEGORIES = [
 ];
 
 const Subjects = () => {
-  const { primaryRole } = useAuth();
-  const rawPerms = usePermissions([
+  const perms = usePermissions([
     "classes:create",
     "classes:update",
     "classes:delete",
   ]);
-  const isTeacher = primaryRole === "teacher";
-  const perms = isTeacher ? { "classes:create": false, "classes:update": false, "classes:delete": false } : rawPerms;
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [papersFor, setPapersFor] = useState<any | null>(null);
+  const [filterGrade, setFilterGrade] = useState<string>("");
+  const [filterStream, setFilterStream] = useState<string>("");
+  const [filterCategory, setFilterCategory] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -71,12 +74,22 @@ const Subjects = () => {
     status: "active" as "active" | "inactive",
   });
 
-  const { data: subjects = [], isLoading } = useSubjects();
+  const { data: subjectsRaw = [], isLoading: subjectsRawLoading } =
+    useSubjects();
+  const { data: grades = [] } = useGrades();
+  const { data: streams = [] } = useStreams(filterGrade || undefined);
+  const { data: enriched = [], isLoading } = useEnrichedSubjects({
+    grade_id: filterGrade || undefined,
+    stream_id: filterStream || undefined,
+    category: filterCategory || undefined,
+    status: filterStatus || undefined,
+  });
+  const subjects = enriched.length ? enriched : (subjectsRaw as any[]);
   const createSubject = useCreateSubject();
   const updateSubject = useUpdateSubject();
   const deleteSubject = useDeleteSubject();
 
-  const filtered = (subjects as any[]).filter((s) =>
+  const filtered = (subjects as any[]).filter((s: any) =>
     s.name.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -153,6 +166,73 @@ const Subjects = () => {
               )}
             </div>
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3">
+            <Select
+              value={filterGrade || "__all__"}
+              onValueChange={(v) => {
+                setFilterGrade(v === "__all__" ? "" : v);
+                setFilterStream("");
+              }}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All classes</SelectItem>
+                {(grades as any[]).map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterStream || "__all__"}
+              onValueChange={(v) => setFilterStream(v === "__all__" ? "" : v)}
+              disabled={!filterGrade}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Stream" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All streams</SelectItem>
+                {(streams as any[]).map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterCategory || "__all__"}
+              onValueChange={(v) => setFilterCategory(v === "__all__" ? "" : v)}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All categories</SelectItem>
+                {CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterStatus || "__all__"}
+              onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v)}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
@@ -166,20 +246,21 @@ const Subjects = () => {
               No subjects found.
             </p>
           ) : (
-            <>
-            <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead>Subject</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Teacher(s)</TableHead>
+                  <TableHead className="text-right">Students</TableHead>
+                  <TableHead className="text-right">Classes</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((s) => (
+                {filtered.map((s: any) => (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>
@@ -191,6 +272,27 @@ const Subjects = () => {
                       <Badge variant="secondary" className="text-xs">
                         {s.category || "Core"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {s.teachers && s.teachers.length ? (
+                        <span
+                          title={s.teachers.join(", ")}
+                          className="line-clamp-1"
+                        >
+                          {s.teachers.slice(0, 2).join(", ")}
+                          {s.teachers.length > 2
+                            ? ` +${s.teachers.length - 2}`
+                            : ""}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right text-xs">
+                      {s.student_count ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-right text-xs">
+                      {s.class_count ?? "—"}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -238,71 +340,6 @@ const Subjects = () => {
                 ))}
               </TableBody>
             </Table>
-            </div>
-
-            {/* Mobile View Subjects */}
-            <div className="md:hidden flex flex-col gap-3 p-4">
-              {filtered.map((s) => (
-                <Card key={s.id} className="p-4 flex flex-col gap-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col gap-1">
-                      <div className="font-medium text-lg flex items-center gap-2">
-                        {s.name}
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {s.code}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2 mt-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {s.category || "Core"}
-                        </Badge>
-                        <Badge
-                          variant={
-                            (s.status || "active") === "active"
-                              ? "default"
-                              : "outline"
-                          }
-                          className="text-xs"
-                        >
-                          {s.status || "active"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-1 mt-2 border-t pt-2">
-                    {perms["classes:update"] && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(s)}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {perms["classes:update"] && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title="8-4-4 paper structure"
-                        onClick={() => setPapersFor(s)}
-                      >
-                        <Layers className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    {perms["classes:delete"] && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(s.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-            </>
           )}
         </CardContent>
       </Card>

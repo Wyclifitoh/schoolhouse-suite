@@ -1,11 +1,13 @@
 const API_BASE =
-  import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+  import.meta.env.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1";
 
 class ApiClient {
   private token: string | null = null;
   private schoolId: string | null = null;
   private academicYearId: string | null = null;
   private termId: string | null = null;
+  private isHistorical: boolean = false;
+  private unauthorizedHandler: (() => void) | null = null;
 
   setToken(token: string | null) {
     this.token = token;
@@ -18,9 +20,19 @@ class ApiClient {
     this.academicYearId = academicYearId;
     this.termId = termId;
   }
+  setHistorical(isHistorical: boolean) {
+    this.isHistorical = isHistorical;
+  }
+  onUnauthorized(handler: (() => void) | null) {
+    this.unauthorizedHandler = handler;
+  }
   getToken() {
     return this.token;
   }
+  getSchoolId() {
+    return this.schoolId;
+  }
+
   getSession() {
     return { academicYearId: this.academicYearId, termId: this.termId };
   }
@@ -38,8 +50,25 @@ class ApiClient {
     if (this.academicYearId)
       headers["X-Academic-Year-Id"] = this.academicYearId;
     if (this.termId) headers["X-Term-Id"] = this.termId;
+    if (this.isHistorical) headers["X-Historical-View"] = "true";
 
-    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+        signal: options.signal || controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new Error("The server took too long to respond. Please try again.");
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
     const raw = await res.text();
     let json: any = null;
     try {
@@ -51,6 +80,9 @@ class ApiClient {
       };
     }
     if (!res.ok || json.success === false) {
+      if (res.status === 401 && path !== "/auth/login") {
+        this.unauthorizedHandler?.();
+      }
       throw new Error(
         json.error?.message || json.error || `Request failed: ${res.status}`,
       );
@@ -60,20 +92,6 @@ class ApiClient {
 
   get<T>(path: string) {
     return this.request<T>(path);
-  }
-
-  /** Returns full paginated envelope: { data, pagination } */
-  async getPaginated<T>(path: string): Promise<{ data: T; pagination: { total: number; page: number; limit: number; totalPages: number } }> {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
-    if (this.schoolId) headers["X-School-ID"] = this.schoolId;
-    if (this.academicYearId) headers["X-Academic-Year-Id"] = this.academicYearId;
-    if (this.termId) headers["X-Term-Id"] = this.termId;
-    const API_BASE = import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
-    const res = await fetch(`${API_BASE}${path}`, { headers });
-    const json = await res.json();
-    if (!res.ok || json.success === false) throw new Error(json.error?.message || `Request failed: ${res.status}`);
-    return { data: json.data as T, pagination: json.pagination };
   }
   post<T>(path: string, body: unknown) {
     return this.request<T>(path, {
@@ -92,14 +110,6 @@ class ApiClient {
   }
   delete<T>(path: string) {
     return this.request<T>(path, { method: "DELETE" });
-  }
-
-  /** Upload a logo as base64 JSON to avoid multipart complexity */
-  uploadLogoBase64(path: string, base64Data: string) {
-    return this.request<{ logo_url: string }>(path, {
-      method: "POST",
-      body: JSON.stringify({ logo_base64: base64Data }),
-    });
   }
 }
 

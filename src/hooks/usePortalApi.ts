@@ -120,3 +120,53 @@ export function usePortalPayments(studentId?: string) {
       )) || [],
   });
 }
+
+export interface PortalAssessmentSubject {
+  subject_name: string;
+  subject_code?: string | null;
+  score: number | null;
+  out_of: number | null;
+  achievement_level_code: string | null;
+  band_code: string | null;
+  points: number | null;
+  status?: string | null;
+  remarks: string | null;
+}
+
+export interface PortalAssessmentResult {
+  id: string;
+  assessment_id: string;
+  assessment_name: string;
+  term_name: string | null;
+  year_name: string | null;
+  grade_name: string | null;
+  stream_name: string | null;
+  subjects_count: number;
+  total_score: number;
+  total_out_of: number;
+  mean_score: number;
+  percentage: number;
+  total_points: number;
+  mean_points: number;
+  overall_al: string | null;
+  overall_band: string | null;
+  class_position: number | null;
+  stream_position: number | null;
+  grade_position: number | null;
+  class_size: number | null;
+  remarks: string | null;
+  published_at: string | null;
+  subjects: PortalAssessmentSubject[];
+}
+
+/** Every published assessment result for a student (not just report cards). */
+export function usePortalAssessmentResults(studentId?: string) {
+  return useQuery({
+    queryKey: ["portal-assessment-results", studentId],
+    enabled: !!studentId,
+    queryFn: async () =>
+      (await portalApi.get<PortalAssessmentResult[]>(
+        `/portal/students/${studentId}/assessment-results`,
+      )) || [],
+  });
+}

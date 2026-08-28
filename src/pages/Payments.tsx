@@ -35,6 +35,7 @@ import {
   Banknote,
   Smartphone,
   Plus,
+  Receipt,
   MoreHorizontal,
   Eye,
   XCircle,
@@ -43,14 +44,18 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { EmptyState } from "@/components/help/EmptyState";
+import { usePermission } from "@/hooks/usePermission";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { HistoricalReadOnlyGate } from "@/components/HistoricalReadOnlyGate";
 import { BulkPaymentImportDialog } from "@/components/payments/BulkPaymentImportDialog";
 import { openReceiptPdf } from "@/hooks/useReceipt";
 import { VoidPaymentDialog } from "@/components/finance/VoidPaymentDialog";
 import { format } from "date-fns";
 import { Upload } from "lucide-react";
+import { useClasses, useIndependentStreams } from "@/hooks/useClasses";
 import {
   Select,
   SelectContent,
@@ -69,14 +74,21 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { StudentLink } from "@/components/students/StudentLink";
+import { ExcessAppliedBadge } from "@/components/finance/ExcessAppliedBadge";
+
+
 
 const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
 const Payments = () => {
+  const canRecord = usePermission("payments:create");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [method, setMethod] = useState<string>("all");
+  const [grade, setGrade] = useState<string>("all");
+  const [stream, setStream] = useState<string>("all");
   const [page, setPage] = useState(1);
   const limit = 20;
   const [showRecordPayment, setShowRecordPayment] = useState(false);
@@ -98,16 +110,26 @@ const Payments = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [status, method]);
+  }, [status, method, grade, stream]);
 
   const { data: pageData, isLoading } = usePayments({
     search,
     status,
     method,
+    grade,
+    stream,
     page,
     limit,
   });
-  const { data: statsData } = usePaymentStats({ search, status, method });
+  const { data: statsData } = usePaymentStats({
+    search,
+    status,
+    method,
+    grade,
+    stream,
+  });
+  const { data: gradesList = [] } = useClasses();
+  const { data: streamsList = [] } = useIndependentStreams();
   const payments = pageData?.rows || [];
   const total = pageData?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -132,7 +154,8 @@ const Payments = () => {
         reference_number: data.reference,
         fee_ids: data.feeIds || [],
         notes: data.notes,
-        term_id: selectedTerm?.id || null,
+        term_id: data.termId || selectedTerm?.id || null,
+        academic_year_id: data.academicYearId || null,
         idempotency_key: data.idempotencyKey,
       });
       setShowRecordPayment(false);
@@ -262,6 +285,32 @@ const Payments = () => {
                   <SelectItem value="card">Card</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={grade} onValueChange={setGrade}>
+                <SelectTrigger className="h-9 w-36">
+                  <SelectValue placeholder="Class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All classes</SelectItem>
+                  {gradesList.map((g: any) => (
+                    <SelectItem key={g.id} value={g.name}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={stream} onValueChange={setStream}>
+                <SelectTrigger className="h-9 w-36">
+                  <SelectValue placeholder="Stream" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All streams</SelectItem>
+                  {streamsList.map((s: any) => (
+                    <SelectItem key={s.id} value={s.name}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <PermissionGate permission="reports:export">
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-1.5" />
@@ -291,10 +340,12 @@ const Payments = () => {
                 )}
               </PermissionGate>
               <PermissionGate permission="payments:create">
-                <Button size="sm" onClick={() => setShowRecordPayment(true)}>
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Record Payment
-                </Button>
+                <HistoricalReadOnlyGate>
+                  <Button size="sm" onClick={() => setShowRecordPayment(true)}>
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Record Payment
+                  </Button>
+                </HistoricalReadOnlyGate>
               </PermissionGate>
             </div>
           </div>
@@ -323,6 +374,8 @@ const Payments = () => {
                   </PermissionGate>
                 </TableHead>
                 <TableHead className="font-semibold">Student</TableHead>
+                <TableHead className="font-semibold">Adm No</TableHead>
+                <TableHead className="font-semibold">Class / Stream</TableHead>
                 <TableHead className="font-semibold">Amount</TableHead>
                 <TableHead className="font-semibold">Method</TableHead>
                 <TableHead className="font-semibold">Reference</TableHead>
@@ -335,20 +388,41 @@ const Payments = () => {
               {isLoading ? (
                 [1, 2, 3].map((i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={10}>
                       <Skeleton className="h-10 w-full" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : payments.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    No payments found
+                  <TableCell colSpan={10} className="p-0">
+                    <EmptyState
+                      compact
+                      className="border-0 bg-transparent"
+                      icon={Receipt}
+                      title={
+                        search
+                          ? "No payments match your search"
+                          : "No payments recorded yet"
+                      }
+                      description={
+                        search
+                          ? "Try a different name, receipt number or phone number, or clear the filters to see everything."
+                          : "Record a payment at the front office, or import a bank or M-Pesa statement to bring existing payments in."
+                      }
+                      article="recording-payments"
+                      actions={[
+                        {
+                          label: "Record Payment",
+                          icon: Plus,
+                          onClick: () => setShowRecordPayment(true),
+                          hidden: !canRecord,
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
+
               ) : (
                 payments.map((p: any) => (
                   <TableRow key={p.id} className="group">
@@ -368,12 +442,26 @@ const Payments = () => {
                         />
                       </PermissionGate>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {p.student_name}
+                    <TableCell>
+                      <StudentLink
+                        studentId={p.student_id}
+                        name={p.student_name}
+                      />
+                    </TableCell>
+
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {p.admission_number || p.admission_no || "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {[p.grade, p.stream].filter(Boolean).join(" · ") || "—"}
                     </TableCell>
                     <TableCell className="font-semibold text-success">
-                      {formatKES(p.amount)}
+                      <div className="flex items-center gap-1.5">
+                        {formatKES(p.amount)}
+                        <ExcessAppliedBadge amount={p.excess_applied_amount} />
+                      </div>
                     </TableCell>
+
                     <TableCell>
                       <Badge variant="secondary" className="capitalize">
                         {p.payment_method?.replace("_", " ")}

@@ -1,7 +1,7 @@
 // Lightweight API client for parent/student portal — separate token storage
 // so it doesn't collide with staff auth.
 const API_BASE =
-  import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
+  import.meta.env.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1";
 
 const TOKEN_KEY = "chuo-portal-token";
 
@@ -29,7 +29,10 @@ class PortalApi {
     try {
       json = raw ? JSON.parse(raw) : null;
     } catch {
-      json = { success: false, error: { message: raw || `HTTP ${res.status}` } };
+      json = {
+        success: false,
+        error: { message: raw || `HTTP ${res.status}` },
+      };
     }
     if (!res.ok || json?.success === false) {
       throw new Error(json?.error?.message || `Request failed: ${res.status}`);
@@ -42,6 +45,12 @@ class PortalApi {
   }
   post<T>(p: string, b: unknown) {
     return this.req<T>(p, { method: "POST", body: JSON.stringify(b) });
+  }
+  patch<T>(p: string, b: unknown) {
+    return this.req<T>(p, { method: "PATCH", body: JSON.stringify(b) });
+  }
+  request<T>(p: string, init: RequestInit) {
+    return this.req<T>(p, init);
   }
 }
 

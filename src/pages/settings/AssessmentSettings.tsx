@@ -251,7 +251,6 @@ function BandsTab() {
     <div className="space-y-4">
       <PermissionGate
         permission="assessments:bands:manage"
-        role={["admin", "super_admin", "school_admin"]}
         fallback={
           <p className="text-xs text-muted-foreground text-right">
             Read-only — you do not have permission to manage performance bands.

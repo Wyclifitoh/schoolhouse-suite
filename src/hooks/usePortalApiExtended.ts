@@ -210,3 +210,25 @@ export function useChangePortalPin() {
       portalApi.post("/portal/change-pin", { new_pin }),
   });
 }
+/* ============ SCHOOL NOTICES ============ */
+export interface PortalNotice {
+  id: string;
+  title: string;
+  message: string;
+  audience: string;
+  priority: "low" | "normal" | "high" | "urgent";
+  pinned: number | boolean;
+  publish_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  created_by_name: string | null;
+}
+
+export function usePortalNotices() {
+  return useQuery({
+    queryKey: ["portal-notices"],
+    queryFn: async () =>
+      (await portalApi.get<PortalNotice[]>("/portal/notices")) || [],
+    staleTime: 60_000,
+  });
+}

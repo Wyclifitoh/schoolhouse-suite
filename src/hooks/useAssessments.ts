@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import type {
+  LifecycleAction,
+  LifecycleStatus,
+} from "@/lib/assessmentLifecycle";
 
 const unwrap = <T>(d: any): T => (d?.data ?? d) as T;
 
@@ -55,6 +59,15 @@ export interface SubjectAllocation {
   subject_name: string;
   subject_code: string;
   subject_category: string;
+  requirement?: "REQUIRED" | "OPTIONAL";
+  optional_group_id?: string | null;
+  optional_group_name?: string | null;
+}
+
+export interface OptionalGroup {
+  id: string;
+  name: string;
+  pick_count: number;
 }
 export interface TeacherAllocation {
   id: string;
@@ -253,13 +266,158 @@ export function useSubjectAllocations(gradeId?: string) {
 export function useAllocateSubjects() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { grade_id: string; subject_ids: string[] }) =>
-      api.post("/assessments/subject-allocations", data),
+    mutationFn: (data: {
+      grade_id: string;
+      subject_ids: string[];
+      subject_config?: {
+        subject_id: string;
+        requirement: "REQUIRED" | "OPTIONAL";
+        optional_group_id?: string | null;
+        new_group_name?: string | null;
+      }[];
+      groups?: { id?: string; name: string; pick_count?: number }[];
+    }) => api.post("/assessments/subject-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["subject-allocations"] });
+      qc.invalidateQueries({ queryKey: ["optional-groups"] });
       toast.success("Subjects allocated");
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ============ OPTIONAL GROUPS ============
+export function useOptionalGroups(gradeId?: string) {
+  return useQuery({
+    queryKey: ["optional-groups", gradeId || ""],
+    enabled: !!gradeId,
+    queryFn: async () =>
+      unwrap<OptionalGroup[]>(
+        await api.get<any>(`/assessments/optional-groups?grade_id=${gradeId}`),
+      ) || [],
+  });
+}
+export function useDeleteOptionalGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/assessments/optional-groups/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["optional-groups"] });
+      qc.invalidateQueries({ queryKey: ["subject-allocations"] });
+      toast.success("Group removed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ============ STUDENT-LEVEL SUBJECT REGISTRATION ============
+export interface SubjectRegistrationStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  gender: string | null;
+  stream_id: string | null;
+  registered: boolean;
+}
+export interface SubjectRegistrationResult {
+  students: SubjectRegistrationStudent[];
+  meta: {
+    curriculum_type?: string;
+    is_secondary?: boolean;
+    allocated?: boolean;
+    requirement?: "REQUIRED" | "OPTIONAL" | null;
+  };
+}
+
+export function useSubjectRegistrations(params: {
+  grade_id?: string;
+  stream_id?: string;
+  subject_id?: string;
+  academic_year_id?: string;
+  term_id?: string;
+}) {
+  const enabled = !!(params.grade_id && params.subject_id);
+  return useQuery({
+    queryKey: ["subject-registrations", params],
+    enabled,
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v) qp.set(k, v);
+      });
+      return (
+        unwrap<SubjectRegistrationResult>(
+          await api.get<any>(
+            `/assessments/subject-registrations?${qp.toString()}`,
+          ),
+        ) || { students: [], meta: {} }
+      );
+    },
+  });
+}
+
+export function useSetSubjectRegistrations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      grade_id: string;
+      stream_id?: string | null;
+      subject_id: string;
+      academic_year_id?: string | null;
+      term_id?: string | null;
+      student_ids: string[];
+    }) => api.put("/assessments/subject-registrations", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subject-registrations"] });
+      toast.success("Student registrations saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ============ ENRICHED SUBJECTS ============
+export interface EnrichedSubject {
+  id: string;
+  name: string;
+  code: string | null;
+  category: string | null;
+  status: string | null;
+  description: string | null;
+  teachers: string[];
+  teacher_count: number;
+  classes: string[];
+  class_count: number;
+  student_count: number;
+}
+
+export function useEnrichedSubjects(
+  filters: {
+    grade_id?: string;
+    stream_id?: string;
+    teacher_id?: string;
+    category?: string;
+    status?: string;
+    academic_year_id?: string;
+    term_id?: string;
+  } = {},
+) {
+  return useQuery({
+    queryKey: ["subjects-enriched", filters],
+    queryFn: async () => {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v) qp.set(k, v);
+      });
+      return (
+        unwrap<EnrichedSubject[]>(
+          await api.get<any>(
+            `/assessments/subjects/enriched${qp.toString() ? `?${qp}` : ""}`,
+          ),
+        ) || []
+      );
+    },
   });
 }
 
@@ -268,7 +426,6 @@ export function useTeacherAllocations(
   filters: {
     teacher_id?: string;
     grade_id?: string;
-    subject_id?: string;
   } = {},
 ) {
   return useQuery({
@@ -277,7 +434,6 @@ export function useTeacherAllocations(
       const qp = new URLSearchParams();
       if (filters.teacher_id) qp.set("teacher_id", filters.teacher_id);
       if (filters.grade_id) qp.set("grade_id", filters.grade_id);
-      if (filters.subject_id) qp.set("subject_id", filters.subject_id);
       return (
         unwrap<TeacherAllocation[]>(
           await api.get<any>(`/assessments/teacher-allocations?${qp}`),
@@ -291,8 +447,9 @@ export function useCreateTeacherAllocation() {
   return useMutation({
     mutationFn: (data: {
       teacher_id: string;
+      subject_id: string;
       grade_id: string;
-      allocations: { subject_id: string; stream_ids: string[] }[];
+      stream_id?: string | null;
     }) => api.post("/assessments/teacher-allocations", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["teacher-allocations"] });
@@ -315,10 +472,13 @@ export function useDeleteTeacherAllocation() {
 }
 
 // ============ ASSESSMENTS (CRUD) ============
+/** Raw DB status values (legacy included). Prefer `lifecycle_status`. */
 export type AssessmentStatus =
   | "draft"
+  | "open"
   | "published"
   | "in_progress"
+  | "completed"
   | "locked"
   | "archived";
 
@@ -328,9 +488,8 @@ export interface Assessment {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
-  marks_deadline: string | null;
+  created_at?: string | null;
   status: AssessmentStatus;
-  created_at?: string;
   academic_year_id: string | null;
   term_id: string | null;
   assessment_type_id: string | null;
@@ -341,6 +500,14 @@ export interface Assessment {
   subject_count?: number;
   task_count?: number;
   task_done?: number;
+  // ---- canonical lifecycle, computed by the backend ----
+  lifecycle_status?: LifecycleStatus;
+  results_published?: boolean;
+  marks_editable?: boolean;
+  visible_to_portal?: boolean;
+  progress_pct?: number;
+  progress_complete?: boolean;
+  available_actions?: LifecycleAction[];
   classes?: { id: string; grade_id: string; grade_name: string }[];
   subjects?: {
     id: string;
@@ -356,8 +523,9 @@ export interface Assessment {
 export function useAssessmentsList(
   filters: Record<string, string | undefined> = {},
 ) {
+  const session = api.getSession();
   return useQuery({
-    queryKey: ["assessments", filters],
+    queryKey: ["assessments", filters, session.academicYearId, session.termId],
     queryFn: async () => {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => v && qp.set(k, v));
@@ -423,6 +591,87 @@ export function usePublishAssessment() {
   });
 }
 
+/**
+ * Canonical lifecycle transition:
+ * open | complete | reopen | publish | unpublish | lock | unlock | archive | unarchive
+ */
+export function useAssessmentTransition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      action,
+      reason,
+    }: {
+      id: string;
+      action: LifecycleAction;
+      reason?: string;
+    }) => {
+      try {
+        return await api.post(`/assessments/${id}/transition`, {
+          action,
+          reason,
+        });
+      } catch (e) {
+        // Older API deployments have no /transition endpoint yet: fall back to
+        // the legacy status endpoints so the workflow keeps working.
+        const msg = String((e as Error)?.message || "");
+        const notFound = /404|not found|cannot post/i.test(msg);
+        if (!notFound) throw e;
+        toast.warning(
+          "This server does not have the new assessment workflow endpoint yet — using the legacy status endpoint. Ask your administrator to deploy the latest CHUO API.",
+        );
+        const legacyStatus = LEGACY_STATUS_FALLBACK[action];
+        if (action === "open") {
+          return api.post(`/assessments/${id}/publish`, {});
+        }
+        if (legacyStatus) {
+          return api.post(`/assessments/${id}/status`, {
+            status: legacyStatus,
+            reason,
+          });
+        }
+        throw new Error(
+          `"${action}" needs the latest CHUO API deployed — the server does not support it yet.`,
+        );
+      }
+    },
+    onSuccess: (_d, { id, action }) => {
+      qc.invalidateQueries({ queryKey: ["assessments"] });
+      qc.invalidateQueries({ queryKey: ["assessment", id] });
+      qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(TRANSITION_TOAST[action] || "Assessment updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Best legacy equivalent per lifecycle action (pre-/transition servers). */
+const LEGACY_STATUS_FALLBACK: Record<string, string> = {
+  complete: "completed",
+  publish: "published",
+  lock: "locked",
+  unlock: "completed",
+  reopen: "open",
+  unpublish: "completed",
+  archive: "archived",
+  unarchive: "draft",
+};
+
+
+const TRANSITION_TOAST: Record<string, string> = {
+  open: "Open for mark entry — teacher tasks are live",
+  complete: "Marked as completed — ready for review and publishing",
+  reopen: "Reopened — teachers can edit marks again",
+  publish: "Results published to parents and students",
+  unpublish: "Results unpublished — no longer visible in the portal",
+  lock: "Locked — marks are frozen",
+  unlock: "Unlocked — marks can be edited again",
+  archive: "Archived — data retained",
+  unarchive: "Restored from archive",
+};
+
 export function useSetAssessmentStatus() {
   const qc = useQueryClient();
   return useMutation({
@@ -452,27 +701,11 @@ export function useResyncAssessmentSubjects() {
 }
 
 // ============ TASKS ============
-export function useResyncAssessment() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.post(`/assessments/${id}/resync-subjects`, {}),
-    onSuccess: (_d, id) => {
-      qc.invalidateQueries({ queryKey: ["assessments"] });
-      qc.invalidateQueries({ queryKey: ["assessment", id] });
-      qc.invalidateQueries({ queryKey: ["assessment-tasks"] });
-      toast.success("Assessment synced. New students and subjects are now covered.");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
 export interface AssessmentTask {
   id: string;
   assessment_id: string;
   assessment_name: string;
   assessment_status: AssessmentStatus;
-  end_date: string | null;
-  marks_deadline: string | null;
   grade_id: string;
   grade_name: string;
   stream_id: string | null;
@@ -613,7 +846,6 @@ export function useBulkSaveAssessmentMarks() {
     mutationFn: (body: {
       assessment_id: string;
       task_id?: string;
-      global_out_of?: number;
       items: Array<{
         student_id: string;
         subject_id: string;
@@ -890,8 +1122,6 @@ export function useCreateRcRun() {
       template_id?: string | null;
       grade_id?: string | null;
       stream_id?: string | null;
-      closing_date?: string | null;
-      opening_date?: string | null;
     }) => api.post("/assessments/report-cards/runs", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rc-runs"] });
@@ -978,7 +1208,10 @@ export function useAssessmentAnalytics(
 
 // ---------------- DOWNLOADS / EXPORTS ----------------
 function apiBase() {
-  return (import.meta as any).env?.VITE_API_URL || "/api";
+  return (
+    (import.meta as any).env?.VITE_API_URL ||
+    "https://api.chuoflow.co.ke/api/v1"
+  );
 }
 async function downloadAuthed(path: string, filename: string) {
   const token = localStorage.getItem("chuo-token");
@@ -998,14 +1231,17 @@ async function downloadAuthed(path: string, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Delay revocation so the browser has time to fully read the blob
+  // before the URL is invalidated. Revoking immediately after click()
+  // causes corrupted/empty files in production (HTTPS) environments.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export function useDownloadReportCardPdf() {
   return useMutation({
-    mutationFn: ({ cardId, name }: { cardId: string; name?: string }) =>
+    mutationFn: ({ cardId, name, showDates }: { cardId: string; name?: string; showDates?: boolean }) =>
       downloadAuthed(
-        `/assessments/report-cards/cards/${cardId}/pdf`,
+        `/assessments/report-cards/cards/${cardId}/pdf${showDates ? "?show_dates=true" : ""}`,
         `${name || "report-card"}.pdf`,
       ),
     onError: (e: Error) => toast.error(e.message),
@@ -1014,9 +1250,9 @@ export function useDownloadReportCardPdf() {
 
 export function useDownloadRunZip() {
   return useMutation({
-    mutationFn: ({ runId }: { runId: string }) =>
+    mutationFn: ({ runId, showDates }: { runId: string; showDates?: boolean }) =>
       downloadAuthed(
-        `/assessments/report-cards/runs/${runId}/download.zip`,
+        `/assessments/report-cards/runs/${runId}/download.zip${showDates ? "?show_dates=true" : ""}`,
         `report-cards-${runId}.zip`,
       ),
     onError: (e: Error) => toast.error(e.message),
@@ -1025,9 +1261,9 @@ export function useDownloadRunZip() {
 
 export function useDownloadRunCombinedPdf() {
   return useMutation({
-    mutationFn: ({ runId }: { runId: string }) =>
+    mutationFn: ({ runId, showDates }: { runId: string; showDates?: boolean }) =>
       downloadAuthed(
-        `/assessments/report-cards/runs/${runId}/download.pdf`,
+        `/assessments/report-cards/runs/${runId}/download.pdf${showDates ? "?show_dates=true" : ""}`,
         `report-cards-${runId}.pdf`,
       ),
     onError: (e: Error) => toast.error(e.message),

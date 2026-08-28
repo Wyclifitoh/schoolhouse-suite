@@ -191,7 +191,7 @@ const ParentProfile = () => {
           </Card>
 
           <div className="lg:col-span-2 space-y-6">
-            <PermissionGate role={["super_admin", "admin", "school_admin"]}>
+            <PermissionGate permission="parents:update">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -274,9 +274,7 @@ const ParentProfile = () => {
                     {childCount})
                   </CardTitle>
                   {selected.size > 0 && (
-                    <PermissionGate
-                      role={["super_admin", "admin", "school_admin"]}
-                    >
+                    <PermissionGate permission="students:transfer">
                       <div className="flex gap-2">
                         <Badge variant="secondary">
                           {selected.size} selected

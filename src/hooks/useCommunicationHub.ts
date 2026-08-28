@@ -22,10 +22,17 @@ export function useCommDashboard() {
 }
 
 /* ============== SMS BALANCE ============== */
+export interface SmsBalanceInfo {
+  balance: number | null;
+  configured?: boolean;
+  paybill?: string | null;
+  account?: string | null;
+  cached?: boolean;
+}
 export function useSmsBalance(auto = true) {
   return useQuery({
     queryKey: ["sms-balance"],
-    queryFn: () => api.get<{ balance: number | null; cached: boolean }>("/communication/sms/balance"),
+    queryFn: () => api.get<SmsBalanceInfo>("/communication/sms/balance"),
     staleTime: 60_000,
     refetchInterval: auto ? 5 * 60_000 : false,
   });
@@ -33,9 +40,10 @@ export function useSmsBalance(auto = true) {
 export function useRefreshSmsBalance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.get<{ balance: number | null }>("/communication/sms/balance?refresh=1"),
+    mutationFn: () =>
+      api.get<SmsBalanceInfo>("/communication/sms/balance?refresh=1"),
     onSuccess: (d) => {
-      qc.setQueryData(["sms-balance"], { balance: d.balance, cached: false });
+      qc.setQueryData(["sms-balance"], { ...d, cached: false });
       toast.success(`Balance: ${d.balance ?? "n/a"}`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -61,14 +69,18 @@ export interface Campaign {
   created_by_name?: string | null;
   created_at: string;
 }
-export function useCampaigns(params: { status?: string; search?: string } = {}) {
+export function useCampaigns(
+  params: { status?: string; search?: string } = {},
+) {
   return useQuery({
     queryKey: ["campaigns", params],
     queryFn: async () => {
       const q = new URLSearchParams();
       if (params.status) q.set("status", params.status);
       if (params.search) q.set("search", params.search);
-      const data = await api.get<Campaign[]>(`/communication/campaigns${q.toString() ? `?${q}` : ""}`);
+      const data = await api.get<Campaign[]>(
+        `/communication/campaigns${q.toString() ? `?${q}` : ""}`,
+      );
       return data || [];
     },
   });
@@ -91,22 +103,30 @@ export function useDeleteCampaign() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/communication/campaigns/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["campaigns"] }); toast.success("Campaign deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Campaign deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 export function useDuplicateCampaign() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post<Campaign>(`/communication/campaigns/${id}/duplicate`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["campaigns"] }); toast.success("Campaign duplicated"); },
+    mutationFn: (id: string) =>
+      api.post<Campaign>(`/communication/campaigns/${id}/duplicate`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Campaign duplicated");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 export function useSendCampaign() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post<Campaign>(`/communication/campaigns/${id}/send`, {}),
+    mutationFn: (id: string) =>
+      api.post<Campaign>(`/communication/campaigns/${id}/send`, {}),
     onSuccess: (c) => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
       qc.invalidateQueries({ queryKey: ["comm-dashboard"] });
@@ -137,7 +157,9 @@ export function useScheduled(params: { status?: string } = {}) {
     queryFn: async () => {
       const q = new URLSearchParams();
       if (params.status) q.set("status", params.status);
-      const d = await api.get<Scheduled[]>(`/communication/scheduled${q.toString() ? `?${q}` : ""}`);
+      const d = await api.get<Scheduled[]>(
+        `/communication/scheduled${q.toString() ? `?${q}` : ""}`,
+      );
       return d || [];
     },
   });
@@ -149,15 +171,22 @@ export function useSaveScheduled() {
       id
         ? api.put<Scheduled>(`/communication/scheduled/${id}`, data)
         : api.post<Scheduled>("/communication/scheduled", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["scheduled"] }); toast.success("Scheduled"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["scheduled"] });
+      toast.success("Scheduled");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 export function useCancelScheduled() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post(`/communication/scheduled/${id}/cancel`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["scheduled"] }); toast.success("Cancelled"); },
+    mutationFn: (id: string) =>
+      api.post(`/communication/scheduled/${id}/cancel`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["scheduled"] });
+      toast.success("Cancelled");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -165,7 +194,10 @@ export function useDeleteScheduled() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/communication/scheduled/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["scheduled"] }); toast.success("Deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["scheduled"] });
+      toast.success("Deleted");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -185,18 +217,72 @@ export interface Automation {
 export function useAutomations() {
   return useQuery({
     queryKey: ["automations"],
-    queryFn: async () => (await api.get<Automation[]>("/communication/automations")) || [],
+    queryFn: async () =>
+      (await api.get<Automation[]>("/communication/automations")) || [],
   });
 }
 export function useUpdateAutomation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ triggerKey, data }: { triggerKey: string; data: Partial<Automation> }) =>
-      api.put<Automation>(`/communication/automations/${triggerKey}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["automations"] }); toast.success("Saved"); },
+    mutationFn: ({
+      triggerKey,
+      data,
+    }: {
+      triggerKey: string;
+      data: Partial<Automation>;
+    }) => api.put<Automation>(`/communication/automations/${triggerKey}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["automations"] });
+      toast.success("Saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
+
+/** Send a real test message through one trigger (uses the school's template). */
+export function useTestAutomation() {
+  return useMutation({
+    mutationFn: ({
+      triggerKey,
+      phone,
+      email,
+      studentId,
+    }: {
+      triggerKey: string;
+      phone?: string;
+      email?: string;
+      studentId?: string;
+    }) =>
+      api.post<any>(`/communication/automations/${triggerKey}/test`, {
+        phone: phone || undefined,
+        email: email || undefined,
+        student_id: studentId || undefined,
+      }),
+    onSuccess: (r: any) => {
+      const sms = r?.sms ? `SMS ${r.sms.sent}/${r.sms.sent + r.sms.failed}` : "";
+      const em = r?.email ? `Email ${r.email.sent}/${r.email.sent + r.email.failed}` : "";
+      toast.success(`Test sent — ${[sms, em].filter(Boolean).join(", ") || "queued"}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Create this school's default templates + automation triggers. */
+export function useSeedCommDefaults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ seeded: number }>("/communication/defaults/seed", {}),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["automations"] });
+      qc.invalidateQueries({ queryKey: ["sms-templates"] });
+      toast.success(
+        r?.seeded ? `${r.seeded} default items created` : "Defaults already in place",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 
 /* ============== SETTINGS ============== */
 export interface CommSettings {
@@ -214,8 +300,12 @@ export function useCommSettings() {
 export function useSaveCommSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<CommSettings>) => api.put<CommSettings>("/communication/settings", data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["comm-settings"] }); toast.success("Settings saved"); },
+    mutationFn: (data: Partial<CommSettings>) =>
+      api.put<CommSettings>("/communication/settings", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["comm-settings"] });
+      toast.success("Settings saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
@@ -243,19 +333,32 @@ export interface HistoryRow {
   created_at: string;
   sent_by_name?: string | null;
 }
-export function useHistory(params: { channel?: string; status?: string; search?: string; limit?: number; offset?: number } = {}) {
+export function useHistory(
+  params: {
+    channel?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+) {
   return useQuery({
     queryKey: ["comm-history", params],
     queryFn: async () => {
       const q = new URLSearchParams();
-      if (params.channel && params.channel !== "all") q.set("channel", params.channel);
-      if (params.status && params.status !== "all") q.set("status", params.status);
+      if (params.channel && params.channel !== "all")
+        q.set("channel", params.channel);
+      if (params.status && params.status !== "all")
+        q.set("status", params.status);
       if (params.search) q.set("search", params.search);
       if (params.limit) q.set("limit", String(params.limit));
       if (params.offset) q.set("offset", String(params.offset));
-      return api.get<{ rows: HistoryRow[]; total: number; limit: number; offset: number }>(
-        `/communication/history${q.toString() ? `?${q}` : ""}`,
-      );
+      return api.get<{
+        rows: HistoryRow[];
+        total: number;
+        limit: number;
+        offset: number;
+      }>(`/communication/history${q.toString() ? `?${q}` : ""}`);
     },
   });
 }
@@ -264,7 +367,10 @@ export function useRetryMessage() {
   return useMutation({
     mutationFn: ({ kind, id }: { kind: "sms" | "email"; id: string }) =>
       api.post(`/communication/history/${kind}/${id}/retry`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["comm-history"] }); toast.success("Retry queued"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["comm-history"] });
+      toast.success("Retry queued");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }

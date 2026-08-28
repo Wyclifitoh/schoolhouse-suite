@@ -35,6 +35,7 @@ import {
   useAchievementLevels,
 } from "@/hooks/useAssessments";
 import { useRemarkBands, previewRemark } from "@/hooks/useRemarkBands";
+import { useIsHistoricalView } from "@/hooks/useAcademicContext";
 import {
   ArrowLeft,
   Save,
@@ -69,8 +70,9 @@ export default function MarksEntry() {
   const { data: levels = [] } = useAchievementLevels();
   const bulk = useBulkSaveAssessmentMarks();
   const submit = useSubmitTask();
-  const { user, hasAnyRole } = useAuth();
+  const { user } = useAuth();
   const canEnterMarks = usePermission("exams:update");
+  const isHistorical = useIsHistoricalView();
   // A teacher assigned to the task may enter marks even without the global
   // exams:update permission bit; server-side still enforces school scoping.
   const isTaskOwner =
@@ -78,10 +80,7 @@ export default function MarksEntry() {
     !!data?.task &&
     ((data.task as any).teacher_id === user.id ||
       (data.task as any).assigned_teacher_id === user.id);
-  const canSave =
-    canEnterMarks ||
-    isTaskOwner ||
-    hasAnyRole(["super_admin", "admin", "school_admin", "teacher"]);
+  const canSave = (canEnterMarks || isTaskOwner) && !isHistorical;
 
   const task = data?.task;
   const outOf = data?.out_of ?? 100;
@@ -94,14 +93,9 @@ export default function MarksEntry() {
   });
 
   const [draft, setDraft] = useState<Draft>({});
-  const [localOutOf, setLocalOutOf] = useState<number>(100);
-
   useEffect(() => {
     setDraft({});
-    if (data?.out_of) {
-      setLocalOutOf(data.out_of);
-    }
-  }, [taskId, data?.out_of]);
+  }, [taskId]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<null | {
@@ -139,19 +133,17 @@ export default function MarksEntry() {
       if (!remarks && score !== "" && status === "present") {
         const numScore = Number(score);
         if (!isNaN(numScore)) {
-          const al = previewAL(levels as any[], numScore, localOutOf);
           const auto = previewRemark(bands as any, {
             subject_id: subjectId,
             grade_id: gradeId,
             pct: outOf > 0 ? (numScore / outOf) * 100 : 0,
-            level_code: al?.code || null,
           });
           if (auto) remarks = auto;
         }
       }
       return { student: s, score, status, remarks, mark: s.mark };
     });
-  }, [data, draft, bands, subjectId, gradeId, localOutOf]);
+  }, [data, draft, bands, subjectId, gradeId, outOf]);
 
   const setCell = (
     id: string,
@@ -172,23 +164,19 @@ export default function MarksEntry() {
         student_id: r.student.id,
         subject_id: task.subject_id,
         score: r.score === "" ? null : Number(r.score),
-        out_of: localOutOf,
+        out_of: outOf,
         status: r.status,
         // Send remarks only if teacher changed it from the auto-preview; backend
         // resolves auto-remarks itself when this is null/empty.
         remarks: r.remarks || null,
       }));
-    const outOfChanged = localOutOf !== outOf;
-    
-    if (!items.length && !outOfChanged) {
+    if (!items.length) {
       toast.info("Nothing to save");
       return;
     }
-    
     await bulk.mutateAsync({
       assessment_id: task.assessment_id,
       task_id: task.id,
-      global_out_of: localOutOf,
       items,
     });
     setDraft({});
@@ -222,7 +210,7 @@ export default function MarksEntry() {
       s.admission_number,
       `${s.first_name} ${s.last_name}`,
       s.mark?.score ?? "",
-      localOutOf,
+      outOf,
     ]);
     const sheet = XLSX.utils.aoa_to_sheet([...meta, head, ...body]);
     sheet["!cols"] = [{ wch: 16 }, { wch: 28 }, { wch: 10 }, { wch: 10 }];
@@ -306,7 +294,7 @@ export default function MarksEntry() {
       for (const r of importPreview.rows) {
         if (!r.existing) continue;
         if (r.score == null || isNaN(r.score)) continue;
-        if (r.score < 0 || r.score > localOutOf) continue;
+        if (r.score < 0 || r.score > outOf) continue;
         next[r.existing.id] = {
           ...next[r.existing.id],
           score: String(r.score),
@@ -348,33 +336,13 @@ export default function MarksEntry() {
             <ArrowLeft className="h-3.5 w-3.5" /> Back to assessment
           </Link>
           <h1 className="text-3xl font-bold mt-1">Marks Entry</h1>
-          <div className="mt-2 text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-            <p><strong>Assessment:</strong> {task.assessment_name}</p>
-            <p>
-              <strong>Class:</strong> {task.grade_name}
-              {task.stream_name ? ` · ${task.stream_name}` : ""}
-            </p>
-            <p><strong>Subject:</strong> {task.subject_name}</p>
-            <p>
-              <strong>Teacher:</strong>{" "}
-              {task.teacher_name?.trim() ? task.teacher_name : <span className="italic text-amber-600">Unassigned</span>}
-            </p>
-          </div>
-          <div className="flex gap-2 mt-2 flex-wrap items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Out of:</span>
-              <Input
-                type="number"
-                className="w-20 h-8"
-                min={1}
-                value={localOutOf}
-                disabled={!!locked}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  setLocalOutOf(isNaN(v) || v < 1 ? 1 : v);
-                }}
-              />
-            </div>
+          <p className="text-muted-foreground">
+            {task.assessment_name} · {task.grade_name}
+            {task.stream_name ? ` · ${task.stream_name}` : ""} ·{" "}
+            {task.subject_name}
+          </p>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <Badge variant="outline">Out of {outOf}</Badge>
             <Badge variant="outline">
               {markedCount}/{rows.length} entered ({completion}%)
             </Badge>
@@ -452,7 +420,7 @@ export default function MarksEntry() {
                   <TableRow>
                     <TableHead className="w-24">Adm #</TableHead>
                     <TableHead>Student</TableHead>
-                    <TableHead className="w-48">Score / {localOutOf}</TableHead>
+                    <TableHead className="w-32">Score / {outOf}</TableHead>
                     <TableHead className="w-20">AL</TableHead>
                     <TableHead className="w-20">Band</TableHead>
                     <TableHead className="w-36">Status</TableHead>
@@ -462,7 +430,7 @@ export default function MarksEntry() {
                 <TableBody>
                   {rows.map((r) => {
                     const num = r.score === "" ? NaN : Number(r.score);
-                    const al = previewAL(levels as any[], num, localOutOf);
+                    const al = previewAL(levels as any[], num, outOf);
                     return (
                       <TableRow key={r.student.id}>
                         <TableCell>{r.student.admission_number}</TableCell>
@@ -470,32 +438,20 @@ export default function MarksEntry() {
                           {r.student.first_name} {r.student.last_name}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              className="w-20"
-                              min={0}
-                              max={localOutOf}
-                              value={r.score}
-                              disabled={
-                                !!locked ||
-                                r.status === "absent" ||
-                                r.status === "exempted"
-                              }
-                              onChange={(e) => {
-                                let val = parseFloat(e.target.value);
-                                if (!isNaN(val) && val > localOutOf) val = localOutOf;
-                                setCell(r.student.id, {
-                                  score: isNaN(val) ? e.target.value : String(val),
-                                });
-                              }}
-                            />
-                            {r.score !== "" && !isNaN(Number(r.score)) && localOutOf > 0 && (
-                              <span className="text-xs text-muted-foreground w-12 text-right">
-                                {((Number(r.score) / localOutOf) * 100).toFixed(0)}%
-                              </span>
-                            )}
-                          </div>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={outOf}
+                            value={r.score}
+                            disabled={
+                              !!locked ||
+                              r.status === "absent" ||
+                              r.status === "exempted"
+                            }
+                            onChange={(e) =>
+                              setCell(r.student.id, { score: e.target.value })
+                            }
+                          />
                         </TableCell>
                         <TableCell>
                           {al ? (
@@ -586,7 +542,7 @@ export default function MarksEntry() {
                     {importPreview.unmatched} unmatched
                   </Badge>
                 )}
-                <Badge variant="outline">Out of {localOutOf}</Badge>
+                <Badge variant="outline">Out of {outOf}</Badge>
               </div>
               <div className="max-h-80 overflow-auto border rounded">
                 <Table>
@@ -601,7 +557,7 @@ export default function MarksEntry() {
                   <TableBody>
                     {importPreview.rows.map((r, i) => {
                       const invalid =
-                        r.score != null && (r.score < 0 || r.score > localOutOf);
+                        r.score != null && (r.score < 0 || r.score > outOf);
                       return (
                         <TableRow key={i}>
                           <TableCell>{r.admission_number}</TableCell>

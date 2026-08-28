@@ -200,11 +200,11 @@ export default function StaffAttendance() {
             </p>
           </div>
           <PermissionGate
-            role={["super_admin"]}
+            permission="attendance:update"
             fallback={
               <Badge variant="outline">
                 <Lock className="h-3 w-3 mr-1" />
-                Read-only · super admin can modify
+                Read-only · you cannot modify attendance
               </Badge>
             }
           >

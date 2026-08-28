@@ -44,7 +44,6 @@ import {
   Sparkles,
   Shield,
   Activity,
-  LayoutGrid,
 } from "lucide-react";
 import { ArrowUpRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -194,7 +193,7 @@ const navConfig = {
         title: "Class Timetable",
         url: "/class-timetable",
         icon: TableProperties,
-        roles: ADMIN_ROLES,
+        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
         title: "Teacher Timetable",
@@ -252,12 +251,6 @@ const navConfig = {
         roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
       },
       {
-        title: "Summative Reports",
-        url: "/assessments/summative",
-        icon: LayoutGrid,
-        roles: [...ADMIN_ROLES, ...TEACHER_ROLES] as AppRole[],
-      },
-      {
         title: "Report Templates",
         url: "/assessments/templates",
         icon: FileBadge,
@@ -302,6 +295,12 @@ const navConfig = {
         title: "Brought Forward Balances",
         url: "/finance/brought-forward",
         icon: ArrowUpRight,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+      },
+      {
+        title: "Fee Report",
+        url: "/finance/fee-report",
+        icon: Receipt,
         roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
       },
       {
@@ -407,9 +406,9 @@ const navConfig = {
     icon: MessageSquare,
     items: [
       {
-        title: "Communication",
+        title: "Dashboard",
         url: "/communication",
-        icon: MessageSquare,
+        icon: LayoutDashboard,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
@@ -417,8 +416,18 @@ const navConfig = {
         ] as AppRole[],
       },
       {
-        title: "Notices",
-        url: "/notices",
+        title: "Send Message",
+        url: "/communication/send",
+        icon: Mail,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Campaigns",
+        url: "/communication/campaigns",
         icon: BellRing,
         roles: [
           ...ADMIN_ROLES,
@@ -427,9 +436,9 @@ const navConfig = {
         ] as AppRole[],
       },
       {
-        title: "SMS",
-        url: "/sms",
-        icon: MessageSquare,
+        title: "Templates",
+        url: "/communication/templates",
+        icon: FileText,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
@@ -437,9 +446,41 @@ const navConfig = {
         ] as AppRole[],
       },
       {
-        title: "Email",
-        url: "/email",
-        icon: Mail,
+        title: "Automated Messages",
+        url: "/communication/automations",
+        icon: Sparkles,
+        roles: [...ADMIN_ROLES] as AppRole[],
+      },
+      {
+        title: "Scheduled",
+        url: "/communication/scheduled",
+        icon: Clock,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Message History",
+        url: "/communication/history",
+        icon: Archive,
+        roles: [
+          ...ADMIN_ROLES,
+          ...TEACHER_ROLES,
+          ...RECEPTIONIST_ROLES,
+        ] as AppRole[],
+      },
+      {
+        title: "Settings",
+        url: "/communication/settings",
+        icon: Settings,
+        roles: ADMIN_ROLES,
+      },
+      {
+        title: "Notices",
+        url: "/notices",
+        icon: BellRing,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,

@@ -49,6 +49,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
+import { HistoricalReadOnlyGate } from "@/components/HistoricalReadOnlyGate";
 
 const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 
@@ -120,9 +121,10 @@ const FeeAssignment = () => {
   }));
 
   const toggleStudent = (id: string) => {
-    if (paidLocked.has(id)) {
-      toast.error("Cannot unassign a fee with payments");
-      return;
+    if (paidLocked.has(id) && selected.has(id)) {
+      toast.info(
+        "This fee has payments. Unassigning will cancel the charge and return the money as excess credit.",
+      );
     }
     setSelected((prev) => {
       const next = new Set(prev);
@@ -141,10 +143,7 @@ const FeeAssignment = () => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (allVisibleSelected) {
-        // Deselect only the visible ones, but keep paid-locked entries.
-        allIds.forEach((id) => {
-          if (!paidLocked.has(id)) next.delete(id);
-        });
+        allIds.forEach((id) => next.delete(id));
       } else {
         // Add every visible student to the existing selection.
         allIds.forEach((id) => next.add(id));
@@ -164,8 +163,9 @@ const FeeAssignment = () => {
     (id) => !originallyAssigned.has(id),
   );
   const removals = Array.from(originallyAssigned).filter(
-    (id) => !selected.has(id) && !paidLocked.has(id),
+    (id) => !selected.has(id),
   );
+  const paidRemovals = removals.filter((id) => paidLocked.has(id));
 
   const handleSubmit = async () => {
     setShowConfirm(false);
@@ -455,10 +455,7 @@ const FeeAssignment = () => {
                           onClick={() => toggleStudent(s.id)}
                         >
                           <TableCell>
-                            <Checkbox
-                              checked={selected.has(s.id)}
-                              disabled={paidLocked.has(s.id)}
-                            />
+                            <Checkbox checked={selected.has(s.id)} />
                           </TableCell>
                           <TableCell className="font-medium">
                             {s.full_name}
@@ -521,14 +518,16 @@ const FeeAssignment = () => {
                         </div>
                       </div>
                       <PermissionGate permission="finance:fees:assign">
-                        <Button
-                          size="lg"
-                          onClick={() => setShowConfirm(true)}
-                          className="shadow-lg"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1.5" />
-                          Save Changes
-                        </Button>
+                        <HistoricalReadOnlyGate>
+                          <Button
+                            size="lg"
+                            onClick={() => setShowConfirm(true)}
+                            className="shadow-lg"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1.5" />
+                            Save Changes
+                          </Button>
+                        </HistoricalReadOnlyGate>
                       </PermissionGate>
                     </div>
                   </CardContent>
@@ -591,10 +590,14 @@ const FeeAssignment = () => {
                 </span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Students with any payment recorded against this fee cannot be
-              unassigned and stay locked.
-            </p>
+            {paidRemovals.length > 0 && (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+                <strong>{paidRemovals.length}</strong> of the students being
+                unassigned already have payments on this fee. The charge will be
+                cancelled and the paid amount released back to the student as
+                excess credit — no payment record is deleted.
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>

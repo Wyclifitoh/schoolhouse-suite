@@ -16,16 +16,24 @@ import {
   useSmsTemplates, useCreateSmsTemplate, useUpdateSmsTemplate, useDeleteSmsTemplate,
 } from "@/hooks/useCommHub";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermission";
+import { useSeedCommDefaults } from "@/hooks/useCommunicationHub";
 
 const PLACEHOLDERS = [
   "{{student_name}}", "{{parent_name}}", "{{school_name}}",
-  "{{balance}}", "{{class}}", "{{stream}}",
+  "{{balance}}", "{{class}}", "{{stream}}", "{{admission_number}}",
+  "{{amount}}", "{{receipt_no}}", "{{assessment_name}}", "{{subject}}",
+  "{{due_date}}", "{{term}}", "{{date}}",
 ];
 
 const SAMPLES: Record<string, string> = {
   "{{student_name}}": "Amina Kimani", "{{parent_name}}": "John Kimani",
   "{{school_name}}": "CHUO Academy", "{{balance}}": "KES 3,500",
   "{{class}}": "Grade 6", "{{stream}}": "East",
+  "{{admission_number}}": "ADM/2026/014", "{{amount}}": "KES 5,000",
+  "{{receipt_no}}": "RCP-000123", "{{assessment_name}}": "Term 1 Opener",
+  "{{subject}}": "Mathematics", "{{due_date}}": "2026-08-15",
+  "{{term}}": "Term 1 2026", "{{date}}": "2026-08-10",
 };
 function fill(text: string) {
   return PLACEHOLDERS.reduce((acc, p) => acc.split(p).join(SAMPLES[p]), text || "");
@@ -36,6 +44,12 @@ export default function TemplatesPage() {
   const create = useCreateSmsTemplate();
   const update = useUpdateSmsTemplate();
   const del = useDeleteSmsTemplate();
+  const seed = useSeedCommDefaults();
+  const can = usePermissions([
+    "communication:create",
+    "communication:update",
+    "communication:delete",
+  ]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>({ name: "", body: "", channel: "sms", is_active: true });
 
@@ -55,9 +69,18 @@ export default function TemplatesPage() {
               <FileText className="h-4 w-4 text-primary" /> Templates
               <Badge variant="secondary" className="text-[10px]">{templates.length}</Badge>
             </CardTitle>
-            <Button size="sm" onClick={() => { setEditing({ name: "", body: "", channel: "sms", is_active: true }); setOpen(true); }}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> New Template
-            </Button>
+            <div className="flex items-center gap-2">
+              {can["communication:create"] && (
+                <Button size="sm" variant="outline" onClick={() => seed.mutate()} disabled={seed.isPending}>
+                  <Sparkles className="h-3.5 w-3.5 mr-1" /> Load defaults
+                </Button>
+              )}
+              {can["communication:create"] && (
+                <Button size="sm" onClick={() => { setEditing({ name: "", body: "", channel: "sms", is_active: true }); setOpen(true); }}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> New Template
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2">
@@ -75,15 +98,20 @@ export default function TemplatesPage() {
                     {t.subject && <p className="text-xs font-medium mt-0.5">{t.subject}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Switch checked={t.is_active} onCheckedChange={() => update.mutate({ id: t.id, data: { is_active: !t.is_active } })} />
-                    <Button size="icon" variant="ghost" className="h-7 w-7"
-                      onClick={() => { setEditing(t); setOpen(true); }}>
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
-                      onClick={() => confirm("Delete?") && del.mutate(t.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <Switch checked={t.is_active} disabled={!can["communication:update"]}
+                      onCheckedChange={() => update.mutate({ id: t.id, data: { is_active: !t.is_active } })} />
+                    {can["communication:update"] && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7"
+                        onClick={() => { setEditing(t); setOpen(true); }}>
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {can["communication:delete"] && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"
+                        onClick={() => confirm("Delete?") && del.mutate(t.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground whitespace-pre-wrap">{t.body}</p>

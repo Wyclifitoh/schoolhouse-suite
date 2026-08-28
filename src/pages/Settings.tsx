@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AcademicSwitchWizard } from "@/components/academic-switch/AcademicSwitchWizard";
+import { ArrowLeftRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
@@ -52,8 +54,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -78,18 +78,13 @@ import {
   CheckCircle,
   Send,
   GraduationCap,
-  Upload,
-  X,
-  ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { resolveLogoUrl } from "@/lib/utils";
 import {
   useSchoolProfile,
   useUpdateSchoolProfile,
-  useUploadSchoolLogo,
   useSchoolUsers,
   useUpdateUserRole,
   useNotificationTemplates,
@@ -97,7 +92,7 @@ import {
 } from "@/hooks/useSettings";
 import { useTerm, AcademicYear, Term } from "@/contexts/TermContext";
 import { formatDate } from "@/utils/date";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const termStatusConfig: Record<string, { label: string; className: string }> = {
   completed: {
@@ -180,45 +175,26 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState("school");
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     userId: string;
-    roles: string[];
+    role: string;
     userName: string;
   } | null>(null);
 
   // --- Data hooks ---
   const { data: schoolProfile, isLoading: profileLoading } = useSchoolProfile();
   const updateProfile = useUpdateSchoolProfile();
-  const uploadLogo = useUploadSchoolLogo();
   const { data: usersData = [], isLoading: usersLoading } = useSchoolUsers();
   const updateUserRole = useUpdateUserRole();
+
+  const { data: systemRoles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const data = await api.get<any[]>("/roles");
+      return data || [];
+    },
+  });
   const { data: templatesData = [], isLoading: templatesLoading } =
     useNotificationTemplates();
   const updateTemplate = useUpdateNotificationTemplate();
-
-  // --- Logo upload state ---
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-
-  const handleLogoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 500 * 1024) {
-      toast.error("Logo must be under 500 KB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const base64 = ev.target?.result as string;
-      setLogoPreview(base64);
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  const handleLogoUpload = useCallback(() => {
-    if (!logoPreview) return;
-    uploadLogo.mutate(logoPreview, {
-      onSuccess: () => setLogoPreview(null),
-    });
-  }, [logoPreview, uploadLogo]);
 
   // Academic Years
   const { data: academicYears = [], isLoading: ayLoading } = useQuery({
@@ -271,6 +247,7 @@ const Settings = () => {
 
   // --- Term CRUD ---
   const [termDialogOpen, setTermDialogOpen] = useState(false);
+  const [switchWizardOpen, setSwitchWizardOpen] = useState(false);
   const [termForm, setTermForm] = useState({
     name: "",
     start_date: "",
@@ -352,6 +329,16 @@ const Settings = () => {
       title="Settings"
       subtitle="Manage school configuration, users, and notifications"
     >
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+          Want a guided view of what is still missing? Open the setup centre for
+          live completion progress.
+        </p>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/settings/setup">Setup &amp; configuration</Link>
+        </Button>
+      </div>
+
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
@@ -395,75 +382,6 @@ const Settings = () => {
                 </div>
               ) : (
                 <>
-                  {/* ── Logo Upload ── */}
-                  <div className="space-y-3">
-                    <Label className="flex items-center gap-1.5">
-                      <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                      School Logo <span className="text-xs text-muted-foreground">(optional · max 500 KB)</span>
-                    </Label>
-                    <div className="flex items-center gap-4">
-                      {/* Current or preview logo */}
-                      <div className="h-20 w-20 rounded-xl border-2 border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
-                        {(logoPreview || schoolProfile?.logo_url) ? (
-                          <img
-                            src={logoPreview || resolveLogoUrl(schoolProfile?.logo_url) || ""}
-                            alt="School logo"
-                            className="h-full w-full object-contain p-1"
-                          />
-                        ) : (
-                          <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => logoInputRef.current?.click()}
-                          >
-                            <Upload className="h-3.5 w-3.5 mr-1.5" />
-                            {schoolProfile?.logo_url ? "Change Logo" : "Upload Logo"}
-                          </Button>
-                          {logoPreview && (
-                            <>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={handleLogoUpload}
-                                disabled={uploadLogo.isPending}
-                              >
-                                <Save className="h-3.5 w-3.5 mr-1.5" />
-                                {uploadLogo.isPending ? "Saving..." : "Save Logo"}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => { setLogoPreview(null); if (logoInputRef.current) logoInputRef.current.value = ""; }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          PNG, JPG, WEBP or SVG · max 500 KB · appears on report cards and receipts
-                        </p>
-                      </div>
-                    </div>
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
-                      className="hidden"
-                      onChange={handleLogoSelect}
-                    />
-                  </div>
-
-                  <Separator />
-
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>School Name</Label>
@@ -735,6 +653,28 @@ const Settings = () => {
 
         {/* ── Academic Terms ── */}
         <TabsContent value="terms" className="space-y-6">
+          <Card className="border-primary/25 bg-primary/[0.03]">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base font-semibold">
+                    Academic Period
+                  </CardTitle>
+                  <CardDescription>
+                    Move the school into a new term or academic year. This runs
+                    the guided switch wizard.
+                  </CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setSwitchWizardOpen(true)}>
+                  <ArrowLeftRight className="h-4 w-4 mr-1.5" /> Switch period
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+          <AcademicSwitchWizard
+            open={switchWizardOpen}
+            onOpenChange={setSwitchWizardOpen}
+          />
           <Card>
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1007,44 +947,55 @@ const Settings = () => {
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="outline"
-                                  className="h-8 w-44 justify-start text-xs font-normal overflow-hidden whitespace-nowrap text-ellipsis"
+                                  size="sm"
+                                  className="h-8 w-44 justify-start text-xs font-normal"
                                   disabled={updateUserRole.isPending}
                                 >
-                                  {u.roles?.split(",").map((r: string) => r.trim().replace(/_/g, " ")).filter(Boolean).join(", ") || "Select roles..."}
+                                  {u.roles ? (
+                                    <span className="truncate">
+                                      {u.roles
+                                        .split(",")
+                                        .map((r: string) =>
+                                          r.trim().replace(/_/g, " "),
+                                        )
+                                        .join(", ")}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      Select roles
+                                    </span>
+                                  )}
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent className="w-44">
-                                {[
-                                  { id: "super_admin", label: "Super Admin" },
-                                  { id: "admin", label: "School Admin" },
-                                  { id: "manager", label: "Manager" },
-                                  { id: "accountant", label: "Accountant" },
-                                  { id: "teacher", label: "Teacher" },
-                                  { id: "librarian", label: "Librarian" },
-                                  { id: "receptionist", label: "Receptionist" },
-                                ].map((roleOption) => {
-                                  const currentRoles = u.roles?.split(",").map((r: string) => r.trim()).filter(Boolean) || [];
-                                  const isChecked = currentRoles.includes(roleOption.id);
+                                {systemRoles.map((r: any) => {
+                                  const userRoles = u.roles
+                                    ? u.roles
+                                        .split(",")
+                                        .map((ur: string) => ur.trim())
+                                    : [];
+                                  const isSelected = userRoles.includes(r.code);
                                   return (
                                     <DropdownMenuCheckboxItem
-                                      key={roleOption.id}
-                                      checked={isChecked}
+                                      key={r.code}
+                                      checked={isSelected}
+                                      onSelect={(e) => e.preventDefault()}
                                       onCheckedChange={(checked) => {
-                                        let newRoles = [...currentRoles];
+                                        let newRoles = [...userRoles];
                                         if (checked) {
-                                          newRoles.push(roleOption.id);
+                                          newRoles.push(r.code);
                                         } else {
-                                          newRoles = newRoles.filter((r) => r !== roleOption.id);
+                                          newRoles = newRoles.filter(
+                                            (role) => role !== r.code,
+                                          );
                                         }
-                                        if (newRoles.join(",") === currentRoles.join(",")) return;
-                                        setPendingRoleChange({
+                                        updateUserRole.mutate({
                                           userId: u.id,
                                           roles: newRoles,
-                                          userName: u.full_name || u.email,
                                         });
                                       }}
                                     >
-                                      {roleOption.label}
+                                      {r.label}
                                     </DropdownMenuCheckboxItem>
                                   );
                                 })}
@@ -1288,7 +1239,7 @@ const Settings = () => {
                 if (pendingRoleChange) {
                   updateUserRole.mutate({
                     userId: pendingRoleChange.userId,
-                    roles: pendingRoleChange.roles,
+                    role: pendingRoleChange.role,
                   });
                 }
                 setPendingRoleChange(null);

@@ -42,6 +42,8 @@ import {
 import { useClasses, useStreams, useSubjects } from "@/hooks/useClasses";
 import { Button } from "@/components/ui/button";
 import { PermissionGate } from "@/components/PermissionGate";
+import { useTerm } from "@/contexts/TermContext";
+import { AssessmentNav } from "@/components/assessments/AssessmentNav";
 import {
   BarChart3,
   Trophy,
@@ -131,7 +133,11 @@ function Pager({
 }
 
 export default function Analytics() {
-  const { data: assessments = [] } = useAssessmentsList();
+  const { selectedTerm, selectedAcademicYear } = useTerm();
+  const { data: assessments = [] } = useAssessmentsList({
+    term_id: selectedTerm?.id,
+    year_id: selectedAcademicYear?.id,
+  });
   const [assessmentId, setAssessmentId] = useState<string>("");
   const dl = useDownloadAnalytics();
   const { data: previous = [] } = usePreviousAssessments(assessmentId);
@@ -200,6 +206,7 @@ export default function Analytics() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        <AssessmentNav />
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">

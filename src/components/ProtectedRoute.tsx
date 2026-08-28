@@ -2,17 +2,19 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useMyPermissions, PermissionCode } from "@/hooks/usePermission";
+import { permissionsForPath } from "@/lib/routePermissions";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  /** Required roles (any match = allowed) */
+  /** Legacy role gate (any match = allowed). Prefer the route permission map. */
   roles?: AppRole[];
   /**
-   * Required permission codes (any match = allowed). When both `roles` and
-   * `permissions` are provided, access is granted if EITHER matches —
-   * enabling custom DB-defined roles to reach pages purely through grants.
-   * Admins / super_admins always pass.
+   * Required permission codes (any match = allowed). When omitted, they are
+   * resolved from the central route→permission map so page access stays
+   * database-driven. When both roles and permissions apply, access is granted
+   * if EITHER matches — this lets custom DB-defined roles reach pages purely
+   * through grants. Admins / super_admins always pass.
    */
   permissions?: PermissionCode[];
   /** Redirect path when not authenticated */
@@ -28,9 +30,14 @@ export function ProtectedRoute({
   const { isAuthenticated, isLoading, hasAnyRole, mustChangePassword } =
     useAuth();
   const location = useLocation();
+
+  // Explicit prop wins; otherwise fall back to the central map for this path.
+  const mapped = permissions ?? permissionsForPath(location.pathname);
+  const required = mapped && mapped.length ? mapped : undefined;
+
   const { data: mePerms, isLoading: permsLoading } = useMyPermissions();
 
-  if (isLoading || (permissions && permsLoading)) {
+  if (isLoading || (required && permsLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -50,26 +57,27 @@ export function ProtectedRoute({
     return <Navigate to="/change-password" replace />;
   }
 
-  // Combined role / permission check.
-  // - No restrictions provided  -> any authenticated user passes.
-  // - Restrictions provided     -> any matching role OR permission grants access.
-  // - Admins always pass (handled inside usePermissions / hasAnyRole).
-  if (roles || permissions) {
-    const adminPass = hasAnyRole([
-      "super_admin",
-      "admin",
-      "school_admin",
-    ] as AppRole[]);
-    const roleMatch = roles ? hasAnyRole(roles) : false;
-    const permList = mePerms?.permissions || [];
-    const wildcard = permList.includes("*");
-    const permMatch = permissions
-      ? wildcard || permissions.some((p) => permList.includes(p))
-      : false;
-    if (!adminPass && !roleMatch && !permMatch) {
+  // Decision order (mirrors the backend authorization service):
+  //  1. The server-issued wildcard ("*") passes. It is the ONLY wildcard, and
+  //     it is resolved per-school by the backend — no role name grants access.
+  //  2. If the route HAS a permission requirement, permissions decide — alone.
+  //  3. Only permission-less routes fall back to the legacy `roles` allow-list
+  //     (identity pages such as /parent-portal and /student-panel), where the
+  //     role list is scoped to the selected school by AuthContext.
+  const permList = mePerms?.permissions || [];
+  const wildcard = permList.includes("*");
+
+  if (!wildcard) {
+    if (required) {
+      if (!required.some((p) => permList.includes(p))) {
+        return <Navigate to="/unauthorized" replace />;
+      }
+    } else if (roles && !hasAnyRole(roles)) {
       return <Navigate to="/unauthorized" replace />;
     }
   }
 
   return <>{children}</>;
 }
+
+

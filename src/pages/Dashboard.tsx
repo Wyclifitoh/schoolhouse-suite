@@ -1,798 +1,926 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { DashboardNoticeBanners } from "@/components/notifications/DashboardNoticeBanners";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth, AppRole } from "@/contexts/AuthContext";
-import { useDashboardStats } from "@/hooks/useDashboardStats";
-import { useAssessmentTasksPaged } from "@/hooks/useAssessments";
-import { Link } from "react-router-dom";
+import { SetupChecklist } from "@/components/help/SetupChecklist";
+import { OnboardingTourLauncher } from "@/components/help/OnboardingTour";
+import { Widget, KpiCard } from "@/components/dashboard/Widget";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAcademicContext } from "@/hooks/useAcademicContext";
+import { useCan } from "@/hooks/usePermission";
+import {
+  useAttention,
+  useDashboardActivity,
+  useDashboardSummary,
+  useFinanceTrend,
+} from "@/hooks/useDashboard";
+import { ClockInOutCard } from "@/components/staff/ClockInOutCard";
 import {
   Users,
   Banknote,
-  TrendingUp,
   AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
-  CreditCard,
+  TrendingUp,
   GraduationCap,
-  BookOpen,
-  Package,
   CalendarCheck,
+  Briefcase,
+  Package,
+  CalendarRange,
+  ArrowRight,
+  ClipboardList,
   Receipt,
+  MessageSquare,
+  BarChart3,
+  UserPlus,
+  ChevronRight,
+  Activity as ActivityIcon,
+  CalendarDays,
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
   LineChart,
   Line,
-  AreaChart,
-  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  BarChart,
+  Bar,
 } from "recharts";
-import {
-  format,
-  differenceInDays,
-  parseISO,
-  isPast,
-  startOfDay,
-} from "date-fns";
-import { ClockInOutCard } from "@/components/staff/ClockInOutCard";
+import { format, isValid, parseISO } from "date-fns";
 
 const CHART_COLORS = [
   "hsl(221, 83%, 53%)",
+  "hsl(199, 89%, 48%)",
   "hsl(142, 71%, 45%)",
   "hsl(38, 92%, 50%)",
-  "hsl(199, 89%, 48%)",
   "hsl(262, 83%, 58%)",
-  "hsl(0, 84%, 60%)",
+  "hsl(215, 16%, 60%)",
 ];
-const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
 
-const StatCard = ({
-  title,
-  value,
-  change,
-  trend,
-  icon: Icon,
-  color,
-  bg,
-  loading,
-}: any) => (
-  <Card className="stat-card">
-    <CardContent className="p-5 relative">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          {loading ? (
-            <Skeleton className="h-8 w-24 mt-1.5" />
-          ) : (
-            <p className="text-2xl font-extrabold mt-1.5 text-foreground tracking-tight">
-              {value}
-            </p>
-          )}
-          {change && (
-            <div className="flex items-center gap-1 mt-2">
-              {trend === "up" ? (
-                <ArrowUpRight className="h-3.5 w-3.5 text-success" />
-              ) : (
-                <ArrowDownRight className="h-3.5 w-3.5 text-success" />
-              )}
-              <span className="text-xs text-success font-semibold">
-                {change}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                vs last term
-              </span>
-            </div>
-          )}
-        </div>
-        <div
-          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${bg}`}
-        >
-          <Icon className={`h-6 w-6 ${color}`} />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-const ChartCard = ({
-  title,
-  children,
-  className = "",
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) => (
-  <Card className={`glass-card-hover ${className}`}>
-    <CardHeader className="pb-2">
-      <CardTitle className="text-sm font-bold tracking-tight">
-        {title}
-      </CardTitle>
-    </CardHeader>
-    <CardContent>{children}</CardContent>
-  </Card>
-);
-
-// ============== ADMIN ==============
-const AdminDashboard = () => {
-  const { data: stats, isLoading } = useDashboardStats();
-
-  const netIncome = (stats?.totalRevenue || 0) - (stats?.totalExpenses || 0);
-
-  // Revenue split pie
-  const revenuePie = [
-    { name: "Collected", value: stats?.totalRevenue || 0 },
-    { name: "Outstanding", value: stats?.totalOutstanding || 0 },
-    { name: "Expenses", value: stats?.totalExpenses || 0 },
-  ].filter((d) => d.value > 0);
-
-  // People composition
-  const peoplePie = [
-    { name: "Students", value: stats?.totalStudents || 0 },
-    { name: "Parents", value: stats?.totalParents || 0 },
-    { name: "Staff", value: stats?.totalStaff || 0 },
-  ].filter((d) => d.value > 0);
-
-  // Recent payments grouped by day for trend
-  const paymentsByDay: Record<string, number> = {};
-  (stats?.recentPayments || []).forEach((p) => {
-    const k = format(new Date(p.received_at), "MMM d");
-    paymentsByDay[k] = (paymentsByDay[k] || 0) + Number(p.amount || 0);
-  });
-  const paymentTrend = Object.entries(paymentsByDay)
-    .reverse()
-    .map(([day, amount]) => ({ day, amount }));
-
-  // Payment method breakdown
-  const methodTotals: Record<string, number> = {};
-  (stats?.recentPayments || []).forEach((p) => {
-    const m = (p.payment_method || "Other").toUpperCase();
-    methodTotals[m] = (methodTotals[m] || 0) + Number(p.amount || 0);
-  });
-  const methodBars = Object.entries(methodTotals).map(([method, total]) => ({
-    method,
-    total,
-  }));
-
-  return (
-    <>
-      <div className="mb-4">
-        <ClockInOutCard />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <StatCard
-          title="Total Students"
-          value={stats?.totalStudents || 0}
-          icon={GraduationCap}
-          color="text-primary"
-          bg="bg-primary/10"
-          loading={isLoading}
-        />
-        <StatCard
-          title="Collections (Term)"
-          value={formatKES(stats?.totalRevenue || 0)}
-          icon={Banknote}
-          color="text-success"
-          bg="bg-success/10"
-          loading={isLoading}
-        />
-        <StatCard
-          title="Outstanding Fees"
-          value={formatKES(stats?.totalOutstanding || 0)}
-          icon={AlertTriangle}
-          color="text-warning"
-          bg="bg-warning/10"
-          loading={isLoading}
-        />
-        <StatCard
-          title="Collection Rate"
-          value={`${stats?.collectionRate || 0}%`}
-          icon={TrendingUp}
-          color="text-info"
-          bg="bg-info/10"
-          loading={isLoading}
-        />
-      </div>
-
-      {/* Charts row */}
-      <div className="grid gap-4 lg:grid-cols-3 mb-6">
-        <ChartCard title="Finance Composition">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={revenuePie}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={2}
-              >
-                {revenuePie.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: number) => formatKES(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-2 justify-center mt-2">
-            {revenuePie.map((d, i) => (
-              <span
-                key={d.name}
-                className="text-[11px] flex items-center gap-1.5 text-muted-foreground"
-              >
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-sm"
-                  style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
-                />
-                {d.name}
-              </span>
-            ))}
-          </div>
-        </ChartCard>
-
-        <ChartCard title="Payments by Method">
-          {methodBars.length === 0 ? (
-            <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">
-              No recent payments
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={methodBars}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="method" fontSize={11} />
-                <YAxis fontSize={11} />
-                <Tooltip formatter={(v: number) => formatKES(v)} />
-                <Bar dataKey="total" radius={[6, 6, 0, 0]}>
-                  {methodBars.map((_, i) => (
-                    <Cell
-                      key={i}
-                      fill={CHART_COLORS[i % CHART_COLORS.length]}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </ChartCard>
-
-        <ChartCard title="School Population">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={peoplePie}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={80}
-                label={(d) => d.name}
-              >
-                {peoplePie.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3 mb-6">
-        <ChartCard title="Collections Trend" className="lg:col-span-2">
-          {paymentTrend.length === 0 ? (
-            <div className="h-[220px] flex items-center justify-center text-xs text-muted-foreground">
-              No payments yet
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={paymentTrend}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor={CHART_COLORS[0]}
-                      stopOpacity={0.6}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor={CHART_COLORS[0]}
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="day" fontSize={11} />
-                <YAxis fontSize={11} />
-                <Tooltip formatter={(v: number) => formatKES(v)} />
-                <Area
-                  type="monotone"
-                  dataKey="amount"
-                  stroke={CHART_COLORS[0]}
-                  fill="url(#rev)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </ChartCard>
-
-        <ChartCard title="Quick Stats">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                label: "Parents",
-                value: stats?.totalParents || 0,
-                color: "text-primary",
-              },
-              {
-                label: "Staff",
-                value: stats?.totalStaff || 0,
-                color: "text-info",
-              },
-              {
-                label: "Active Students",
-                value: stats?.activeStudents || 0,
-                color: "text-success",
-              },
-              {
-                label: "Attendance",
-                value: `${stats?.attendanceRate || 0}%`,
-                color: "text-warning",
-              },
-              {
-                label: "Expenses",
-                value: formatKES(stats?.totalExpenses || 0),
-                color: "text-destructive",
-              },
-              {
-                label: "Net Income",
-                value: formatKES(netIncome),
-                color: netIncome >= 0 ? "text-success" : "text-destructive",
-              },
-            ].map((s) => (
-              <div key={s.label} className="p-3 rounded-lg bg-muted/40">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  {s.label}
-                </p>
-                <p className={`text-base font-extrabold mt-0.5 ${s.color}`}>
-                  {s.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-7 mb-6">
-        <Card className="lg:col-span-7 glass-card-hover">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold">Recent Payments</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="p-6 space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="divide-y divide-border/50">
-                {(stats?.recentPayments || []).slice(0, 6).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-4 px-6 py-3.5 hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
-                      <CreditCard className="h-4 w-4 text-success" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {p.student_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.payment_method} · {p.reference_number || "N/A"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-foreground">
-                        {formatKES(p.amount)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(p.received_at), "MMM d")}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {(stats?.recentPayments || []).length === 0 && (
-                  <div className="p-8 text-center text-sm text-muted-foreground">
-                    No recent payments
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
-  );
+const kes = (n: number) =>
+  `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const compactKes = (n: number) => {
+  const v = Number(n || 0);
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${Math.round(v / 1_000)}K`;
+  return `${v}`;
 };
-
-// ============== ACCOUNTANT ==============
-const AccountantDashboard = () => {
-  const { data: stats, isLoading } = useDashboardStats();
-  const netIncome = (stats?.totalRevenue || 0) - (stats?.totalExpenses || 0);
-
-  const finPie = [
-    { name: "Collected", value: stats?.totalRevenue || 0 },
-    { name: "Outstanding", value: stats?.totalOutstanding || 0 },
-    { name: "Expenses", value: stats?.totalExpenses || 0 },
-  ].filter((d) => d.value > 0);
-
-  const methodTotals: Record<string, number> = {};
-  (stats?.recentPayments || []).forEach((p) => {
-    const m = (p.payment_method || "Other").toUpperCase();
-    methodTotals[m] = (methodTotals[m] || 0) + Number(p.amount || 0);
-  });
-  const methodBars = Object.entries(methodTotals).map(([method, total]) => ({
-    method,
-    total,
-  }));
-
-  return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <StatCard
-          title="Total Collected"
-          value={formatKES(stats?.totalRevenue || 0)}
-          icon={Banknote}
-          color="text-success"
-          bg="bg-success/10"
-          loading={isLoading}
-        />
-        <StatCard
-          title="Outstanding"
-          value={formatKES(stats?.totalOutstanding || 0)}
-          icon={AlertTriangle}
-          color="text-warning"
-          bg="bg-warning/10"
-          loading={isLoading}
-        />
-        <StatCard
-          title="Total Expenses"
-          value={formatKES(stats?.totalExpenses || 0)}
-          icon={Receipt}
-          color="text-destructive"
-          bg="bg-destructive/10"
-          loading={isLoading}
-        />
-        <StatCard
-          title="Net Income"
-          value={formatKES(netIncome)}
-          icon={TrendingUp}
-          color="text-primary"
-          bg="bg-primary/10"
-          loading={isLoading}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2 mb-6">
-        <ChartCard title="Finance Composition">
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie
-                data={finPie}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={55}
-                outerRadius={90}
-                paddingAngle={2}
-              >
-                {finPie.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v: number) => formatKES(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-        <ChartCard title="Payments by Method">
-          {methodBars.length === 0 ? (
-            <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">
-              No recent payments
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={methodBars}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="method" fontSize={11} />
-                <YAxis fontSize={11} />
-                <Tooltip formatter={(v: number) => formatKES(v)} />
-                <Bar
-                  dataKey="total"
-                  radius={[6, 6, 0, 0]}
-                  fill={CHART_COLORS[1]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </ChartCard>
-      </div>
-    </>
-  );
+const safeDate = (v?: string | null) => {
+  if (!v) return null;
+  const d = parseISO(v);
+  return isValid(d) ? d : null;
 };
+const greeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+};
+const titleCase = (s: string) =>
+  s.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-// ============== TEACHER ==============
-const TeacherDashboard = () => {
-  const { data: stats, isLoading } = useDashboardStats();
+/* ------------------------------------------------------------------ */
+/* Quick actions — permission driven, never role driven               */
+/* ------------------------------------------------------------------ */
+function QuickActions() {
+  const canAddStudent = useCan("students:create");
+  const canPay = useCan("payments:create");
+  const canAssess = useCan("exams:create");
+  const canMessage = useCan("communication:create", "communication:send");
+  const canReports = useCan("reports:read");
+  const canUsers = useCan("users:create", "users:manage");
 
-  const teacherStats = [
-    {
-      title: "Total Students",
-      value: stats?.totalStudents || 0,
-      icon: Users,
-      color: "text-primary",
-      bg: "bg-primary/10",
+  const actions = [
+    canAddStudent && { to: "/students", label: "Add Student", icon: UserPlus },
+    canPay && { to: "/payments", label: "Record Payment", icon: Receipt },
+    canAssess && {
+      to: "/assessments",
+      label: "Create Assessment",
+      icon: ClipboardList,
     },
-    {
-      title: "Active Students",
-      value: stats?.activeStudents || 0,
-      icon: GraduationCap,
-      color: "text-info",
-      bg: "bg-info/10",
+    canMessage && {
+      to: "/communication",
+      label: "Send Message",
+      icon: MessageSquare,
     },
-    {
-      title: "Attendance Rate",
-      value: `${stats?.attendanceRate || 0}%`,
-      icon: CalendarCheck,
-      color: "text-success",
-      bg: "bg-success/10",
-    },
-    {
-      title: "Total Staff",
-      value: stats?.totalStaff || 0,
-      icon: BookOpen,
-      color: "text-warning",
-      bg: "bg-warning/10",
-    },
-  ];
+    canReports && { to: "/reports", label: "Reports", icon: BarChart3 },
+    canUsers && { to: "/settings/users", label: "Manage Users", icon: Users },
+  ].filter(Boolean) as { to: string; label: string; icon: React.ElementType }[];
+
+  if (!actions.length) return null;
 
   return (
-    <div className="space-y-6">
-      <ClockInOutCard />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-2">
-        {teacherStats.map((s) => (
-          <StatCard
-            key={s.title}
-            title={s.title}
-            value={s.value}
-            icon={s.icon}
-            color={s.color}
-            bg={s.bg}
-            loading={isLoading}
-          />
+    <Widget title="Quick Actions" icon={ArrowRight} bodyClassName="p-3">
+      <div className="flex flex-col">
+        {actions.map((a) => (
+          <Link
+            key={a.label}
+            to={a.to}
+            className="group flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-muted/60"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <a.icon className="h-4 w-4" />
+            </span>
+            <span className="flex-1 text-sm font-medium text-foreground">
+              {a.label}
+            </span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+          </Link>
         ))}
       </div>
-
-      {/* Quick overview */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="sm:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">School Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {
-                  label: "Parents",
-                  value: stats?.totalParents || 0,
-                  color: "text-primary",
-                },
-                {
-                  label: "Staff Members",
-                  value: stats?.totalStaff || 0,
-                  color: "text-info",
-                },
-                {
-                  label: "Attendance Rate",
-                  value: `${stats?.attendanceRate || 0}%`,
-                  color: "text-success",
-                },
-                {
-                  label: "Active Students",
-                  value: stats?.activeStudents || 0,
-                  color: "text-warning",
-                },
-              ].map((item) => (
-                <div key={item.label} className="p-3 rounded-lg bg-muted/40">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                    {item.label}
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-6 w-16 mt-1" />
-                  ) : (
-                    <p
-                      className={`text-lg font-extrabold mt-0.5 ${item.color}`}
-                    >
-                      {item.value}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {[
-              { label: "Take Attendance", href: "/attendance" },
-              { label: "View Students", href: "/students" },
-              { label: "Assessments", href: "/assessments" },
-            ].map((action) => (
-              <a
-                key={action.label}
-                href={action.href}
-                className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-muted/50 transition-colors text-sm font-medium"
-              >
-                {action.label}
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-              </a>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      <TeacherPendingTasks />
-    </div>
+    </Widget>
   );
-};
+}
 
-const TeacherPendingTasks = () => {
-  const { data, isLoading } = useAssessmentTasksPaged({
-    status: "pending,in_progress",
-    limit: 5,
-  });
-  const tasks = data?.data || [];
+/* ------------------------------------------------------------------ */
+/* Attention required                                                  */
+/* ------------------------------------------------------------------ */
+function AttentionWidget() {
+  const { data, isLoading, isError, refetch } = useAttention();
 
-  if (isLoading || tasks.length === 0) return null;
+  const items = useMemo(() => {
+    if (!data) return [];
+    const out: {
+      label: string;
+      count: number;
+      to: string;
+      tone: "warning" | "destructive" | "primary";
+    }[] = [];
+    if (data.finance) {
+      if (data.finance.unpaidAccounts)
+        out.push({
+          label: "Students with outstanding fees",
+          count: data.finance.unpaidAccounts,
+          to: "/finance",
+          tone: "warning",
+        });
+      if (data.finance.unallocatedPayments)
+        out.push({
+          label: "Unallocated payments",
+          count: data.finance.unallocatedPayments,
+          to: "/unallocated-payments",
+          tone: "destructive",
+        });
+    }
+    if (data.academics?.openTasks)
+      out.push({
+        label: "Assessment tasks awaiting mark entry",
+        count: data.academics.openTasks,
+        to: "/assessments",
+        tone: "primary",
+      });
+    if (data.academics?.readyToPublish)
+      out.push({
+        label: "Completed assessments awaiting result publishing",
+        count: data.academics.readyToPublish,
+        to: "/assessments?status=completed",
+        tone: "warning",
+      });
+    if (data.academics?.windowClosed)
+      out.push({
+        label: "Open assessments past their end date",
+        count: data.academics.windowClosed,
+        to: "/assessments?status=open",
+        tone: "warning",
+      });
+    if (data.academics?.incompleteMarks)
+      out.push({
+        label: "Open assessments with incomplete marks",
+        count: data.academics.incompleteMarks,
+        to: "/assessments?status=open",
+        tone: "primary",
+      });
+
+    if (data.attendance?.unmarkedToday)
+      out.push({
+        label: "Students without attendance today",
+        count: data.attendance.unmarkedToday,
+        to: "/attendance",
+        tone: "warning",
+      });
+    if (data.hr?.pendingLeaves)
+      out.push({
+        label: "Leave requests pending approval",
+        count: data.hr.pendingLeaves,
+        to: "/leave-management",
+        tone: "primary",
+      });
+    if (data.inventory?.lowStock)
+      out.push({
+        label: "Inventory items low on stock",
+        count: data.inventory.lowStock,
+        to: "/inventory",
+        tone: "destructive",
+      });
+    return out;
+  }, [data]);
+
+  const anyDomain =
+    !!data &&
+    Object.values(data.domains || {}).some(Boolean);
+  if (data && !anyDomain) return null;
+
+  const toneClass = {
+    warning: "bg-warning/10 text-warning",
+    destructive: "bg-destructive/10 text-destructive",
+    primary: "bg-primary/10 text-primary",
+  };
 
   return (
-    <Card className="glass-card-hover mt-6">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-bold flex items-center justify-between">
-          <span>Pending Marks Entry</span>
+    <Widget
+      title="Needs your attention"
+      subtitle="Actionable items scoped to your permissions"
+      icon={AlertTriangle}
+      loading={isLoading}
+      error={isError}
+      onRetry={() => refetch()}
+      isEmpty={!isLoading && !isError && items.length === 0}
+      emptyMessage="Nothing needs your attention right now."
+      bodyClassName="p-3"
+    >
+      <div className="flex flex-col">
+        {items.map((i) => (
           <Link
-            to="/assessments/tasks"
-            className="text-xs font-normal text-primary hover:underline"
+            key={i.label}
+            to={i.to}
+            className="group flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-muted/60"
           >
-            View all tasks
+            <span
+              className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-bold ${toneClass[i.tone]}`}
+            >
+              {i.count}
+            </span>
+            <span className="flex-1 text-sm text-foreground">{i.label}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
           </Link>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="divide-y divide-border/50">
-          {tasks.map((t) => {
-            const end = t.end_date ? parseISO(t.end_date) : null;
-            const deadline = t.marks_deadline
-              ? parseISO(t.marks_deadline)
-              : null;
+        ))}
+      </div>
+    </Widget>
+  );
+}
 
-            let badge = null;
-            if (end && deadline) {
-              const startOfEnd = startOfDay(end);
-              if (new Date() >= startOfEnd) {
-                const daysLeft = differenceInDays(
-                  deadline,
-                  startOfDay(new Date()),
-                );
-                if (daysLeft >= 0) {
-                  badge = (
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] text-amber-600 bg-amber-50 border-amber-200"
-                    >
-                      {daysLeft} days left
-                    </Badge>
-                  );
-                } else {
-                  badge = (
-                    <Badge variant="destructive" className="text-[10px]">
-                      {Math.abs(daysLeft)} days overdue
-                    </Badge>
-                  );
-                }
+/* ------------------------------------------------------------------ */
+/* Collection trend                                                    */
+/* ------------------------------------------------------------------ */
+function CollectionTrend() {
+  const [range, setRange] = useState<"term" | "year" | "all">("term");
+  const { data, isLoading, isError, refetch } = useFinanceTrend(range);
+  const points = data?.points || [];
+
+  return (
+    <Widget
+      title="Collection Trend"
+      subtitle={
+        range === "term"
+          ? "Current academic session"
+          : range === "year"
+            ? "Last 12 months (historical)"
+            : "Last 24 months (historical)"
+      }
+      icon={TrendingUp}
+      loading={isLoading}
+      error={isError}
+      onRetry={() => refetch()}
+      isEmpty={!isLoading && !isError && points.length === 0}
+      emptyMessage="No payments recorded for this period yet."
+      action={
+        <Select value={range} onValueChange={(v) => setRange(v as typeof range)}>
+          <SelectTrigger className="h-8 w-[130px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="term">This Term</SelectItem>
+            <SelectItem value="year">This Year</SelectItem>
+            <SelectItem value="all">Extended Period</SelectItem>
+          </SelectContent>
+        </Select>
+      }
+    >
+      <div className="h-[260px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={points} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(214 32% 91%)" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => compactKes(v as number)}
+            />
+            <Tooltip
+              formatter={(v) => kes(v as number)}
+              contentStyle={{
+                borderRadius: 10,
+                border: "1px solid hsl(214 32% 91%)",
+                fontSize: 12,
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke="hsl(221, 83%, 53%)"
+              strokeWidth={2.5}
+              dot={{ r: 3, fill: "hsl(221, 83%, 53%)" }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </Widget>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+export default function Dashboard() {
+  const { user } = useAuth();
+  const { viewingYear, viewingTerm, isHistorical } = useAcademicContext();
+  const summary = useDashboardSummary();
+  const activity = useDashboardActivity();
+  const canTrend = useCan("payments:read", "finance:fees:read", "reports:read");
+
+  const d = summary.data;
+  const domains = d?.domains;
+  const loading = summary.isLoading;
+
+  const firstName = (user?.full_name || user?.email || "there").split(" ")[0];
+
+  /* ---------------- KPI cards (permission driven) ---------------- */
+  const kpis: {
+    label: string;
+    value: string | number;
+    hint?: string;
+    icon: React.ElementType;
+    tone?: "primary" | "success" | "warning" | "destructive" | "muted";
+  }[] = [];
+
+  if (loading || domains?.students) {
+    kpis.push({
+      label: "Total Students",
+      value: d?.students ? d.students.active.toLocaleString() : "—",
+      hint: d?.students
+        ? `${d.students.total.toLocaleString()} on roll · ${d.students.newAdmissions} new (90d)`
+        : undefined,
+      icon: Users,
+      tone: "primary",
+    });
+  }
+  if (loading || domains?.finance) {
+    kpis.push({
+      label: "Collections",
+      value: d?.finance ? kes(d.finance.collected) : "—",
+      hint: viewingTerm ? `${viewingTerm.name} to date` : undefined,
+      icon: Banknote,
+      tone: "success",
+    });
+    kpis.push({
+      label: "Outstanding Fees",
+      value: d?.finance ? kes(d.finance.outstanding) : "—",
+      hint: d?.finance ? `${d.finance.collectionRate}% collection rate` : undefined,
+      icon: AlertTriangle,
+      tone: "warning",
+    });
+  }
+  if (loading || domains?.attendance) {
+    kpis.push({
+      label: "Attendance Rate",
+      value: d?.attendance ? `${d.attendance.rate}%` : "—",
+      hint: d?.attendance
+        ? `${d.attendance.present.toLocaleString()} present · ${d.attendance.absent.toLocaleString()} absent`
+        : undefined,
+      icon: CalendarCheck,
+      tone: "primary",
+    });
+  }
+  if (domains?.academics) {
+    kpis.push({
+      label: "Assessments",
+      value: d?.academics ? d.academics.assessments : "—",
+      // Publication is a business event — never inferred from marks progress.
+      hint: d?.academics ? d.academics.summaryLine : undefined,
+      icon: GraduationCap,
+      tone: "primary",
+    });
+  }
+  if (domains?.hr) {
+    kpis.push({
+      label: "Staff",
+      value: d?.hr ? d.hr.activeStaff : "—",
+      hint: d?.hr
+        ? `${d.hr.pendingLeaves} leave request${d.hr.pendingLeaves === 1 ? "" : "s"} pending`
+        : undefined,
+      icon: Briefcase,
+      tone: "muted",
+    });
+  }
+  if (domains?.inventory) {
+    kpis.push({
+      label: "Stock Value",
+      value: d?.inventory ? kes(d.inventory.stockValue) : "—",
+      hint: d?.inventory ? `${d.inventory.lowStock} item(s) low on stock` : undefined,
+      icon: Package,
+      tone: "muted",
+    });
+  }
+
+  const financeCats = (d?.finance?.categories || []).filter((c) => c.value > 0);
+  const catTotal = financeCats.reduce((s, c) => s + c.value, 0);
+  const studentsByClass = (d?.students?.byClass || []).filter((c) => c.value > 0);
+  const attendanceSplit = d?.attendance
+    ? [
+        { label: "Present", value: d.attendance.present },
+        { label: "Late", value: d.attendance.late },
+        { label: "Absent", value: d.attendance.absent },
+        { label: "Excused", value: d.attendance.excused },
+      ].filter((s) => s.value > 0)
+    : [];
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {greeting()}, {firstName}. Here's what's happening in your school.
+            </p>
+          </div>
+          {viewingTerm && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                isHistorical
+                  ? "border-warning/40 bg-warning/10 text-warning"
+                  : "border-primary/30 bg-primary/5 text-primary"
+              }`}
+            >
+              <CalendarRange className="h-3.5 w-3.5" />
+              {viewingYear?.name || "—"} · {viewingTerm.name}
+              <span className="opacity-70">
+                {isHistorical ? "· Historical" : "· Current"}
+              </span>
+            </span>
+          )}
+        </div>
+
+        <DashboardNoticeBanners />
+
+        <SetupChecklist />
+
+        <OnboardingTourLauncher />
+
+        {summary.isError && (
+          <Widget
+            title="Dashboard"
+            error
+            onRetry={() => summary.refetch()}
+          />
+        )}
+
+        {/* ROW 1 — KPIs */}
+        {kpis.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {kpis.map((k) => (
+              <KpiCard key={k.label} {...k} loading={loading} />
+            ))}
+          </div>
+        )}
+
+        {/* ROW 2 — analytical widgets */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {(loading || domains?.finance) && (
+            <Widget
+              title="Finance Overview"
+              subtitle={
+                d?.finance ? `${kes(d.finance.allocated)} allocated to fees` : undefined
               }
-            }
-
-            return (
-              <div
-                key={t.id}
-                className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors"
-              >
-                <div>
-                  <Link
-                    to={`/assessments/${t.assessment_id}`}
-                    className="text-sm font-semibold text-foreground hover:underline"
-                  >
-                    {t.assessment_name}
-                  </Link>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {t.grade_name} {t.stream_name ? `· ${t.stream_name}` : ""} ·{" "}
-                    {t.subject_name}
+              icon={Banknote}
+              loading={loading}
+              isEmpty={!loading && financeCats.length === 0}
+              emptyMessage="No fee collections recorded for this session yet."
+              className="lg:col-span-1"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative h-[180px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={financeCats}
+                        dataKey="value"
+                        nameKey="label"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        stroke="none"
+                      >
+                        {financeCats.map((_, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v) => kes(v as number)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Collected
+                    </span>
+                    <span className="text-base font-bold text-foreground">
+                      {kes(catTotal)}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {badge}
-                  <Link to={`/assessments/marks/${t.id}`}>
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
-                      <ArrowUpRight className="h-3.5 w-3.5" /> Enter Marks
+                <div className="w-full space-y-2">
+                  {financeCats.map((c, i) => (
+                    <div key={c.label} className="flex items-center gap-2 text-sm">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
+                      />
+                      <span className="flex-1 truncate text-muted-foreground">
+                        {c.label}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {catTotal ? Math.round((100 * c.value) / catTotal) : 0}%
+                      </span>
+                      <span className="w-24 text-right text-xs text-muted-foreground">
+                        {kes(c.value)}
+                      </span>
                     </div>
-                  </Link>
+                  ))}
                 </div>
               </div>
-            );
-          })}
+            </Widget>
+          )}
+
+          {canTrend && (
+            <div className="lg:col-span-2">
+              <CollectionTrend />
+            </div>
+          )}
         </div>
-      </CardContent>
-    </Card>
-  );
-};
 
-// ============== PARENT / STUDENT ==============
-const PortalDashboard = ({ primaryRole }: { primaryRole: string }) => (
-  <div className="text-center py-16">
-    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 mx-auto mb-6">
-      <GraduationCap className="h-10 w-10 text-primary" />
-    </div>
-    <h2 className="text-2xl font-extrabold text-foreground mb-2">
-      Welcome back!
-    </h2>
-    <p className="text-muted-foreground max-w-md mx-auto">
-      Use the sidebar to navigate to your{" "}
-      {primaryRole === "parent" ? "Parent Portal" : "Student Panel"} for
-      detailed information.
-    </p>
-  </div>
-);
+        {/* ROW 3 — operational insights */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {(loading || domains?.students) && (
+            <Widget
+              title="Students by Class"
+              icon={Users}
+              loading={loading}
+              isEmpty={!loading && studentsByClass.length === 0}
+              emptyMessage="No active students have been placed in a class yet."
+            >
+              <div className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={studentsByClass} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(214 32% 91%)" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "hsl(215 16% 47%)" }}
+                      axisLine={false}
+                      tickLine={false}
+                      interval={0}
+                      angle={-30}
+                      textAnchor="end"
+                      height={50}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "hsl(215 16% 47%)" }}
+                      axisLine={false}
+                      tickLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+                    <Bar dataKey="value" fill="hsl(221, 83%, 53%)" radius={[6, 6, 0, 0]} maxBarSize={38} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Widget>
+          )}
 
-// ============== MAIN ==============
-const Dashboard = () => {
-  const { primaryRole, hasAnyRole, getRoleLabel } = useAuth();
-  const roleLabel = primaryRole ? getRoleLabel(primaryRole) : "User";
+          {(loading || domains?.attendance) && (
+            <Widget
+              title="Attendance Overview"
+              subtitle={viewingTerm ? `${viewingTerm.name} to date` : undefined}
+              icon={CalendarCheck}
+              loading={loading}
+              isEmpty={!loading && attendanceSplit.length === 0}
+              emptyMessage="No attendance data available for this period."
+            >
+              <div className="relative h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={attendanceSplit}
+                      dataKey="value"
+                      nameKey="label"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      stroke="none"
+                    >
+                      {attendanceSplit.map((s, i) => (
+                        <Cell
+                          key={s.label}
+                          fill={
+                            [
+                              "hsl(142, 71%, 45%)",
+                              "hsl(38, 92%, 50%)",
+                              "hsl(0, 84%, 60%)",
+                              "hsl(215, 16%, 60%)",
+                            ][i]
+                          }
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-lg font-bold text-foreground">
+                    {d?.attendance?.rate ?? 0}%
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">Attendance</span>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                {attendanceSplit.map((s, i) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        background: [
+                          "hsl(142, 71%, 45%)",
+                          "hsl(38, 92%, 50%)",
+                          "hsl(0, 84%, 60%)",
+                          "hsl(215, 16%, 60%)",
+                        ][i],
+                      }}
+                    />
+                    <span className="text-muted-foreground">{s.label}</span>
+                    <span className="ml-auto font-medium text-foreground">
+                      {s.value.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Widget>
+          )}
 
-  const isAdmin = hasAnyRole(["super_admin", "admin", "manager"]);
-  const isFinance = hasAnyRole(["accountant"]);
-  const isTeacher = hasAnyRole(["teacher"]);
+          {domains?.academics && (
+            <Widget
+              title="Academic Performance"
+              subtitle="CBE assessment progress"
+              icon={GraduationCap}
+              loading={loading}
+              isEmpty={
+                !loading &&
+                !d?.academics?.assessments &&
+                !(d?.academics?.topClasses || []).length
+              }
+              emptyMessage="No assessments created for this session yet."
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">Assessments</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">
+                      {d?.academics?.assessments ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">Published</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">
+                      {d?.academics?.published ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">Open for marks</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">
+                      {d?.academics?.open ?? 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Awaiting publishing
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-foreground">
+                      {d?.academics?.readyToPublish ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">Locked</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">
+                      {d?.academics?.locked ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">Marks entered</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">
+                      {d?.academics?.completionRate ?? 0}%
+                    </p>
+                  </div>
+                </div>
+                {(d?.academics?.topClasses || []).length > 0 ? (
+                  <div className="space-y-2.5">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Top performing classes
+                    </p>
+                    {d!.academics!.topClasses.map((c) => (
+                      <div key={c.label} className="flex items-center gap-3 text-sm">
+                        <span className="w-20 truncate text-muted-foreground">
+                          {c.label}
+                        </span>
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.min(100, c.value)}%` }}
+                          />
+                        </div>
+                        <span className="w-10 text-right font-medium text-foreground">
+                          {c.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Performance breakdown becomes available once marks are
+                    submitted.
+                  </p>
+                )}
+              </div>
+            </Widget>
+          )}
+        </div>
 
-  return (
-    <DashboardLayout
-      title="Dashboard"
-      subtitle={`Welcome to your ${roleLabel} dashboard`}
-    >
-      <DashboardNoticeBanners />
-      {isAdmin && <AdminDashboard />}
-      {!isAdmin && isFinance && <AccountantDashboard />}
-      {!isAdmin && !isFinance && isTeacher && <TeacherDashboard />}
-      {primaryRole === "parent" || primaryRole === "student" ? (
-        <PortalDashboard primaryRole={primaryRole || ""} />
-      ) : null}
-      {!isAdmin &&
-        !isFinance &&
-        !isTeacher &&
-        primaryRole !== "parent" &&
-        primaryRole !== "student" && <AdminDashboard />}
+        {/* ROW 4 — attention, quick actions, events, activity */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="space-y-4">
+            <AttentionWidget />
+            <QuickActions />
+            <ClockInOutCard />
+          </div>
+
+          <div className="space-y-4 lg:col-span-2">
+            {domains?.events && (
+              <Widget
+                title="Upcoming Events"
+                icon={CalendarDays}
+                loading={loading}
+                isEmpty={!loading && !(d?.upcomingEvents || []).length}
+                emptyMessage="No upcoming events on the school calendar."
+                action={
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to="/events" className="text-xs">
+                      View calendar
+                    </Link>
+                  </Button>
+                }
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {(d?.upcomingEvents || []).map((e) => {
+                    const dt = safeDate(e.starts_at);
+                    return (
+                      <div
+                        key={e.id}
+                        className="flex gap-3 rounded-xl border border-border/70 p-3"
+                      >
+                        <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/8 text-primary">
+                          <span className="text-[10px] font-semibold uppercase">
+                            {dt ? format(dt, "MMM") : "—"}
+                          </span>
+                          <span className="text-base font-bold leading-none">
+                            {dt ? format(dt, "d") : "–"}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {e.title}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {dt ? format(dt, "EEE, d MMM · HH:mm") : "Date TBC"}
+                          </p>
+                          {e.location && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {e.location}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Widget>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {domains?.payments && (
+                <Widget
+                  title="Recent Payments"
+                  icon={Receipt}
+                  loading={loading}
+                  isEmpty={!loading && !(d?.recentPayments || []).length}
+                  emptyMessage="No payments recorded in this session yet."
+                >
+                  <div className="space-y-3">
+                    {(d?.recentPayments || []).map((p) => {
+                      const dt = safeDate(p.received_at);
+                      return (
+                        <div key={p.id} className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-success/10 text-success">
+                            <Banknote className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {p.student_name || "Unknown student"}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {titleCase(p.payment_method)}
+                              {dt ? ` · ${format(dt, "d MMM, HH:mm")}` : ""}
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-foreground">
+                            {kes(p.amount)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Widget>
+              )}
+
+              <Widget
+                title="Recent Activity"
+                icon={ActivityIcon}
+                loading={activity.isLoading}
+                error={activity.isError}
+                onRetry={() => activity.refetch()}
+                isEmpty={
+                  !activity.isLoading &&
+                  !activity.isError &&
+                  !(activity.data || []).length
+                }
+                emptyMessage="No recent activity you have access to."
+              >
+                <div className="space-y-3">
+                  {(activity.data || []).slice(0, 8).map((a) => {
+                    const dt = safeDate(a.created_at);
+                    return (
+                      <div key={a.id} className="flex items-start gap-3">
+                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary/60" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-foreground">
+                            <span className="font-medium">
+                              {titleCase(a.entity_type)}
+                            </span>{" "}
+                            {a.action?.toLowerCase()}
+                            {a.actor ? ` by ${a.actor}` : ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {dt ? format(dt, "d MMM yyyy, HH:mm") : ""}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Widget>
+            </div>
+          </div>
+        </div>
+
+        {!loading &&
+          d &&
+          !Object.values(d.domains || {}).some(Boolean) && (
+            <Widget
+              title="Your dashboard"
+              icon={BarChart3}
+              isEmpty
+              emptyMessage="You do not yet have permissions for any dashboard area. Contact your administrator."
+            />
+          )}
+      </div>
     </DashboardLayout>
   );
-};
-
-export default Dashboard;
+}

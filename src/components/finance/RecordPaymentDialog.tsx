@@ -41,6 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useStudents } from "@/hooks/useStudents";
+import { useTerm } from "@/contexts/TermContext";
 
 const formatKES = (n: number) => `KES ${n.toLocaleString()}`;
 
@@ -68,6 +69,8 @@ interface RecordPaymentDialogProps {
     feeIds: string[];
     notes: string;
     idempotencyKey: string;
+    termId: string | null;
+    academicYearId: string | null;
   }) => void;
   isSubmitting?: boolean;
 }
@@ -97,6 +100,10 @@ export function RecordPaymentDialog({
   const [allocateMode, setAllocateMode] = useState<"fifo" | "manual">(
     preselectedFeeId ? "manual" : "fifo",
   );
+  const { terms = [], selectedTerm, currentTerm } = useTerm() as any;
+  const [termId, setTermId] = useState<string>(
+    selectedTerm?.id || currentTerm?.id || "",
+  );
   const [confirmAmount, setConfirmAmount] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -116,6 +123,7 @@ export function RecordPaymentDialog({
       setSelectedFeeIds(preselectedFeeId ? [preselectedFeeId] : []);
       setAllocateMode(preselectedFeeId ? "manual" : "fifo");
       setConfirmAmount("");
+      setTermId(selectedTerm?.id || currentTerm?.id || "");
       setIdempotencyKey(
         typeof crypto !== "undefined" && "randomUUID" in crypto
           ? crypto.randomUUID()
@@ -201,6 +209,9 @@ export function RecordPaymentDialog({
       feeIds: allocateMode === "manual" ? selectedFeeIds : [],
       notes,
       idempotencyKey,
+      termId: termId || null,
+      academicYearId:
+        (terms as any[]).find((t) => t.id === termId)?.academic_year_id || null,
     });
   };
 
@@ -384,6 +395,29 @@ export function RecordPaymentDialog({
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Apply to Term</Label>
+              <Select value={termId} onValueChange={setTermId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(terms as any[]).map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                      {t.is_current ? " (current)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {termId && termId !== (currentTerm?.id || "") && (
+                <p className="text-[11px] text-warning">
+                  Back-dated payment — balances for later terms will be
+                  recalculated automatically.
+                </p>
+              )}
             </div>
 
             {/* Allocation mode */}

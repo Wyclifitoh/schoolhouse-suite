@@ -563,7 +563,6 @@ const Examinations = () => {
   const del = useDeleteExam();
   const lifecycle = useExamLifecycle();
   const perms = usePermissions(["exams:create","exams:update","exams:delete","exams:publish"]);
-  const { isReadOnly } = useTerm();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -698,8 +697,8 @@ const Examinations = () => {
                 <CardTitle className="text-base font-bold">
                   Examinations
                 </CardTitle>
-                {perms["exams:create"] && <Button size="sm" className="rounded-lg" onClick={openCreate} disabled={isReadOnly}>
-                  {!isReadOnly ? <Plus className="h-4 w-4 mr-1.5" /> : <Lock className="h-4 w-4 mr-1.5" />}
+                {perms["exams:create"] && <Button size="sm" className="rounded-lg" onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1.5" />
                   Create Exam
                 </Button>}
               </div>
@@ -768,7 +767,7 @@ const Examinations = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {perms["exams:update"] && <DropdownMenuItem onClick={() => openEdit(e)} disabled={isReadOnly}>
+                                {perms["exams:update"] && <DropdownMenuItem onClick={() => openEdit(e)}>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>}
@@ -780,7 +779,6 @@ const Examinations = () => {
                                 </DropdownMenuItem>
                                 {perms["exams:update"] && e.status === "draft" && (
                                   <DropdownMenuItem
-                                    disabled={isReadOnly}
                                     onClick={() =>
                                       lifecycle.submit.mutate({ id: e.id })
                                     }
@@ -791,7 +789,6 @@ const Examinations = () => {
                                 )}
                                 {perms["exams:publish"] && e.status === "submitted" && (
                                   <DropdownMenuItem
-                                    disabled={!isViewingCurrentTerm}
                                     onClick={() =>
                                       lifecycle.review.mutate({ id: e.id })
                                     }
@@ -804,7 +801,6 @@ const Examinations = () => {
                                   e.status,
                                 ) && (
                                   <DropdownMenuItem
-                                    disabled={!isViewingCurrentTerm}
                                     onClick={() =>
                                       lifecycle.approve.mutate({ id: e.id })
                                     }
@@ -815,7 +811,6 @@ const Examinations = () => {
                                 )}
                                 {perms["exams:publish"] && e.status === "approved" && (
                                   <DropdownMenuItem
-                                    disabled={!isViewingCurrentTerm}
                                     onClick={() =>
                                       lifecycle.lock.mutate({ id: e.id })
                                     }
@@ -826,7 +821,6 @@ const Examinations = () => {
                                 )}
                                 {perms["exams:publish"] && ["approved", "locked"].includes(e.status) && (
                                   <DropdownMenuItem
-                                    disabled={isReadOnly}
                                     onClick={() =>
                                       lifecycle.reopen.mutate({ id: e.id })
                                     }
@@ -836,11 +830,10 @@ const Examinations = () => {
                                   </DropdownMenuItem>
                                 )}
                                 {perms["exams:delete"] && <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  disabled={!isViewingCurrentTerm}
-                                  onClick={(ev) => {
-                                    ev.preventDefault();
-                                    del.mutate(e.id);
+                                  className="text-destructive"
+                                  onClick={() => {
+                                    if (confirm(`Delete exam "${e.name}"?`))
+                                      del.mutate(e.id);
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />

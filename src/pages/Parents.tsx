@@ -52,8 +52,11 @@ import {
   useCreatePortalAccount,
   useResetPortalPin,
   useTogglePortalAccount,
+  useParentsPaged,
+  useLinkStudentsToParent,
   type ParentRow,
 } from "@/hooks/useParents";
+import { StudentMultiSelect } from "@/components/parents/StudentMultiSelect";
 import {
   Search,
   Plus,
@@ -68,7 +71,12 @@ import {
   UserPlus,
   Power,
   ShieldCheck,
+  Link2,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
 } from "lucide-react";
+import { EmptyState } from "@/components/help/EmptyState";
 
 const emptyForm = {
   first_name: "",
@@ -84,7 +92,13 @@ const emptyForm = {
 
 const Parents = () => {
   const navigate = useNavigate();
-  const perms = usePermissions(["parents:create", "parents:update", "parents:delete", "reports:export", "users:manage"]);
+  const perms = usePermissions([
+    "parents:create",
+    "parents:update",
+    "parents:delete",
+    "reports:export",
+    "users:manage",
+  ]);
   const canCreate = perms["parents:create"];
   const canUpdate = perms["parents:update"];
   const canDelete = perms["parents:delete"];
@@ -96,14 +110,45 @@ const Parents = () => {
   const [editing, setEditing] = useState<ParentRow | null>(null);
   const [deleting, setDeleting] = useState<ParentRow | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [studentIds, setStudentIds] = useState<string[]>([]);
+  const [linkTarget, setLinkTarget] = useState<ParentRow | null>(null);
+  const [linkIds, setLinkIds] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [filterPortal, setFilterPortal] = useState<"all" | "with" | "without">(
+    "all",
+  );
+  const [filterStudents, setFilterStudents] = useState<
+    "all" | "with" | "without"
+  >("all");
 
-  const { data: parentsList = [], isLoading } = useParents(search);
+  const { data: paged, isLoading } = useParentsPaged({
+    search: search || undefined,
+    page,
+    limit: pageSize,
+    hasPortal:
+      filterPortal === "with"
+        ? "1"
+        : filterPortal === "without"
+          ? "0"
+          : undefined,
+    students:
+      filterStudents === "with"
+        ? "with"
+        : filterStudents === "without"
+          ? "none"
+          : undefined,
+  });
+  const parentsList = paged?.data || [];
+  const totalParents = paged?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalParents / pageSize));
   const createParent = useCreateParent();
   const updateParent = useUpdateParent();
   const deleteParent = useDeleteParent();
   const createAcct = useCreatePortalAccount();
   const resetPin = useResetPortalPin();
   const toggleAcct = useTogglePortalAccount();
+  const linkStudents = useLinkStudentsToParent();
 
   const openEdit = (p: ParentRow) => {
     setForm({
@@ -133,12 +178,20 @@ const Parents = () => {
         },
       );
     } else {
-      createParent.mutate(form, {
-        onSuccess: () => {
-          setShowAdd(false);
-          setForm({ ...emptyForm });
+      if (studentIds.length === 0) {
+        // require at least one student per request
+        return;
+      }
+      createParent.mutate(
+        { ...(form as any), student_ids: studentIds } as any,
+        {
+          onSuccess: () => {
+            setShowAdd(false);
+            setForm({ ...emptyForm });
+            setStudentIds([]);
+          },
         },
-      });
+      );
     }
   };
 
@@ -217,6 +270,22 @@ const Parents = () => {
           onChange={(e) => setForm({ ...form, address: e.target.value })}
         />
       </div>
+      {!editing && (
+        <div className="space-y-2 border-t pt-4">
+          <Label>
+            Link to Students <span className="text-destructive">*</span>
+          </Label>
+          <StudentMultiSelect
+            value={studentIds}
+            onChange={setStudentIds}
+            placeholder="Search and select one or more students..."
+          />
+          <p className="text-xs text-muted-foreground">
+            At least one student is required. The first selected becomes the
+            primary guardian by default.
+          </p>
+        </div>
+      )}
     </div>
   );
 
@@ -236,7 +305,7 @@ const Parents = () => {
               {isLoading ? (
                 <Skeleton className="h-7 w-12" />
               ) : (
-                <p className="text-2xl font-bold">{parentsList.length}</p>
+                <p className="text-2xl font-bold">{totalParents}</p>
               )}
             </div>
           </CardContent>
@@ -291,50 +360,115 @@ const Parents = () => {
                 </Button>
               )}
               {canCreate && (
-              <Dialog
-                open={showAdd}
-                onOpenChange={(o) => {
-                  setShowAdd(o);
-                  if (!o) setForm({ ...emptyForm });
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Add Parent
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Add New Parent</DialogTitle>
-                  </DialogHeader>
-                  {FormFields}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowAdd(false)}>
-                      Cancel
+                <Dialog
+                  open={showAdd}
+                  onOpenChange={(o) => {
+                    setShowAdd(o);
+                    if (!o) setForm({ ...emptyForm });
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add Parent
                     </Button>
-                    <Button
-                      onClick={handleSave}
-                      disabled={createParent.isPending}
-                    >
-                      {createParent.isPending ? "Saving..." : "Register Parent"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Add New Parent</DialogTitle>
+                    </DialogHeader>
+                    {FormFields}
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowAdd(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSave}
+                        disabled={createParent.isPending}
+                      >
+                        {createParent.isPending
+                          ? "Saving..."
+                          : studentIds.length === 0
+                            ? "Select a student first"
+                            : "Register Parent"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="relative max-w-xs mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or phone..."
-              className="pl-9 h-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+            <div className="relative max-w-xs flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or phone..."
+                className="pl-9 h-9"
+                value={search}
+                onChange={(e) => {
+                  setPage(1);
+                  setSearch(e.target.value);
+                }}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                variant={filterPortal === "all" ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  setFilterPortal("all");
+                }}
+              >
+                All Portal
+              </Button>
+              <Button
+                variant={filterPortal === "with" ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  setFilterPortal("with");
+                }}
+              >
+                Has Portal
+              </Button>
+              <Button
+                variant={filterPortal === "without" ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  setFilterPortal("without");
+                }}
+              >
+                No Portal
+              </Button>
+              <span className="w-px h-5 bg-border mx-1" />
+              <Button
+                variant={filterStudents === "all" ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  setFilterStudents("all");
+                }}
+              >
+                All
+              </Button>
+              <Button
+                variant={filterStudents === "without" ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setPage(1);
+                  setFilterStudents("without");
+                }}
+              >
+                No Student
+              </Button>
+            </div>
           </div>
 
           <div className="rounded-md border overflow-hidden">
@@ -343,9 +477,9 @@ const Parents = () => {
                 <TableRow className="bg-muted/50">
                   <TableHead>Parent</TableHead>
                   <TableHead>Phone</TableHead>
+                  <TableHead>Students</TableHead>
+                  <TableHead>Portal</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>ID Number</TableHead>
-                  <TableHead>Occupation</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -360,13 +494,34 @@ const Parents = () => {
                   ))
                 ) : parentsList.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center py-8 text-muted-foreground"
-                    >
-                      No parents found
+                    <TableCell colSpan={6} className="p-0">
+                      <EmptyState
+                        compact
+                        className="border-0 bg-transparent"
+                        icon={Users}
+                        title={
+                          search
+                            ? "No parents match your search"
+                            : "No parents yet"
+                        }
+                        description={
+                          search
+                            ? "Try a different name or phone number, or clear the search to see every parent."
+                            : "Add parents and link them to their children so fee statements, results and SMS reach the right person."
+                        }
+                        article="adding-students"
+                        actions={[
+                          {
+                            label: "Add Parent",
+                            icon: Plus,
+                            onClick: () => setShowAdd(true),
+                            hidden: !canCreate,
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
+
                 ) : (
                   parentsList.map((p) => (
                     <TableRow key={p.id} className="group">
@@ -387,14 +542,69 @@ const Parents = () => {
                       <TableCell className="text-muted-foreground font-mono text-xs">
                         {p.phone}
                       </TableCell>
+                      <TableCell>
+                        {Number(p.students_count || 0) > 0 ? (
+                          <button
+                            className="inline-flex"
+                            onClick={() => navigate(`/parents/${p.id}`)}
+                          >
+                            <Badge className="bg-primary/10 text-primary border-0 hover:bg-primary/20">
+                              <Users className="h-3 w-3 mr-1" />
+                              {p.students_count} student
+                              {Number(p.students_count) > 1 ? "s" : ""}
+                            </Badge>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="text-warning border-warning/40"
+                            >
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              None
+                            </Badge>
+                            {canUpdate && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => {
+                                  setLinkTarget(p);
+                                  setLinkIds([]);
+                                }}
+                              >
+                                <Link2 className="h-3 w-3 mr-1" />
+                                Attach
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {Number(p.has_portal_account || 0) > 0 ? (
+                          <Badge className="bg-success/10 text-success border-0">
+                            <ShieldCheck className="h-3 w-3 mr-1" />
+                            Active
+                          </Badge>
+                        ) : canManagePortal ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={createAcct.isPending}
+                            onClick={() => createAcct.mutate(p.id)}
+                          >
+                            <UserPlus className="h-3 w-3 mr-1" />
+                            Create
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {p.email || "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {p.id_number || "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {p.occupation || "—"}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -419,6 +629,15 @@ const Parents = () => {
                                 <DropdownMenuItem onClick={() => openEdit(p)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setLinkTarget(p);
+                                    setLinkIds([]);
+                                  }}
+                                >
+                                  <Link2 className="h-4 w-4 mr-2" />
+                                  Link Students
                                 </DropdownMenuItem>
                               </>
                             )}
@@ -469,8 +688,90 @@ const Parents = () => {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination footer */}
+          <div className="flex items-center justify-between mt-4 text-sm">
+            <p className="text-muted-foreground">
+              Showing {parentsList.length === 0 ? 0 : (page - 1) * pageSize + 1}
+              –{(page - 1) * pageSize + parentsList.length} of {totalParents}{" "}
+              parents
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" /> Prev
+              </Button>
+              <span className="px-2">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Link students dialog */}
+      <Dialog
+        open={!!linkTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setLinkTarget(null);
+            setLinkIds([]);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Link Students to {linkTarget?.first_name} {linkTarget?.last_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <Label>Select one or more students</Label>
+            <StudentMultiSelect value={linkIds} onChange={setLinkIds} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !linkTarget || linkIds.length === 0 || linkStudents.isPending
+              }
+              onClick={() => {
+                if (!linkTarget) return;
+                linkStudents.mutate(
+                  {
+                    parentId: linkTarget.id,
+                    studentIds: linkIds,
+                    relationship: "guardian",
+                    setPrimary: false,
+                  },
+                  {
+                    onSuccess: () => {
+                      setLinkTarget(null);
+                      setLinkIds([]);
+                    },
+                  },
+                );
+              }}
+            >
+              {linkStudents.isPending ? "Linking..." : "Link Students"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>

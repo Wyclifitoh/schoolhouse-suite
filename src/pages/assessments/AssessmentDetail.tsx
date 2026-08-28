@@ -16,17 +16,37 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  useAssessment, useAssessmentTasks, usePublishAssessment,
-  useSetAssessmentStatus, useSubmitTask, useResyncAssessment,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  useAssessment,
+  useAssessmentTasks,
+  useAssessmentTransition,
+  useSubmitTask,
+  useResyncAssessmentSubjects,
 } from "@/hooks/useAssessments";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { 
-  ClipboardCheck, PlayCircle, Lock, LockOpen, Archive, ArchiveRestore, 
-  ArrowLeft, PencilLine, RefreshCw 
+  ClipboardCheck,
+  PlayCircle,
+  Lock,
+  LockOpen,
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  PencilLine,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
+import {
+  AssessmentLifecycleActions,
+  AssessmentStatusBadge,
+} from "@/components/assessments/AssessmentLifecycleActions";
+import { statusOf } from "@/lib/assessmentLifecycle";
 
 export default function AssessmentDetail() {
   const { id } = useParams();
@@ -37,12 +57,11 @@ export default function AssessmentDetail() {
     assessment_id: id,
     limit: "1000",
   });
-  const publish = usePublishAssessment();
-  const setStatus = useSetAssessmentStatus();
+  const transition = useAssessmentTransition();
   const submit = useSubmitTask();
-  const sync = useResyncAssessment();
-  const { primaryRole } = useAuth();
-  const isTeacher = primaryRole === "teacher";
+  const resync = useResyncAssessmentSubjects();
+  const { user } = useAuth();
+  const canEnterMarks = usePermission("exams:update");
 
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [streamFilter, setStreamFilter] = useState<string>("all");
@@ -100,6 +119,8 @@ export default function AssessmentDetail() {
     );
   }
 
+  // Canonical workflow status (never inferred from marks progress).
+  const life = statusOf(a);
   const taskCount = filteredTasks.length;
   const doneCount = filteredTasks.filter(
     (t) => t.marked_count >= t.student_count && t.student_count > 0,
@@ -123,7 +144,7 @@ export default function AssessmentDetail() {
             </h1>
             <p className="text-muted-foreground">{a.description}</p>
             <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="outline">{a.status.replace("_", " ")}</Badge>
+              <AssessmentStatusBadge row={a} />
               {a.type_name && (
                 <Badge variant="outline">
                   {a.type_name} · {a.type_weight}%
@@ -137,65 +158,24 @@ export default function AssessmentDetail() {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {!isTeacher && (
-              <PermissionGate permission={["exams:update", "exams:publish"]}>
-                {a.status !== "archived" && a.status !== "locked" && (
-                  <Button
-                    variant="outline"
-                    onClick={() => sync.mutate(a.id)}
-                    disabled={sync.isPending}
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} /> Sync subjects & students
-                  </Button>
-                )}
-                {a.status === "draft" && (
-                  <Button onClick={() => publish.mutate(a.id)}>
-                    <PlayCircle className="h-4 w-4 mr-1" /> Publish & generate
-                    tasks
-                  </Button>
-                )}
-                {(a.status === "published" || a.status === "in_progress") && (
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      setStatus.mutate({ id: a.id, status: "locked" })
-                    }
-                  >
-                    <Lock className="h-4 w-4 mr-1" /> Lock
-                  </Button>
-                )}
-                {a.status === "locked" && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        setStatus.mutate({ id: a.id, status: "published" })
-                      }
-                    >
-                      <LockOpen className="h-4 w-4 mr-1" /> Unlock
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        setStatus.mutate({ id: a.id, status: "archived" })
-                      }
-                    >
-                      <Archive className="h-4 w-4 mr-1" /> Archive
-                    </Button>
-                  </>
-                )}
-                {a.status === "archived" && (
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      setStatus.mutate({ id: a.id, status: "draft" })
-                    }
-                  >
-                    <ArchiveRestore className="h-4 w-4 mr-1" /> Unarchive
-                  </Button>
-                )}
-              </PermissionGate>
-            )}
+            <PermissionGate permission={["exams:update", "exams:publish"]}>
+              {life !== "archived" && life !== "locked" && (
+                <Button
+                  variant="outline"
+                  onClick={() => resync.mutate(a.id)}
+                  disabled={resync.isPending}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" /> Sync subjects
+                </Button>
+              )}
+            </PermissionGate>
+            {/* Lifecycle actions come from the server-derived state machine. */}
+            <AssessmentLifecycleActions
+              row={a}
+              size="default"
+              pending={transition.isPending}
+              onAction={(action) => transition.mutate({ id: a.id, action })}
+            />
           </div>
         </div>
 
@@ -317,23 +297,33 @@ export default function AssessmentDetail() {
                           <Badge variant="outline">{t.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
-                          <PermissionGate permission="exams:update">
-                            <Link to={`/assessments/marks/${t.id}`}>
-                              <Button size="sm" variant="outline">
-                                <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
-                                Enter marks
-                              </Button>
-                            </Link>
-                            {t.status === "in_progress" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => submit.mutate(t.id)}
-                              >
-                                Submit
-                              </Button>
-                            )}
-                          </PermissionGate>
+                          {(() => {
+                            const isOwner =
+                              !!user &&
+                              (t.teacher_id === user.id ||
+                                (t as any).assigned_teacher_id === user.id);
+                            const canAction = canEnterMarks || isOwner;
+                            if (!canAction) return null;
+                            return (
+                              <>
+                                <Link to={`/assessments/marks/${t.id}`}>
+                                  <Button size="sm" variant="outline">
+                                    <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
+                                    Enter marks
+                                  </Button>
+                                </Link>
+                                {t.status === "in_progress" && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => submit.mutate(t.id)}
+                                  >
+                                    Submit
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     );
@@ -344,8 +334,8 @@ export default function AssessmentDetail() {
                         colSpan={7}
                         className="text-center text-muted-foreground py-6"
                       >
-                        {a.status === "draft"
-                          ? "Publish this assessment to auto-generate teacher tasks."
+                        {life === "draft"
+                          ? "Open this assessment for mark entry to auto-generate teacher tasks."
                           : tasks.length
                             ? "No tasks match the selected class/stream."
                             : "No tasks yet."}

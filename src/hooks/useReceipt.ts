@@ -3,7 +3,7 @@ export function openReceiptPdf(paymentId: string) {
   const token = localStorage.getItem("chuo-token") || "";
   const schoolId = localStorage.getItem("chuo-school-id") || "";
   const base =
-    (import.meta as any).env?.VITE_API_URL || "/api";
+    (import.meta as any).env?.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1";
   // Use fetch -> blob -> object URL so we can attach auth headers.
   return fetch(`${base}/payments/${paymentId}/receipt.pdf`, {
     headers: {

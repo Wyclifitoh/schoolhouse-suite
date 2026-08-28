@@ -39,8 +39,6 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
-  teacher_id?: string | null;
-  staff_id?: string | null;
 }
 
 export interface UserRoleEntry {
@@ -139,33 +137,58 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const TOKEN_KEY = "chuo-token";
+const LAST_ACTIVITY_KEY = "chuo-last-activity";
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const ACTIVITY_WRITE_INTERVAL_MS = 60 * 1000;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<UserRoleEntry[]>([]);
   const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem("chuo-token"),
+    localStorage.getItem(TOKEN_KEY),
   );
   const [isLoading, setIsLoading] = useState(true);
   const [legacyRole, setLegacyRole] = useState<UserRole>("admin");
-
-  const queryClient = useQueryClient();
 
   const clearAuth = useCallback(() => {
     setUser(null);
     setProfile(null);
     setRoles([]);
     setToken(null);
-    localStorage.clear();
-    sessionStorage.clear();
-    queryClient.clear();
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    // Clear per-school context so a fresh login doesn't reuse another
+    // account's school id or cached data.
+    localStorage.removeItem("chuo-school-id");
+    localStorage.removeItem("chuo-term-id");
+    localStorage.removeItem("chuo-academic-year-id");
     api.setToken(null);
     api.setSchoolId(null);
+    api.setSession(null, null);
+    // Nuke every React Query cache entry — no stale cross-tenant data.
+    queryClient.clear();
   }, [queryClient]);
+
+  // Any rejected authenticated request must immediately invalidate the local
+  // session instead of leaving the UI in a half-authenticated blank state.
+  useEffect(() => {
+    api.onUnauthorized(clearAuth);
+    return () => api.onUnauthorized(null);
+  }, [clearAuth]);
 
   // Restore session on mount
   useEffect(() => {
     if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
+    if (lastActivity && Date.now() - lastActivity > IDLE_TIMEOUT_MS) {
+      clearAuth();
       setIsLoading(false);
       return;
     }
@@ -183,6 +206,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Enforce inactivity logout across refreshes and browser tabs. Activity is
+  // persisted at most once per minute to avoid excessive storage writes.
+  useEffect(() => {
+    if (!token || !user) return;
+    let lastWrite = 0;
+    const markActivity = () => {
+      const now = Date.now();
+      if (now - lastWrite < ACTIVITY_WRITE_INTERVAL_MS) return;
+      lastWrite = now;
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+    };
+    const checkIdle = () => {
+      const last = Number(localStorage.getItem(LAST_ACTIVITY_KEY) || 0);
+      if (last && Date.now() - last > IDLE_TIMEOUT_MS) clearAuth();
+    };
+    const syncLogout = (event: StorageEvent) => {
+      if (event.key === TOKEN_KEY && !event.newValue) clearAuth();
+    };
+    const events: (keyof WindowEventMap)[] = [
+      "pointerdown",
+      "keydown",
+      "scroll",
+      "touchstart",
+    ];
+    markActivity();
+    events.forEach((event) => window.addEventListener(event, markActivity, { passive: true }));
+    window.addEventListener("storage", syncLogout);
+    const timer = window.setInterval(checkIdle, 60_000);
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, markActivity));
+      window.removeEventListener("storage", syncLogout);
+      window.clearInterval(timer);
+    };
+  }, [token, user, clearAuth]);
+
   const primaryRole =
     roles.length > 0
       ? ROLE_PRIORITY.find((r) => roles.some((ur) => ur.role === r)) ||
@@ -193,6 +251,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Wipe any residual state from a previous account before signing in.
+      localStorage.removeItem("chuo-school-id");
+      localStorage.removeItem("chuo-term-id");
+      localStorage.removeItem("chuo-academic-year-id");
+      api.setSchoolId(null);
+      api.setSession(null, null);
+      queryClient.clear();
+
       const data = await api.post<{
         token: string;
         user: AuthUser;
@@ -203,7 +269,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       setProfile(data.profile);
       setRoles(data.roles || []);
-      localStorage.setItem("chuo-token", data.token);
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
       api.setToken(data.token);
       return { error: null };
     } catch (err: any) {
@@ -235,7 +302,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       setProfile(data.profile);
       setRoles(data.roles || []);
-      localStorage.setItem("chuo-token", data.token);
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
       api.setToken(data.token);
       return { error: null };
     } catch (err: any) {
@@ -282,10 +350,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     manager: ["deputy_admin"],
     deputy_admin: ["manager"],
   };
+  /**
+   * Role membership for the CURRENTLY SELECTED school only.
+   *
+   * These helpers are for presentation (labels, landing pages, identity
+   * routes). They MUST NOT be used to grant access: authorization comes from
+   * the server-resolved permission set (`useMyPermissions`), and the admin
+   * wildcard is issued per-school by the backend authorization service.
+   */
+  const activeRoles = () => {
+    const schoolId = localStorage.getItem("chuo-school-id");
+    const live = roles.filter((r) => r.is_active !== false);
+    if (!schoolId) return live;
+    return live.filter((r) => !r.school_id || r.school_id === schoolId);
+  };
   const hasRole = (role: AppRole) => {
-    if (roles.some((r) => r.role === role)) return true;
+    const scoped = activeRoles();
+    if (scoped.some((r) => r.role === role)) return true;
     const aliases = ROLE_ALIASES[role] || [];
-    return aliases.some((a) => roles.some((r) => r.role === a));
+    return aliases.some((a) => scoped.some((r) => r.role === a));
   };
   const hasAnyRole = (checkRoles: AppRole[]) =>
     checkRoles.some((r) => hasRole(r));

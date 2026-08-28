@@ -5,20 +5,10 @@ import { usePortalAuth, PortalChild } from "@/contexts/PortalAuthContext";
 import {
   usePortalReportCards,
   usePortalStudentSummary,
-  usePortalFeeItems,
-  usePortalPayments,
 } from "@/hooks/usePortalApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -51,6 +41,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { ReportCardViewer } from "./_ReportCardViewer";
+import { ResultsList } from "@/components/portal/ResultsList";
+
 
 const KES = (n: number) => `KES ${Math.abs(Number(n) || 0).toLocaleString()}`;
 const CHART_COLORS = [
@@ -84,58 +76,9 @@ function useChildSelector(children: PortalChild[]) {
 
 // ---------------- Shared Results ----------------
 function ResultsView({ studentId }: { studentId?: string }) {
-  const { data: cards = [], isLoading } = usePortalReportCards(studentId);
-  const [open, setOpen] = useState<string | null>(null);
-
-  return (
-    <Card>
-      <CardContent className="p-5 space-y-3">
-        <h3 className="text-sm font-bold flex items-center gap-2">
-          <FileText className="h-4 w-4 text-success" /> Published Report Cards
-        </h3>
-        {isLoading ? (
-          <Skeleton className="h-24 w-full" />
-        ) : cards.length === 0 ? (
-          <div className="text-xs text-muted-foreground text-center py-10 bg-muted/30 rounded-lg">
-            No published results yet.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {cards.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setOpen(c.id)}
-                className="w-full flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/30 transition text-left"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{c.assessment_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(c.published_at).toLocaleDateString()} •{" "}
-                    {c.payload?.percentage ?? "—"}%
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {c.payload?.overall_band && (
-                    <Badge className="bg-primary/10 text-primary border-0">
-                      {c.payload.overall_band}
-                    </Badge>
-                  )}
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-        {open && (
-          <ReportCardViewer
-            card={cards.find((c) => c.id === open)!}
-            onClose={() => setOpen(null)}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
+  return <ResultsList studentId={studentId} />;
 }
+
 
 // ---------------- Shared Attendance ----------------
 function AttendanceView({ studentId }: { studentId?: string }) {
@@ -204,10 +147,6 @@ function AttendanceView({ studentId }: { studentId?: string }) {
 // ---------------- Shared Fees ----------------
 function FeesView({ studentId }: { studentId?: string }) {
   const { data: summary, isLoading } = usePortalStudentSummary(studentId);
-  const { data: feeItems = [], isLoading: feesLoading } =
-    usePortalFeeItems(studentId);
-  const { data: payments = [], isLoading: paymentsLoading } =
-    usePortalPayments(studentId);
   const fees = summary?.fees;
   const barData = fees
     ? [
@@ -218,190 +157,44 @@ function FeesView({ studentId }: { studentId?: string }) {
     : [];
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardContent className="p-5 space-y-3">
-            <h3 className="text-sm font-bold flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-warning" /> Fees Statement
-            </h3>
-            {isLoading ? (
-              <Skeleton className="h-48 w-full" />
-            ) : !fees ? (
-              <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">
-                No fees data yet.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="name" fontSize={11} />
-                  <YAxis fontSize={11} />
-                  <Tooltip formatter={(v: number) => KES(v)} />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {barData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-        <div className="space-y-3">
-          <StatTile label="Total Billed" value={fees ? KES(fees.total_billed) : "—"} />
-          <StatTile
-            label="Total Paid"
-            value={fees ? KES(fees.total_paid) : "—"}
-            tone="success"
-          />
-          <StatTile
-            label="Outstanding Balance"
-            value={fees ? KES(fees.balance) : "—"}
-            tone={fees && fees.balance > 0 ? "destructive" : "success"}
-          />
-        </div>
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardContent className="p-5 space-y-3">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <Banknote className="h-4 w-4 text-warning" /> Fees Statement
+          </h3>
+          {isLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : !fees ? (
+            <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">
+              No fees data yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={barData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <XAxis dataKey="name" fontSize={11} />
+                <YAxis fontSize={11} />
+                <Tooltip formatter={(v: number) => KES(v)} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {barData.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+      <div className="space-y-3">
+        <StatTile label="Total Billed" value={fees ? KES(fees.total_billed) : "—"} />
+        <StatTile label="Total Paid" value={fees ? KES(fees.total_paid) : "—"} tone="success" />
+        <StatTile
+          label="Outstanding Balance"
+          value={fees ? KES(fees.balance) : "—"}
+          tone={fees && fees.balance > 0 ? "destructive" : "success"}
+        />
       </div>
-
-      {/* Fee Breakdown */}
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <Banknote className="h-4 w-4 text-warning" /> Fee Breakdown
-          </h3>
-          {feesLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : feeItems.length === 0 ? (
-            <div className="text-xs text-muted-foreground text-center py-10 bg-muted/30 rounded-lg">
-              No fees assigned yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fee</TableHead>
-                    <TableHead className="hidden sm:table-cell">Term</TableHead>
-                    <TableHead className="text-right">Billed</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
-                    <TableHead className="hidden md:table-cell">Due</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {feeItems.map((f) => {
-                    const status = (f.status || "").toLowerCase();
-                    const tone =
-                      status === "paid"
-                        ? "bg-success/10 text-success border-0"
-                        : status === "partial"
-                          ? "bg-warning/10 text-warning border-0"
-                          : "bg-destructive/10 text-destructive border-0";
-                    return (
-                      <TableRow key={f.id}>
-                        <TableCell className="font-semibold">
-                          {f.fee_name || f.ledger_type || "Fee"}
-                          {f.fee_category && (
-                            <span className="block text-[10px] text-muted-foreground capitalize">
-                              {f.fee_category}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                          {f.term_name || "—"}
-                          {f.year_name ? ` · ${f.year_name}` : ""}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {KES(f.amount_due)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs text-success">
-                          {KES(f.amount_paid)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-bold">
-                          {KES(f.balance)}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                          {f.due_date
-                            ? new Date(f.due_date).toLocaleDateString()
-                            : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={tone}>{status || "pending"}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Payment History */}
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <Banknote className="h-4 w-4 text-success" /> Payment History
-          </h3>
-          {paymentsLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : payments.length === 0 ? (
-            <div className="text-xs text-muted-foreground text-center py-10 bg-muted/30 rounded-lg">
-              No payments recorded yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead className="hidden sm:table-cell">Reference</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((p) => {
-                    const status = (p.status || "").toLowerCase();
-                    const tone =
-                      status === "completed"
-                        ? "bg-success/10 text-success border-0"
-                        : status === "reversed"
-                          ? "bg-destructive/10 text-destructive border-0"
-                          : "bg-muted text-foreground border-0";
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell className="text-xs">
-                          {p.received_at || p.created_at
-                            ? new Date(
-                                p.received_at || p.created_at,
-                              ).toLocaleDateString()
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-xs uppercase">
-                          {p.payment_method?.replace(/_/g, " ") || "—"}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground font-mono">
-                          {p.mpesa_receipt || p.reference_number || "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-bold text-success">
-                          {KES(p.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={tone}>{status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { InventoryNav } from "@/components/inventory/InventoryNav";
+import { InventoryOverview } from "@/components/inventory/InventoryOverview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -219,9 +221,18 @@ export const ProductCatalog = () => {
     cost_price: 0,
     selling_price: 0,
     quantity_in_stock: 0,
+    reorder_level: 10,
     sku: "",
     unit: "",
+    description: "",
+    // Consumables are used up (chalk, paper); trackable items stay school
+    // property and must come back (laptops, whiteboards).
+    item_type: "consumable",
+    storage_location: "",
+    supplier_id: "",
   });
+  const [stockFilter, setStockFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
@@ -243,6 +254,12 @@ export const ProductCatalog = () => {
 
     queryFn: () => api.get<any[]>("/inventory/categories"),
 
+    enabled: !!schoolId,
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["inventory-suppliers", schoolId],
+    queryFn: () => api.get<any[]>("/inventory/suppliers"),
     enabled: !!schoolId,
   });
 
@@ -285,7 +302,16 @@ export const ProductCatalog = () => {
       i.name?.toLowerCase().includes(search.toLowerCase()) ||
       i.sku?.toLowerCase().includes(search.toLowerCase());
     const matchCat = catFilter === "all" || i.category_id === catFilter;
-    return matchSearch && matchCat;
+    const qty = Number(i.quantity_in_stock || 0);
+    const reorder = Number(i.reorder_level || 0);
+    const matchStock =
+      stockFilter === "all" ||
+      (stockFilter === "out" && qty <= 0) ||
+      (stockFilter === "low" && qty > 0 && qty <= reorder) ||
+      (stockFilter === "in" && qty > reorder);
+    const matchType =
+      typeFilter === "all" || (i.item_type || "consumable") === typeFilter;
+    return matchSearch && matchCat && matchStock && matchType;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -411,14 +437,108 @@ export const ProductCatalog = () => {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label>SKU / Code</Label>
+                        <Input
+                          value={productForm.sku}
+                          onChange={(e) =>
+                            setProductForm({ ...productForm, sku: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Unit</Label>
+                        <Input
+                          placeholder="pcs, box, ream"
+                          value={productForm.unit}
+                          onChange={(e) =>
+                            setProductForm({ ...productForm, unit: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Reorder level</Label>
+                        <Input
+                          type="number"
+                          value={productForm.reorder_level}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              reorder_level: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label>Item type</Label>
+                        <Select
+                          value={productForm.item_type}
+                          onValueChange={(v) =>
+                            setProductForm({ ...productForm, item_type: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="consumable">
+                              Consumable (used up)
+                            </SelectItem>
+                            <SelectItem value="trackable">
+                              Trackable (must be returned)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Storage location</Label>
+                        <Input
+                          placeholder="e.g. Main store, shelf B"
+                          value={productForm.storage_location}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              storage_location: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-1">
-                      <Label>SKU</Label>
-                      <Input
-                        value={productForm.sku}
+                      <Label>Preferred supplier</Label>
+                      <Select
+                        value={productForm.supplier_id}
+                        onValueChange={(v) =>
+                          setProductForm({ ...productForm, supplier_id: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Optional" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {suppliers.map((sp: any) => (
+                            <SelectItem key={sp.id} value={sp.id}>
+                              {sp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>Description</Label>
+                      <Textarea
+                        rows={2}
+                        value={productForm.description}
                         onChange={(e) =>
                           setProductForm({
                             ...productForm,
-                            sku: e.target.value,
+                            description: e.target.value,
                           })
                         }
                       />
@@ -466,6 +586,29 @@ export const ProductCatalog = () => {
                   {c.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={stockFilter} onValueChange={setStockFilter}>
+            <SelectTrigger className="w-40 h-9 rounded-lg">
+              <SelectValue placeholder="Stock status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All stock</SelectItem>
+              <SelectItem value="in">In stock</SelectItem>
+              <SelectItem value="low">Low stock</SelectItem>
+              <SelectItem value="out">Out of stock</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-40 h-9 rounded-lg">
+              <SelectValue placeholder="Item type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="consumable">Consumable</SelectItem>
+              <SelectItem value="trackable">Trackable</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1794,64 +1937,10 @@ const Inventory = () => {
   return (
     <DashboardLayout
       title="School Store"
-      subtitle="Overview — manage catalog, sales, suppliers, and orders from dedicated pages"
+      subtitle="Stock, sales, staff issuance and purchasing at a glance"
     >
-      <StoreStats />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-        {[
-          {
-            title: "Catalog",
-            desc: "Browse and manage products",
-            icon: ShoppingBag,
-            to: "/inventory/catalog",
-          },
-          {
-            title: "Sell",
-            desc: "Sell items to a student",
-            icon: ShoppingCart,
-            to: "/inventory/sell",
-          },
-          {
-            title: "Sales History",
-            desc: "View past sales",
-            icon: Receipt,
-            to: "/inventory/history",
-          },
-          {
-            title: "Suppliers",
-            desc: "Manage suppliers",
-            icon: Truck,
-            to: "/inventory/suppliers",
-          },
-          {
-            title: "Purchase Orders",
-            desc: "Create & track POs",
-            icon: FileText,
-            to: "/inventory/purchase-orders",
-          },
-          {
-            title: "Categories",
-            desc: "Organise product categories",
-            icon: Tag,
-            to: "/inventory/categories",
-          },
-        ].map((c) => (
-          <a
-            key={c.to}
-            href={c.to}
-            className="rounded-xl border bg-card p-4 hover:bg-accent transition-colors flex items-start gap-3"
-          >
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              <c.icon className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-semibold">{c.title}</p>
-              <p className="text-sm text-muted-foreground">{c.desc}</p>
-            </div>
-          </a>
-        ))}
-      </div>
+      <InventoryNav />
+      <InventoryOverview />
     </DashboardLayout>
   );
 };

@@ -33,6 +33,8 @@ import {
   XCircle,
   ChevronsUpDown,
   Check,
+  Eye,
+
 } from "lucide-react";
 import {
   Popover,
@@ -78,6 +80,9 @@ export default function PurchaseOrders() {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activePoId, setActivePoId] = useState<string | null>(null);
+  /** Purchase order whose line items are being inspected (read-only). */
+  const [viewPo, setViewPo] = useState<any | null>(null);
+
 
   const [supplierId, setSupplierId] = useState("");
   const [shippingCost, setShippingCost] = useState(0);
@@ -355,6 +360,11 @@ export default function PurchaseOrders() {
           </DialogContent>
         </Dialog>
 
+        {/* READ-ONLY LINE ITEMS */}
+        <POItemsDialog po={viewPo} onClose={() => setViewPo(null)} />
+
+
+
         {/* TABLE LIST */}
         <Table>
           <TableHeader>
@@ -398,11 +408,19 @@ export default function PurchaseOrders() {
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        onClick={() => setViewPo(po)}
+                        className="cursor-pointer"
+                      >
+                        <Eye className="h-4 w-4 mr-2" /> View Items
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       {po.status === "pending" ||
                       po.status === "ordered" ||
                       po.status === "in_transit" ? (
                         <>
+
                           {perms["inventory:update"] && (
                             <DropdownMenuItem
                               onClick={() => handleEdit(po)}
@@ -522,5 +540,115 @@ function ProductPicker({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * Read-only view of a purchase order's line items. Fetched on demand from
+ * `/inventory/purchase-orders/:id/items` so no stock or order data is mutated.
+ */
+function POItemsDialog({
+  po,
+  onClose,
+}: {
+  po: any | null;
+  onClose: () => void;
+}) {
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["inventory-po-items", po?.id],
+    queryFn: () => api.get<any[]>(`/inventory/purchase-orders/${po.id}/items`),
+    enabled: !!po?.id,
+  });
+
+  const subtotal = items.reduce(
+    (sum: number, i: any) => sum + Number(i.quantity) * Number(i.unit_price),
+    0,
+  );
+
+  return (
+    <Dialog open={!!po} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl bg-background">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">
+            Order {po?.order_number}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {po?.supplier_name} · {po?.status}
+          </p>
+        </DialogHeader>
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground py-6">Loading items…</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6">
+            This order has no line items.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Unit price</TableHead>
+                <TableHead className="text-right">Line total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((i: any) => (
+                <TableRow key={i.id}>
+                  <TableCell>
+                    <div className="font-medium">{i.item_name || i.name}</div>
+                    {i.sku && (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {i.sku}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">{i.quantity}</TableCell>
+                  <TableCell className="text-right">
+                    KES {Number(i.unit_price).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    KES{" "}
+                    {(
+                      Number(i.quantity) * Number(i.unit_price)
+                    ).toLocaleString()}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        <div className="border-t pt-3 space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Items subtotal</span>
+            <span>KES {subtotal.toLocaleString()}</span>
+          </div>
+          {!!Number(po?.shipping_cost) && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Shipping</span>
+              <span>KES {Number(po.shipping_cost).toLocaleString()}</span>
+            </div>
+          )}
+          {!!Number(po?.discount_amount) && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Discount</span>
+              <span>- KES {Number(po.discount_amount).toLocaleString()}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-base pt-1">
+            <span>Total</span>
+            <span>KES {Number(po?.total_amount || 0).toLocaleString()}</span>
+          </div>
+        </div>
+
+        {po?.notes && (
+          <p className="text-sm text-muted-foreground border-t pt-3">
+            {po.notes}
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

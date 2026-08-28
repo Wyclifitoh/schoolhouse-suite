@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { HistoricalReadOnlyGate } from "@/components/HistoricalReadOnlyGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSchool } from "@/contexts/SchoolContext";
-import { useTerm } from "@/contexts/TermContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useStudents } from "@/hooks/useStudents";
@@ -47,7 +47,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  Lock,
 } from "lucide-react";
 import { formatDate } from "@/utils/date";
 import {
@@ -70,7 +69,6 @@ const formatKES = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
 
 export default function InKindPayments() {
   const { schoolId } = useSchool();
-  const { isReadOnly } = useTerm();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"supplier_offset" | "parent_goods">(
     "supplier_offset",
@@ -164,27 +162,29 @@ export default function InKindPayments() {
               Record goods/services as fee payments
             </p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button disabled={isReadOnly}>
-                {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                New In-Kind Record
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Record In-Kind Payment</DialogTitle>
-              </DialogHeader>
-              <InKindForm
-                kind={tab}
-                suppliers={suppliers}
-                students={students}
-                onSave={(d: any) => createMut.mutate({ ...d, kind: tab })}
-                onClose={() => setOpen(false)}
-                saving={createMut.isPending}
-              />
-            </DialogContent>
-          </Dialog>
+          <HistoricalReadOnlyGate>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New In-Kind Record
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>Record In-Kind Payment</DialogTitle>
+                </DialogHeader>
+                <InKindForm
+                  kind={tab}
+                  suppliers={suppliers}
+                  students={students}
+                  onSave={(d: any) => createMut.mutate({ ...d, kind: tab })}
+                  onClose={() => setOpen(false)}
+                  saving={createMut.isPending}
+                />
+              </DialogContent>
+            </Dialog>
+          </HistoricalReadOnlyGate>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
@@ -277,7 +277,6 @@ export default function InKindPayments() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled={isReadOnly}
                                   onClick={() => approveMut.mutate(r.id)}
                                 >
                                   <Check className="h-4 w-4" />
@@ -285,7 +284,6 @@ export default function InKindPayments() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  disabled={isReadOnly}
                                   onClick={() => rejectMut.mutate(r.id)}
                                 >
                                   <X className="h-4 w-4" />
@@ -293,7 +291,6 @@ export default function InKindPayments() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  disabled={isReadOnly}
                                   onClick={() => delMut.mutate(r.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />

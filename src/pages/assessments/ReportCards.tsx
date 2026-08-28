@@ -39,11 +39,6 @@ import {
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useGrades } from "@/hooks/useGrades";
 import {
   Dialog,
@@ -61,24 +56,20 @@ import {
   FileText,
   FolderArchive,
   Eye,
-  Loader2,
-  CalendarIcon,
 } from "lucide-react";
 
-import { useAuth } from "@/contexts/AuthContext";
-
-const APPROVER_ROLES = [
-  "super_admin",
-  "admin",
-  "school_admin",
-  "deputy_admin",
-  "manager",
-];
+import { usePermissions } from "@/hooks/usePermission";
+import { useTerm } from "@/contexts/TermContext";
+import { AssessmentNav } from "@/components/assessments/AssessmentNav";
 
 export default function ReportCardsV2() {
+  const { selectedTerm, selectedAcademicYear } = useTerm();
   const { data: templates = [] } = useRcTemplates();
   const { data: runs = [] } = useRcRuns();
-  const { data: assessments = [] } = useAssessmentsList();
+  const { data: assessments = [] } = useAssessmentsList({
+    term_id: selectedTerm?.id,
+    year_id: selectedAcademicYear?.id,
+  });
   const { data: grades = [] } = useGrades();
   const saveTpl = useSaveRcTemplate();
   const delTpl = useDeleteRcTemplate();
@@ -89,8 +80,8 @@ export default function ReportCardsV2() {
   const deleteRun = useDeleteReportCardRun();
   const [viewRunId, setViewRunId] = useState<string | null>(null);
 
-  const { hasAnyRole } = useAuth();
-  const canApprove = hasAnyRole(APPROVER_ROLES as any);
+  const perms = usePermissions(["exams:publish", "exams:update"]);
+  const canApprove = perms["exams:publish"] || perms["exams:update"];
 
   const [tplName, setTplName] = useState("");
   const [tplKind, setTplKind] = useState<"CBC" | "844" | "HYBRID">("CBC");
@@ -101,14 +92,12 @@ export default function ReportCardsV2() {
   const [runAssess, setRunAssess] = useState("");
   const [runGrade, setRunGrade] = useState("");
   const [runTpl, setRunTpl] = useState("");
-
   const [showDates, setShowDates] = useState(false);
-  const [openingDate, setOpeningDate] = useState<Date>();
-  const [closingDate, setClosingDate] = useState<Date>();
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        <AssessmentNav />
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <FileBadge className="h-7 w-7 text-primary" /> Report Cards
@@ -302,66 +291,6 @@ export default function ReportCardsV2() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 mt-2 pt-2 border-t">
-                  <Label className="flex items-center gap-2">
-                    <Switch checked={showDates} onCheckedChange={setShowDates} />
-                    Include term opening & closing dates
-                  </Label>
-                  {showDates && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium">Closing Date</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !closingDate && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {closingDate ? format(closingDate, "PPP") : <span>Pick a date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={closingDate}
-                              onSelect={setClosingDate}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium">Opening Date</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !openingDate && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {openingDate ? format(openingDate, "PPP") : <span>Pick a date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={openingDate}
-                              onSelect={setOpeningDate}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
-                  )}
-                </div>
                 <Button
                   className="w-full"
                   disabled={!runAssess || createRun.isPending}
@@ -370,8 +299,6 @@ export default function ReportCardsV2() {
                       assessment_id: runAssess,
                       grade_id: runGrade || null,
                       template_id: runTpl || null,
-                      closing_date: showDates && closingDate ? format(closingDate, "yyyy-MM-dd") : null,
-                      opening_date: showDates && openingDate ? format(openingDate, "yyyy-MM-dd") : null,
                     })
                   }
                 >
@@ -390,7 +317,13 @@ export default function ReportCardsV2() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent runs</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <CardTitle>Recent runs</CardTitle>
+              <Label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
+                <Switch checked={showDates} onCheckedChange={setShowDates} />
+                Include opening and closing dates on downloaded reports
+              </Label>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -439,28 +372,18 @@ export default function ReportCardsV2() {
                           size="sm"
                           variant="outline"
                           disabled={downloadZip.isPending || !r.total_cards}
-                          onClick={() => downloadZip.mutate({ runId: r.id })}
+                          onClick={() => downloadZip.mutate({ runId: r.id, showDates })}
                         >
-                          {downloadZip.isPending && (downloadZip.variables as any)?.runId === r.id ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <FolderArchive className="h-4 w-4 mr-1" />
-                          )}
-                          ZIP
+                          <FolderArchive className="h-4 w-4 mr-1" /> ZIP
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={downloadPdf.isPending || !r.total_cards}
-                          onClick={() => downloadPdf.mutate({ runId: r.id })}
+                          onClick={() => downloadPdf.mutate({ runId: r.id, showDates })}
                           title="Download all cards as one PDF"
                         >
-                          {downloadPdf.isPending && (downloadPdf.variables as any)?.runId === r.id ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <FileText className="h-4 w-4 mr-1" />
-                          )}
-                          PDF
+                          <FileText className="h-4 w-4 mr-1" /> PDF
                         </Button>
                         {r.status !== "published" && canApprove && (
                           <Button
@@ -509,7 +432,7 @@ export default function ReportCardsV2() {
         </Card>
       </div>
 
-      <RunCardsDialog runId={viewRunId} onClose={() => setViewRunId(null)} />
+      <RunCardsDialog runId={viewRunId} onClose={() => setViewRunId(null)} showDates={showDates} />
     </DashboardLayout>
   );
 }
@@ -517,9 +440,11 @@ export default function ReportCardsV2() {
 function RunCardsDialog({
   runId,
   onClose,
+  showDates,
 }: {
   runId: string | null;
   onClose: () => void;
+  showDates: boolean;
 }) {
   const { data: cards = [] } = useRcCards(runId || undefined);
   const dl = useDownloadReportCardPdf();
@@ -612,15 +537,11 @@ function RunCardsDialog({
                             dl.mutate({
                               cardId: c.id,
                               name: `${c.first_name}_${c.last_name}_${c.admission_number}`,
+                              showDates,
                             })
                           }
                         >
-                          {dl.isPending && (dl.variables as any)?.cardId === c.id ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <FileText className="h-4 w-4 mr-1" />
-                          )}
-                          PDF
+                          <FileText className="h-4 w-4 mr-1" /> PDF
                         </Button>
                       </div>
                     </TableCell>

@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +19,18 @@ import {
   useRecordPayment,
   useCreateFeeAdjustment,
   useTransferPayment,
+  useStudentFeeAdjustments,
+  type FeeAdjustmentRow,
 } from "@/hooks/useFinance";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTerm } from "@/contexts/TermContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StudentFeesSkeleton } from "@/components/students/StudentPageSkeletons";
 import {
   ArrowLeft,
   Wallet,
@@ -31,10 +40,13 @@ import {
   AlertTriangle,
   Scale,
   UserRoundCheck,
+  PencilLine,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/PermissionGate";
+import { HistoricalReadOnlyGate } from "@/components/HistoricalReadOnlyGate";
+import { useIsHistoricalView } from "@/hooks/useAcademicContext";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
 import { FeeAdjustmentDialog } from "@/components/finance/FeeAdjustmentDialog";
 import { api } from "@/lib/api";
@@ -68,6 +80,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FileText, FileSpreadsheet, Printer } from "lucide-react";
 import { openReceiptPdf } from "@/hooks/useReceipt";
+import { ExcessAppliedBadge } from "@/components/finance/ExcessAppliedBadge";
+import {
+  useStudentBalance,
+  EMPTY_BALANCE,
+} from "@/hooks/useStudentBalance";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,17 +102,57 @@ const formatKES = (n: number) => `KES ${Math.abs(n).toLocaleString()}`;
 const StudentFees = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
-  const { selectedTerm } = useTerm();
-  const { data: student, isLoading } = useStudentWithFees(studentId);
+  const { selectedTerm, selectedAcademicYear, terms, academicYears } =
+    useTerm();
+  const isHistorical = useIsHistoricalView();
+
+  // ---------------------------------------------------------------------------
+  // PAGE SESSION SCOPE
+  // The page has its own Year / Term filter so finance staff can inspect an
+  // earlier session WITHOUT changing the school-wide viewing context. It seeds
+  // from the global context; "all" = lifetime (session-agnostic) view.
+  // Every query below is keyed on this scope, so the KPI cards, fee items,
+  // payments and allocations can never describe different periods.
+  // ---------------------------------------------------------------------------
+  const [scopeYearId, setScopeYearId] = useState<string>("");
+  const [scopeTermId, setScopeTermId] = useState<string>("");
+  useEffect(() => {
+    setScopeYearId((p) => p || selectedAcademicYear?.id || "all");
+    setScopeTermId((p) => p || selectedTerm?.id || "all");
+  }, [selectedAcademicYear?.id, selectedTerm?.id]);
+
+  const isLifetimeScope = scopeTermId === "all" && scopeYearId === "all";
+  const scopeTerm = scopeTermId === "all" ? null : scopeTermId;
+  const scopeYear = scopeYearId === "all" ? null : scopeYearId;
+  const scopeTermName =
+    terms.find((t) => t.id === scopeTerm)?.name ||
+    (isLifetimeScope ? "All sessions" : "—");
+  const scopeYearName =
+    academicYears.find((y) => y.id === scopeYear)?.name ||
+    (isLifetimeScope ? "" : "—");
+  const scopedTermsForYear = scopeYear
+    ? terms.filter((t) => t.academic_year_id === scopeYear)
+    : terms;
+
+  /** Shared query-string for every scoped finance call on this page. */
+  const scopeParams = () => {
+    const p = new URLSearchParams();
+    p.set("term_id", scopeTerm || "all");
+    p.set("academic_year_id", scopeYear || "all");
+    return p;
+  };
+
+  const { data: student, isLoading } = useStudentWithFees(studentId, {
+    termId: scopeTerm,
+    academicYearId: scopeYear,
+  });
 
   const { data: studentFees = [] } = useQuery({
-    queryKey: ["student-fee-items", studentId, selectedTerm?.id],
+    queryKey: ["student-fee-items", studentId, scopeTerm, scopeYear],
     queryFn: async () => {
       try {
-        const params = new URLSearchParams();
-        if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
         const data = await api.get<any>(
-          `/finance/student-fees/${studentId}?${params}`,
+          `/finance/student-fees/${studentId}?${scopeParams()}`,
         );
         return (data?.data || data || []) as any[];
       } catch {
@@ -105,10 +163,12 @@ const StudentFees = () => {
   });
 
   const { data: paymentHistory = [] } = useQuery({
-    queryKey: ["student-payments", studentId],
+    queryKey: ["student-payments", studentId, scopeTerm, scopeYear],
     queryFn: async () => {
       try {
-        const data = await api.get<any>(`/payments?student_id=${studentId}`);
+        const data = await api.get<any>(
+          `/payments?student_id=${studentId}&${scopeParams()}`,
+        );
         return (data?.data || data || []) as any[];
       } catch {
         return [];
@@ -118,11 +178,11 @@ const StudentFees = () => {
   });
 
   const { data: allocationHistory = [] } = useQuery({
-    queryKey: ["payment-allocations", studentId],
+    queryKey: ["payment-allocations", studentId, scopeTerm, scopeYear],
     queryFn: async () => {
       try {
         const data = await api.get<any>(
-          `/payments/allocations?student_id=${studentId}`,
+          `/payments/allocations?student_id=${studentId}&${scopeParams()}`,
         );
         return (data?.data || data || []) as any[];
       } catch {
@@ -131,6 +191,7 @@ const StudentFees = () => {
     },
     enabled: !!studentId,
   });
+
 
   const { data: excessCredits = [], refetch: refetchExcess } = useQuery({
     queryKey: ["student-excess-credits", studentId],
@@ -147,13 +208,71 @@ const StudentFees = () => {
     enabled: !!studentId,
   });
 
+  // Lifetime summary — deliberately session-agnostic. Always shows every-term
+  // totals even when the page is viewing a specific term.
+  const { data: lifetime } = useQuery({
+    queryKey: ["student-fees-lifetime", studentId],
+    queryFn: async () => {
+      try {
+        const data = await api.get<any>(
+          `/finance/student-fees/${studentId}/lifetime`,
+        );
+        return (data?.data || data || null) as {
+          totalBilled: number;
+          totalDiscount: number;
+          totalPaid: number;
+          totalBalance: number;
+          yearBreakdown: {
+            year: string;
+            billed: number;
+            paid: number;
+            balance: number;
+          }[];
+        } | null;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!studentId,
+  });
+
+  const [showLifetime, setShowLifetime] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+
   const [paymentFeeId, setPaymentFeeId] = useState("");
   const [paymentAmount, setPaymentAmount] = useState<number | undefined>();
   const [showAdjustmentDialog, setShowAdjustmentDialog] = useState(false);
   const [adjustmentFee, setAdjustmentFee] = useState<any>(null);
   const recordPayment = useRecordPayment();
   const createAdjustment = useCreateFeeAdjustment();
+
+  // Adjustment trail — makes every change to a bill visible on the profile.
+  // Scoped to the page's Year/Term filter so it can never describe a different
+  // session than the fee items shown above it.
+  const { data: allAdjustments = [] } = useStudentFeeAdjustments(studentId);
+  const adjustments = useMemo(() => {
+    if (isLifetimeScope) return allAdjustments;
+    return allAdjustments.filter((a) => {
+      if (scopeTerm && a.term_id && a.term_id !== scopeTerm) return false;
+      if (scopeYear && a.academic_year_id && a.academic_year_id !== scopeYear)
+        return false;
+      return true;
+    });
+  }, [allAdjustments, isLifetimeScope, scopeTerm, scopeYear]);
+  const adjustmentsByFee = useMemo(() => {
+    const map: Record<string, FeeAdjustmentRow[]> = {};
+    for (const a of adjustments) {
+      if (!a.student_fee_id) continue;
+      (map[a.student_fee_id] ||= []).push(a);
+    }
+    return map;
+  }, [adjustments]);
+  const adjustmentLabel = (t: string) =>
+    ({
+      increase: "Increased",
+      decrease: "Reduced",
+      waive: "Waived",
+    })[t] || t;
   const transferPayment = useTransferPayment();
   const { data: transferStudents = [] } = useStudents({
     status: "active",
@@ -235,63 +354,39 @@ const StudentFees = () => {
     qc.invalidateQueries({ queryKey: ["student-with-fees", studentId] });
   };
 
-  const excessAvailable = useMemo(
-    () =>
-      (excessCredits as any[]).reduce(
-        (sum, c) => sum + Number(c.amount || 0),
-        0,
-      ),
-    [excessCredits],
+  // ---------------------------------------------------------------------------
+  // SINGLE SOURCE OF TRUTH
+  // All figures below come from the backend balance engine (derived from the
+  // payment/allocation trail). Nothing on this screen recomputes a balance.
+  // ---------------------------------------------------------------------------
+  const { data: balanceData } = useStudentBalance(studentId, {
+    termId: scopeTerm,
+  });
+
+  const current = balanceData?.current || EMPTY_BALANCE;
+
+  const excessAvailable = current.excess_available;
+
+  const totals = useMemo(
+    () => ({
+      totalAmount: current.charges,
+      totalDiscount: current.discounts,
+      totalPaid: current.paid,
+      totalReceived: current.received,
+      totalBalance: current.balance,
+      totalAllocated: current.allocated,
+      advanceCredit: current.excess_available,
+    }),
+    [current],
   );
 
-  const totals = useMemo(() => {
-    const totalAmount = studentFees.reduce(
-      (a: number, f: any) => a + Number(f.amount || 0),
-      0,
-    );
-    const totalDiscount = studentFees.reduce(
-      (a: number, f: any) => a + Number(f.discount || 0),
-      0,
-    );
-    const totalAllocated = studentFees.reduce(
-      (a: number, f: any) => a + Number(f.paid || 0),
-      0,
-    );
-    // Truth = sum of completed payments + any unspent excess credit.
-    const completedPayments = (paymentHistory as any[]).filter((p) => {
-      const s = String(p.status || "").toLowerCase();
-      return (
-        s === "completed" ||
-        s === "succeeded" ||
-        s === "success" ||
-        s === "paid"
-      );
-    });
-    const totalReceived = completedPayments.reduce(
-      (a: number, p: any) => a + Number(p.amount || 0),
-      0,
-    );
-    const totalPaid = totalAllocated; // what's been applied to fees
-    const totalBalance = Math.max(0, totalAmount - totalPaid); // never negative
-    return {
-      totalAmount,
-      totalDiscount,
-      totalPaid,
-      totalReceived,
-      totalBalance,
-      totalAllocated,
-      advanceCredit: excessAvailable,
-    };
-  }, [studentFees, paymentHistory, excessAvailable]);
+  // Canonical status straight from the engine. "advance" kept as an alias of
+  // the engine's "credit" so existing JSX branches keep working.
+  const overallStatus = useMemo(
+    () => (current.status === "credit" ? "advance" : current.status),
+    [current.status],
+  );
 
-  const overallStatus = useMemo(() => {
-    if (totals.totalAmount === 0 && totals.advanceCredit === 0)
-      return "no_fees";
-    if (totals.totalAmount > 0 && totals.totalBalance === 0) return "paid";
-    if (totals.advanceCredit > 0 && totals.totalBalance === 0) return "advance";
-    if (totals.totalPaid > 0 && totals.totalBalance > 0) return "partial";
-    return "pending";
-  }, [totals]);
 
   const applyExcess = async (creditId: string) => {
     try {
@@ -305,11 +400,8 @@ const StudentFees = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout title="Loading..." subtitle="">
-        <div className="space-y-4">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
+      <DashboardLayout title="Loading fees..." subtitle="">
+        <StudentFeesSkeleton />
       </DashboardLayout>
     );
   }
@@ -341,7 +433,8 @@ const StudentFees = () => {
         reference_number: data.reference,
         fee_ids: data.feeIds || [],
         notes: data.notes,
-        term_id: selectedTerm?.id || null,
+        term_id: data.termId || selectedTerm?.id || null,
+        academic_year_id: data.academicYearId || null,
         idempotency_key: data.idempotencyKey,
       });
       setShowPaymentDialog(false);
@@ -377,10 +470,13 @@ const StudentFees = () => {
       const schoolId = localStorage.getItem("chuo-school-id") || "";
       const base =
         (import.meta as any).env?.VITE_API_URL ||
-        "https://chuoapi.wikiteq.co.ke/api/v1";
+        "https://api.chuoflow.co.ke/api/v1";
       const params = new URLSearchParams();
       params.set("format", format);
-      if (selectedTerm?.id) params.set("term_id", selectedTerm.id);
+      // Statement must match exactly what this page shows.
+      params.set("term_id", scopeTerm || "all");
+      params.set("academic_year_id", scopeYear || "all");
+
       const res = await fetch(
         `${base}/finance/student-fees/${studentId}/statement?${params}`,
         {
@@ -467,30 +563,32 @@ const StudentFees = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </PermissionGate>
-            <PermissionGate permission="payments:create">
-              <Button
-                size="sm"
-                onClick={() => {
-                  setPaymentFeeId("");
-                  setPaymentAmount(undefined);
-                  setShowPaymentDialog(true);
-                }}
-              >
-                <Wallet className="h-3.5 w-3.5 mr-1" />
-                Receive Payment
-              </Button>
-            </PermissionGate>
-            <PermissionGate permission="finance:fees:waive">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowRebalanceConfirm(true)}
-                title="Detect overpayments and move excess to credits"
-              >
-                <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                Rebalance
-              </Button>
-            </PermissionGate>
+            <HistoricalReadOnlyGate>
+              <PermissionGate permission="payments:create">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setPaymentFeeId("");
+                    setPaymentAmount(undefined);
+                    setShowPaymentDialog(true);
+                  }}
+                >
+                  <Wallet className="h-3.5 w-3.5 mr-1" />
+                  Receive Payment
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission="finance:fees:waive">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowRebalanceConfirm(true)}
+                  title="Detect overpayments and move excess to credits"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                  Rebalance
+                </Button>
+              </PermissionGate>
+            </HistoricalReadOnlyGate>
           </div>
         </div>
 
@@ -563,7 +661,70 @@ const StudentFees = () => {
           </CardContent>
         </Card>
 
-        {/* Summary */}
+        {/* Session scope — drives every figure on this page */}
+        <div className="flex items-end justify-between gap-3 flex-wrap -mb-2">
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                Academic year
+              </p>
+              <Select
+                value={scopeYearId}
+                onValueChange={(v) => {
+                  setScopeYearId(v);
+                  setScopeTermId("all");
+                }}
+              >
+                <SelectTrigger className="h-9 w-[180px] text-xs">
+                  <SelectValue placeholder="Academic year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All years (lifetime)</SelectItem>
+                  {academicYears.map((y) => (
+                    <SelectItem key={y.id} value={y.id}>
+                      {y.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                Term
+              </p>
+              <Select value={scopeTermId} onValueChange={setScopeTermId}>
+                <SelectTrigger className="h-9 w-[180px] text-xs">
+                  <SelectValue placeholder="Term" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All terms</SelectItem>
+                  {scopedTermsForYear.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground pb-1">
+            Figures shown for:{" "}
+            <span className="font-semibold text-foreground">
+              {isLifetimeScope
+                ? "All academic sessions"
+                : `${scopeYearName} · ${scopeTermName}`}
+            </span>
+            {isHistorical && (
+              <Badge
+                variant="outline"
+                className="ml-2 border-warning/40 text-warning"
+              >
+                Historical · Read-only
+              </Badge>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             {
@@ -627,21 +788,23 @@ const StudentFees = () => {
                   : "It will auto-apply when new fees are assigned."}
               </span>
               {totals.totalBalance > 0 && excessCredits.length > 0 && (
-                <PermissionGate permission="finance:fees:waive">
-                  <div className="flex flex-wrap gap-2">
-                    {excessCredits.map((c: any) => (
-                      <Button
-                        key={c.id}
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[11px]"
-                        onClick={() => applyExcess(c.id)}
-                      >
-                        Apply {formatKES(Number(c.amount))}
-                      </Button>
-                    ))}
-                  </div>
-                </PermissionGate>
+                <HistoricalReadOnlyGate>
+                  <PermissionGate permission="finance:fees:waive">
+                    <div className="flex flex-wrap gap-2">
+                      {excessCredits.map((c: any) => (
+                        <Button
+                          key={c.id}
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px]"
+                          onClick={() => applyExcess(c.id)}
+                        >
+                          Apply {formatKES(Number(c.amount))}
+                        </Button>
+                      ))}
+                    </div>
+                  </PermissionGate>
+                </HistoricalReadOnlyGate>
               )}
             </CardContent>
           </Card>
@@ -703,8 +866,70 @@ const StudentFees = () => {
                     studentFees.map((f: any) => (
                       <TableRow key={f.id}>
                         <TableCell className="font-medium text-sm">
-                          {f.fee_name || f.name}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span>{f.fee_name || f.name}</span>
+                            {(() => {
+                              const list = adjustmentsByFee[f.id] || [];
+                              const applied = list.filter(
+                                (a) => a.approval_status === "approved",
+                              );
+                              const pending = list.filter(
+                                (a) => a.approval_status === "pending",
+                              );
+                              if (!applied.length && !pending.length)
+                                return null;
+                              const latest = applied[0] || pending[0];
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge
+                                        variant="outline"
+                                        className={
+                                          applied.length
+                                            ? "text-[10px] gap-1 border-warning bg-warning text-warning-foreground font-semibold"
+                                            : "text-[10px] gap-1 border-info bg-info text-info-foreground font-semibold"
+                                        }
+                                      >
+                                        <PencilLine className="h-3 w-3" />
+                                        {applied.length
+                                          ? `Adjusted${applied.length > 1 ? ` ×${applied.length}` : ""}`
+                                          : "Adjustment pending"}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs text-xs space-y-1">
+                                      <p className="font-semibold">
+                                        {adjustmentLabel(
+                                          latest.adjustment_type,
+                                        )}{" "}
+                                        {formatKES(
+                                          Number(latest.previous_amount || 0),
+                                        )}{" "}
+                                        →{" "}
+                                        {formatKES(
+                                          Number(latest.new_amount || 0),
+                                        )}
+                                      </p>
+                                      <p className="text-muted-foreground">
+                                        {latest.reason}
+                                      </p>
+                                      {pending.length > 0 && (
+                                        <p className="text-muted-foreground">
+                                          Awaiting approval
+                                        </p>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
+                            <ExcessAppliedBadge
+                              amount={f.from_excess_amount}
+                            />
+                          </div>
+
                         </TableCell>
+
                         <TableCell className="text-sm text-muted-foreground">
                           {f.term_name || "—"}
                         </TableCell>
@@ -728,39 +953,46 @@ const StudentFees = () => {
                           {Number(f.balance || 0).toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            {(f.balance || 0) > 0 && (
+                          <HistoricalReadOnlyGate>
+                            <div className="flex gap-1">
+                              {(f.balance || 0) > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px] px-2"
+                                  onClick={() => {
+                                    setPaymentFeeId(f.id);
+                                    setPaymentAmount(f.balance);
+                                    setShowPaymentDialog(true);
+                                  }}
+                                >
+                                  <Wallet className="h-3 w-3 mr-0.5" />
+                                  Pay
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 className="h-7 text-[11px] px-2"
                                 onClick={() => {
-                                  setPaymentFeeId(f.id);
-                                  setPaymentAmount(f.balance);
-                                  setShowPaymentDialog(true);
+                                  setAdjustmentFee({
+                                    id: f.id,
+                                    name: f.fee_name || f.name || "Fee",
+                                    currentAmount: Number(f.amount || 0),
+                                    amountPaid: Number(f.paid || 0),
+                                  });
+                                  setShowAdjustmentDialog(true);
                                 }}
                               >
-                                <Wallet className="h-3 w-3 mr-0.5" />
-                                Pay
+                                Adjust
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-[11px] px-2"
-                              onClick={() => {
-                                setAdjustmentFee({
-                                  id: f.id,
-                                  name: f.fee_name || f.name || "Fee",
-                                  currentAmount: Number(f.amount || 0),
-                                  amountPaid: Number(f.paid || 0),
-                                });
-                                setShowAdjustmentDialog(true);
-                              }}
-                            >
-                              Adjust
-                            </Button>
-                          </div>
+                            </div>
+                          </HistoricalReadOnlyGate>
+                          {isHistorical && (
+                            <span className="text-[11px] text-muted-foreground">
+                              Read-only
+                            </span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -787,6 +1019,214 @@ const StudentFees = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Adjustment trail — an adjusted bill must never be silent. */}
+        {adjustments.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <PencilLine className="h-4 w-4 text-primary" />
+                  Fee Adjustments
+                </CardTitle>
+                <Badge variant="secondary">{adjustments.length}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Every change made to this student's bill. Approved adjustments
+                automatically release any money that was tied to the old amount,
+                so balances above already reflect them.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="text-xs font-semibold">
+                        Date
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Fee
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Term
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Change
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-right">
+                        From → To
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Reason
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold">
+                        Status
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {adjustments.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {formatDate(a.created_at)}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {a.fee_name || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {a.term_name || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {adjustmentLabel(a.adjustment_type)}
+                        </TableCell>
+                        <TableCell className="text-xs text-right whitespace-nowrap">
+                          <span className="text-muted-foreground line-through">
+                            {formatKES(Number(a.previous_amount || 0))}
+                          </span>{" "}
+                          <span className="font-semibold">
+                            {formatKES(Number(a.new_amount || 0))}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs max-w-xs">
+                          {a.reason}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              a.approval_status === "approved"
+                                ? "default"
+                                : a.approval_status === "rejected"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className="text-[10px] capitalize"
+                          >
+                            {a.approval_status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+
+
+        {/* Lifetime summary — hidden by default. Mixing lifetime totals with
+            the term figures above is exactly what made staff read the wrong
+            balance, so it is an explicit, clearly-labelled opt-in. */}
+        {lifetime && lifetime.totalBilled > 0 && !showLifetime && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit text-xs text-muted-foreground gap-2"
+            onClick={() => setShowLifetime(true)}
+          >
+            <Scale className="h-3.5 w-3.5" />
+            Show lifetime summary (all academic sessions)
+          </Button>
+        )}
+        {lifetime && lifetime.totalBilled > 0 && showLifetime && (
+          <Card className="border-dashed">
+
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
+                <Scale className="h-4 w-4" />
+                Lifetime Summary (all academic sessions)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Total Billed
+                  </p>
+                  <p className="text-base font-semibold">
+                    {formatKES(lifetime.totalBilled)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Discounts</p>
+                  <p className="text-base font-semibold text-primary">
+                    {formatKES(lifetime.totalDiscount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Total Paid
+                  </p>
+                  <p className="text-base font-semibold text-green-600">
+                    {formatKES(lifetime.totalPaid)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Outstanding
+                  </p>
+                  <p
+                    className={`text-base font-semibold ${
+                      lifetime.totalBalance > 0
+                        ? "text-red-500"
+                        : "text-green-600"
+                    }`}
+                  >
+                    {lifetime.totalBalance === 0
+                      ? "Cleared"
+                      : formatKES(lifetime.totalBalance)}
+                  </p>
+                </div>
+              </div>
+              {lifetime.yearBreakdown?.length > 1 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="text-[11px]">
+                          Academic Year
+                        </TableHead>
+                        <TableHead className="text-[11px] text-right">
+                          Billed
+                        </TableHead>
+                        <TableHead className="text-[11px] text-right">
+                          Paid
+                        </TableHead>
+                        <TableHead className="text-[11px] text-right">
+                          Balance
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lifetime.yearBreakdown.map((y) => (
+                        <TableRow key={y.year}>
+                          <TableCell className="text-sm">{y.year}</TableCell>
+                          <TableCell className="text-sm text-right">
+                            {Number(y.billed).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-sm text-right text-green-600">
+                            {Number(y.paid).toLocaleString()}
+                          </TableCell>
+                          <TableCell
+                            className={`text-sm text-right ${
+                              y.balance > 0
+                                ? "text-red-500"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {Number(y.balance).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Payment History */}
         <Card>
@@ -887,38 +1327,42 @@ const StudentFees = () => {
                               <Printer className="h-4 w-4" />
                             </Button>
                             {p.status !== "reversed" && (
-                              <PermissionGate permission="payments:reverse">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 text-destructive"
-                                  title="Revert payment"
-                                  onClick={() => {
-                                    setRevertTarget(p);
-                                    setRevertMode("excess");
-                                    setRevertReason("");
-                                  }}
-                                >
-                                  <Undo2 className="h-4 w-4" />
-                                </Button>
-                              </PermissionGate>
+                              <HistoricalReadOnlyGate>
+                                <PermissionGate permission="payments:reverse">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-destructive"
+                                    title="Revert payment"
+                                    onClick={() => {
+                                      setRevertTarget(p);
+                                      setRevertMode("excess");
+                                      setRevertReason("");
+                                    }}
+                                  >
+                                    <Undo2 className="h-4 w-4" />
+                                  </Button>
+                                </PermissionGate>
+                              </HistoricalReadOnlyGate>
                             )}
                             {p.status !== "reversed" && (
-                              <PermissionGate permission="payments:update">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 text-primary"
-                                  title="Transfer payment to another student"
-                                  onClick={() => {
-                                    setTransferTarget(p);
-                                    setTransferStudentId("");
-                                    setTransferReason("");
-                                  }}
-                                >
-                                  <UserRoundCheck className="h-4 w-4" />
-                                </Button>
-                              </PermissionGate>
+                              <HistoricalReadOnlyGate>
+                                <PermissionGate permission="payments:update">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-primary"
+                                    title="Transfer payment to another student"
+                                    onClick={() => {
+                                      setTransferTarget(p);
+                                      setTransferStudentId("");
+                                      setTransferReason("");
+                                    }}
+                                  >
+                                    <UserRoundCheck className="h-4 w-4" />
+                                  </Button>
+                                </PermissionGate>
+                              </HistoricalReadOnlyGate>
                             )}
                           </TableCell>
                         </TableRow>
@@ -1012,7 +1456,12 @@ const StudentFees = () => {
                         {a.reference_number || "—"}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-green-600">
-                        {Number(a.amount || 0).toLocaleString()}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {Number(a.amount || 0).toLocaleString()}
+                          {a.from_excess ? (
+                            <ExcessAppliedBadge amount={a.amount} />
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

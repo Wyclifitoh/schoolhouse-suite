@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   GraduationCap,
+  HelpCircle,
   Home,
   Layers,
   Library,
@@ -62,12 +63,18 @@ import {
   Activity,
   LayoutGrid,
 } from "lucide-react";
+import { OnboardingTour } from "@/components/help/OnboardingTour";
+import { SetupProgressFab } from "@/components/help/SetupProgressFab";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppRole, useAuth } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { TermSwitcher } from "@/components/layout/TermSwitcher";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { PrimaryNav } from "@/components/layout/PrimaryNav";
+
 import { SessionBanner } from "@/components/layout/SessionBanner";
+import { useIsHistoricalView } from "@/hooks/useAcademicContext";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -90,6 +97,8 @@ import {
 import { createPortal } from "react-dom";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useMyPermissions, PermissionCode } from "@/hooks/usePermission";
+import { permissionsForPath } from "@/lib/routePermissions";
+import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 
 // Role-based access helpers - IMPLEMENTED
 const SUPER_ADMIN_ROLES: AppRole[] = ["super_admin"];
@@ -402,6 +411,13 @@ const navigationGroups: NavGroup[] = [
         permissions: ["finance:fees:read"],
       },
       {
+        title: "Fee Report",
+        url: "/finance/fee-report",
+        icon: Receipt,
+        roles: [...ADMIN_ROLES, ...ACCOUNTANT_ROLES] as AppRole[],
+        permissions: ["finance:fees:read"],
+      },
+      {
         title: "Payments",
         url: "/payments",
         icon: Wallet,
@@ -535,98 +551,20 @@ const navigationGroups: NavGroup[] = [
     ],
   },
 
-  // Communication
- {
+  // Communication — workspace item (internal tabs live inside the module)
+  {
     label: "Communication",
     icon: MessageSquare,
     items: [
       {
-        title: "Dashboard",
+        title: "Communication",
         url: "/communication",
-        icon: LayoutDashboard,
+        icon: MessageSquare,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...RECEPTIONIST_ROLES,
         ] as AppRole[],
-      },
-      {
-        title: "Send Message",
-        url: "/communication/send",
-        icon: Mail,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Campaigns",
-        url: "/communication/campaigns",
-        icon: BellRing,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Templates",
-        url: "/communication/templates",
-        icon: FileText,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Automated Messages",
-        url: "/communication/automations",
-        icon: Sparkles,
-        roles: [...ADMIN_ROLES] as AppRole[],
-      },
-      {
-        title: "Scheduled",
-        url: "/communication/scheduled",
-        icon: Clock,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Message History",
-        url: "/communication/history",
-        icon: Archive,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Settings",
-        url: "/communication/settings",
-        icon: Settings,
-        roles: ADMIN_ROLES,
-      },
-      {
-        title: "Notices",
-        url: "/communication/noticeboard",
-        icon: BellRing,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...RECEPTIONIST_ROLES,
-        ] as AppRole[],
-      },
-      {
-        title: "Events Calendar",
-        url: "/events",
-        icon: Calendar,
-        roles: ALL_STAFF_ROLES,
       },
     ],
   },
@@ -646,124 +584,71 @@ const navigationGroups: NavGroup[] = [
     ],
   },
 
-  // Inventory & Store
+  // Inventory & Store — workspace item (internal tabs live inside the module)
   {
     label: "Inventory & Store",
     icon: Package,
     items: [
       {
-        title: "Overview",
+        title: "Inventory & Store",
         url: "/inventory",
         icon: Package,
         roles: ADMIN_ROLES,
         permissions: ["inventory:read"],
       },
-      {
-        title: "Catalog",
-        url: "/inventory/catalog",
-        icon: Package,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:read"],
-      },
-      {
-        title: "Categories",
-        url: "/inventory/categories",
-        icon: Layers,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:read"],
-      },
-      {
-        title: "Make Sale",
-        url: "/inventory/sell",
-        icon: CreditCard,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:update"],
-      },
-      {
-        title: "Sales History",
-        url: "/inventory/history",
-        icon: Clipboard,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:read"],
-      },
-      {
-        title: "Suppliers",
-        url: "/inventory/suppliers",
-        icon: Truck,
-        roles: ADMIN_ROLES,
-        permissions: ["suppliers:manage"],
-      },
-      {
-        title: "Purchase Orders",
-        url: "/inventory/purchase-orders",
-        icon: ShoppingCart,
-        roles: ADMIN_ROLES,
-        permissions: ["inventory:update"],
-      },
     ],
   },
 
-  // Reports
+  // Reports — single workspace item opening the Report Center
   {
     label: "Reports",
     icon: BarChart3,
     items: [
       {
-        title: "Student Reports",
-        url: "/reports/students",
-        icon: GraduationCap,
+        title: "Report Center",
+        url: "/reports",
+        icon: BarChart3,
         roles: [
           ...ADMIN_ROLES,
           ...TEACHER_ROLES,
           ...MANAGER_ROLES,
-        ] as AppRole[],
-        permissions: ["reports:read"],
-      },
-      // {
-      //   title: "Assessment Reports",
-      //   url: "/reports/assessments",
-      //   icon: FileBadge,
-      //   roles: [
-      //     ...ADMIN_ROLES,
-      //     ...TEACHER_ROLES,
-      //     ...MANAGER_ROLES,
-      //   ] as AppRole[],
-      // },
-      {
-        title: "Finance Reports",
-        url: "/reports/finance",
-        icon: Banknote,
-        roles: [
-          ...ADMIN_ROLES,
           ...ACCOUNTANT_ROLES,
-          ...MANAGER_ROLES,
         ] as AppRole[],
         permissions: ["reports:read"],
       },
+    ],
+  },
+
+  // Administration — genuinely secondary modules
+  {
+    label: "Administration",
+    icon: Settings,
+    items: [
       {
-        title: "Attendance Reports",
-        url: "/reports/attendance",
+        title: "School Settings",
+        url: "/settings",
+        icon: Settings,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
+      },
+      {
+        title: "Roles & Permissions",
+        url: "/settings/roles",
+        icon: Shield,
+        roles: ADMIN_ROLES,
+        permissions: ["settings:read"],
+      },
+      {
+        title: "Events Calendar",
+        url: "/events",
         icon: Calendar,
-        roles: [
-          ...ADMIN_ROLES,
-          ...TEACHER_ROLES,
-          ...MANAGER_ROLES,
-        ] as AppRole[],
-        permissions: ["reports:read"],
+        roles: ALL_STAFF_ROLES,
       },
       {
-        title: "HR Reports",
-        url: "/reports/hr",
-        icon: Briefcase,
-        roles: [...ADMIN_ROLES, ...MANAGER_ROLES] as AppRole[],
-        permissions: ["reports:read"],
-      },
-      {
-        title: "Library Reports",
-        url: "/reports/library",
-        icon: Library,
-        roles: [...ADMIN_ROLES, ...LIBRARIAN_ROLES] as AppRole[],
-        permissions: ["reports:read"],
+        title: "Archives",
+        url: "/archives",
+        icon: Archive,
+        roles: ADMIN_ROLES,
       },
       {
         title: "Audit Trail",
@@ -773,7 +658,7 @@ const navigationGroups: NavGroup[] = [
         permissions: ["audit:read"],
       },
       {
-        title: "User Logs",
+        title: "System Logs",
         url: "/user-logs",
         icon: Activity,
         roles: ADMIN_ROLES,
@@ -956,13 +841,13 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
       <button
         onClick={() => navigate(item.url)}
         className={cn(
-          "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0",
+          "flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold rounded-lg transition-all whitespace-nowrap shrink-0",
           isActive
             ? "bg-primary/10 text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
         )}
       >
-        <group.icon className="h-3.5 w-3.5" />
+        <group.icon className="h-4 w-4" />
         <span>{group.label}</span>
       </button>
     );
@@ -1017,13 +902,13 @@ function DesktopNavItem({ group }: { group: NavGroup & { items: NavItem[] } }) {
           }
         }}
         className={cn(
-          "flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap",
+          "flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold rounded-lg transition-all whitespace-nowrap",
           isActive
             ? "bg-primary/10 text-primary"
             : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
         )}
       >
-        <group.icon className="h-3.5 w-3.5" />
+        <group.icon className="h-4 w-4" />
         <span>{group.label}</span>
         <ChevronDown
           className={cn(
@@ -1187,23 +1072,27 @@ export function DashboardLayout({
   const { profile, user, primaryRole, getRoleLabel, hasAnyRole, signOut } =
     useAuth();
   const computedRoleLabel = primaryRole ? getRoleLabel(primaryRole) : "Guest";
+  const isHistorical = useIsHistoricalView();
 
-  // Permission-based nav guard: items can specify `permissions` and become
-  // visible when the user holds any of those permission codes — even if their
-  // role isn't in the static `roles` allow-list. Admins always pass.
+  // Navigation visibility is PERMISSION-FIRST and mirrors ProtectedRoute:
+  //  - a route with a permission requirement is decided ONLY by permissions;
+  //  - the legacy `roles` allow-list only applies to items with no permission
+  //    requirement at all (identity/utility pages);
+  //  - the ONLY wildcard is the server-issued "*", resolved per-school by the
+  //    backend authorization service. No role name grants navigation access.
   const { data: mePerms } = useMyPermissions();
-  const isAdmin = hasAnyRole(["super_admin", "admin", "school_admin"] as any);
   const permSet = new Set(mePerms?.permissions || []);
   const hasWildcard = permSet.has("*");
   const hasAnyPermission = (codes?: PermissionCode[]) => {
     if (!codes || codes.length === 0) return false;
-    if (isAdmin || hasWildcard) return true;
+    if (hasWildcard) return true;
     return codes.some((c) => permSet.has(c));
   };
 
   const { currentSchool } = useSchool();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim() ||
@@ -1215,15 +1104,25 @@ export function DashboardLayout({
       "?"
     : "?";
 
+  const canSeeNavItem = (item: { url?: string; roles?: unknown; permissions?: PermissionCode[] }) => {
+    if (hasWildcard) return true;
+    const required =
+      item.permissions && item.permissions.length
+        ? item.permissions
+        : item.url
+          ? permissionsForPath(item.url)
+          : undefined;
+    if (required && required.length) return required.some((c) => permSet.has(c));
+    return hasAnyRole((item.roles as any) || []);
+  };
+
   const visibleGroups = navigationGroups
     .map((g) => ({
       ...g,
-      items: g.items.filter(
-        (item) =>
-          hasAnyRole(item.roles as any) || hasAnyPermission(item.permissions),
-      ),
+      items: g.items.filter(canSeeNavItem),
     }))
     .filter((g) => g.items.length > 0);
+
 
   const handleLogout = useCallback(() => {
     signOut();
@@ -1242,8 +1141,11 @@ export function DashboardLayout({
     handleSessionRefresh,
   );
 
+  const canOpenSettings = hasWildcard || permSet.has("settings:read");
+
   return (
     <div className="min-h-screen bg-background">
+      <ImpersonationBanner />
       {/* Session Timeout Dialog */}
       <SessionTimeoutDialog
         open={showDialog}
@@ -1252,162 +1154,245 @@ export function DashboardLayout({
         onLogout={logoutNow}
       />
 
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-xl">
-        <div className="flex h-14 items-center gap-3 px-3 sm:px-6">
-          {/* Mobile menu */}
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-80 p-0 overflow-hidden">
-              <div className="flex items-center gap-3 border-b px-4 py-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                  <School className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-black tracking-widest">CHUO</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {currentSchool?.name || "School Management"}
-                  </p>
-                </div>
-              </div>
-              <div className="overflow-y-auto h-[calc(100vh-140px)] p-3 space-y-0.5">
-                {visibleGroups.map((g) => (
-                  <MobileNavGroup
-                    key={g.label}
-                    group={g}
-                    onNavigate={() => setMobileOpen(false)}
-                  />
-                ))}
-              </div>
-              <div className="border-t border-border/50 p-3">
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-destructive font-semibold rounded-xl hover:bg-destructive/10 transition-colors"
+      {/* Top Header — its own surface layer */}
+      <header className="sticky top-0 z-50">
+        <div className="shell-header">
+          <div className="mx-auto flex h-[68px] max-w-[1600px] items-center gap-3 px-3 sm:px-6">
+
+            {/* Mobile menu */}
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden h-9 w-9"
                 >
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </button>
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80 p-0 overflow-hidden">
+                <div className="flex items-center gap-3 border-b px-4 py-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                    <School className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black tracking-widest">CHUO</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {currentSchool?.name || "School Management"}
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-y-auto h-[calc(100vh-140px)] p-3 space-y-0.5">
+                  {visibleGroups.map((g) => (
+                    <MobileNavGroup
+                      key={g.label}
+                      group={g}
+                      onNavigate={() => setMobileOpen(false)}
+                    />
+                  ))}
+                </div>
+                <div className="border-t border-border/50 p-3">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-destructive font-semibold rounded-xl hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Brand */}
+            <button
+              className="flex items-center gap-2.5 shrink-0"
+              onClick={() => navigate("/dashboard")}
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <School className="h-[18px] w-[18px]" />
               </div>
-            </SheetContent>
-          </Sheet>
+              <div className="hidden sm:block text-left leading-tight">
+                <p className="text-[15px] font-bold tracking-tight text-foreground">
+                  CHUO
+                </p>
+                <p className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground truncate max-w-[170px]">
+                  {currentSchool?.name || "School Management"}
+                </p>
+              </div>
+            </button>
 
-          {/* Logo */}
-          <div
-            className="flex items-center gap-2.5 cursor-pointer"
-            onClick={() => navigate("/dashboard")}
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <School className="h-4.5 w-4.5" />
+            {/* Global search */}
+            <div className="flex flex-1 justify-start pl-2 sm:pl-6">
+              <GlobalSearch className="hidden w-full max-w-[380px] md:block" />
             </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-black tracking-[0.15em] text-foreground leading-none">
-                CHUO
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">
-                {currentSchool?.name || "School Management"}
-              </p>
+
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Academic period (view-only pill; switching lives in Settings) */}
+              <div className="hidden sm:block">
+                <TermSwitcher compact showSwitchButton={false} />
+              </div>
+
+              {/* Historical Read-only Pill */}
+              {isHistorical && (
+                <span className="hidden md:inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning">
+                  <Shield className="h-3 w-3" /> Read-only
+                </span>
+              )}
+
+              <span className="hidden sm:block h-7 w-px bg-border" />
+
+              {/* Help */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label="Help"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                    Help &amp; support
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/help")}
+                    className="cursor-pointer"
+                  >
+                    Help Center
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/help/troubleshooting")}
+                    className="cursor-pointer"
+                  >
+                    Troubleshooting
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/help/glossary")}
+                    className="cursor-pointer"
+                  >
+                    Glossary
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/whats-new")}
+                    className="cursor-pointer"
+                  >
+                    What's new
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setTourOpen(true)}
+                    className="cursor-pointer"
+                  >
+                    Take the guided tour
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => navigate("/help/support")}
+                    className="cursor-pointer"
+                  >
+                    Get help
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Notifications */}
+              <NotificationBell />
+
+
+              {/* Profile Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-muted transition-colors cursor-pointer">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                      {displayInitials}
+                    </div>
+                    <div className="hidden lg:block text-left">
+                      <p className="text-[12.5px] font-semibold leading-tight text-foreground max-w-[160px] truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-[10.5px] text-muted-foreground">
+                        {computedRoleLabel}
+                      </p>
+                    </div>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden lg:block" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <p className="text-sm font-semibold">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => navigate("/profile")}
+                    className="cursor-pointer"
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    My Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/change-password")}
+                    className="cursor-pointer"
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Change Password
+                  </DropdownMenuItem>
+                  {canOpenSettings && (
+                    <DropdownMenuItem
+                      onClick={() => navigate("/settings")}
+                      className="cursor-pointer"
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      School Settings
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-
-          <div className="flex-1" />
-
-          {/* Search */}
-          <div className="hidden md:block relative w-full max-w-[220px]">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search..."
-              className="h-8 rounded-lg border-border/60 bg-muted/40 pl-8 text-sm"
-            />
-          </div>
-
-          {/* Term Switcher (admin / super_admin only) */}
-          {hasAnyRole(["super_admin", "school_admin"] as any) && (
-            <div className="hidden sm:block">
-              <TermSwitcher compact />
-            </div>
-          )}
-
-          {/* Notifications */}
-          <NotificationBell />
-
-          {/* Profile Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-xl border border-border/60 bg-card px-2.5 py-1.5 hover:bg-muted/50 transition-colors cursor-pointer">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-                  {displayInitials}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <p className="text-xs font-semibold leading-tight text-foreground">
-                    {displayName}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {computedRoleLabel}
-                  </p>
-                </div>
-                <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
-                <p className="text-sm font-semibold">{displayName}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => navigate("/settings")}
-                className="cursor-pointer"
-              >
-                <User className="mr-2 h-4 w-4" />
-                My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => navigate("/settings")}
-                className="cursor-pointer"
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
-        {/* Desktop Navigation — NO overflow-x-auto, dropdowns use portals */}
-        <nav className="hidden lg:block border-t border-border/40 bg-card/50 px-4">
-          <div className="flex items-center gap-0.5 py-1.5 flex-wrap">
-            {visibleGroups.map((g) => (
-              <DesktopNavItem key={g.label} group={g} />
-            ))}
-          </div>
+        {/* Primary Navigation — separate surface, single row, portal dropdowns */}
+        <nav className="hidden lg:block shell-nav">
+          <PrimaryNav groups={visibleGroups} />
         </nav>
       </header>
 
       <SessionBanner />
 
       {/* Page Content */}
-      <div className="px-3 py-4 sm:px-6 sm:py-6 max-w-[1600px] mx-auto">
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+      <div
+        className={`px-3 py-5 sm:px-6 sm:py-7 max-w-[1600px] mx-auto ${
+          isHistorical ? "border-l-4 border-warning/40" : ""
+        }`}
+      >
+        <div className="mb-5 sm:mb-6">
+          <h1 className="text-xl sm:text-[26px] font-bold tracking-tight text-foreground">
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
           )}
         </div>
+
         <main>{children}</main>
       </div>
+      <OnboardingTour open={tourOpen} onOpenChange={setTourOpen} />
+      <SetupProgressFab />
     </div>
   );
 }
+

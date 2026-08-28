@@ -77,6 +77,8 @@ export function usePayments(filters?: {
   search?: string;
   page?: number;
   limit?: number;
+  grade?: string;
+  stream?: string;
 }) {
   const { selectedTerm } = useTerm();
   return useQuery({
@@ -90,6 +92,10 @@ export function usePayments(filters?: {
       if (filters?.search) params.set("search", filters.search);
       if (filters?.page) params.set("page", String(filters.page));
       if (filters?.limit) params.set("limit", String(filters.limit));
+      if (filters?.grade && filters.grade !== "all")
+        params.set("grade", filters.grade);
+      if (filters?.stream && filters.stream !== "all")
+        params.set("stream", filters.stream);
       const r = await api.get<any>(`/payments?${params}`);
       const rows = (r?.data || r || []).map((p: any) => ({
         ...p,
@@ -110,6 +116,8 @@ export function usePaymentStats(filters?: {
   status?: string;
   method?: string;
   search?: string;
+  grade?: string;
+  stream?: string;
 }) {
   const { selectedTerm } = useTerm();
   return useQuery({
@@ -121,6 +129,10 @@ export function usePaymentStats(filters?: {
       if (filters?.method && filters.method !== "all")
         params.set("method", filters.method);
       if (filters?.search) params.set("search", filters.search);
+      if (filters?.grade && filters.grade !== "all")
+        params.set("grade", filters.grade);
+      if (filters?.stream && filters.stream !== "all")
+        params.set("stream", filters.stream);
       const r = await api.get<any>(`/payments/stats?${params}`);
       const d = r?.data || r || {};
       return {
@@ -255,6 +267,7 @@ export function useRecordPayment() {
       fee_ids?: string[];
       notes?: string;
       term_id?: string | null;
+      academic_year_id?: string | null;
       idempotency_key?: string;
     }) => {
       const idempotencyKey =
@@ -390,6 +403,62 @@ export function useFeeAdjustments(status?: string) {
   });
 }
 
+export interface FeeAdjustmentRow {
+  id: string;
+  student_fee_id: string;
+  student_id?: string | null;
+  fee_name?: string | null;
+  term_id?: string | null;
+  academic_year_id?: string | null;
+  term_name?: string | null;
+  adjustment_type: string;
+  previous_amount: number;
+  new_amount: number;
+  reason: string;
+  approval_status: "pending" | "approved" | "rejected";
+  created_at: string;
+  approved_at?: string | null;
+  approved_by_name?: string | null;
+  created_by_name?: string | null;
+  rejected_reason?: string | null;
+}
+
+/** Every adjustment ever raised on one student's fees (all statuses). */
+export function useStudentFeeAdjustments(studentId?: string) {
+  return useQuery({
+    queryKey: ["fee-adjustments", "student", studentId],
+    queryFn: async () => {
+      const d = await api.get<any>(
+        `/finance/adjustments?student_id=${studentId}&limit=200`,
+      );
+      return (d?.data || d || []) as FeeAdjustmentRow[];
+    },
+    enabled: !!studentId,
+    staleTime: 15_000,
+  });
+}
+
+/**
+ * An adjustment changes the bill AND releases/re-allocates money downstream,
+ * so every derived figure in the app must be refetched — not just the fee row.
+ */
+function invalidateAfterAdjustment(qc: ReturnType<typeof useQueryClient>) {
+  [
+    "fee-adjustments",
+    "student-fees-list",
+    "student-fee-items",
+    "student-fees",
+    "student-balance",
+    "student-with-fees",
+    "student-ledger",
+    "excess-credits",
+    "fee-report",
+    "finance-summary",
+    "payments",
+    "payment-allocations",
+  ].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+}
+
 export function useCreateFeeAdjustment() {
   const qc = useQueryClient();
   return useMutation({
@@ -400,9 +469,7 @@ export function useCreateFeeAdjustment() {
       reason: string;
     }) => api.post<any>("/finance/adjustments", body),
     onSuccess: (d: any) => {
-      qc.invalidateQueries({ queryKey: ["fee-adjustments"] });
-      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
-      qc.invalidateQueries({ queryKey: ["student-fee-items"] });
+      invalidateAfterAdjustment(qc);
       toast.success(
         d?.requires_approval
           ? "Adjustment submitted for approval"
@@ -430,8 +497,7 @@ export function useDecideFeeAdjustment() {
         rejected_reason,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["fee-adjustments"] });
-      qc.invalidateQueries({ queryKey: ["student-fees-list"] });
+      invalidateAfterAdjustment(qc);
       toast.success("Decision recorded");
     },
     onError: (e: Error) => toast.error(e.message),

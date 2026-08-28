@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { useTerm } from "@/contexts/TermContext";
+
 
 export interface StudentRow {
   id: string;
@@ -37,7 +39,10 @@ export interface StudentWithFees extends StudentRow {
   balance: number;
   total_fees: number;
   total_paid: number;
+  excess_available: number;
+  fee_status: string;
 }
+
 
 export function useStudents(filters?: {
   status?: string;
@@ -130,34 +135,57 @@ export function useStudent(studentId: string | undefined) {
   });
 }
 
-export function useStudentWithFees(studentId: string | undefined) {
+/**
+ * Student + fee figures for the profile screen.
+ *
+ * TERM-AWARE, SINGLE SOURCE OF TRUTH: the figures shown here are the SAME
+ * scoped figures the Fees & Payments screen and the parent portal show — the
+ * viewed (academic year, term). Previously this hook read the `lifetime`
+ * block while every other screen read `current`, which is why the profile and
+ * the fees page disagreed (e.g. 27,500 vs 16,000).
+ */
+export function useStudentWithFees(
+  studentId: string | undefined,
+  scope?: { termId?: string | null; academicYearId?: string | null },
+) {
+  const { selectedTerm, selectedAcademicYear } = useTerm();
+  const termId = scope?.termId !== undefined ? scope.termId : selectedTerm?.id;
+  const yearId =
+    scope?.academicYearId !== undefined
+      ? scope.academicYearId
+      : selectedAcademicYear?.id;
+
   return useQuery({
-    queryKey: ["student-with-fees", studentId],
+    queryKey: ["student-with-fees", studentId, termId, yearId],
     queryFn: async () => {
+      const params = new URLSearchParams();
+      if (termId) params.set("term_id", termId);
+      if (yearId) params.set("academic_year_id", yearId);
+      const qs = params.toString();
       const [student, balance] = await Promise.all([
         api.get<StudentRow>(`/students/${studentId}`),
-        api.get<any[]>(`/finance/student-balance/${studentId}`).catch(() => []),
+        api
+          .get<any>(
+            `/finance/student-balance/${studentId}${qs ? `?${qs}` : ""}`,
+          )
+          .catch(() => null),
       ]);
-      const total_fees = (balance || []).reduce(
-        (s: number, b: any) => s + Number(b.total_due || 0),
-        0,
-      );
-      // total_paid uses effective paid (allocated OR received — set by backend)
-      const total_paid = (balance || []).reduce(
-        (s: number, b: any) =>
-          s + Number(b.total_paid ?? b.total_received ?? 0),
-        0,
-      );
+      // Single source of truth: the balance engine. No client-side maths.
+      const b = balance?.current || null;
       return {
         ...student,
-        total_fees,
-        total_paid,
-        balance: total_fees - total_paid,
+        total_fees: Number(b?.charges || 0),
+        total_paid: Number(b?.paid || 0),
+        balance: Number(b?.balance || 0),
+        excess_available: Number(b?.excess_available || 0),
+        fee_status: b?.status || "no_fees",
       } as StudentWithFees;
     },
     enabled: !!studentId,
   });
 }
+
+
 
 export function useCreateStudent() {
   const qc = useQueryClient();

@@ -82,6 +82,7 @@ import {
 import { toast } from "sonner";
 import { usePermission } from "@/hooks/usePermission";
 import { AccessDenied } from "@/components/PermissionGate";
+import { SmsBalanceCard } from "@/components/communication/SmsBalanceCard";
 
 /* ============= SHARED ============= */
 const StatusBadge = ({ status }: { status: string }) => {
@@ -349,37 +350,7 @@ export const Overview = ({ goto }: { goto?: (tab: string) => void }) => {
         </CardContent>
       </Card>
 
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-primary" /> SMS Balance & Top-up
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="rounded-md bg-background border p-3">
-            <p className="text-[11px] text-muted-foreground">Current Balance</p>
-            <p className="text-xl font-semibold text-foreground">
-              Contact admin
-            </p>
-          </div>
-          <div className="rounded-md bg-background border p-3 space-y-1.5">
-            <p className="text-[11px] uppercase text-muted-foreground tracking-wide">
-              Top-up via M-Pesa
-            </p>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Paybill</span>
-              <span className="font-mono font-semibold">4116251</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Account</span>
-              <span className="font-mono font-semibold">Eagles</span>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            After payment, balance reflects within minutes.
-          </p>
-        </CardContent>
-      </Card>
+      <SmsBalanceCard />
 
       <Card className="lg:col-span-3">
         <CardHeader className="pb-3">
@@ -442,7 +413,8 @@ export const SmsComposer = () => {
     });
   };
 
-  if (!canSend) return <AccessDenied message="You don't have permission to send SMS." />;
+  if (!canSend)
+    return <AccessDenied message="You don't have permission to send SMS." />;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -594,7 +566,8 @@ export const EmailComposer = () => {
     });
   };
 
-  if (!canSend) return <AccessDenied message="You don't have permission to send emails." />;
+  if (!canSend)
+    return <AccessDenied message="You don't have permission to send emails." />;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -922,15 +895,17 @@ export const TemplatesTab = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            {canManage && <Button
-              size="sm"
-              onClick={() => {
-                setEditing(emptyTpl);
-                setOpen(true);
-              }}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" /> New Template
-            </Button>}
+            {canManage && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditing(emptyTpl);
+                  setOpen(true);
+                }}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> New Template
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -993,28 +968,32 @@ export const TemplatesTab = () => {
                   >
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
-                  {canManage && <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      setEditing(t);
-                      setOpen(true);
-                    }}
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                  </Button>}
-                  {canManage && <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-destructive"
-                    onClick={() => {
-                      if (confirm(`Delete template "${t.name}"?`))
-                        del.mutate(t.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>}
+                  {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setEditing(t);
+                        setOpen(true);
+                      }}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => {
+                        if (confirm(`Delete template "${t.name}"?`))
+                          del.mutate(t.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1147,6 +1126,7 @@ export const NoticeboardTab = () => {
     status: statusFilter === "all" ? undefined : statusFilter,
   });
   const [open, setOpen] = useState(false);
+  const [viewing, setViewing] = useState<Notice | null>(null);
   const [editing, setEditing] = useState<Partial<Notice>>(emptyNotice);
   const create = useCreateNotice();
   const update = useUpdateNotice();
@@ -1173,48 +1153,45 @@ export const NoticeboardTab = () => {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-primary" /> Noticeboard
             <Badge variant="secondary" className="ml-2 text-[10px]">
               {notices.length}
             </Badge>
           </CardTitle>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-            <div className="relative w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <div className="relative">
               <Search className="h-3.5 w-3.5 absolute left-2 top-2.5 text-muted-foreground" />
               <Input
-                className="h-8 pl-7 w-full sm:w-48 text-xs"
+                className="h-8 pl-7 w-48 text-xs"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <div className="flex-1 sm:flex-none">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-8 w-full sm:w-32 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="draft">Drafts</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {canManage && <Button
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 w-32 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="draft">Drafts</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+            {canManage && (
+              <Button
                 size="sm"
-                className="flex-1 sm:flex-none"
                 onClick={() => {
                   setEditing(emptyNotice);
                   setOpen(true);
                 }}
               >
-                <Plus className="h-3.5 w-3.5 mr-1.5" /> New
-              </Button>}
-            </div>
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> New Notice
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -1233,11 +1210,16 @@ export const NoticeboardTab = () => {
                 key={n.id}
                 className={`rounded-lg border p-3 ${n.pinned ? "border-primary/40 bg-primary/5" : "bg-background"} ${expired ? "opacity-60" : ""}`}
               >
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0 w-full">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       {n.pinned && <Pin className="h-3.5 w-3.5 text-primary" />}
-                      <h4 className="font-semibold text-sm">{n.title}</h4>
+                      <h4
+                        className="font-semibold text-sm cursor-pointer hover:text-primary"
+                        onClick={() => setViewing(n)}
+                      >
+                        {n.title}
+                      </h4>
                       <StatusBadge status={n.status} />
                       <Badge variant="outline" className="text-[10px]">
                         {n.audience}
@@ -1261,6 +1243,13 @@ export const NoticeboardTab = () => {
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-3">
                       {n.message}
                     </p>
+                    <button
+                      type="button"
+                      className="mt-1 text-[11px] font-semibold text-primary inline-flex items-center gap-1"
+                      onClick={() => setViewing(n)}
+                    >
+                      <Eye className="h-3 w-3" /> Read full notice
+                    </button>
                     <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
                       <span>By {n.created_by_name || "—"}</span>
                       <span>{new Date(n.created_at).toLocaleString()}</span>
@@ -1271,47 +1260,55 @@ export const NoticeboardTab = () => {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 justify-end border-t sm:border-0 pt-2 sm:pt-0">
-                    {canManage && <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      title="Pin"
-                      onClick={() => togglePin(n)}
-                    >
-                      <Pin
-                        className={`h-3.5 w-3.5 ${n.pinned ? "text-primary fill-primary" : ""}`}
-                      />
-                    </Button>}
-                    {canManage && <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => publish(n)}
-                    >
-                      {n.status === "published" ? "Unpublish" : "Publish"}
-                    </Button>}
-                    {canManage && <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      onClick={() => {
-                        setEditing(n);
-                        setOpen(true);
-                      }}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </Button>}
-                    {canManage && <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => {
-                        if (confirm(`Delete "${n.title}"?`)) del.mutate(n.id);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {canManage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        title="Pin"
+                        onClick={() => togglePin(n)}
+                      >
+                        <Pin
+                          className={`h-3.5 w-3.5 ${n.pinned ? "text-primary fill-primary" : ""}`}
+                        />
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => publish(n)}
+                      >
+                        {n.status === "published" ? "Unpublish" : "Publish"}
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditing(n);
+                          setOpen(true);
+                        }}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => {
+                          if (confirm(`Delete "${n.title}"?`)) del.mutate(n.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1319,6 +1316,43 @@ export const NoticeboardTab = () => {
           })
         )}
       </CardContent>
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {viewing && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="pr-6 leading-snug">
+                  {viewing.title}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 flex-wrap pt-1">
+                  <StatusBadge status={viewing.status} />
+                  <Badge variant="outline" className="text-[10px]">
+                    {viewing.audience}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] capitalize">
+                    {viewing.priority}
+                  </Badge>
+                  <span className="text-[11px]">
+                    {new Date(viewing.created_at).toLocaleString()}
+                  </span>
+                  {viewing.created_by_name && (
+                    <span className="text-[11px]">· {viewing.created_by_name}</span>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                {viewing.message}
+              </p>
+              {viewing.expires_at && (
+                <p className="text-[11px] text-muted-foreground">
+                  Expires {new Date(viewing.expires_at).toLocaleString()}
+                </p>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
@@ -1347,7 +1381,7 @@ export const NoticeboardTab = () => {
                 }
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Audience</Label>
                 <Select
@@ -1406,7 +1440,7 @@ export const NoticeboardTab = () => {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Publish at</Label>
                 <Input

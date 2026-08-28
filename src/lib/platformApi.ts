@@ -1,82 +1,79 @@
-/**
- * platformApi — HTTP client for the CHUO Platform Console API.
- * Mirrors the shape of the regular `api.ts` client but points to
- * the /api/platform base path and uses its own token store.
- */
+// Separate API client for the CHUO platform (super-admin) console.
+// Uses its own token storage key so it never collides with school-tenant auth.
 
-const PLATFORM_BASE = (() => {
-  // Strip the /api/v1 suffix and replace with /api/platform
-  const schoolBase =
-    import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1";
-  return schoolBase.replace(/\/api\/v1\/?$/, "/api/platform");
-})();
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1";
 
 const TOKEN_KEY = "chuo-platform-token";
 
-class PlatformApiClient {
+class PlatformApi {
   private token: string | null = null;
 
   constructor() {
-    // Restore token from storage on module load
-    this.token = localStorage.getItem(TOKEN_KEY);
+    const t = localStorage.getItem(TOKEN_KEY);
+    if (t) this.token = t;
   }
 
   setToken(token: string | null) {
     this.token = token;
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
   }
 
-  getToken(): string | null {
+  getToken() {
     return this.token;
   }
 
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(
+    path: string,
+    options: RequestInit = {},
+  ): Promise<T> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...((options.headers as Record<string, string>) || {}),
     };
     if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
-
-    const res = await fetch(`${PLATFORM_BASE}${path}`, { ...options, headers });
+    const res = await fetch(`${API_BASE}/admin${path}`, {
+      ...options,
+      headers,
+    });
     const raw = await res.text();
     let json: any = null;
     try {
       json = raw ? JSON.parse(raw) : null;
     } catch {
-      json = { success: false, error: { message: raw || `Request failed: ${res.status}` } };
+      json = {
+        success: false,
+        error: { message: raw || `HTTP ${res.status}` },
+      };
     }
-
-    if (!res.ok || json?.success === false) {
-      throw new Error(json?.error?.message || json?.error || `Request failed: ${res.status}`);
+    if (!res.ok || json.success === false) {
+      throw new Error(json.error?.message || `Request failed: ${res.status}`);
     }
-    return json?.data as T;
+    return json.data as T;
   }
 
-  get<T = unknown>(path: string): Promise<T> {
+  get<T>(path: string) {
     return this.request<T>(path);
   }
-
-  post<T = unknown>(path: string, body?: unknown): Promise<T> {
+  post<T>(path: string, body?: unknown) {
     return this.request<T>(path, {
       method: "POST",
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body ? JSON.stringify(body) : undefined,
     });
   }
-
-  put<T = unknown>(path: string, body?: unknown): Promise<T> {
+  put<T>(path: string, body: unknown) {
+    return this.request<T>(path, { method: "PUT", body: JSON.stringify(body) });
+  }
+  patch<T>(path: string, body: unknown) {
     return this.request<T>(path, {
-      method: "PUT",
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      method: "PATCH",
+      body: JSON.stringify(body),
     });
   }
-
-  delete<T = unknown>(path: string): Promise<T> {
+  delete<T>(path: string) {
     return this.request<T>(path, { method: "DELETE" });
   }
 }
 
-export const platformApi = new PlatformApiClient();
+export const platformApi = new PlatformApi();

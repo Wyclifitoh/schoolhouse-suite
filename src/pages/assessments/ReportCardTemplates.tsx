@@ -37,7 +37,6 @@ import {
 } from "@/hooks/useAssessments";
 import { useSchool } from "@/contexts/SchoolContext";
 import { api } from "@/lib/api";
-import { resolveLogoUrl } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -111,7 +110,7 @@ export default function ReportCardTemplates() {
   const [logoUrl, setLogoUrl] = useState("");
   const [address, setAddress] = useState("");
   useEffect(() => {
-    setLogoUrl(resolveLogoUrl(school?.logo_url) || "");
+    setLogoUrl(school?.logo_url || "");
     setAddress(school?.address || "");
   }, [school]);
 

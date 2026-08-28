@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StudentProfileSkeleton } from "@/components/students/StudentPageSkeletons";
 import { PermissionGate } from "@/components/PermissionGate";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -36,7 +37,7 @@ import {
 } from "@/hooks/useStudents";
 import { useUpdateParent } from "@/hooks/useParents";
 import { useStudentExcessCredits } from "@/hooks/useFinance";
-import { useGrades, useStreams } from "@/hooks/useGrades";
+import { useGrades } from "@/hooks/useGrades";
 import {
   ArrowLeft,
   User,
@@ -66,9 +67,6 @@ const StudentProfile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [editData, setEditData] = useState<Record<string, any>>({});
-  const [editParentData, setEditParentData] = useState<Record<string, any>>({});
-  const [primaryParent, setPrimaryParent] = useState<any>(null);
   const canViewFinance = usePermission("finance:fees:read");
 
   const { data: student, isLoading } = useStudentWithFees(studentId);
@@ -82,11 +80,15 @@ const StudentProfile = () => {
     primaryParentId,
   );
   const { data: grades = [] } = useGrades();
-  const { data: streams = [] } = useStreams(editData?.current_grade_id || undefined);
   const updateStudent = useUpdateStudent();
   const updateParent = useUpdateParent();
   const { data: excessCredits = [] } = useStudentExcessCredits(studentId);
   const softDelete = useSoftDeleteStudent();
+
+  const [editData, setEditData] = useState<Record<string, any>>({});
+  // Separate state for the primary linked parent (if any)
+  const [editParentData, setEditParentData] = useState<Record<string, any>>({});
+  const [primaryParent, setPrimaryParent] = useState<any>(null);
 
   // Sync edit data when student loads
   const startEditing = () => {
@@ -132,12 +134,8 @@ const StudentProfile = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout title="Student Profile">
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
+      <DashboardLayout title="Loading profile...">
+        <StudentProfileSkeleton />
       </DashboardLayout>
     );
   }
@@ -176,14 +174,6 @@ const StudentProfile = () => {
           (gr: any) => gr.id === editData.current_grade_id,
         );
         if (g) payload.grade = g.name;
-      }
-      if (editData.current_stream_id) {
-        const s = (streams as any[]).find(
-          (st: any) => st.id === editData.current_stream_id,
-        );
-        if (s) payload.stream = s.name;
-      } else if (editData.current_stream_id === null) {
-        payload.stream = null;
       }
       await updateStudent.mutateAsync({ id: student.id, data: payload });
       // Update primary linked parent if one exists
@@ -335,13 +325,21 @@ const StudentProfile = () => {
                       Balance:
                     </span>
                     <span
-                      className={`text-sm font-bold ${student.balance > 0 ? "text-destructive" : student.balance === 0 ? "text-muted-foreground" : "text-success"}`}
+                      className={`text-sm font-bold ${student.balance > 0 ? "text-destructive" : "text-muted-foreground"}`}
                     >
-                      {student.balance === 0
-                        ? "Cleared"
-                        : formatKES(student.balance)}
+                      {student.balance > 0
+                        ? formatKES(student.balance)
+                        : student.fee_status === "no_fees"
+                          ? "No fees assigned"
+                          : "Cleared"}
                     </span>
+                    {Number(student.excess_available || 0) > 0 && (
+                      <span className="text-xs font-medium text-success">
+                        +{formatKES(student.excess_available)} credit
+                      </span>
+                    )}
                   </div>
+
                   <Button
                     size="sm"
                     variant="outline"
@@ -574,34 +572,6 @@ const StudentProfile = () => {
                           {grades.map((g) => (
                             <SelectItem key={g.id} value={g.id}>
                               {g.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Stream</Label>
-                      <Select
-                        value={editData.current_stream_id || "none"}
-                        onValueChange={(v) => {
-                          const val = v === "none" ? null : v;
-                          const s = streams.find((st) => st.id === val);
-                          setEditData({
-                            ...editData,
-                            current_stream_id: val,
-                            stream: s?.name || null,
-                          });
-                        }}
-                        disabled={!editData.current_grade_id}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Select stream" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No Stream</SelectItem>
-                          {streams.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -967,7 +937,7 @@ const StudentProfile = () => {
             </Card>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-4">
                 <Card>
                   <CardContent className="p-4 text-center">
                     <p className="text-xs text-muted-foreground">Total Fees</p>
@@ -994,8 +964,18 @@ const StudentProfile = () => {
                     </p>
                   </CardContent>
                 </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Excess Available
+                    </p>
+                    <p className="text-xl font-bold text-success mt-1">
+                      {formatKES(student.excess_available || 0)}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-              {excessCredits.length > 0 && (
+              {Number(student.excess_available || 0) > 0 && (
                 <Card className="border-success/40 bg-success/5">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -1004,14 +984,9 @@ const StudentProfile = () => {
                           Available Excess / Advance Credits
                         </p>
                         <p className="text-2xl font-bold text-success mt-1">
-                          {formatKES(
-                            excessCredits.reduce(
-                              (s: number, c: any) =>
-                                s + Number(c.remaining_amount || c.amount || 0),
-                              0,
-                            ),
-                          )}
+                          {formatKES(student.excess_available)}
                         </p>
+
                         <p className="text-xs text-muted-foreground mt-1">
                           {excessCredits.length} active credit
                           {excessCredits.length === 1 ? "" : "s"} — applicable

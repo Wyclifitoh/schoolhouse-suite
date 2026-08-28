@@ -9,22 +9,8 @@ import { PlatformAuthProvider } from "@/contexts/PlatformAuthContext";
 import { SchoolProvider } from "@/contexts/SchoolContext";
 import { TermProvider } from "@/contexts/TermContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PermissionGate } from "@/components/PermissionGate";
 import { PortalProtectedRoute } from "@/components/PortalProtectedRoute";
-import { PlatformProtectedRoute } from "@/components/admin/PlatformProtectedRoute";
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-
-// Admin pages
-import AdminLogin from "./pages/admin/AdminLogin";
-import AdminOverview from "./pages/admin/AdminOverview";
-import AdminSchools from "./pages/admin/AdminSchools";
-import AdminSchoolDetail from "./pages/admin/AdminSchoolDetail";
-import AdminPlans from "./pages/admin/AdminPlans";
-import AdminUsers from "./pages/admin/AdminUsers";
-import AdminAudit from "./pages/admin/AdminAudit";
-import AdminStaff from "./pages/admin/AdminStaff";
-import AdminBilling from "./pages/admin/AdminBilling";
 
 // Auth pages
 import Login from "./pages/Login";
@@ -32,11 +18,27 @@ import UserLogin from "./pages/UserLogin";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Unauthorized from "./pages/Unauthorized";
-import ApiKeysPage from "./pages/settings/ApiKeys";
 
 // Portal pages
 import ParentDashboard from "./pages/portal/ParentDashboard";
+import ParentChildren from "./pages/portal/ParentChildren";
+import ParentChildDetail from "./pages/portal/ParentChildDetail";
 import StudentDashboard from "./pages/portal/StudentDashboard";
+import ParentDashboardNew from "./pages/portal/parent/Dashboard";
+import ParentProfileNew from "./pages/portal/parent/Profile";
+import ParentAcademicsNew from "./pages/portal/parent/Academics";
+import ParentAttendanceNew from "./pages/portal/parent/Attendance";
+import ParentHomeworkNew from "./pages/portal/parent/Homework";
+import {
+  FinancePage as ParentFinanceNew,
+  TimetablePage as ParentTimetableNew,
+  CommunicationPage as ParentCommunicationNew,
+  CalendarPage as ParentCalendarNew,
+  LibraryPage as ParentLibraryNew,
+  TransportPage as ParentTransportNew,
+  DownloadsPage as ParentDownloadsNew,
+  SettingsPage as ParentSettingsNew,
+} from "./pages/portal/parent/MorePages";
 import {
   ParentResults,
   ParentAttendance,
@@ -67,6 +69,7 @@ import StaffProfile from "./pages/StaffProfile";
 import Attendance from "./pages/Attendance";
 import Inventory from "./pages/Inventory";
 import Settings from "./pages/Settings";
+import SetupCenter from "./pages/settings/SetupCenter";
 import Examinations from "./pages/Examinations";
 import Classes from "./pages/Classes";
 import Streams from "./pages/academics/Streams";
@@ -87,6 +90,7 @@ import FeeAdjustments from "./pages/FeeAdjustments";
 import Reconciliation from "./pages/Reconciliation";
 import Archives from "./pages/Archives";
 import BroughtForwardBalances from "./pages/finance/BroughtForwardBalances";
+import FeeReport from "./pages/finance/FeeReport";
 
 // Exam Module v2
 import MarksEntry from "./pages/exams/MarksEntry";
@@ -130,6 +134,7 @@ import Payroll from "./pages/Payroll";
 import Departments from "./pages/Departments";
 import Ratings from "./pages/Ratings";
 import ChangePassword from "./pages/ChangePassword";
+import MyProfile from "./pages/MyProfile";
 
 // Reports
 import FinanceReports from "./pages/reports/FinanceReports";
@@ -142,6 +147,8 @@ import LibraryReports from "./pages/reports/LibraryReports";
 import TransportReports from "./pages/reports/TransportReports";
 import UserLogs from "./pages/reports/UserLogs";
 import AuditTrail from "./pages/reports/AuditTrail";
+import ReportCenter from "./pages/reports/ReportCenter";
+import ReportCategoryPage from "./pages/reports/ReportCategory";
 
 // Designations (split from Departments)
 import Designations from "./pages/Designations";
@@ -170,12 +177,51 @@ import InventoryHistory from "./pages/inventory/HistoryPage";
 import InventorySuppliers from "./pages/inventory/SuppliersPage";
 import InventoryPurchaseOrders from "./pages/inventory/PurchaseOrdersPage";
 import InventoryCategories from "./pages/inventory/CategoriesPage";
+import InventoryIssuances from "./pages/inventory/IssuancesPage";
+import InventoryMovements from "./pages/inventory/MovementsPage";
+import InventoryReports from "./pages/inventory/ReportsPage";
 
 // Lesson Plans (CBE)
 import LessonPlans from "./pages/lesson-plans/LessonPlans";
 import LessonPlanEditor from "./pages/lesson-plans/LessonPlanEditor";
 
 import NotFound from "./pages/NotFound";
+import Signup from "./pages/Signup";
+import Onboarding from "./pages/Onboarding";
+import Billing from "./pages/Billing";
+
+// Platform (super-admin) console
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminSchools from "./pages/admin/AdminSchools";
+import AdminSchoolDetail from "./pages/admin/AdminSchoolDetail";
+import AdminBilling from "./pages/admin/AdminBilling";
+import AdminPlans from "./pages/admin/AdminPlans";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAudit from "./pages/admin/AdminAudit";
+import AdminStaff from "./pages/admin/AdminStaff";
+import {
+  AdminCommunications,
+  AdminPlatformHealth,
+} from "./pages/admin/placeholders";
+import AdminFeatureFlags from "./pages/admin/AdminFeatureFlags";
+import AdminSmsOps from "./pages/admin/AdminSmsOps";
+import AdminSupport from "./pages/admin/AdminSupport";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { PlatformProtectedRoute } from "@/components/admin/PlatformProtectedRoute";
+import ApiKeysPage from "./pages/settings/ApiKeys";
+import HelpCenter from "./pages/help/HelpCenter";
+import HelpCategoryPage from "./pages/help/HelpCategoryPage";
+import {
+  HelpArticlePage,
+  TroubleshootingArticlePage,
+} from "./pages/help/HelpArticlePage";
+import TroubleshootingIndex from "./pages/help/TroubleshootingIndex";
+import GlossaryPage from "./pages/help/GlossaryPage";
+import SupportPage from "./pages/help/SupportPage";
+import WhatsNewPage from "./pages/help/WhatsNewPage";
+import PrintableGuidePage from "./pages/help/PrintableGuidePage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,7 +248,114 @@ const App = () => (
                       {/* Public routes */}
                       <Route path="/" element={<LandingPage />} />
                       <Route path="/login" element={<Login />} />
+                      <Route path="/signup" element={<Signup />} />
+                      <Route path="/onboarding" element={<Onboarding />} />
                       <Route path="/userLogin" element={<UserLogin />} />
+
+                      {/* Platform super-admin console */}
+                      <Route path="/admin/login" element={<AdminLogin />} />
+                      <Route
+                        path="/admin"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout>
+                              <AdminOverview />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/schools"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout>
+                              <AdminSchools />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/schools/:id"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout>
+                              <AdminSchoolDetail />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/billing"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout>
+                              <AdminBilling />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/plans"
+                        element={
+                          <PlatformProtectedRoute role="platform_admin">
+                            <AdminLayout>
+                              <AdminPlans />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/users"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout>
+                              <AdminUsers />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/staff"
+                        element={
+                          <PlatformProtectedRoute role="platform_admin">
+                            <AdminLayout>
+                              <AdminStaff />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/audit"
+                        element={
+                          <PlatformProtectedRoute>
+                            <AdminLayout>
+                              <AdminAudit />
+                            </AdminLayout>
+                          </PlatformProtectedRoute>
+                        }
+                      />
+                      {[
+                        { path: "/admin/analytics", el: <AdminAnalytics /> },
+                        { path: "/admin/sms", el: <AdminSmsOps /> },
+                        {
+                          path: "/admin/communications",
+                          el: <AdminCommunications />,
+                        },
+                        { path: "/admin/features", el: <AdminFeatureFlags /> },
+                        { path: "/admin/health", el: <AdminPlatformHealth /> },
+                        { path: "/admin/support", el: <AdminSupport /> },
+                      ].map((r) => (
+                        <Route
+                          key={r.path}
+                          path={r.path}
+                          element={
+                            <PlatformProtectedRoute>
+                              <AdminLayout>{r.el}</AdminLayout>
+                            </PlatformProtectedRoute>
+                          }
+                        />
+                      ))}
+
                       <Route
                         path="/forgot-password"
                         element={<ForgotPassword />}
@@ -213,11 +366,28 @@ const App = () => (
                       />
                       <Route path="/unauthorized" element={<Unauthorized />} />
 
+                      {/* Portal routes (parent/student) */}
                       <Route
                         path="/portal/parent"
                         element={
                           <PortalProtectedRoute allow={["parent"]}>
-                            <ParentDashboard />
+                            <ParentDashboardNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/children"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentChildren />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/children/:childId"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentChildDetail />
                           </PortalProtectedRoute>
                         }
                       />
@@ -241,7 +411,7 @@ const App = () => (
                         path="/portal/parent/attendance"
                         element={
                           <PortalProtectedRoute allow={["parent"]}>
-                            <ParentAttendance />
+                            <ParentAttendanceNew />
                           </PortalProtectedRoute>
                         }
                       />
@@ -249,7 +419,7 @@ const App = () => (
                         path="/portal/parent/fees"
                         element={
                           <PortalProtectedRoute allow={["parent"]}>
-                            <ParentFees />
+                            <ParentFinanceNew />
                           </PortalProtectedRoute>
                         }
                       />
@@ -257,7 +427,79 @@ const App = () => (
                         path="/portal/parent/profile"
                         element={
                           <PortalProtectedRoute allow={["parent"]}>
-                            <ParentProfilePage />
+                            <ParentProfileNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/academics"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentAcademicsNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/homework"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentHomeworkNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/timetable"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentTimetableNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/communication"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentCommunicationNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/calendar"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentCalendarNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/library"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentLibraryNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/transport"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentTransportNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/downloads"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentDownloadsNew />
+                          </PortalProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/portal/parent/settings"
+                        element={
+                          <PortalProtectedRoute allow={["parent"]}>
+                            <ParentSettingsNew />
                           </PortalProtectedRoute>
                         }
                       />
@@ -519,14 +761,6 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/assessments/summative"
-                        element={
-                          <PermissionGate permission="reports:export">
-                            <SummativeReports />
-                          </PermissionGate>
-                        }
-                      />
-                      <Route
                         path="/assessments/templates"
                         element={
                           <ProtectedRoute
@@ -537,6 +771,14 @@ const App = () => (
                             ]}
                           >
                             <AssessmentReportCardTemplates />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/assessments/summative"
+                        element={
+                          <ProtectedRoute>
+                            <SummativeReports />
                           </ProtectedRoute>
                         }
                       />
@@ -858,6 +1100,22 @@ const App = () => (
                         }
                       />
                       <Route
+                        path="/finance/fee-report"
+                        element={
+                          <ProtectedRoute
+                            roles={[
+                              "super_admin",
+                              "school_admin",
+                              "admin",
+                              "accountant",
+                              "finance_officer",
+                            ]}
+                          >
+                            <FeeReport />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="/reports/reconciliation"
                         element={
                           <ProtectedRoute
@@ -1040,6 +1298,14 @@ const App = () => (
                         }
                       />
                       <Route
+                        path="/profile"
+                        element={
+                          <ProtectedRoute>
+                            <MyProfile />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="/change-password"
                         element={
                           <ProtectedRoute>
@@ -1088,12 +1354,30 @@ const App = () => (
                         }
                       />
                       <Route
+                        path="/settings/setup"
+                        element={
+                          <ProtectedRoute>
+                            <SetupCenter />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="/settings/roles"
                         element={
                           <ProtectedRoute
                             roles={["super_admin", "school_admin"]}
                           >
                             <RolesList />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings/billing"
+                        element={
+                          <ProtectedRoute
+                            roles={["super_admin", "school_admin", "admin"]}
+                          >
+                            <Billing />
                           </ProtectedRoute>
                         }
                       />
@@ -1140,6 +1424,22 @@ const App = () => (
                       />
 
                       {/* Reports */}
+                      <Route
+                        path="/reports"
+                        element={
+                          <ProtectedRoute>
+                            <ReportCenter />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/category/:category"
+                        element={
+                          <ProtectedRoute>
+                            <ReportCategoryPage />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route
                         path="/reports/finance"
                         element={
@@ -1465,31 +1765,107 @@ const App = () => (
                           </ProtectedRoute>
                         }
                       />
-
-                      {/* SaaS Admin Routes */}
-                      <Route path="/admin/login" element={<AdminLogin />} />
                       <Route
-                        path="/admin"
+                        path="/inventory/issuances"
                         element={
-                          <PlatformProtectedRoute>
-                            <AdminLayout />
-                          </PlatformProtectedRoute>
+                          <ProtectedRoute>
+                            <InventoryIssuances />
+                          </ProtectedRoute>
                         }
-                      >
-                        <Route index element={<AdminOverview />} />
-                        <Route path="schools" element={<AdminSchools />} />
-                        <Route
-                          path="schools/:id"
-                          element={<AdminSchoolDetail />}
-                        />
-                        <Route path="billing" element={<AdminBilling />} />
-                        <Route path="plans" element={<AdminPlans />} />
-                        <Route path="users" element={<AdminUsers />} />
-                        <Route path="staff" element={<AdminStaff />} />
-                        <Route path="audit" element={<AdminAudit />} />
-                      </Route>
+                      />
+                      <Route
+                        path="/inventory/movements"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryMovements />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/inventory/reports"
+                        element={
+                          <ProtectedRoute>
+                            <InventoryReports />
+                          </ProtectedRoute>
+                        }
+                      />
+
+                      {/* Help Center — available to every signed-in user */}
+                      <Route
+                        path="/help"
+                        element={
+                          <ProtectedRoute>
+                            <HelpCenter />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/c/:categoryId"
+                        element={
+                          <ProtectedRoute>
+                            <HelpCategoryPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/a/:slug"
+                        element={
+                          <ProtectedRoute>
+                            <HelpArticlePage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/troubleshooting"
+                        element={
+                          <ProtectedRoute>
+                            <TroubleshootingIndex />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/t/:slug"
+                        element={
+                          <ProtectedRoute>
+                            <TroubleshootingArticlePage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/glossary"
+                        element={
+                          <ProtectedRoute>
+                            <GlossaryPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/support"
+                        element={
+                          <ProtectedRoute>
+                            <SupportPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/help/guide/:slug"
+                        element={
+                          <ProtectedRoute>
+                            <PrintableGuidePage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/whats-new"
+                        element={
+                          <ProtectedRoute>
+                            <WhatsNewPage />
+                          </ProtectedRoute>
+                        }
+                      />
 
                       <Route path="*" element={<NotFound />} />
+
                     </Routes>
                   </BrowserRouter>
                 </ErrorBoundary>

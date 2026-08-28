@@ -1,6 +1,16 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { School, Eye, EyeOff, ArrowRight, ShieldCheck, Landmark, BookOpen, Wallet, Loader2 } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
+import {
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+  BookOpen,
+  Wallet,
+  Building2,
+  Loader2,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,27 +18,48 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { getDashboardRedirect } from "@/hooks/usePermission";
 import loginCampus from "@/assets/login-campus.jpg";
+import monogram from "@/assets/chuo-monogram.png";
 
-const features = [
-  { icon: BookOpen, label: "Academics", desc: "Classes, exams, subjects and timetables" },
-  { icon: Wallet, label: "Finance", desc: "Fees, payments, balances and reporting" },
-  { icon: ShieldCheck, label: "Secure Access", desc: "Role-based access with session login" },
-  { icon: Landmark, label: "School Operations", desc: "Parents, staff, inventory and settings" },
+const capabilities = [
+  {
+    icon: BookOpen,
+    label: "Academics",
+    desc: "Classes, subjects, assessments and timetables",
+  },
+  {
+    icon: Wallet,
+    label: "Finance",
+    desc: "Fees, payments, balances and financial reporting",
+  },
+  {
+    icon: Building2,
+    label: "School Operations",
+    desc: "Students, staff, communication, inventory and administration",
+  },
 ];
 
 const Login = () => {
-  const navigate = useNavigate();
-  const { signIn, isAuthenticated, primaryRole } = useAuth();
+  const { signIn, isAuthenticated, isLoading, primaryRole } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Redirect if already authenticated
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm">Checking your session…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Declarative redirects avoid updating router state during render.
   if (isAuthenticated) {
     const redirect = getDashboardRedirect(primaryRole);
-    navigate(redirect, { replace: true });
-    return null;
+    return <Navigate to={redirect} replace />;
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -51,46 +82,70 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left — Hero */}
-      <div
-        className="relative hidden lg:flex lg:w-[58%] items-center justify-center overflow-hidden bg-card"
-        style={{
-          backgroundImage: `linear-gradient(135deg, hsl(var(--foreground) / 0.72), hsl(var(--primary) / 0.18), hsl(var(--foreground) / 0.42)), url(${loginCampus})`,
-          backgroundPosition: "center",
-          backgroundSize: "cover",
-        }}
-      >
-        <div className="absolute inset-0 bg-background/5" />
+    <div className="flex min-h-screen bg-muted/30">
+      {/* Left — Brand */}
+      <div className="relative hidden lg:flex lg:w-[55%] flex-col justify-between overflow-hidden">
+        <img
+          src={loginCampus}
+          alt="School campus"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(160deg, hsl(222 47% 11% / 0.92) 0%, hsl(222 47% 11% / 0.78) 45%, hsl(221 83% 33% / 0.72) 100%)",
+          }}
+        />
 
-        <div className="relative z-10 flex w-full max-w-2xl flex-col items-center justify-center px-14 text-center text-primary-foreground">
-          <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary-foreground/20 bg-background/10 backdrop-blur-md shadow-2xl">
-              <School className="h-8 w-8" />
-            </div>
-            <div>
-              <span className="text-2xl font-black tracking-[0.2em]">CHUO</span>
-              <p className="text-xs uppercase tracking-[0.28em] text-primary-foreground/70">School Management System</p>
+        <div className="relative z-10 flex flex-col justify-between h-full px-14 py-14 text-primary-foreground">
+          {/* Brand lockup */}
+          <div className="flex items-center gap-3">
+            <img
+              src={monogram}
+              alt="CHUO logo"
+              className="h-11 w-11 rounded-xl bg-primary-foreground/95 p-1.5 object-contain"
+            />
+            <div className="leading-tight">
+              <p className="text-xl font-bold tracking-[0.22em]">CHUO</p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-primary-foreground/60">
+                School Management System
+              </p>
             </div>
           </div>
-          <h1 className="mb-5 text-5xl font-black leading-[1.05] tracking-tight">
-            One official platform
-            <br />
-            for running your school.
-          </h1>
-          <p className="mb-10 max-w-xl text-lg leading-relaxed text-primary-foreground/80">
-            Manage admissions, academics, finance, communication and daily school operations from one secure system built for real institutional use.
-          </p>
 
-          <div className="grid w-full grid-cols-2 gap-4">
-            {features.map(f => (
-              <div key={f.label} className="flex items-center gap-3 rounded-2xl border border-primary-foreground/15 bg-background/10 p-4 text-left backdrop-blur-md">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/10">
-                  <f.icon className="h-5 w-5 text-primary-foreground" />
+          {/* Message */}
+          <div className="max-w-xl">
+            <h1 className="text-[2.75rem] font-semibold leading-[1.1] tracking-tight">
+              Everything your school needs.
+              <br />
+              <span className="text-primary-foreground/85">
+                One powerful platform.
+              </span>
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-relaxed text-primary-foreground/70">
+              Manage students, academics, finance, communication and daily school
+              operations from one secure system.
+            </p>
+          </div>
+
+          {/* Capability cards */}
+          <div className="space-y-3">
+            {capabilities.map((c) => (
+              <div
+                key={c.label}
+                className="flex items-start gap-3.5 rounded-xl border border-primary-foreground/10 bg-primary-foreground/[0.07] px-4 py-3.5 backdrop-blur-sm transition-colors hover:bg-primary-foreground/[0.1]"
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/10">
+                  <c.icon className="h-4 w-4 text-primary-foreground/90" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold">{f.label}</p>
-                  <p className="text-[11px] text-primary-foreground/70">{f.desc}</p>
+                  <p className="text-sm font-semibold tracking-wide">
+                    {c.label}
+                  </p>
+                  <p className="text-xs leading-relaxed text-primary-foreground/60">
+                    {c.desc}
+                  </p>
                 </div>
               </div>
             ))}
@@ -98,30 +153,46 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Right — Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-[420px]">
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/20">
-              <School className="h-6 w-6 text-primary-foreground" />
+      {/* Right — Auth panel */}
+      <div className="flex flex-1 items-center justify-center bg-muted/40 px-6 py-10 sm:px-10">
+        <div className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {/* Mobile brand */}
+          <div className="mb-9 flex items-center gap-3 lg:hidden">
+            <img
+              src={monogram}
+              alt="CHUO logo"
+              className="h-10 w-10 object-contain"
+            />
+            <div className="leading-tight">
+              <p className="text-lg font-bold tracking-[0.2em] text-foreground">
+                CHUO
+              </p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                School Management System
+              </p>
             </div>
-            <span className="text-xl font-extrabold text-foreground tracking-wide">CHUO</span>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-foreground tracking-tight">Welcome back</h2>
-            <p className="mt-2 text-muted-foreground">Sign in to continue to your official school workspace</p>
+          <div className="mb-7">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              Welcome back
+            </h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Sign in to continue to your school workspace
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold">Email Address</Label>
+              <Label className="text-[13px] font-medium text-foreground">
+                Email Address
+              </Label>
               <Input
                 type="email"
                 placeholder="you@school.ac.ke"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="h-12 rounded-xl bg-muted/50 border-border/50"
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11 rounded-lg border-border bg-card text-sm shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary/25"
                 autoComplete="email"
                 required
               />
@@ -129,40 +200,50 @@ const Login = () => {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Password</Label>
-                <Link to="/forgot-password" className="text-xs text-primary hover:underline font-medium">
+                <Label className="text-[13px] font-medium text-foreground">
+                  Password
+                </Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+                >
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="••••••••••••"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="h-12 rounded-xl pr-11 bg-muted/50 border-border/50"
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-11 rounded-lg border-border bg-card pr-11 text-sm shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary/25"
                   autoComplete="current-password"
                   required
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full h-12 rounded-xl font-semibold text-base shadow-lg shadow-primary/25 transition-all duration-300"
+              className="h-11 w-full rounded-lg text-sm font-semibold shadow-sm transition-all hover:shadow-md active:scale-[0.99]"
               disabled={loading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Signing in...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing in…
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
@@ -173,8 +254,18 @@ const Login = () => {
             </Button>
           </form>
 
-          <p className="mt-10 text-center text-xs text-muted-foreground">
-            Secure access to <span className="font-bold text-foreground">CHUO</span> School Management System
+          <div className="mt-7 flex items-center justify-center gap-2 border-t border-border pt-6 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary/70" />
+            <span>
+              Secure access to{" "}
+              <span className="font-semibold text-foreground">CHUO</span> School
+              Management System
+            </span>
+          </div>
+
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/70">
+            <Lock className="h-3 w-3" />
+            Role-based access with session sign-in
           </p>
         </div>
       </div>

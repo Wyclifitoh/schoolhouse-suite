@@ -1,5 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  ReactNode,
+} from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "./AuthContext";
 
@@ -27,9 +34,14 @@ const SchoolContext = createContext<SchoolContextValue | undefined>(undefined);
 
 export function SchoolProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
   const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(() => {
-    try { return localStorage.getItem("chuo-school-id"); } catch { return null; }
+    try {
+      return localStorage.getItem("chuo-school-id");
+    } catch {
+      return null;
+    }
   });
 
   const { data: schools = [], isLoading } = useQuery({
@@ -42,29 +54,60 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000,
   });
 
+  const effectiveSchoolId = currentSchoolId || schools[0]?.id || null;
+
+  // Propagate to the api client SYNCHRONOUSLY during render so queries that
+  // mount in the same commit already carry the X-School-ID header. Doing this
+  // in an effect used to leave the first batch of requests unscoped, which
+  // showed up as empty screens until a manual refresh.
+  if (effectiveSchoolId && api.getSchoolId?.() !== effectiveSchoolId) {
+    api.setSchoolId(effectiveSchoolId);
+  }
+
   useEffect(() => {
-    if (schools.length > 0) {
-      // If no school is selected, or the selected school is not in the accessible list, reset to the first accessible school
-      if (!currentSchoolId || !schools.find(s => s.id === currentSchoolId)) {
-        setCurrentSchoolId(schools[0].id);
+    if (!currentSchoolId && schools.length > 0) {
+      setCurrentSchoolId(schools[0].id);
+    }
+  }, [schools, currentSchoolId]);
+
+  // Whenever the active school changes, drop every cached query that
+  // could belong to another tenant. Keep the school list itself.
+  const prevSchoolIdRef = useRef<string | null>(currentSchoolId);
+  useEffect(() => {
+    if (effectiveSchoolId) {
+      try {
+        localStorage.setItem("chuo-school-id", effectiveSchoolId);
+      } catch {
+        /* storage unavailable */
       }
-    } else if (!isLoading && currentSchoolId) {
-      // If no schools are accessible, clear the selected school
-      setCurrentSchoolId(null);
     }
-  }, [schools, currentSchoolId, isLoading]);
-
-  useEffect(() => {
-    if (currentSchoolId) {
-      localStorage.setItem("chuo-school-id", currentSchoolId);
-      api.setSchoolId(currentSchoolId);
+    const prev = prevSchoolIdRef.current;
+    if (prev && prev !== effectiveSchoolId) {
+      queryClient.removeQueries({
+        predicate: (q) => {
+          const key = q.queryKey?.[0];
+          return key !== "accessible-schools";
+        },
+      });
     }
-  }, [currentSchoolId]);
+    prevSchoolIdRef.current = effectiveSchoolId;
+  }, [effectiveSchoolId, queryClient]);
 
-  const currentSchool = schools.find(s => s.id === currentSchoolId) || null;
+
+  const currentSchool =
+    schools.find((s) => s.id === effectiveSchoolId) || null;
 
   return (
-    <SchoolContext.Provider value={{ currentSchool, schools, schoolId: currentSchoolId, switchSchool: setCurrentSchoolId, isLoading }}>
+    <SchoolContext.Provider
+      value={{
+        currentSchool,
+        schools,
+        schoolId: effectiveSchoolId,
+
+        switchSchool: setCurrentSchoolId,
+        isLoading,
+      }}
+    >
       {children}
     </SchoolContext.Provider>
   );

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PermissionGate } from "@/components/PermissionGate";
+import { QuickActions } from "@/components/help/QuickActions";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -117,6 +118,37 @@ const Finance = () => {
 
   return (
     <DashboardLayout title="Finance" subtitle="Complete fee management, structures, discounts & collection">
+      <QuickActions
+        className="mb-6"
+        article="fee-structures"
+        actions={[
+          {
+            label: "Record Payment",
+            icon: Banknote,
+            to: "/payments",
+            variant: "default",
+            hint: "Receipt a payment against a student's fees",
+          },
+          {
+            label: "Fee Structure",
+            icon: Receipt,
+            to: "/fee-assignment",
+            hint: "Assign fee structures to classes for the selected term",
+          },
+          {
+            label: "Statements",
+            icon: FileText,
+            to: "/reports/finance",
+            hint: "Student statements and collection summaries",
+          },
+          {
+            label: "Reports",
+            icon: Download,
+            to: "/finance/fee-report",
+            hint: "Fee report with Balance B/F, paid and balance columns",
+          },
+        ]}
+      />
       <Tabs defaultValue="categories" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 flex-wrap h-auto gap-1">
           <TabsTrigger value="categories" className="gap-1.5"><FileText className="h-3.5 w-3.5" />Fee Categories</TabsTrigger>

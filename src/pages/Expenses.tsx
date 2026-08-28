@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSchool } from "@/contexts/SchoolContext";
-import { useTerm } from "@/contexts/TermContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -61,10 +60,12 @@ import {
   FolderOpen,
   CheckCircle,
 } from "lucide-react";
+import { EmptyState } from "@/components/help/EmptyState";
+import { usePermission } from "@/hooks/usePermission";
 import { api } from "@/lib/api";
 import { formatDate } from "@/utils/date";
 import { BulkExpenseImportDialog } from "@/components/expenses/BulkExpenseImportDialog";
-import { Upload, Lock } from "lucide-react";
+import { Upload } from "lucide-react";
 import { PermissionGate } from "@/components/PermissionGate";
 
 const formatKES = (amount: number) => `KES ${amount.toLocaleString()}`;
@@ -309,8 +310,8 @@ const ExpenseForm = ({
 };
 
 const Expenses = () => {
+  const canCreateExpense = usePermission("expenses:create");
   const { currentSchool } = useSchool();
-  const { isReadOnly } = useTerm();
   const queryClient = useQueryClient();
   const schoolId = currentSchool?.id;
   const [search, setSearch] = useState("");
@@ -546,8 +547,12 @@ const Expenses = () => {
                     />
                   </div>
                   <PermissionGate permission="expenses:import">
-                    <Button disabled={isReadOnly} variant="outline" size="sm" onClick={() => document.getElementById("import-expenses")?.click()}>
-                      {!isReadOnly ? <Upload className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBulkImportOpen(true)}
+                    >
+                      <Upload className="h-4 w-4 mr-1.5" />
                       Bulk Import
                     </Button>
                   </PermissionGate>
@@ -560,8 +565,8 @@ const Expenses = () => {
                       }}
                     >
                       <DialogTrigger asChild>
-                        <Button disabled={isReadOnly} size="sm">
-                          {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                        <Button size="sm">
+                          <Plus className="h-4 w-4 mr-1.5" />
                           Add Expense
                         </Button>
                       </DialogTrigger>
@@ -613,14 +618,27 @@ const Expenses = () => {
                 <TableBody>
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center text-muted-foreground py-8"
-                      >
-                        No expenses found
+                      <TableCell colSpan={7} className="p-0">
+                        <EmptyState
+                          compact
+                          className="border-0 bg-transparent"
+                          icon={Wallet}
+                          title="No expenses recorded"
+                          description="Record school expenses here so the income and expenditure report and petty cash balances stay accurate."
+                          article="reports-and-exports"
+                          actions={[
+                            {
+                              label: "Add Expense",
+                              icon: Plus,
+                              onClick: () => setExpDialogOpen(true),
+                              hidden: !canCreateExpense,
+                            },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   )}
+
                   {filtered.map((e: any) => (
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.title}</TableCell>
@@ -660,7 +678,6 @@ const Expenses = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-primary"
-                                disabled={isReadOnly}
                                 onClick={() =>
                                   updateStatus.mutate({
                                     id: e.id,
@@ -676,7 +693,6 @@ const Expenses = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-success"
-                                disabled={isReadOnly}
                                 onClick={() =>
                                   updateStatus.mutate({
                                     id: e.id,
@@ -693,7 +709,6 @@ const Expenses = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              disabled={isReadOnly}
                               onClick={() => {
                                 setEditingExp(e);
                                 setExpDialogOpen(true);
@@ -709,7 +724,6 @@ const Expenses = () => {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive"
-                                  disabled={isReadOnly}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -761,8 +775,8 @@ const Expenses = () => {
                   }}
                 >
                   <DialogTrigger asChild>
-                    <Button disabled={isReadOnly} size="sm">
-                      {!isReadOnly ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1.5" />
                       Add Category
                     </Button>
                   </DialogTrigger>

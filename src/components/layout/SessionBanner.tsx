@@ -24,19 +24,17 @@ export function SessionBanner() {
     if (currentTerm) switchTerm(currentTerm.id);
   };
 
-  const isUpcoming = selectedTerm && currentTerm && new Date(selectedTerm.start_date) > new Date(currentTerm.end_date);
-
   return (
     <div className="sticky top-14 z-40 border-b border-warning/30 bg-warning/10 backdrop-blur">
       <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-3 px-3 sm:px-6 py-2 text-xs">
         <div className="flex items-center gap-2 text-warning">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span className="font-semibold">
-            Viewing {isUpcoming ? "upcoming" : "historical"} session: {selectedAcademicYear?.name || "—"} ·{" "}
+            Viewing historical session: {selectedAcademicYear?.name || "—"} ·{" "}
             {selectedTerm.name}
           </span>
           <span className="hidden sm:inline text-muted-foreground font-normal">
-            — all academic and finance data is from this session.
+            — read-only. Editing has been disabled.
           </span>
         </div>
         <Button

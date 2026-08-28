@@ -22,7 +22,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Check, X, Settings, Wallet } from "lucide-react";
+import { Plus, Check, X, Settings, Wallet, CalendarDays } from "lucide-react";
+import { EmptyState } from "@/components/help/EmptyState";
 import { formatDate } from "@/utils/date";
 import { usePermissions } from "@/hooks/usePermission";
 
@@ -315,7 +316,19 @@ export default function LeaveManagement() {
                     {isLoading ? (
                       <TableRow><TableCell colSpan={6} className="text-center py-8">Loading...</TableCell></TableRow>
                     ) : leaveApplications.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No applications found</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell colSpan={6} className="p-0">
+                          <EmptyState
+                            compact
+                            className="border-0 bg-transparent"
+                            icon={CalendarDays}
+                            title="No leave applications"
+                            description="Leave requests appear here once staff apply. Approvers can review, approve or decline them from this table."
+                            article="staff-and-hr"
+                          />
+                        </TableCell>
+                      </TableRow>
+
                     ) : (
                       leaveApplications.map((leave: any) => (
                         <TableRow key={leave.id}>

@@ -39,7 +39,7 @@ export function ReportExportMenu({
       const schoolId = localStorage.getItem("chuo-school-id") || "";
       const base =
         (import.meta as any).env?.VITE_API_URL ||
-        "https://chuoapi.wikiteq.co.ke/api/v1";
+        "https://api.chuoflow.co.ke/api/v1";
       const full = `${base}${path}.${kind}?${search.toString()}`;
       const res = await fetch(full, {
         headers: {

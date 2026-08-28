@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -78,8 +78,12 @@ import {
   CheckCircle,
   Edit,
   Trash2,
+  ArrowUpRight,
 } from "lucide-react";
+import { QuickActions } from "@/components/help/QuickActions";
+import { EmptyState } from "@/components/help/EmptyState";
 import { BulkImportDialog } from "@/components/students/BulkImportDialog";
+import { PrimaryParentPicker } from "@/components/students/PrimaryParentPicker";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -763,7 +767,8 @@ const EditStudentDialog = ({
     student?.id,
   );
   // All linked parents — show every guardian so they can all be edited.
-  const linkedParents: any[] = allParents && allParents.length > 0 ? allParents : [];
+  const linkedParents: any[] =
+    allParents && allParents.length > 0 ? allParents : [];
 
   // Legacy parent form state (used when no linked parents exist in student_parents)
   const [legacyParent, setLegacyParent] = useState<Record<string, any>>({});
@@ -825,11 +830,15 @@ const EditStudentDialog = ({
       // Build student payload — resolve grade/stream display names if IDs changed
       const studentPayload: any = { ...form };
       if (form.current_grade_id) {
-        const g = (gradesList as any[]).find((gr: any) => gr.id === form.current_grade_id);
+        const g = (gradesList as any[]).find(
+          (gr: any) => gr.id === form.current_grade_id,
+        );
         if (g) studentPayload.grade = g.name;
       }
       if (form.current_stream_id) {
-        const s = (streamsList as any[]).find((st: any) => st.id === form.current_stream_id);
+        const s = (streamsList as any[]).find(
+          (st: any) => st.id === form.current_stream_id,
+        );
         if (s) studentPayload.stream = s.name;
       }
 
@@ -1178,7 +1187,8 @@ const EditStudentDialog = ({
                   Primary Guardian
                 </div>
                 <p className="text-xs text-muted-foreground -mt-1">
-                  No linked parent record found. You can update the guardian's name and phone below.
+                  No linked parent record found. You can update the guardian's
+                  name and phone below.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -1188,7 +1198,10 @@ const EditStudentDialog = ({
                       placeholder="e.g. John Kamau"
                       value={legacyParent.parent_name || ""}
                       onChange={(e) =>
-                        setLegacyParent((prev) => ({ ...prev, parent_name: e.target.value }))
+                        setLegacyParent((prev) => ({
+                          ...prev,
+                          parent_name: e.target.value,
+                        }))
                       }
                     />
                   </div>
@@ -1199,7 +1212,10 @@ const EditStudentDialog = ({
                       placeholder="0712345678"
                       value={legacyParent.parent_phone || ""}
                       onChange={(e) =>
-                        setLegacyParent((prev) => ({ ...prev, parent_phone: e.target.value }))
+                        setLegacyParent((prev) => ({
+                          ...prev,
+                          parent_phone: e.target.value,
+                        }))
                       }
                     />
                   </div>
@@ -1230,7 +1246,14 @@ const EditStudentDialog = ({
 /* ─── Main Students Page ─── */
 const Students = () => {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+
+  // Keep the field in sync when the global header search pushes a new query.
+  useEffect(() => {
+    const q = searchParams.get("search") || "";
+    setSearch((prev) => (prev === q ? prev : q));
+  }, [searchParams]);
   const [gradeFilter, setGradeFilter] = useState("all");
   const [streamFilters, setStreamFilters] = useState<string[]>([]);
   const [admissionOpen, setAdmissionOpen] = useState(false);
@@ -1242,6 +1265,7 @@ const Students = () => {
   const [paymentRef, setPaymentRef] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentRow | null>(null);
+  const [primaryPicker, setPrimaryPicker] = useState<StudentRow | null>(null);
   const { hasAnyRole } = useAuth();
   const perms = usePermissions([
     "students:create",
@@ -1249,12 +1273,14 @@ const Students = () => {
     "students:delete",
     "students:import",
     "students:export",
+    "students:promote",
   ]);
   const canCreateStudent = perms["students:create"];
   const canUpdateStudent = perms["students:update"];
   const canDeleteStudent = perms["students:delete"];
   const canImportStudents = perms["students:import"];
   const canExportStudents = perms["students:export"];
+  const canPromoteStudents = perms["students:promote"];
   const canManageStudents = canUpdateStudent || canDeleteStudent;
   const canViewFees = hasAnyRole([
     "super_admin",
@@ -1401,6 +1427,42 @@ const Students = () => {
           </Card>
         </div>
 
+        <QuickActions
+          article="adding-students"
+          actions={[
+            {
+              label: "Add Student",
+              icon: UserPlus,
+              variant: "default",
+              onClick: () => setAdmissionOpen(true),
+              hidden: !canCreateStudent,
+              hint: "Admit a single student",
+            },
+            {
+              label: "Import",
+              icon: Upload,
+              onClick: () => setBulkImportOpen(true),
+              hidden: !canImportStudents,
+              hint: "Bring in your existing list from Excel",
+            },
+            {
+              label: "Export",
+              icon: Download,
+              to: "/students?export=1",
+              hidden: !canExportStudents,
+              hint: "Download the registry",
+            },
+            {
+              label: "Promote",
+              icon: ArrowUpRight,
+              to: "/promotion",
+              hidden: !canPromoteStudents,
+              hint: "Move students to the next class at year end",
+            },
+          ]}
+        />
+
+
         {/* Student List */}
         <Card>
           <CardHeader className="pb-4">
@@ -1430,91 +1492,91 @@ const Students = () => {
                   </Button>
                 )}
                 {canExportStudents && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-1.5" />
-                      Export
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {(["csv", "xlsx", "pdf"] as const).map((kind) => (
-                      <DropdownMenuItem
-                        key={kind}
-                        onClick={async () => {
-                          try {
-                            const params = new URLSearchParams();
-                            params.set("status", "active");
-                            if (search) params.set("search", search);
-                            if (gradeFilter !== "all" && selectedGrade?.id)
-                              params.set("grade_id", selectedGrade.id);
-                            if (streamFilters.length > 0) {
-                              const ids = streamsForGrade
-                                .filter((s: any) =>
-                                  streamFilters.includes(s.name),
-                                )
-                                .map((s: any) => s.id)
-                                .join(",");
-                              if (ids) params.set("stream_ids", ids);
-                            }
-                            const token = api.getToken();
-                            const schoolId =
-                              localStorage.getItem("chuo-school-id") || "";
-                            const base =
-                              (import.meta as any).env?.VITE_API_URL ||
-                              "https://chuoapi.wikiteq.co.ke/api/v1";
-                            const path =
-                              kind === "csv"
-                                ? "/students/export"
-                                : kind === "xlsx"
-                                  ? "/students/export.xlsx"
-                                  : "/students/export.pdf";
-                            const res = await fetch(
-                              `${base}${path}?${params}`,
-                              {
-                                headers: {
-                                  Authorization: `Bearer ${token}`,
-                                  "X-School-ID": schoolId,
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-1.5" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {(["csv", "xlsx", "pdf"] as const).map((kind) => (
+                        <DropdownMenuItem
+                          key={kind}
+                          onClick={async () => {
+                            try {
+                              const params = new URLSearchParams();
+                              params.set("status", "active");
+                              if (search) params.set("search", search);
+                              if (gradeFilter !== "all" && selectedGrade?.id)
+                                params.set("grade_id", selectedGrade.id);
+                              if (streamFilters.length > 0) {
+                                const ids = streamsForGrade
+                                  .filter((s: any) =>
+                                    streamFilters.includes(s.name),
+                                  )
+                                  .map((s: any) => s.id)
+                                  .join(",");
+                                if (ids) params.set("stream_ids", ids);
+                              }
+                              const token = api.getToken();
+                              const schoolId =
+                                localStorage.getItem("chuo-school-id") || "";
+                              const base =
+                                (import.meta as any).env?.VITE_API_URL ||
+                                "https://chuoapi.wikiteq.co.ke/api/v1";
+                              const path =
+                                kind === "csv"
+                                  ? "/students/export"
+                                  : kind === "xlsx"
+                                    ? "/students/export.xlsx"
+                                    : "/students/export.pdf";
+                              const res = await fetch(
+                                `${base}${path}?${params}`,
+                                {
+                                  headers: {
+                                    Authorization: `Bearer ${token}`,
+                                    "X-School-ID": schoolId,
+                                  },
                                 },
-                              },
-                            );
-                            if (!res.ok) throw new Error("Export failed");
-                            const blob = await res.blob();
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = `students-${new Date().toISOString().slice(0, 10)}.${kind}`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          } catch (e: any) {
-                            toast.error(e?.message || "Export failed");
-                          }
-                        }}
-                      >
-                        Export as {kind.toUpperCase()}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                              );
+                              if (!res.ok) throw new Error("Export failed");
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `students-${new Date().toISOString().slice(0, 10)}.${kind}`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch (e: any) {
+                              toast.error(e?.message || "Export failed");
+                            }
+                          }}
+                        >
+                          Export as {kind.toUpperCase()}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 {canCreateStudent && (
-                <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <UserPlus className="h-4 w-4 mr-1.5" />
-                      New Admission
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Student Admission Form</DialogTitle>
-                    </DialogHeader>
-                    <AdmissionForm
-                      onClose={() => setAdmissionOpen(false)}
-                      onSuccess={() => refetchAll()}
-                    />
-                  </DialogContent>
-                </Dialog>
+                  <Dialog open={admissionOpen} onOpenChange={setAdmissionOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <UserPlus className="h-4 w-4 mr-1.5" />
+                        New Admission
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Student Admission Form</DialogTitle>
+                      </DialogHeader>
+                      <AdmissionForm
+                        onClose={() => setAdmissionOpen(false)}
+                        onSuccess={() => refetchAll()}
+                      />
+                    </DialogContent>
+                  </Dialog>
                 )}
               </div>
             </div>
@@ -1609,9 +1671,33 @@ const Students = () => {
                   <Skeleton key={i} className="h-20 w-full rounded-lg" />
                 ))
               ) : filtered.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground text-sm">
-                  {search ? "No students match" : "No students yet"}
-                </p>
+                <EmptyState
+                  compact
+                  icon={Users}
+                  title={search ? "No students match" : "No students yet"}
+                  description={
+                    search
+                      ? "Try a different name or admission number, or clear the filters."
+                      : "Add students individually or import them from Excel."
+                  }
+                  article="adding-students"
+                  actions={[
+                    {
+                      label: "Add Student",
+                      icon: UserPlus,
+                      onClick: () => setAdmissionOpen(true),
+                      hidden: !canCreateStudent || !!search,
+                    },
+                    {
+                      label: "Import Students",
+                      icon: Upload,
+                      variant: "outline",
+                      onClick: () => setBulkImportOpen(true),
+                      hidden: !canImportStudents || !!search,
+                    },
+                  ]}
+                />
+
               ) : (
                 filtered.map((s) => (
                   <div
@@ -1686,15 +1772,38 @@ const Students = () => {
                     ))
                   ) : filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        {search
-                          ? "No students match your search"
-                          : "No students found. Add your first student!"}
+                      <TableCell colSpan={6} className="p-0">
+                        <EmptyState
+                          className="border-0 bg-transparent"
+                          icon={Users}
+                          title={
+                            search ? "No students match your search" : "No students yet"
+                          }
+                          description={
+                            search
+                              ? "Try a different name or admission number, or clear the filters."
+                              : "Add students individually or import them from Excel."
+                          }
+                          article="adding-students"
+                          actions={[
+                            {
+                              label: "Add Student",
+                              icon: UserPlus,
+                              onClick: () => setAdmissionOpen(true),
+                              hidden: !canCreateStudent || !!search,
+                            },
+                            {
+                              label: "Import Students",
+                              icon: Upload,
+                              variant: "outline",
+                              onClick: () => setBulkImportOpen(true),
+                              hidden: !canImportStudents || !!search,
+                            },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
+
                   ) : (
                     filtered.map((s) => (
                       <TableRow key={s.id} className="group">
@@ -1723,10 +1832,31 @@ const Students = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <p className="text-sm">{s.parent_name || "—"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {s.parent_phone || ""}
-                          </p>
+                          {s.parent_name ? (
+                            <>
+                              <p className="text-sm">{s.parent_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {s.parent_phone || ""}
+                              </p>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-muted-foreground italic">
+                                No primary guardian
+                              </span>
+                              {canUpdateStudent && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => setPrimaryPicker(s)}
+                                >
+                                  <UserPlus className="h-3 w-3 mr-1" />
+                                  Link
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -1785,28 +1915,30 @@ const Students = () => {
                                 <>
                                   <DropdownMenuSeparator />
                                   {canUpdateStudent && (
-                                  <DropdownMenuItem onClick={() => openEdit(s)}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => openEdit(s)}
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
                                   )}
                                   {canDeleteStudent && (
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => {
-                                      if (
-                                        confirm(
-                                          `Deactivate ${s.full_name || s.first_name}?`,
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onClick={() => {
+                                        if (
+                                          confirm(
+                                            `Deactivate ${s.full_name || s.first_name}?`,
+                                          )
                                         )
-                                      )
-                                        softDelete.mutate(s.id, {
-                                          onSuccess: () => refetchAll(),
-                                        });
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Deactivate
-                                  </DropdownMenuItem>
+                                          softDelete.mutate(s.id, {
+                                            onSuccess: () => refetchAll(),
+                                          });
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Deactivate
+                                    </DropdownMenuItem>
                                   )}
                                 </>
                               )}
@@ -1941,6 +2073,18 @@ const Students = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PrimaryParentPicker
+        open={!!primaryPicker}
+        onOpenChange={(o) => !o && setPrimaryPicker(null)}
+        studentId={primaryPicker?.id || null}
+        studentName={
+          primaryPicker
+            ? primaryPicker.full_name ||
+              `${primaryPicker.first_name} ${primaryPicker.last_name}`
+            : undefined
+        }
+      />
     </DashboardLayout>
   );
 };
