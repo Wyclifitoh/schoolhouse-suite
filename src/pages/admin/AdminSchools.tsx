@@ -206,12 +206,11 @@ export default function AdminSchools() {
               <thead className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b bg-muted/40">
                 <tr>
                   <th className="p-3 pl-5 font-bold">School</th>
-                  <th className="p-3 font-bold">Plan</th>
                   <th className="p-3 font-bold">Status</th>
                   <th className="p-3 text-right font-bold">Students</th>
                   <th className="p-3 text-right font-bold">Staff</th>
                   <th className="p-3 text-right font-bold">Paid lifetime</th>
-                  <th className="p-3 font-bold">Trial / Renews</th>
+                  <th className="p-3 font-bold">Trial Ends</th>
                   <th className="p-3"></th>
                 </tr>
               </thead>
@@ -245,14 +244,6 @@ export default function AdminSchools() {
                       </div>
                     </td>
                     <td className="p-3">
-                      <div className="text-sm font-medium">
-                        {s.plan_name || "—"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {s.billing_mode || ""} {s.cycle ? `· ${s.cycle}` : ""}
-                      </div>
-                    </td>
-                    <td className="p-3">
                       <span
                         className={cn(
                           "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border",
@@ -278,12 +269,6 @@ export default function AdminSchools() {
                         <>
                           Trial ends{" "}
                           {new Date(s.trial_ends_at).toLocaleDateString()}
-                        </>
-                      )}
-                      {s.sub_status === "active" && s.current_period_end && (
-                        <>
-                          Renews{" "}
-                          {new Date(s.current_period_end).toLocaleDateString()}
                         </>
                       )}
                     </td>

@@ -561,7 +561,10 @@ export function useSaveAssessment() {
       qc.invalidateQueries({ queryKey: ["assessments"] });
       toast.success("Saved");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      if (e.message?.includes("subscription is inactive")) return;
+      toast.error(e.message);
+    },
   });
 }
 

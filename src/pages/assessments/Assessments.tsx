@@ -67,10 +67,21 @@ import {
 } from "@/lib/assessmentLifecycle";
 import { useGrades } from "@/hooks/useGrades";
 import { useTerm } from "@/contexts/TermContext";
+import { Lock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function NewAssessmentDialog() {
   const { selectedTerm, selectedAcademicYear } = useTerm();
   const [open, setOpen] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const [form, setForm] = useState<{
     name: string;
     description: string;
@@ -108,17 +119,39 @@ function NewAssessmentDialog() {
 
   const submit = async () => {
     if (!form.name.trim() || form.grade_ids.length === 0) return;
-    await save.mutateAsync({
-      ...form,
-      term_id: selectedTerm?.id,
-      academic_year_id: selectedAcademicYear?.id,
-    } as any);
-    reset();
-    setOpen(false);
+    try {
+      await save.mutateAsync({
+        ...form,
+        term_id: selectedTerm?.id,
+        academic_year_id: selectedAcademicYear?.id,
+      } as any);
+      reset();
+      setOpen(false);
+    } catch (e: any) {
+      if (e.message?.includes("subscription is inactive")) {
+        setBillingError(e.message);
+      }
+    }
   };
 
   return (
     <PermissionGate permission="exams:create">
+      <AlertDialog open={!!billingError} onOpenChange={() => setBillingError(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-destructive" /> Access Denied
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {billingError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setBillingError(null)}>Okay</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button>
@@ -284,6 +317,7 @@ export default function Assessments() {
   );
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("");
+  const [billingError, setBillingError] = useState<string | null>(null);
   const { data: list = [], isLoading } = useAssessmentsList({
     q: q || undefined,
     status: status || undefined,
@@ -315,6 +349,22 @@ export default function Assessments() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        <AlertDialog open={!!billingError} onOpenChange={() => setBillingError(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-destructive" /> Access Denied
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {billingError}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setBillingError(null)}>Okay</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <AssessmentNav />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -529,9 +579,15 @@ export default function Assessments() {
                             <AssessmentLifecycleActions
                               row={a}
                               pending={transition.isPending}
-                              onAction={(action) =>
-                                transition.mutate({ id: a.id, action })
-                              }
+                              onAction={async (action) => {
+                                try {
+                                  await transition.mutateAsync({ id: a.id, action });
+                                } catch (e: any) {
+                                  if (e.message?.includes("subscription is inactive")) {
+                                    setBillingError(e.message);
+                                  }
+                                }
+                              }}
                             />
                             <PermissionGate permission="exams:delete">
                               {statusOf(a) === "draft" && (
