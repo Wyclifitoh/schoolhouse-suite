@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AcademicSwitchWizard } from "@/components/academic-switch/AcademicSwitchWizard";
 import { ArrowLeftRight } from "lucide-react";
@@ -78,6 +79,7 @@ import {
   CheckCircle,
   Send,
   GraduationCap,
+  Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -316,6 +318,45 @@ const Settings = () => {
   const [profileForm, setProfileForm] = useState<Record<string, string>>({});
   const pf = { ...schoolProfile, ...profileForm };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Logo must be less than 2MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_SIZE = 256;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL("image/webp", 0.8);
+            setProfileForm((p) => ({ ...p, logo_url: compressedBase64 }));
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const getTermStatus = (term: any) => {
     if (term.is_current) return "active";
     const now = new Date();
@@ -382,6 +423,30 @@ const Settings = () => {
                 </div>
               ) : (
                 <>
+                  <div className="flex items-center gap-6 mb-6">
+                    <Avatar className="h-24 w-24 border">
+                      <AvatarImage src={pf.logo_url || ""} alt="School Logo" />
+                      <AvatarFallback className="text-2xl bg-muted">
+                        <School className="h-10 w-10 text-muted-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <Label htmlFor="logo-upload" className="cursor-pointer">
+                        <div className="flex items-center gap-2 px-4 py-2 border rounded-md hover:bg-muted transition-colors">
+                          <Camera className="h-4 w-4" />
+                          <span className="text-sm font-medium">Change Logo</span>
+                        </div>
+                      </Label>
+                      <input
+                        id="logo-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoUpload}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">Recommended: 256x256px. Max 2MB.</p>
+                    </div>
+                  </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>School Name</Label>
