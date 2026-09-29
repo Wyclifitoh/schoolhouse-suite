@@ -83,7 +83,12 @@ export default function MarksEntry() {
   const canSave = (canEnterMarks || isTaskOwner) && !isHistorical;
 
   const task = data?.task;
-  const outOf = data?.out_of ?? 100;
+  
+  const [outOf, setOutOf] = useState<number>(100);
+  useEffect(() => {
+    if (data?.out_of != null) setOutOf(Math.round(Number(data.out_of)));
+  }, [data?.out_of]);
+
   const gradeId = (task as any)?.grade_id;
   const subjectId = task?.subject_id;
 
@@ -341,8 +346,23 @@ export default function MarksEntry() {
             {task.stream_name ? ` · ${task.stream_name}` : ""} ·{" "}
             {task.subject_name}
           </p>
-          <div className="flex gap-2 mt-2 flex-wrap">
-            <Badge variant="outline">Out of {outOf}</Badge>
+          <div className="flex gap-4 mt-2 flex-wrap items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                Out of:
+              </label>
+              <Input
+                type="number"
+                min={1}
+                className="w-20 h-8"
+                value={outOf || ""}
+                disabled={!!locked || !canSave}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setOutOf(isNaN(val) ? 0 : val);
+                }}
+              />
+            </div>
             <Badge variant="outline">
               {markedCount}/{rows.length} entered ({completion}%)
             </Badge>
@@ -421,6 +441,7 @@ export default function MarksEntry() {
                     <TableHead className="w-24">Adm #</TableHead>
                     <TableHead>Student</TableHead>
                     <TableHead className="w-32">Score / {outOf}</TableHead>
+                    <TableHead className="w-20">%</TableHead>
                     <TableHead className="w-20">AL</TableHead>
                     <TableHead className="w-20">Band</TableHead>
                     <TableHead className="w-36">Status</TableHead>
@@ -448,10 +469,24 @@ export default function MarksEntry() {
                               r.status === "absent" ||
                               r.status === "exempted"
                             }
-                            onChange={(e) =>
-                              setCell(r.student.id, { score: e.target.value })
-                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (Number(val) > outOf) {
+                                toast.error(`Score cannot exceed ${outOf}`);
+                                return;
+                              }
+                              setCell(r.student.id, { score: val });
+                            }}
                           />
+                        </TableCell>
+                        <TableCell>
+                          {!isNaN(num) && outOf > 0 ? (
+                            <span className="text-muted-foreground font-medium">
+                              {Math.round((num / outOf) * 100)}%
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {al ? (
@@ -508,7 +543,7 @@ export default function MarksEntry() {
                   {!rows.length && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground py-8"
                       >
                         No students in this class.
