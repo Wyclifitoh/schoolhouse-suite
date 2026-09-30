@@ -58,7 +58,7 @@ type Draft = Record<
 
 function previewAL(levels: any[], score: number, outOf: number) {
   if (score === null || isNaN(score) || outOf <= 0) return null;
-  const pct = (score / outOf) * 100;
+  const pct = Math.round((score / outOf) * 100);
   return levels.find(
     (l) => pct >= Number(l.min_score) && pct <= Number(l.max_score),
   );
