@@ -121,10 +121,8 @@ export default function AssessmentDetail() {
 
   // Canonical workflow status (never inferred from marks progress).
   const life = statusOf(a);
-  const taskCount = filteredTasks.length;
-  const doneCount = filteredTasks.filter(
-    (t) => t.marked_count >= t.student_count && t.student_count > 0,
-  ).length;
+  const taskCount = a.task_count || 0;
+  const doneCount = a.task_done || 0;
   const pct = taskCount ? Math.round((doneCount / taskCount) * 100) : 0;
 
   return (
@@ -300,8 +298,8 @@ export default function AssessmentDetail() {
                           {(() => {
                             const isOwner =
                               !!user &&
-                              (t.teacher_id === user.id ||
-                                (t as any).assigned_teacher_id === user.id);
+                              (t.teacher_id === user.teacher_id ||
+                                (t as any).assigned_teacher_id === user.teacher_id);
                             const canAction = canEnterMarks || isOwner;
                             if (!canAction) return null;
                             return (

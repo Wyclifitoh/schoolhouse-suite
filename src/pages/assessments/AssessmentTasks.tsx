@@ -230,14 +230,12 @@ export default function AssessmentTasks() {
                           <Badge variant="outline">{t.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <PermissionGate permission="exams:update">
-                            <Link to={`/assessments/marks/${t.id}`}>
-                              <Button size="sm" variant="outline">
-                                <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
-                                Enter
-                              </Button>
-                            </Link>
-                          </PermissionGate>
+                          <Link to={`/assessments/marks/${t.id}`}>
+                            <Button size="sm" variant="outline">
+                              <PencilLine className="h-3.5 w-3.5 mr-1" />{" "}
+                              Enter
+                            </Button>
+                          </Link>
                         </TableCell>
                       </TableRow>
                     );

@@ -55,7 +55,7 @@ export const ROUTE_PERMISSIONS: Record<string, Codes> = {
   // Assessments / exams
   "/assessments": ["exams:read"],
   "/assessments/tasks": ["exams:read"],
-  "/assessments/marks/:taskId": ["exams:create", "exams:update"],
+  "/assessments/marks/:taskId": ["exams:read"],
   "/assessments/results": ["exams:read"],
   "/assessments/report-cards": ["exams:read"],
   "/assessments/templates": ["exams:update", "settings:update"],
@@ -68,7 +68,7 @@ export const ROUTE_PERMISSIONS: Record<string, Codes> = {
   ],
   "/assessments/:id": ["exams:read"],
   "/examinations": ["exams:read"],
-  "/exams/entry": ["exams:create", "exams:update"],
+  "/exams/entry": ["exams:read"],
   "/exams/review": ["exams:publish", "exams:update"],
   "/exams/analytics": ["exams:read", "reports:read"],
   "/reports/cards": ["exams:read", "reports:read"],
