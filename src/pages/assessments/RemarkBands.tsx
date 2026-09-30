@@ -36,17 +36,12 @@ import {
   type RemarkBand,
 } from "@/hooks/useRemarkBands";
 import { useGrades } from "@/hooks/useGrades";
+import { useAchievementLevels } from "@/hooks/useAssessments";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GRADES_844 } from "@/lib/grading844";
 
-const CBC_LEVELS = [
-  { code: "EE", label: "EE — Exceeding" },
-  { code: "ME", label: "ME — Meeting" },
-  { code: "AE", label: "AE — Approaching" },
-  { code: "BE", label: "BE — Below" },
-];
 const LEVELS_844 = GRADES_844.map((g) => ({
   code: g.code,
   label: `${g.code} (${g.min}–${g.max}%)`,
@@ -65,6 +60,13 @@ export default function RemarkBandsPage() {
   const [curriculum, setCurriculum] = useState<"CBC" | "844">("CBC");
   const { data: bands = [] } = useRemarkBands();
   const { data: grades = [] } = useGrades();
+  const { data: rawLevels = [] } = useAchievementLevels();
+  
+  const cbcLevels = rawLevels.map((l: any) => ({
+    code: l.code,
+    label: `${l.code} (${l.min_score}–${l.max_score}%)`,
+  }));
+
   const { data: subjects = [] } = useQuery({
     queryKey: ["subjects-flat"],
     queryFn: async () => {
@@ -91,7 +93,7 @@ export default function RemarkBandsPage() {
     close();
   };
 
-  const cbcCodes = new Set(CBC_LEVELS.map((l) => l.code));
+  const cbcCodes = new Set(cbcLevels.map((l) => l.code));
   const codes844 = new Set(LEVELS_844.map((l) => l.code));
   const visibleBands = (bands as RemarkBand[]).filter((b) => {
     if (!b.level_code) return curriculum === "CBC"; // legacy %-based -> show under CBC
@@ -99,7 +101,7 @@ export default function RemarkBandsPage() {
       ? codes844.has(b.level_code)
       : cbcCodes.has(b.level_code);
   });
-  const levelOptions = curriculum === "844" ? LEVELS_844 : CBC_LEVELS;
+  const levelOptions = curriculum === "844" ? LEVELS_844 : cbcLevels;
 
   return (
     <DashboardLayout>
@@ -118,7 +120,7 @@ export default function RemarkBandsPage() {
           {p["assessments:bands:manage"] && (
             <Button
               onClick={() =>
-                setEditing({ ...blank, level_code: levelOptions[0].code })
+                setEditing({ ...blank, level_code: levelOptions[0]?.code || "" })
               }
             >
               <Plus className="h-4 w-4 mr-1" /> Add band

@@ -138,17 +138,19 @@ export default function MarksEntry() {
       if (!remarks && score !== "" && status === "present") {
         const numScore = Number(score);
         if (!isNaN(numScore)) {
+          const autoAl = previewAL(levels, numScore, outOf);
           const auto = previewRemark(bands as any, {
             subject_id: subjectId,
             grade_id: gradeId,
             pct: outOf > 0 ? (numScore / outOf) * 100 : 0,
+            level_code: autoAl?.code,
           });
           if (auto) remarks = auto;
         }
       }
       return { student: s, score, status, remarks, mark: s.mark };
     });
-  }, [data, draft, bands, subjectId, gradeId, outOf]);
+  }, [data, draft, bands, subjectId, gradeId, outOf, levels]);
 
   const setCell = (
     id: string,
