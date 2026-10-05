@@ -26,6 +26,9 @@ export default function SummativeReports() {
   
   const [selectedAssessments, setSelectedAssessments] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState("Summative Term Report");
+  const [showDates, setShowDates] = useState(false);
+  const [openingDate, setOpeningDate] = useState(selectedTerm?.start_date || "");
+  const [closingDate, setClosingDate] = useState(selectedTerm?.end_date || "");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const toggleAssessment = (id: string) => {
@@ -44,7 +47,8 @@ export default function SummativeReports() {
     try {
       const token = api.getToken();
       const schoolId = localStorage.getItem("chuo-school-id") || "";
-      const response = await fetch(`${import.meta.env.VITE_API_URL || "https://chuoapi.wikiteq.co.ke/api/v1"}/assessments/summative-report`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "https://api.chuoflow.co.ke/api/v1";
+      const response = await fetch(`${apiUrl}/assessments/summative-report`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -55,7 +59,10 @@ export default function SummativeReports() {
           assessmentIds: Array.from(selectedAssessments),
           gradeId,
           streamId: streamId || undefined,
-          title
+          title,
+          showDates,
+          openingDate,
+          closingDate
         })
       });
       
@@ -179,6 +186,25 @@ export default function SummativeReports() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
+                  <Checkbox checked={showDates} onCheckedChange={(c) => setShowDates(!!c)} />
+                  Include opening and closing dates
+                </label>
+                {showDates && (
+                  <div className="flex gap-4 items-center mt-2">
+                    <label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                      Opening Date:
+                      <input type="date" className="flex h-8 w-[130px] rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+                    </label>
+                    <label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                      Closing Date:
+                      <input type="date" className="flex h-8 w-[130px] rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t">

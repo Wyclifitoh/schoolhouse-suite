@@ -1242,33 +1242,45 @@ async function downloadAuthed(path: string, filename: string) {
 
 export function useDownloadReportCardPdf() {
   return useMutation({
-    mutationFn: ({ cardId, name, showDates }: { cardId: string; name?: string; showDates?: boolean }) =>
-      downloadAuthed(
-        `/assessments/report-cards/cards/${cardId}/pdf${showDates ? "?show_dates=true" : ""}`,
-        `${name || "report-card"}.pdf`,
-      ),
+    mutationFn: ({ cardId, name, showDates, openingDate, closingDate }: { cardId: string; name?: string; showDates?: boolean; openingDate?: string; closingDate?: string; }) => {
+      let url = `/assessments/report-cards/cards/${cardId}/pdf`;
+      const params = new URLSearchParams();
+      if (showDates) params.set("show_dates", "true");
+      if (openingDate) params.set("opening_date", openingDate);
+      if (closingDate) params.set("closing_date", closingDate);
+      if (params.toString()) url += `?${params.toString()}`;
+      return downloadAuthed(url, `${name || "report-card"}.pdf`);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 
 export function useDownloadRunZip() {
   return useMutation({
-    mutationFn: ({ runId, showDates }: { runId: string; showDates?: boolean }) =>
-      downloadAuthed(
-        `/assessments/report-cards/runs/${runId}/download.zip${showDates ? "?show_dates=true" : ""}`,
-        `report-cards-${runId}.zip`,
-      ),
+    mutationFn: ({ runId, showDates, openingDate, closingDate }: { runId: string; showDates?: boolean; openingDate?: string; closingDate?: string; }) => {
+      let url = `/assessments/report-cards/runs/${runId}/download.zip`;
+      const params = new URLSearchParams();
+      if (showDates) params.set("show_dates", "true");
+      if (openingDate) params.set("opening_date", openingDate);
+      if (closingDate) params.set("closing_date", closingDate);
+      if (params.toString()) url += `?${params.toString()}`;
+      return downloadAuthed(url, `report-cards-${runId}.zip`);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }
 
 export function useDownloadRunCombinedPdf() {
   return useMutation({
-    mutationFn: ({ runId, showDates }: { runId: string; showDates?: boolean }) =>
-      downloadAuthed(
-        `/assessments/report-cards/runs/${runId}/download.pdf${showDates ? "?show_dates=true" : ""}`,
-        `report-cards-${runId}.pdf`,
-      ),
+    mutationFn: ({ runId, showDates, openingDate, closingDate }: { runId: string; showDates?: boolean; openingDate?: string; closingDate?: string; }) => {
+      let url = `/assessments/report-cards/runs/${runId}/download.pdf`;
+      const params = new URLSearchParams();
+      if (showDates) params.set("show_dates", "true");
+      if (openingDate) params.set("opening_date", openingDate);
+      if (closingDate) params.set("closing_date", closingDate);
+      if (params.toString()) url += `?${params.toString()}`;
+      return downloadAuthed(url, `report-cards-${runId}.pdf`);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 }

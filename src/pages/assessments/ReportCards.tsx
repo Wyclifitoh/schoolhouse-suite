@@ -93,6 +93,8 @@ export default function ReportCardsV2() {
   const [runGrade, setRunGrade] = useState("");
   const [runTpl, setRunTpl] = useState("");
   const [showDates, setShowDates] = useState(false);
+  const [openingDate, setOpeningDate] = useState(selectedTerm?.start_date || "");
+  const [closingDate, setClosingDate] = useState(selectedTerm?.end_date || "");
 
   return (
     <DashboardLayout>
@@ -319,10 +321,24 @@ export default function ReportCardsV2() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <CardTitle>Recent runs</CardTitle>
-              <Label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
-                <Switch checked={showDates} onCheckedChange={setShowDates} />
-                Include opening and closing dates on downloaded reports
-              </Label>
+              <div className="flex flex-col gap-2">
+                <Label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
+                  <Switch checked={showDates} onCheckedChange={setShowDates} />
+                  Include opening and closing dates on downloaded reports
+                </Label>
+                {showDates && (
+                  <div className="flex gap-4 items-center">
+                    <Label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                      Opening Date:
+                      <Input type="date" className="h-7 px-2 text-xs w-[130px]" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+                    </Label>
+                    <Label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                      Closing Date:
+                      <Input type="date" className="h-7 px-2 text-xs w-[130px]" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+                    </Label>
+                  </div>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -372,7 +388,7 @@ export default function ReportCardsV2() {
                           size="sm"
                           variant="outline"
                           disabled={downloadZip.isPending || !r.total_cards}
-                          onClick={() => downloadZip.mutate({ runId: r.id, showDates })}
+                          onClick={() => downloadZip.mutate({ runId: r.id, showDates, openingDate, closingDate })}
                         >
                           <FolderArchive className="h-4 w-4 mr-1" /> ZIP
                         </Button>
@@ -380,7 +396,7 @@ export default function ReportCardsV2() {
                           size="sm"
                           variant="outline"
                           disabled={downloadPdf.isPending || !r.total_cards}
-                          onClick={() => downloadPdf.mutate({ runId: r.id, showDates })}
+                          onClick={() => downloadPdf.mutate({ runId: r.id, showDates, openingDate, closingDate })}
                           title="Download all cards as one PDF"
                         >
                           <FileText className="h-4 w-4 mr-1" /> PDF
@@ -432,7 +448,7 @@ export default function ReportCardsV2() {
         </Card>
       </div>
 
-      <RunCardsDialog runId={viewRunId} onClose={() => setViewRunId(null)} showDates={showDates} />
+      <RunCardsDialog runId={viewRunId} onClose={() => setViewRunId(null)} showDates={showDates} openingDate={openingDate} closingDate={closingDate} />
     </DashboardLayout>
   );
 }
@@ -441,10 +457,14 @@ function RunCardsDialog({
   runId,
   onClose,
   showDates,
+  openingDate,
+  closingDate,
 }: {
   runId: string | null;
   onClose: () => void;
   showDates: boolean;
+  openingDate?: string;
+  closingDate?: string;
 }) {
   const { data: cards = [] } = useRcCards(runId || undefined);
   const dl = useDownloadReportCardPdf();
@@ -538,6 +558,8 @@ function RunCardsDialog({
                               cardId: c.id,
                               name: `${c.first_name}_${c.last_name}_${c.admission_number}`,
                               showDates,
+                              openingDate,
+                              closingDate,
                             })
                           }
                         >
