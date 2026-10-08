@@ -144,10 +144,6 @@ export function BulkImportDialog({
         if (type === "students") {
           if (!mapped.admission_number && !mapped.admission_no)
             errs.push(`Row ${i + 2}: Missing admission number`);
-          if (!mapped.parent_name)
-            errs.push(`Row ${i + 2}: Missing parent name`);
-          if (!mapped.parent_phone)
-            errs.push(`Row ${i + 2}: Missing parent phone`);
         }
         if (type === "staff" && !mapped.email && !mapped.phone)
           errs.push(`Row ${i + 2}: Email or phone is required`);

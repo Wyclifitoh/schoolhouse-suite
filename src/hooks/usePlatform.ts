@@ -228,6 +228,54 @@ export const useVoidInvoice = () => {
   });
 };
 
+export const useCreateAssessmentBilling = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      schoolId,
+      ...body
+    }: {
+      schoolId: string;
+      student_count: number;
+      price_per_student?: number;
+      discount?: number;
+      status?: string;
+    }) => platformApi.post(`/schools/${schoolId}/assessment-billing`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pf"] }),
+  });
+};
+
+export const useUpdateAssessmentBilling = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      schoolId,
+      billingId,
+      ...body
+    }: {
+      schoolId: string;
+      billingId: string;
+      student_count?: number;
+      discount?: number;
+      status?: string;
+    }) =>
+      platformApi.put(
+        `/schools/${schoolId}/assessment-billing/${billingId}`,
+        body
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pf"] }),
+  });
+};
+
+export const useMarkAssessmentBillingPaid = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ schoolId, assessment_id }: { schoolId: string; assessment_id: string }) =>
+      platformApi.post(`/schools/${schoolId}/assessment-billing/mark-paid`, { assessment_id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pf"] }),
+  });
+};
+
 export const usePlatformPlans = () =>
   useQuery({
     queryKey: ["pf", "plans"],

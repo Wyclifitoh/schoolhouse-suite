@@ -28,9 +28,9 @@ import {
   useSetSubStatus,
   useSetSchoolActive,
   useActivateSubscription,
-  useCreateInvoice,
-  useConfirmInvoice,
-  useVoidInvoice,
+  useCreateAssessmentBilling,
+  useUpdateAssessmentBilling,
+  useMarkAssessmentBillingPaid,
   usePlatformPlans,
 } from "@/hooks/usePlatform";
 import {
@@ -54,6 +54,14 @@ export default function AdminSchoolDetail() {
   const setActive = useSetSchoolActive();
 
   const [extendDays, setExtendDays] = useState("7");
+
+  const createBilling = useCreateAssessmentBilling();
+  const updateBilling = useUpdateAssessmentBilling();
+  const markPaid = useMarkAssessmentBillingPaid();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editBilling, setEditBilling] = useState<any>(null);
+  const [billingForm, setBillingForm] = useState({ student_count: 0, discount: 0 });
 
   if (isLoading)
     return (
@@ -236,6 +244,9 @@ export default function AdminSchoolDetail() {
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold">Assessment Billing</h3>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              Create Invoice
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -246,13 +257,14 @@ export default function AdminSchoolDetail() {
                   <th className="p-2">Students</th>
                   <th className="p-2">Amount</th>
                   <th className="p-2">Status</th>
+                  <th className="p-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.length === 0 && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="p-4 text-center text-muted-foreground"
                     >
                       No billing records yet.
@@ -281,6 +293,34 @@ export default function AdminSchoolDetail() {
                       >
                         {i.status}
                       </Badge>
+                    </td>
+                    <td className="p-2 text-right space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditBilling(i);
+                          setBillingForm({ student_count: i.student_count, discount: Number(i.discount) || 0 });
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      {i.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            guard("Marked paid", () =>
+                              markPaid.mutateAsync({
+                                schoolId: id,
+                                assessment_id: i.assessment_id || i.id,
+                              })
+                            )
+                          }
+                        >
+                          Mark Paid
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -323,6 +363,85 @@ export default function AdminSchoolDetail() {
         </CardContent>
       </Card>
 
+      {/* Create / Edit Dialogs */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Invoice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Students count</label>
+              <input
+                type="number"
+                className="w-full mt-1 border p-2 rounded"
+                value={billingForm.student_count}
+                onChange={(e) => setBillingForm({ ...billingForm, student_count: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Discount (KSh)</label>
+              <input
+                type="number"
+                className="w-full mt-1 border p-2 rounded"
+                value={billingForm.discount}
+                onChange={(e) => setBillingForm({ ...billingForm, discount: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={() => guard("Created", async () => {
+              await createBilling.mutateAsync({
+                schoolId: id,
+                student_count: billingForm.student_count,
+                discount: billingForm.discount,
+              });
+              setCreateOpen(false);
+            })}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editBilling} onOpenChange={(o) => !o && setEditBilling(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Invoice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Students count</label>
+              <input
+                type="number"
+                className="w-full mt-1 border p-2 rounded"
+                value={billingForm.student_count}
+                onChange={(e) => setBillingForm({ ...billingForm, student_count: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Discount (KSh)</label>
+              <input
+                type="number"
+                className="w-full mt-1 border p-2 rounded"
+                value={billingForm.discount}
+                onChange={(e) => setBillingForm({ ...billingForm, discount: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditBilling(null)}>Cancel</Button>
+            <Button onClick={() => guard("Updated", async () => {
+              await updateBilling.mutateAsync({
+                schoolId: id,
+                billingId: editBilling.id,
+                student_count: billingForm.student_count,
+                discount: billingForm.discount,
+              });
+              setEditBilling(null);
+            })}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
