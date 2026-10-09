@@ -169,8 +169,13 @@ export default function Results() {
           marks: {},
         });
       }
-      stuMap.get(m.student_id).marks[m.subject_id] =
-        m.score != null ? Math.round(Number(m.score)) : null;
+      if (m.score != null) {
+        const outOf = Number(m.out_of) || 100;
+        const eqScore = outOf > 0 ? (Number(m.score) / outOf) * 100 : 0;
+        stuMap.get(m.student_id).marks[m.subject_id] = Math.round(eqScore);
+      } else {
+        stuMap.get(m.student_id).marks[m.subject_id] = null;
+      }
     });
 
     const subjects = Array.from(subjMap.values()).sort((a, b) =>
