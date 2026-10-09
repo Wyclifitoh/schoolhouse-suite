@@ -347,7 +347,7 @@ const Settings = () => {
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL("image/webp", 0.8);
+            const compressedBase64 = canvas.toDataURL("image/png");
             setProfileForm((p) => ({ ...p, logo_url: compressedBase64 }));
           }
         };

@@ -293,6 +293,24 @@ export default function ReportCardsV2() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2 pb-2">
+                  <Label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
+                    <Switch checked={showDates} onCheckedChange={setShowDates} />
+                    Include opening and closing dates
+                  </Label>
+                  {showDates && (
+                    <div className="flex gap-4 items-center mt-2">
+                      <Label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                        Opening Date:
+                        <Input type="date" className="h-7 px-2 text-xs w-[130px]" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+                      </Label>
+                      <Label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                        Closing Date:
+                        <Input type="date" className="h-7 px-2 text-xs w-[130px]" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+                      </Label>
+                    </div>
+                  )}
+                </div>
                 <Button
                   className="w-full"
                   disabled={!runAssess || createRun.isPending}
@@ -321,24 +339,6 @@ export default function ReportCardsV2() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <CardTitle>Recent runs</CardTitle>
-              <div className="flex flex-col gap-2">
-                <Label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
-                  <Switch checked={showDates} onCheckedChange={setShowDates} />
-                  Include opening and closing dates on downloaded reports
-                </Label>
-                {showDates && (
-                  <div className="flex gap-4 items-center">
-                    <Label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
-                      Opening Date:
-                      <Input type="date" className="h-7 px-2 text-xs w-[130px]" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
-                    </Label>
-                    <Label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
-                      Closing Date:
-                      <Input type="date" className="h-7 px-2 text-xs w-[130px]" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
-                    </Label>
-                  </div>
-                )}
-              </div>
             </div>
           </CardHeader>
           <CardContent>
