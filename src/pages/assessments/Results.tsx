@@ -139,17 +139,18 @@ export default function Results() {
   const exportRows = useMemo(
     () =>
       results.map((r, i) => ({
-        "#": r.class_position ?? i + 1,
+        "#": streamId ? (r.stream_position ?? i + 1) : (r.grade_position ?? i + 1),
         "Admission No.": r.admission_number,
         Student: `${r.first_name} ${r.last_name}`,
-        Class: `${r.grade_name || ""}${r.stream_name ? " · " + r.stream_name : ""}`,
+        Class: `${r.grade_name || ""}${r.stream_name ? " - " + r.stream_name : ""}`,
+        Stream: r.stream_name || "",
         Total: Number(r.total_score || 0),
         "Out Of": Number(r.total_out_of || 0),
         "Mean %": Number(r.percentage || 0).toFixed(1),
         Band: r.overall_band || "",
         Status: r.status,
       })),
-    [results],
+    [results, streamId],
   );
 
   const broadsheet = useMemo(() => {
@@ -165,7 +166,8 @@ export default function Results() {
           id: m.student_id,
           name: `${m.first_name} ${m.last_name}`,
           adm: m.admission_number,
-          className: `${m.grade_name || ""}${m.stream_name ? " · " + m.stream_name : ""}`,
+          streamName: m.stream_name || "",
+          className: `${m.grade_name || ""}${m.stream_name ? " - " + m.stream_name : ""}`,
           marks: {},
         });
       }
@@ -184,11 +186,16 @@ export default function Results() {
     const students = Array.from(stuMap.values())
       .map((stu) => {
         const res = results.find((r) => r.student_id === stu.id);
+        // Use grade_position for overall rank when no stream filter is applied,
+        // or stream_position when filtering by a specific stream.
+        const rank = streamId
+          ? (res?.stream_position ?? null)
+          : (res?.grade_position ?? null);
         return {
           ...stu,
           total: res ? Number(res.total_score || 0) : null,
           mean: res ? Number(res.percentage || 0) : null,
-          rank: res?.class_position ?? null,
+          rank,
           al: res?.overall_al || "",
           band: res?.overall_band || "",
           status: res?.status || "draft",
@@ -199,7 +206,7 @@ export default function Results() {
         return a.name.localeCompare(b.name);
       });
     return { subjects, students };
-  }, [rawMarks, results]);
+  }, [rawMarks, results, streamId]);
 
   const assessmentName = useMemo(
     () => assessments.find((a) => a.id === assessmentId)?.name || "Results",
@@ -271,17 +278,22 @@ export default function Results() {
     });
     doc.setFontSize(14);
     
+    const rankLabel = streamId ? "Stream Rank" : "Overall Rank";
     let title = `${assessmentName} - Broadsheet Preview`;
     if (gradeId) {
       const gName = grades.find((g: any) => g.id === gradeId)?.name;
       if (gName) title += ` - ${gName}`;
+    }
+    if (streamId) {
+      const sName = streams.find((s: any) => s.id === streamId)?.name;
+      if (sName) title += ` (${sName})`;
     }
     
     doc.text(title, 40, 36);
     doc.setFontSize(10);
     doc.setTextColor(120);
     doc.text(
-      `Students: ${broadsheet.students.length}  ·  Uncomputed Raw Marks`,
+      `Students: ${broadsheet.students.length}  ·  ${streamId ? "Stream" : "Overall"} Rankings`,
       40,
       54,
     );
@@ -289,9 +301,10 @@ export default function Results() {
 
     const head = [
       [
-        "Rank",
+        rankLabel,
         "Student",
         "Adm",
+        "Stream",
         ...broadsheet.subjects.map((s) => s.name),
         "Total",
         "Mean %",
@@ -302,6 +315,7 @@ export default function Results() {
       stu.rank ?? "—",
       stu.name,
       stu.adm,
+      (stu as any).streamName || "—",
       ...broadsheet.subjects.map((s) =>
         stu.marks[s.id] != null ? String(stu.marks[s.id]) : "—",
       ),
@@ -335,12 +349,14 @@ export default function Results() {
     if (!broadsheet.students.length)
       return toast.error("No marklist data available");
 
+    const rankLabel = streamId ? "Stream Rank" : "Overall Rank";
     const rows = broadsheet.students.map((stu) => {
       const row: any = {
-        Rank: stu.rank ?? "—",
+        [rankLabel]: stu.rank ?? "—",
         Student: stu.name,
         Adm: stu.adm,
         Class: stu.className,
+        Stream: (stu as any).streamName || "—",
       };
 
       broadsheet.subjects.forEach((s) => {
@@ -666,7 +682,9 @@ export default function Results() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {r.class_position ?? i + 1}
+                          {streamId
+                            ? (r.stream_position ?? i + 1)
+                            : (r.grade_position ?? i + 1)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -679,7 +697,7 @@ export default function Results() {
                       </TableCell>
                       <TableCell className="text-xs">
                         {r.grade_name}
-                        {r.stream_name ? ` · ${r.stream_name}` : ""}
+                        {r.stream_name ? ` - ${r.stream_name}` : ""}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {Number(r.total_score).toFixed(0)} /{" "}
@@ -721,8 +739,9 @@ export default function Results() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">#</TableHead>
+                      <TableHead className="w-12">{streamId ? "Stream #" : "Overall #"}</TableHead>
                       <TableHead>Student</TableHead>
+                      <TableHead>Stream</TableHead>
                       {broadsheet.subjects.map((s) => (
                         <TableHead key={s.id} className="text-center">
                           {s.name}
@@ -737,13 +756,16 @@ export default function Results() {
                     {broadsheet.students.map((stu, i) => (
                       <TableRow key={stu.id}>
                         <TableCell className="text-muted-foreground">
-                          {i + 1}
+                          {stu.rank ?? i + 1}
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{stu.name}</div>
                           <div className="text-xs text-muted-foreground">
                             {stu.adm}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {(stu as any).streamName || "—"}
                         </TableCell>
                         {broadsheet.subjects.map((s) => (
                           <TableCell
