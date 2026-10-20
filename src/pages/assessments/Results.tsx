@@ -49,6 +49,7 @@ import { PermissionGate } from "@/components/PermissionGate";
 import { usePermissions } from "@/hooks/usePermission";
 import { useTerm } from "@/contexts/TermContext";
 import { AssessmentNav } from "@/components/assessments/AssessmentNav";
+import { useSchool } from "@/contexts/SchoolContext";
 
 const STATUS_COLORS: Record<ResultStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -60,6 +61,7 @@ const STATUS_COLORS: Record<ResultStatus, string> = {
 
 export default function Results() {
   const { selectedTerm, selectedAcademicYear } = useTerm();
+  const { currentSchool } = useSchool();
   const perms = usePermissions(["exams:publish", "exams:update"]);
   const canApprove = perms["exams:publish"] || perms["exams:update"];
 
@@ -268,7 +270,7 @@ export default function Results() {
     doc.save(`${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}.pdf`);
   };
 
-  const exportPreviewPdf = () => {
+  const exportPreviewPdf = async () => {
     if (!broadsheet.students.length)
       return toast.error("No marklist data available");
     const doc = new jsPDF({
@@ -276,28 +278,135 @@ export default function Results() {
       unit: "pt",
       format: "a4",
     });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const safeName = (value: string | null | undefined) =>
+      value?.trim() || "";
+    const schoolName = safeName(currentSchool?.name) || "School";
+    const address = safeName(currentSchool?.address);
+    const contacts = [
+      safeName(currentSchool?.phone),
+      safeName(currentSchool?.email),
+    ].filter(Boolean).join("   ·   ");
+
+    doc.setFillColor(11, 29, 58);
+    doc.rect(0, 0, pageWidth, 78, "F");
+    doc.setFillColor(29, 78, 216);
+    doc.rect(0, 78, pageWidth, 3, "F");
+
+    let schoolTextX = 40;
+    const logoUrl = currentSchool?.logo_url;
+    if (logoUrl) {
+      try {
+        let logoDataUrl = logoUrl;
+        if (!logoUrl.startsWith("data:image/")) {
+          const apiBase =
+            import.meta.env.VITE_API_URL ||
+            "https://api.chuoflow.co.ke/api/v1";
+          const apiOrigin = new URL(apiBase, window.location.origin).origin;
+          const logoSource = new URL(logoUrl, `${apiOrigin}/`).toString();
+          const response = await fetch(logoSource);
+          if (!response.ok)
+            throw new Error(`Logo request failed: ${response.status}`);
+          const blob = await response.blob();
+          logoDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              if (typeof reader.result === "string") resolve(reader.result);
+              else reject(new Error("Could not read school logo"));
+            };
+            reader.onerror = () =>
+              reject(reader.error || new Error("Could not read school logo"));
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        const logoImage = await new Promise<HTMLImageElement>(
+          (resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("Could not decode school logo"));
+            image.src = logoDataUrl;
+          },
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = logoImage.naturalWidth;
+        canvas.height = logoImage.naturalHeight;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Could not prepare school logo");
+        context.drawImage(logoImage, 0, 0);
+
+        const logoSize = 50;
+        const scale = Math.min(
+          logoSize / canvas.width,
+          logoSize / canvas.height,
+        );
+        const logoWidth = canvas.width * scale;
+        const logoHeight = canvas.height * scale;
+        doc.addImage(
+          canvas.toDataURL("image/png"),
+          "PNG",
+          40 + (logoSize - logoWidth) / 2,
+          14 + (logoSize - logoHeight) / 2,
+          logoWidth,
+          logoHeight,
+        );
+        schoolTextX = 104;
+      } catch (error) {
+        console.warn("Could not include school logo in marklist PDF:", error);
+      }
+    }
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(schoolName.toUpperCase(), schoolTextX, 34, {
+      maxWidth: pageWidth - schoolTextX - 40,
+    });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(203, 213, 225);
+    if (address) doc.text(address, schoolTextX, 51);
+    if (contacts) doc.text(contacts, schoolTextX, 66);
+
+    doc.setTextColor(11, 29, 58);
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    
     const rankLabel = streamId ? "Stream Rank" : "Overall Rank";
-    let title = `${assessmentName} - Broadsheet Preview`;
-    if (gradeId) {
-      const gName = grades.find((g: any) => g.id === gradeId)?.name;
-      if (gName) title += ` - ${gName}`;
+    const className = gradeId
+      ? grades.find((g: any) => g.id === gradeId)?.name
+      : undefined;
+    const streamName = streamId
+      ? streams.find((s: any) => s.id === streamId)?.name
+      : undefined;
+    const title = `${assessmentName} - Broadsheet Marklist`;
+    doc.text(title, 40, 108);
+    if (className) {
+      doc.setFontSize(10);
+      doc.text(
+        `Class: ${className}${streamName ? `  ·  Stream: ${streamName}` : ""}`,
+        40,
+        125,
+      );
     }
-    if (streamId) {
-      const sName = streams.find((s: any) => s.id === streamId)?.name;
-      if (sName) title += ` (${sName})`;
-    }
-    
-    doc.text(title, 40, 36);
-    doc.setFontSize(10);
-    doc.setTextColor(120);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100);
     doc.text(
       `Students: ${broadsheet.students.length}  ·  ${streamId ? "Stream" : "Overall"} Rankings`,
       40,
-      54,
+      className ? 138 : 125,
     );
-    doc.setTextColor(0);
+    if (streamId) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text("Ranking: Stream", pageWidth - 100, 108);
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text("Ranking: Overall", pageWidth - 110, 108);
+    }
 
     const head = [
       [
@@ -327,7 +436,7 @@ export default function Results() {
     autoTable(doc, {
       head,
       body,
-      startY: 70,
+      startY: className ? 153 : 140,
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: {
         fillColor: [37, 99, 235],
@@ -338,10 +447,7 @@ export default function Results() {
       margin: { left: 40, right: 40 },
     });
     let filename = `${assessmentName.replace(/[^a-z0-9_-]+/gi, "_")}_marklist`;
-    if (gradeId) {
-      const gName = grades.find((g: any) => g.id === gradeId)?.name;
-      if (gName) filename += `_${gName.replace(/[^a-z0-9_-]+/gi, "_")}`;
-    }
+    if (className) filename += `_${className.replace(/[^a-z0-9_-]+/gi, "_")}`;
     doc.save(`${filename}.pdf`);
   };
 
