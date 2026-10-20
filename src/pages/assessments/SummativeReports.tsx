@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,10 +26,14 @@ export default function SummativeReports() {
   
   const [selectedAssessments, setSelectedAssessments] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState("Summative Term Report");
-  const [showDates, setShowDates] = useState(false);
   const [openingDate, setOpeningDate] = useState(selectedTerm?.start_date || "");
   const [closingDate, setClosingDate] = useState(selectedTerm?.end_date || "");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    setOpeningDate(selectedTerm?.start_date || "");
+    setClosingDate(selectedTerm?.end_date || "");
+  }, [selectedTerm?.id, selectedTerm?.start_date, selectedTerm?.end_date]);
 
   const toggleAssessment = (id: string) => {
     const next = new Set(selectedAssessments);
@@ -60,7 +64,7 @@ export default function SummativeReports() {
           gradeId,
           streamId: streamId || undefined,
           title,
-          showDates,
+          showDates: true,
           openingDate,
           closingDate
         })
@@ -189,22 +193,17 @@ export default function SummativeReports() {
               </div>
 
               <div className="space-y-2">
-                <label className="flex items-center gap-2 font-normal text-sm cursor-pointer">
-                  <Checkbox checked={showDates} onCheckedChange={(c) => setShowDates(!!c)} />
-                  Include opening and closing dates
-                </label>
-                {showDates && (
-                  <div className="flex gap-4 items-center mt-2">
-                    <label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
-                      Opening Date:
-                      <input type="date" className="flex h-8 w-[130px] rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
-                    </label>
-                    <label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
-                      Closing Date:
-                      <input type="date" className="flex h-8 w-[130px] rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
-                    </label>
-                  </div>
-                )}
+                <p className="text-sm font-medium">Report Card Dates</p>
+                <div className="flex flex-wrap gap-4 items-center mt-2">
+                  <label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                    Opening Date:
+                    <input type="date" className="flex h-8 w-[130px] rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+                  </label>
+                  <label className="flex items-center gap-2 font-normal text-xs text-muted-foreground">
+                    Closing Date:
+                    <input type="date" className="flex h-8 w-[130px] rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+                  </label>
+                </div>
               </div>
 
               <div className="pt-4 border-t">
